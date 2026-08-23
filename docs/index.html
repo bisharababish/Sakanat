@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تم تأكيد بريدك — بدك سكن؟ اطلب منا</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --text: #1c241e;
+        --muted: #5e6b62;
+        --primary: #2d5a3d;
+        --soft: #e4efe7;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Cairo, sans-serif;
+      }
+      .card {
+        width: min(420px, 100%);
+        background: #fff;
+        border: 1px solid #d9d0c0;
+        border-radius: 22px;
+        padding: 32px 24px;
+        text-align: center;
+      }
+      .mark {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 18px;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--primary);
+        display: grid;
+        place-items: center;
+        font-size: 30px;
+        font-weight: 800;
+      }
+      h1 { margin: 0 0 10px; font-size: 28px; }
+      p { margin: 0 0 22px; color: var(--muted); line-height: 1.7; font-size: 16px; }
+      a {
+        display: inline-block;
+        background: var(--primary);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 800;
+        border-radius: 16px;
+        padding: 14px 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="mark">✓</div>
+      <h1>تم تأكيد بريدك</h1>
+      <p>حسابك صار جاهز. ارجع لتطبيق بدك سكن؟ اطلب منا وسجّل الدخول بنفس الإيميل وكلمة المرور.</p>
+      <p lang="en" dir="ltr">Your email is confirmed. Open the app and log in.</p>
+      <a href="sakanat://confirmed">فتح التطبيق</a>
+    </main>
+    <script>
+      var params = new URLSearchParams(location.search + location.hash.replace('#', '&'));
+      if (params.get('error') || params.get('error_description')) {
+        document.querySelector('h1').textContent = 'ما قدرنا نأكد البريد';
+        document.querySelectorAll('p')[0].textContent = params.get('error_description') || 'جرب تسجّل الدخول أو اطلب رمز جديد من التطبيق.';
+      } else {
+        setTimeout(function () {
+          location.href = 'sakanat://confirmed';
+        }, 1200);
+      }
+    </script>
+  </body>
+</html>
