@@ -48,6 +48,13 @@ export default function OwnerTabs() {
           tabBarIcon: ({ color, size }) => <Ionicons name="cash" color={color} size={size} />,
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t('tabs.profile'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+        }}
+      />
     </Tabs>
   );
 }

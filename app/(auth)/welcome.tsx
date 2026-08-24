@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -14,7 +13,6 @@ export default function WelcomeScreen() {
 
   return (
     <Screen>
-      <LanguageToggle />
       <View style={styles.hero}>
         <Text style={[styles.brand, { textAlign }]}>{t('appName')}</Text>
         <Text style={[styles.tag, { textAlign }]}>{t('tagline')}</Text>

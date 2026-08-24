@@ -1,10 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BackButton } from '@/components/ui/BackButton';
 import { ListingEditor } from '@/components/ListingEditor';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { colors, spacing } from '@/src/theme/colors';
 import type { Apartment } from '@/src/types/database';
 
 export default function EditListing() {
@@ -18,9 +20,14 @@ export default function EditListing() {
 
   if (!apartment) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs }}>
+          <BackButton />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 

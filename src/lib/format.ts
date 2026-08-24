@@ -37,6 +37,13 @@ export function listingStatusLabel(status: ListingStatus, t: TFunction) {
   return t(`status.${status}`);
 }
 
+export function listingBadgeTone(status: ListingStatus) {
+  if (status === 'approved') return 'approved' as const;
+  if (status === 'rejected') return 'rejected' as const;
+  if (status === 'hidden') return 'info' as const;
+  return 'pending' as const;
+}
+
 export function ownerStatusLabel(status: OwnerStatus, t: TFunction) {
   return t(`status.${status}`);
 }

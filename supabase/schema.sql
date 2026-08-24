@@ -30,7 +30,7 @@ create table if not exists public.universities (
 create table if not exists public.app_settings (
   id int primary key default 1 check (id = 1),
   commission_percent numeric not null default 10,
-  admin_email text not null default 'bishara@gmail.com',
+  admin_email text not null default 'bishara.babish23@gmail.com',
   updated_at timestamptz not null default now()
 );
 
@@ -44,6 +44,14 @@ create table if not exists public.profiles (
   university_id uuid references public.universities(id),
   owner_status text not null default 'approved' check (owner_status in ('pending', 'approved', 'rejected')),
   language text not null default 'ar' check (language in ('ar', 'en')),
+  avatar_url text,
+  gender text check (gender in ('female', 'male')),
+  date_of_birth date,
+  student_id_number text,
+  whatsapp text,
+  study_year text,
+  degree_level text,
+  major text,
   created_at timestamptz not null default now()
 );
 
@@ -66,8 +74,15 @@ create table if not exists public.apartments (
   lat double precision not null,
   lng double precision not null,
   campus_distance_km numeric,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'hidden')),
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.saved_apartments (
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  apartment_id uuid not null references public.apartments(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (student_id, apartment_id)
 );
 
 create table if not exists public.bookings (
@@ -105,7 +120,7 @@ create table if not exists public.messages (
 );
 
 insert into public.app_settings (id, commission_percent, admin_email)
-values (1, 10, 'bishara@gmail.com')
+values (1, 10, 'bishara.babish23@gmail.com')
 on conflict (id) do update set admin_email = excluded.admin_email;
 
 -- ---------------------------------------------------------------------------
@@ -125,6 +140,30 @@ as $$
   );
 $$;
 
+create or replace function public.claim_admin()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  settings_admin text;
+  user_email text;
+begin
+  select admin_email into settings_admin from public.app_settings where id = 1;
+  select email into user_email from auth.users where id = auth.uid();
+  if user_email is null or lower(user_email) <> lower(coalesce(settings_admin, 'bishara.babish23@gmail.com')) then
+    return false;
+  end if;
+  update public.profiles
+    set role = 'admin', owner_status = 'approved'
+    where id = auth.uid();
+  return true;
+end;
+$$;
+
+grant execute on function public.claim_admin() to authenticated;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -141,7 +180,7 @@ begin
   end if;
 
   select admin_email into settings_admin from public.app_settings where id = 1;
-  if lower(new.email) = lower(coalesce(settings_admin, 'bishara@gmail.com')) then
+  if lower(new.email) = lower(coalesce(settings_admin, 'bishara.babish23@gmail.com')) then
     meta_role := 'admin';
   end if;
 
@@ -233,6 +272,12 @@ begin
   if auth.uid() is not null and not public.is_admin() then
     if tg_op = 'INSERT' then
       new.status := 'pending';
+    elsif old.status = 'approved' and new.status = 'hidden' then
+      new.status := 'hidden';
+    elsif old.status = 'hidden' and new.status = 'approved' then
+      new.status := 'approved';
+    elsif new.status = 'pending' and old.status in ('pending', 'approved', 'hidden', 'rejected') then
+      new.status := 'pending';
     else
       new.status := old.status;
     end if;
@@ -255,6 +300,7 @@ alter table public.universities enable row level security;
 alter table public.app_settings enable row level security;
 alter table public.profiles enable row level security;
 alter table public.apartments enable row level security;
+alter table public.saved_apartments enable row level security;
 alter table public.bookings enable row level security;
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
@@ -292,13 +338,33 @@ create policy apartments_read on public.apartments
 drop policy if exists apartments_insert on public.apartments;
 create policy apartments_insert on public.apartments
   for insert to authenticated
-  with check (owner_id = auth.uid());
+  with check (owner_id = auth.uid() or public.is_admin());
 
 drop policy if exists apartments_update on public.apartments;
 create policy apartments_update on public.apartments
   for update to authenticated
   using (owner_id = auth.uid() or public.is_admin())
   with check (owner_id = auth.uid() or public.is_admin());
+
+drop policy if exists apartments_delete on public.apartments;
+create policy apartments_delete on public.apartments
+  for delete to authenticated
+  using (owner_id = auth.uid() or public.is_admin());
+
+drop policy if exists saved_apartments_read on public.saved_apartments;
+create policy saved_apartments_read on public.saved_apartments
+  for select to authenticated
+  using (student_id = auth.uid() or public.is_admin());
+
+drop policy if exists saved_apartments_insert on public.saved_apartments;
+create policy saved_apartments_insert on public.saved_apartments
+  for insert to authenticated
+  with check (student_id = auth.uid());
+
+drop policy if exists saved_apartments_delete on public.saved_apartments;
+create policy saved_apartments_delete on public.saved_apartments
+  for delete to authenticated
+  using (student_id = auth.uid());
 
 drop policy if exists bookings_read on public.bookings;
 create policy bookings_read on public.bookings

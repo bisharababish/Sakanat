@@ -8,11 +8,11 @@ import { colors } from '@/src/theme/colors';
 
 export default function OwnerChat() {
   const { t } = useTranslation();
-  const { textAlign } = useLayout();
+  const { rtlText } = useLayout();
 
   return (
     <Screen>
-      <Text style={[styles.title, { textAlign }]}>{t('chat.title')}</Text>
+      <Text style={[styles.title, rtlText]}>{t('chat.title')}</Text>
       <ConversationList roleHref="/(owner)/conversation/[id]" />
     </Screen>
   );

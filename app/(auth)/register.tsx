@@ -6,12 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
+import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { colors } from '@/src/theme/colors';
 import type { UserRole } from '@/src/types/database';
 
@@ -22,7 +24,8 @@ export default function RegisterScreen() {
   const { cities, universities } = useCatalog();
   const [role, setRole] = useState<Exclude<UserRole, 'admin'>>('student');
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cityId, setCityId] = useState('');
@@ -37,10 +40,13 @@ export default function RegisterScreen() {
   );
   const universityOptions = useMemo(
     () =>
-      universities
-        .filter((item) => !cityId || item.city_id === cityId)
-        .map((item) => ({ value: item.id, label: localizedName(item, lang) })),
-    [universities, lang, cityId],
+      universities.map((item) => ({
+        value: item.id,
+        label: item.cities
+          ? `${localizedName(item, lang)} — ${localizedName(item.cities, lang)}`
+          : localizedName(item, lang),
+      })),
+    [universities, lang],
   );
 
   const onSubmit = async () => {
@@ -53,6 +59,11 @@ export default function RegisterScreen() {
       setError(t('auth.weakPassword'));
       return;
     }
+    const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
+    if (phoneLocal.trim() && !cleanPhone) {
+      setError(t('phone.invalid'));
+      return;
+    }
     if (!cityId || (role === 'student' && !universityId)) {
       setError(t('auth.missingFields'));
       return;
@@ -63,13 +74,13 @@ export default function RegisterScreen() {
         email,
         password,
         fullName,
-        phone,
+        phone: cleanPhone ?? '',
         role,
         cityId,
         universityId,
         language: lang.startsWith('ar') ? 'ar' : 'en',
       });
-      router.replace(result === 'verify' ? '/(auth)/verify-email' : '/');
+      router.replace(result === 'verify' ? { pathname: '/(auth)/verify-email', params: { email } } : '/');
     } catch (err) {
       const message = err instanceof Error ? err.message : t('common.error');
       setError(message === 'studentEmailRequired' ? t('auth.studentEmailRequired') : message === 'invalidEmail' ? t('auth.invalidEmail') : message);
@@ -79,7 +90,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <Screen>
+    <Screen back>
       <Text style={[styles.title, { textAlign }]}>{t('auth.register')}</Text>
       <Text style={[styles.subtitle, { textAlign }]}>{t('auth.chooseRole')}</Text>
       <View style={styles.roles}>
@@ -93,7 +104,14 @@ export default function RegisterScreen() {
         </Card>
       </View>
       <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
-      <Input label={t('common.phone')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+      <PhoneField
+        label={t('common.phone')}
+        region={phoneRegion}
+        local={phoneLocal}
+        onRegionChange={setPhoneRegion}
+        onLocalChange={setPhoneLocal}
+        hint={t('phone.mobileHint')}
+      />
       <Input
         label={role === 'student' ? t('auth.studentEmail') : t('common.email')}
         value={email}
@@ -103,18 +121,15 @@ export default function RegisterScreen() {
       />
       <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry />
       <Select
-        label={t('common.city')}
+        label={t('auth.homeCity')}
         value={cityId}
         placeholder={t('common.select')}
         options={cityOptions}
-        onChange={(next) => {
-          setCityId(next);
-          setUniversityId('');
-        }}
+        onChange={setCityId}
       />
       {role === 'student' ? (
         <Select
-          label={t('common.university')}
+          label={t('auth.studyUniversity')}
           value={universityId}
           placeholder={t('common.select')}
           options={universityOptions}

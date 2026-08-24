@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { useLayout } from '@/src/hooks/useLayout';
 import { colors, radius, spacing } from '@/src/theme/colors';
 
 type Props = {
@@ -9,11 +10,12 @@ type Props = {
 };
 
 export function Chip({ label, selected, onPress }: Props) {
+  const { writingDirection } = useLayout();
   return (
     <Pressable
       onPress={onPress}
       style={[styles.chip, selected ? styles.selected : null]}>
-      <Text style={[styles.label, selected ? styles.selectedLabel : null]}>{label}</Text>
+      <Text style={[styles.label, selected ? styles.selectedLabel : null, { writingDirection }]}>{label}</Text>
     </Pressable>
   );
 }

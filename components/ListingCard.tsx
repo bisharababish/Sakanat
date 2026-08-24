@@ -18,26 +18,27 @@ type Props = {
 
 export function ListingCard({ apartment, university, distanceKm, onPress }: Props) {
   const { t } = useTranslation();
-  const { lang, row, textAlign } = useLayout();
+  const { lang, row, rtlText } = useLayout();
   const photo = apartment.photos[0];
   const city = localizedName(apartment.cities, lang);
 
   return (
     <Card onPress={onPress}>
       {photo ? <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" /> : <View style={styles.photoFallback} />}
-      <Text style={[styles.title, { textAlign }]}>{localizedTitle(apartment, lang)}</Text>
+      <Text style={[styles.title, rtlText]}>{localizedTitle(apartment, lang)}</Text>
       <View style={[styles.meta, row]}>
         <Text style={styles.price}>{formatIls(apartment.price_month, lang)}</Text>
         <Text style={styles.muted}> / {t('common.perMonth')}</Text>
       </View>
-      <Text style={[styles.muted, { textAlign }]}>
+      <Text style={[styles.muted, rtlText]}>
         {city}
         {university ? ` · ${localizedName(university, lang)}` : ''}
       </Text>
-      <Text style={[styles.muted, { textAlign }]}>
+      <Text style={[styles.muted, rtlText]}>
         {t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms })}
         {distanceKm != null ? ` · ${formatKm(distanceKm, lang)}` : ''}
       </Text>
+      <Text style={[styles.muted, rtlText]}>{t(`gender.${apartment.gender_policy}`)}</Text>
     </Card>
   );
 }

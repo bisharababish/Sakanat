@@ -1,5 +1,4 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { changeAppLanguage } from '@/src/i18n';
@@ -8,11 +7,11 @@ import { supabase } from '@/src/lib/supabase';
 import { colors, radius } from '@/src/theme/colors';
 
 export function LanguageToggle() {
-  const { t } = useTranslation();
-  const { lang, row } = useLayout();
+  const { lang } = useLayout();
   const { profile } = useAuth();
 
   const setLang = async (next: 'ar' | 'en') => {
+    if (next === lang) return;
     await changeAppLanguage(next);
     if (profile) {
       await supabase.from('profiles').update({ language: next }).eq('id', profile.id);
@@ -20,21 +19,42 @@ export function LanguageToggle() {
   };
 
   return (
-    <View style={[styles.wrap, row]}>
-      <Pressable onPress={() => setLang('ar')} style={[styles.btn, lang === 'ar' && styles.active]}>
-        <Text style={[styles.label, lang === 'ar' && styles.activeLabel]}>{t('common.arabic')}</Text>
+    <View style={styles.wrap}>
+      <Pressable
+        onPress={() => void setLang('ar')}
+        hitSlop={12}
+        style={[styles.btn, lang === 'ar' && styles.active]}>
+        <Text style={[styles.label, lang === 'ar' && styles.activeLabel]}>ع</Text>
       </Pressable>
-      <Pressable onPress={() => setLang('en')} style={[styles.btn, lang === 'en' && styles.active]}>
-        <Text style={[styles.label, lang === 'en' && styles.activeLabel]}>{t('common.english')}</Text>
+      <Pressable
+        onPress={() => void setLang('en')}
+        hitSlop={12}
+        style={[styles.btn, lang === 'en' && styles.active]}>
+        <Text style={[styles.label, lang === 'en' && styles.activeLabel]}>EN</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { backgroundColor: colors.surfaceMuted, borderRadius: radius.full, padding: 4, alignSelf: 'flex-start' },
-  btn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full },
+  wrap: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    padding: 3,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  btn: {
+    minWidth: 36,
+    minHeight: 32,
+    paddingHorizontal: 10,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   active: { backgroundColor: colors.primary },
-  label: { fontWeight: '700', color: colors.text },
+  label: { fontWeight: '800', fontSize: 12, color: colors.textMuted },
   activeLabel: { color: colors.white },
 });

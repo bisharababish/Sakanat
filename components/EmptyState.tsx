@@ -4,10 +4,10 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { colors, spacing } from '@/src/theme/colors';
 
 export function EmptyState({ title }: { title: string }) {
-  const { textAlign } = useLayout();
+  const { rtlText } = useLayout();
   return (
     <View style={styles.box}>
-      <Text style={[styles.text, { textAlign }]}>{title}</Text>
+      <Text style={[styles.text, rtlText]}>{title}</Text>
     </View>
   );
 }

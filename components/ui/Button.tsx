@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
+import { useLayout } from '@/src/hooks/useLayout';
 import { colors, radius, spacing } from '@/src/theme/colors';
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function Button({ title, onPress, variant = 'primary', disabled, loading }: Props) {
+  const { writingDirection } = useLayout();
   const palette = {
     primary: { bg: colors.primary, text: colors.white, border: colors.primary },
     secondary: { bg: colors.accentSoft, text: colors.primaryDark, border: colors.accent },
@@ -26,7 +28,11 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading 
         styles.base,
         { backgroundColor: palette.bg, borderColor: palette.border, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
       ]}>
-      {loading ? <ActivityIndicator color={palette.text} /> : <Text style={[styles.label, { color: palette.text }]}>{title}</Text>}
+      {loading ? (
+        <ActivityIndicator color={palette.text} />
+      ) : (
+        <Text style={[styles.label, { color: palette.text, writingDirection }]}>{title}</Text>
+      )}
     </Pressable>
   );
 }

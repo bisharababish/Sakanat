@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
@@ -16,16 +16,27 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-export function Select({ label, value, placeholder, options, onChange }: Props) {
+export function SearchSelect({ label, value, placeholder, options, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const { t } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText, textAlign, alignStart } = useLayout();
   const selected = options.find((option) => option.value === value);
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(needle));
+  }, [options, query]);
 
   return (
     <View style={styles.wrap}>
       <Text style={[styles.label, rtlText]}>{label}</Text>
-      <Pressable style={styles.field} onPress={() => setOpen(true)}>
+      <Pressable
+        style={styles.field}
+        onPress={() => {
+          setQuery('');
+          setOpen(true);
+        }}>
         <Text style={[styles.value, rtlText, !selected && styles.placeholder]}>
           {selected?.label ?? placeholder}
         </Text>
@@ -37,13 +48,21 @@ export function Select({ label, value, placeholder, options, onChange }: Props) 
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />
             </View>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('common.search')}
+              placeholderTextColor={colors.textMuted}
+              autoCorrect={false}
+              style={[styles.search, { textAlign }]}
+            />
             <ScrollView keyboardShouldPersistTaps="handled">
-              {options.length === 0 ? (
+              {filtered.length === 0 ? (
                 <Text style={[styles.empty, rtlText]}>{t('common.noResults')}</Text>
               ) : null}
-              {options.map((option) => (
+              {filtered.map((option) => (
                 <Pressable
-                  key={option.value || 'empty'}
+                  key={option.value}
                   style={styles.option}
                   onPress={() => {
                     onChange(option.value);
@@ -81,12 +100,22 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   sheet: {
-    maxHeight: '70%',
+    maxHeight: '75%',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
   sheetHead: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  search: {
+    margin: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    fontSize: 16,
+    color: colors.text,
+  },
   option: {
     padding: spacing.md,
     borderBottomWidth: 1,

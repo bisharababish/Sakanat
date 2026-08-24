@@ -33,7 +33,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen>
+    <Screen back>
       <Text style={[styles.title, { textAlign }]}>{t('auth.login')}</Text>
       <Input label={t('common.email')} value={email} onChangeText={setEmail} keyboardType="email-address" />
       <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry />

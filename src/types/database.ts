@@ -1,10 +1,11 @@
 export type UserRole = 'student' | 'owner' | 'admin';
 export type OwnerStatus = 'pending' | 'approved' | 'rejected';
-export type ListingStatus = 'pending' | 'approved' | 'rejected';
+export type ListingStatus = 'pending' | 'approved' | 'rejected' | 'hidden';
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 export type PaymentMethod = 'pay_now' | 'pay_later';
 export type PaymentStatus = 'unpaid' | 'paid';
 export type GenderPolicy = 'any' | 'female' | 'male';
+export type PersonGender = 'female' | 'male';
 
 export type City = {
   id: string;
@@ -37,6 +38,14 @@ export type Profile = {
   university_id: string | null;
   owner_status: OwnerStatus;
   language: 'ar' | 'en';
+  avatar_url: string | null;
+  gender: PersonGender | null;
+  date_of_birth: string | null;
+  student_id_number: string | null;
+  whatsapp: string | null;
+  study_year: string | null;
+  degree_level: string | null;
+  major: string | null;
   created_at: string;
   cities?: City | null;
   universities?: University | null;
@@ -83,7 +92,9 @@ export type Booking = {
   commission_amount: number;
   created_at: string;
   apartments?: Apartment;
-  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'>;
+  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp'>;
+  student?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp'> | null;
+  owner?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'> | null;
 };
 
 export type Conversation = {
@@ -94,8 +105,8 @@ export type Conversation = {
   last_message_at: string;
   last_message: string | null;
   apartments?: Pick<Apartment, 'id' | 'title_ar' | 'title_en' | 'photos'>;
-  student?: Pick<Profile, 'id' | 'full_name'>;
-  owner?: Pick<Profile, 'id' | 'full_name'>;
+  student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
+  owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
 };
 
 export type Message = {

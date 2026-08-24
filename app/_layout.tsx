@@ -14,7 +14,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
-  const [fontsLoaded, fontError] = useFonts({
+  const [fontsLoaded] = useFonts({
     Cairo_400Regular,
     Cairo_600SemiBold,
     Cairo_700Bold,
@@ -22,24 +22,27 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontError) throw fontError;
-  }, [fontError]);
-
-  useEffect(() => {
-    loadSavedLanguage().then(async (language) => {
-      applyRtl(language);
-      await i18n.changeLanguage(language);
-      setReady(true);
-    });
+    const boot = async () => {
+      try {
+        const language = await loadSavedLanguage();
+        applyRtl(language);
+        await i18n.changeLanguage(language);
+      } finally {
+        setReady(true);
+      }
+    };
+    void boot();
+    const timeout = setTimeout(() => setReady(true), 4000);
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded && ready) {
+    if (ready) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, ready]);
+  }, [ready, fontsLoaded]);
 
-  if (!fontsLoaded || !ready) return null;
+  if (!ready) return null;
 
   return (
     <AuthProvider>
@@ -57,16 +60,23 @@ export default function RootLayout() {
 }
 
 function SessionGuard({ children }: { children: ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
   const segments = useSegments();
 
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
+    if (session && profile && inAuth) {
+      const screen = String(segments[1] ?? '');
+      if (screen !== 'verify-email' && screen !== 'confirmed') {
+        router.replace('/');
+      }
+      return;
+    }
     if (!session && !inAuth) {
       router.replace('/(auth)/welcome');
     }
-  }, [session, loading, segments]);
+  }, [session, profile, loading, segments]);
 
   return children;
 }

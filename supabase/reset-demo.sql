@@ -1,5 +1,5 @@
--- Run this once in the Supabase SQL editor.
--- Clears demo listings/accounts and lets guests read cities + universities.
+-- Full app reset. Run once in the Supabase SQL editor.
+-- Keeps cities + universities. Deletes users, listings, chats, bookings.
 
 drop policy if exists cities_read on public.cities;
 create policy cities_read on public.cities for select using (true);
@@ -12,27 +12,11 @@ delete from public.conversations;
 delete from public.bookings;
 delete from public.apartments;
 
-delete from auth.identities
-where user_id in (
-  select id from auth.users
-  where email in (
-    'admin@sakanat.app',
-    'owner@demo.sakanat.app',
-    'student@stu.birzeit.edu'
-  )
-);
-
-delete from auth.users
-where email in (
-  'admin@sakanat.app',
-  'owner@demo.sakanat.app',
-  'student@stu.birzeit.edu'
-);
+delete from auth.identities;
+delete from auth.users;
 
 update public.app_settings
-set admin_email = 'bishara@gmail.com'
+set
+  admin_email = 'bishara.babish23@gmail.com',
+  commission_percent = 10
 where id = 1;
-
-update public.profiles
-set role = 'admin', owner_status = 'approved'
-where email = 'bishara@gmail.com';

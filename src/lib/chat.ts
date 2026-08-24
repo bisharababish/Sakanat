@@ -1,5 +1,24 @@
 import { supabase } from '@/src/lib/supabase';
-import type { Apartment } from '@/src/types/database';
+import type { Apartment, Conversation, Profile } from '@/src/types/database';
+
+const CONVERSATION_SELECT =
+  '*, apartments(id, title_ar, title_en, photos), student:profiles!student_id(id, full_name, avatar_url), owner:profiles!owner_id(id, full_name, avatar_url)';
+
+export function personName(person?: Pick<Profile, 'full_name'> | null) {
+  const name = (person?.full_name ?? '').trim();
+  return name || '';
+}
+
+function asPerson(value: unknown) {
+  if (Array.isArray(value)) return (value[0] as Conversation['student']) ?? null;
+  return (value as Conversation['student']) ?? null;
+}
+
+export function otherPerson(conversation: Conversation | null | undefined, myId?: string | null) {
+  if (!conversation) return null;
+  if (myId && conversation.owner_id === myId) return asPerson(conversation.student);
+  return asPerson(conversation.owner);
+}
 
 export async function openConversation(apartment: Apartment, studentId: string) {
   const { data: existing, error: existingError } = await supabase
@@ -22,6 +41,22 @@ export async function openConversation(apartment: Apartment, studentId: string) 
     .single();
   if (error) throw error;
   return data.id as string;
+}
+
+export async function loadConversations(column: 'student_id' | 'owner_id', userId: string) {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(CONVERSATION_SELECT)
+    .eq(column, userId)
+    .order('last_message_at', { ascending: false });
+  if (error) throw error;
+  return (data as Conversation[]) ?? [];
+}
+
+export async function loadConversation(id: string) {
+  const { data, error } = await supabase.from('conversations').select(CONVERSATION_SELECT).eq('id', id).single();
+  if (error) throw error;
+  return data as Conversation;
 }
 
 export async function sendMessage(conversationId: string, senderId: string, body: string) {

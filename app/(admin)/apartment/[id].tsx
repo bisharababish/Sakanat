@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,51 +11,71 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
-import { useAuth } from '@/src/lib/auth';
-import { openConversation } from '@/src/lib/chat';
 import { formatKm, listingDistanceKm, mapsUrl } from '@/src/lib/distance';
-import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
-import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
+import { formatIls, listingBadgeTone, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
-import type { Apartment } from '@/src/types/database';
+import type { Apartment, ListingStatus } from '@/src/types/database';
 
 const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 
-export default function ApartmentDetails() {
-  const { id, universityId } = useLocalSearchParams<{ id: string; universityId?: string }>();
+export default function AdminApartmentReview() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
   const { rtlText, row, lang, alignStart } = useLayout();
-  const { profile } = useAuth();
   const { universities } = useCatalog();
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [busy, setBusy] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    supabase
+    const { data } = await supabase
       .from('apartments')
       .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, phone, email)')
       .eq('id', id)
-      .single()
-      .then(({ data }) => setApartment(data as Apartment));
+      .single();
+    setApartment((data as Apartment) ?? null);
+    setLoaded(true);
   }, [id]);
 
-  useEffect(() => {
-    if (!id || !profile?.id) return;
-    void loadSavedApartmentIds(profile.id)
-      .then((ids) => setSaved(ids.includes(id)))
-      .catch(() => undefined);
-  }, [id, profile?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const university = useMemo(
-    () => universities.find((item) => item.id === (universityId || apartment?.nearest_university_id)) ?? apartment?.universities,
-    [apartment, universities, universityId],
+    () => universities.find((item) => item.id === apartment?.nearest_university_id) ?? apartment?.universities,
+    [apartment, universities],
   );
   const distance = apartment ? listingDistanceKm(apartment, university) : null;
   const photos = apartment?.photos?.filter(Boolean) ?? [];
+
+  const setStatus = async (status: ListingStatus) => {
+    if (!apartment) return;
+    setBusy(true);
+    const { error } = await supabase.from('apartments').update({ status }).eq('id', apartment.id);
+    setBusy(false);
+    if (error) Alert.alert(t('common.error'), error.message);
+    else void load();
+  };
+
+  const removeListing = () => {
+    if (!apartment) return;
+    Alert.alert(t('admin.deleteListing'), t('admin.confirmDelete'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.deleteListing'),
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('apartments').delete().eq('id', apartment.id);
+          if (error) Alert.alert(t('common.error'), error.message);
+          else router.back();
+        },
+      },
+    ]);
+  };
 
   if (!apartment) {
     return (
@@ -64,22 +84,15 @@ export default function ApartmentDetails() {
           <BackButton />
         </View>
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          {loaded ? (
+            <Text style={[styles.muted, rtlText]}>{t('admin.noListings')}</Text>
+          ) : (
+            <ActivityIndicator color={colors.primary} />
+          )}
         </View>
       </SafeAreaView>
     );
   }
-
-  const startChat = async () => {
-    if (!profile) return;
-    setBusy(true);
-    try {
-      const conversationId = await openConversation(apartment, profile.id);
-      router.push({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -96,6 +109,7 @@ export default function ApartmentDetails() {
         ) : (
           <View style={styles.coverFallback} />
         )}
+        <StatusBadge label={t(`status.${apartment.status}`)} tone={listingBadgeTone(apartment.status)} />
         <Text style={[styles.title, rtlText]}>{localizedTitle(apartment, i18n.language)}</Text>
         <Text style={[styles.price, rtlText]}>
           {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
@@ -132,30 +146,17 @@ export default function ApartmentDetails() {
         )}
         <Text style={[styles.section, rtlText]}>{t('listing.owner')}</Text>
         <Text style={[styles.body, rtlText]}>{apartment.profiles?.full_name}</Text>
+        {apartment.profiles?.email ? <Text style={[styles.muted, rtlText]}>{apartment.profiles.email}</Text> : null}
         {apartment.profiles?.phone ? (
-          <Button
-            title={t('common.call')}
-            variant="ghost"
-            onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
-          />
+          <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)} />
         ) : null}
-        <Button title={t('listing.book')} onPress={() => router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } })} />
-        <Button title={t('listing.chat')} variant="secondary" onPress={startChat} loading={busy} />
-        <Button
-          title={saved ? t('listing.saved') : t('listing.save')}
-          variant={saved ? 'ghost' : 'secondary'}
-          onPress={async () => {
-            if (!profile) return;
-            setSaving(true);
-            try {
-              const next = await toggleSavedApartment(profile.id, apartment.id, saved);
-              setSaved(next);
-            } finally {
-              setSaving(false);
-            }
-          }}
-          loading={saving}
-        />
+        {apartment.status !== 'approved' ? (
+          <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} />
+        ) : null}
+        {apartment.status !== 'rejected' ? (
+          <Button title={t('admin.reject')} variant="danger" onPress={() => void setStatus('rejected')} loading={busy} />
+        ) : null}
+        <Button title={t('admin.deleteListing')} variant="ghost" onPress={removeListing} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -43,7 +43,8 @@
         {
           "photosPermission": "نحتاج الصور حتى يضيف المالك صور الشقة."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,13 +1,10 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { EmptyState } from '@/components/EmptyState';
-import { ListingCard } from '@/components/ListingCard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -15,19 +12,17 @@ import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
-import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
-import { MAJORS, majorLabel } from '@/src/data/majors';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
-import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
-import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
+import { splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { colors } from '@/src/theme/colors';
-import type { Apartment, PersonGender } from '@/src/types/database';
+import type { PersonGender } from '@/src/types/database';
 
 function initials(name?: string | null) {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -38,26 +33,20 @@ function initials(name?: string | null) {
     .join('');
 }
 
-export default function StudentProfile() {
+export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
   const { rtlText, alignStart } = useLayout();
   const { profile, refreshProfile, signOut } = useAuth();
-  const { cities, universities } = useCatalog();
+  const { cities } = useCatalog();
   const [fullName, setFullName] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [gender, setGender] = useState<PersonGender | ''>('');
-  const [birthDate, setBirthDate] = useState('');
   const [waRegion, setWaRegion] = useState<PhoneRegion>('ps');
   const [waLocal, setWaLocal] = useState('');
-  const [major, setMajor] = useState('');
-  const [degreeLevel, setDegreeLevel] = useState('');
-  const [studyYear, setStudyYear] = useState('');
+  const [gender, setGender] = useState<PersonGender | ''>('');
+  const [birthDate, setBirthDate] = useState('');
   const [cityId, setCityId] = useState('');
-  const [universityId, setUniversityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [savedListings, setSavedListings] = useState<Apartment[]>([]);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -71,19 +60,12 @@ export default function StudentProfile() {
     const phoneParts = splitPhone(profile.phone);
     setPhoneRegion(phoneParts.region);
     setPhoneLocal(phoneParts.local);
-    setStudentId(profile.student_id_number ?? '');
     const waParts = splitPhone(profile.whatsapp);
     setWaRegion(waParts.region);
     setWaLocal(waParts.local);
-    setMajor(profile.major ?? '');
-    setDegreeLevel(
-      profile.degree_level ?? (profile.study_year === 'graduate' ? 'master' : profile.study_year ? 'bachelor' : ''),
-    );
-    setStudyYear(profile.study_year && profile.study_year !== 'graduate' ? profile.study_year : '');
     setGender(profile.gender ?? '');
     setBirthDate(profile.date_of_birth ? profile.date_of_birth.slice(0, 10) : '');
     setCityId(profile.city_id ?? '');
-    setUniversityId(profile.university_id ?? '');
     setAvatarUrl(profile.avatar_url ?? null);
   }, [profile]);
 
@@ -91,56 +73,15 @@ export default function StudentProfile() {
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
     [cities, i18n.language],
   );
-  const universityOptions = useMemo(
-    () =>
-      universities.map((item) => ({
-        value: item.id,
-        label: item.cities
-          ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
-          : localizedName(item, i18n.language),
-      })),
-    [universities, i18n.language],
-  );
-  const yearOptions = useMemo(
-    () => [
-      { value: '1', label: t('profile.year1') },
-      { value: '2', label: t('profile.year2') },
-      { value: '3', label: t('profile.year3') },
-      { value: '4', label: t('profile.year4') },
-      { value: '5', label: t('profile.year5') },
-      { value: '6', label: t('profile.year6') },
-    ],
-    [t],
-  );
-  const degreeOptions = useMemo(
-    () => [
-      { value: 'bachelor', label: t('profile.bachelor') },
-      { value: 'master', label: t('profile.master') },
-      { value: 'doctorate', label: t('profile.doctorate') },
-      { value: 'diploma', label: t('profile.diploma') },
-      { value: 'other', label: t('profile.otherDegree') },
-    ],
-    [t],
-  );
-  const majorOptions = useMemo(
-    () => MAJORS.map((item) => ({ value: item.value, label: majorLabel(item.value, i18n.language) })),
-    [i18n.language],
-  );
 
-  const reloadSaved = useCallback(async () => {
-    if (!profile?.id) return;
-    try {
-      setSavedListings(await loadSavedApartments(profile.id));
-    } catch {
-      setSavedListings([]);
-    }
-  }, [profile?.id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void reloadSaved();
-    }, [reloadSaved]),
-  );
+  const accountTone =
+    profile?.owner_status === 'approved' ? 'approved' : profile?.owner_status === 'rejected' ? 'rejected' : 'pending';
+  const accountLabel =
+    profile?.owner_status === 'approved'
+      ? t('admin.ownerActive')
+      : profile?.owner_status === 'rejected'
+        ? t('admin.ownerSuspended')
+        : t('admin.ownerWaiting');
 
   const changePhoto = async () => {
     if (!profile) return;
@@ -180,10 +121,6 @@ export default function StudentProfile() {
       Alert.alert(t('common.error'), t('phone.invalid'));
       return;
     }
-    if (studentId.trim() && !isValidStudentId(studentId)) {
-      Alert.alert(t('common.error'), t('profile.studentIdHint'));
-      return;
-    }
     setSaving(true);
     try {
       const { error } = await supabase
@@ -191,15 +128,10 @@ export default function StudentProfile() {
         .update({
           full_name: fullName.trim(),
           phone: cleanPhone,
-          student_id_number: studentId.trim() || null,
           whatsapp: cleanWhatsapp,
-          major: major || null,
-          degree_level: degreeLevel || null,
-          study_year: studyYear || null,
           gender: gender || null,
           date_of_birth: birthDate || null,
           city_id: cityId || null,
-          university_id: universityId || null,
         })
         .eq('id', profile.id);
       if (error) throw error;
@@ -261,8 +193,9 @@ export default function StudentProfile() {
         </Pressable>
         <Text style={[styles.email, rtlText]}>{profile?.email}</Text>
         <Text style={[styles.meta, rtlText]}>
-          {t('profile.role')}: {t(`roles.${profile?.role ?? 'student'}`)}
+          {t('profile.role')}: {t('roles.owner')}
         </Text>
+        <StatusBadge label={accountLabel} tone={accountTone} />
       </Card>
 
       <Card>
@@ -273,15 +206,6 @@ export default function StudentProfile() {
           local={phoneLocal}
           onRegionChange={setPhoneRegion}
           onLocalChange={setPhoneLocal}
-        />
-        <Input
-          label={t('profile.studentId')}
-          value={studentId}
-          onChangeText={(value) => setStudentId(value.replace(/\D/g, '').slice(0, 10))}
-          keyboardType="number-pad"
-          hint={t('profile.studentIdHint')}
-          autoCapitalize="none"
-          ltr
         />
         <PhoneField
           label={t('profile.whatsapp')}
@@ -302,27 +226,6 @@ export default function StudentProfile() {
             void Linking.openURL(whatsappLink(number));
           }}
         />
-        <SearchSelect
-          label={t('profile.major')}
-          value={major}
-          placeholder={t('profile.searchMajor')}
-          options={majorOptions}
-          onChange={setMajor}
-        />
-        <Select
-          label={t('profile.degree')}
-          value={degreeLevel}
-          placeholder={t('common.select')}
-          options={degreeOptions}
-          onChange={setDegreeLevel}
-        />
-        <Select
-          label={t('profile.studyYear')}
-          value={studyYear}
-          placeholder={t('common.select')}
-          options={yearOptions}
-          onChange={setStudyYear}
-        />
         <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
         <View style={[styles.chipRow, { justifyContent: alignStart }]}>
           <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
@@ -330,49 +233,13 @@ export default function StudentProfile() {
         </View>
         <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
         <Select
-          label={t('auth.homeCity')}
+          label={t('common.city')}
           value={cityId}
           placeholder={t('common.select')}
           options={cityOptions}
           onChange={setCityId}
         />
-        <Select
-          label={t('auth.studyUniversity')}
-          value={universityId}
-          placeholder={t('common.select')}
-          options={universityOptions}
-          onChange={setUniversityId}
-        />
         <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} />
-      </Card>
-
-      <Card>
-        <Text style={[styles.section, rtlText]}>{t('profile.savedListings')}</Text>
-        {savedListings.length === 0 ? <EmptyState title={t('profile.savedEmpty')} /> : null}
-        {savedListings.map((item) => (
-          <View key={item.id} style={styles.savedBlock}>
-            <ListingCard
-              apartment={item}
-              university={item.universities}
-              distanceKm={item.campus_distance_km}
-              onPress={() =>
-                router.push({
-                  pathname: '/(student)/apartment/[id]',
-                  params: { id: item.id, universityId: universityId || '' },
-                })
-              }
-            />
-            <Button
-              title={t('profile.unsave')}
-              variant="ghost"
-              onPress={async () => {
-                if (!profile) return;
-                await toggleSavedApartment(profile.id, item.id, true);
-                await reloadSaved();
-              }}
-            />
-          </View>
-        ))}
       </Card>
 
       <Card>
@@ -383,12 +250,7 @@ export default function StudentProfile() {
           onChangeText={setCurrentPassword}
           secureTextEntry
         />
-        <Input
-          label={t('profile.newPassword')}
-          value={newPassword}
-          onChangeText={setNewPassword}
-          secureTextEntry
-        />
+        <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
         <Input
           label={t('profile.confirmPassword')}
           value={confirmPassword}
@@ -415,5 +277,4 @@ const styles = StyleSheet.create({
   label: { color: colors.text, fontWeight: '700', fontSize: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   section: { fontSize: 17, fontWeight: '800', color: colors.text },
-  savedBlock: { gap: 8 },
 });

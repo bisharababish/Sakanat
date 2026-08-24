@@ -12,6 +12,9 @@ type Props = {
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
   hint?: string;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: boolean;
+  ltr?: boolean;
 };
 
 export function Input({
@@ -23,12 +26,17 @@ export function Input({
   keyboardType,
   multiline,
   hint,
+  autoCapitalize,
+  autoCorrect,
+  ltr,
 }: Props) {
-  const { textAlign, writingDirection } = useLayout();
+  const layout = useLayout();
+  const inputAlign = ltr ? 'left' : layout.textAlign;
+  const writingDirection = ltr ? 'ltr' : layout.writingDirection;
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, { textAlign }]}>{label}</Text>
+      <Text style={[styles.label, layout.rtlText]}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -36,15 +44,17 @@ export function Input({
         placeholderTextColor={colors.textMuted}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
         multiline={multiline}
-        textAlign={textAlign}
+        textAlign={inputAlign}
         style={[
           styles.input,
           { writingDirection },
           multiline ? styles.multiline : null,
         ]}
       />
-      {hint ? <Text style={[styles.hint, { textAlign }]}>{hint}</Text> : null}
+      {hint ? <Text style={[styles.hint, layout.rtlText]}>{hint}</Text> : null}
     </View>
   );
 }

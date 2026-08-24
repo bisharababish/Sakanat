@@ -20,7 +20,7 @@ export default function Gate() {
     );
   }
 
-  if (loading) {
+  if (loading || (session && !profile)) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -28,16 +28,8 @@ export default function Gate() {
     );
   }
 
-  if (!session) {
+  if (!session || !profile) {
     return <Redirect href="/(auth)/welcome" />;
-  }
-
-  if (!profile) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
   }
 
   if (profile.role === 'admin') return <Redirect href="/(admin)/(tabs)" />;

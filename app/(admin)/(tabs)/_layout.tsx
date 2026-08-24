@@ -38,6 +38,13 @@ export default function AdminTabs() {
         }}
       />
       <Tabs.Screen
+        name="bookings"
+        options={{
+          title: t('tabs.bookings'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: t('tabs.settings'),

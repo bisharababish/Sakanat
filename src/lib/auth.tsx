@@ -1,12 +1,36 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 
 import { changeAppLanguage } from '@/src/i18n';
 import { studentEmailError } from '@/src/lib/eduEmail';
-import { isSupabaseConfigured, supabase } from '@/src/lib/supabase';
+import { AUTH_REDIRECT_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
 import type { Profile, UserRole } from '@/src/types/database';
+
+function paramsFromAuthUrl(url: string) {
+  const query = url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
+  const hash = url.includes('#') ? url.slice(url.indexOf('#') + 1) : '';
+  return new URLSearchParams([query, hash].filter(Boolean).join('&'));
+}
+
+async function applySessionFromUrl(url: string) {
+  const params = paramsFromAuthUrl(url);
+  const code = params.get('code');
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    return true;
+  }
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (access_token && refresh_token) {
+    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+    if (error) throw error;
+    return true;
+  }
+  return false;
+}
 
 type SignUpInput = {
   email: string;
@@ -26,6 +50,8 @@ type AuthContextValue = {
   configured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<'verify' | 'ready'>;
+  verifyEmail: (email: string, token: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<Profile | null>;
 };
@@ -38,7 +64,7 @@ async function fetchProfile(userId: string) {
     .select('*, cities(*), universities(*)')
     .eq('id', userId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) return null;
   return (data as Profile | null) ?? null;
 }
 
@@ -46,16 +72,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadGen = useRef(0);
+
+  const clearLocalAuth = () => {
+    setSession(null);
+    setProfile(null);
+  };
 
   const loadForSession = async (next: Session | null) => {
-    setSession(next);
+    const mine = ++loadGen.current;
     if (!next?.user) {
-      setProfile(null);
+      if (mine === loadGen.current) clearLocalAuth();
       return;
     }
+    try {
+      await supabase.rpc('claim_admin');
+    } catch {
+      // Fine if the function is not installed yet.
+    }
     const nextProfile = await fetchProfile(next.user.id);
+    if (mine !== loadGen.current) return;
+    if (!nextProfile) {
+      await supabase.auth.signOut({ scope: 'local' });
+      if (mine === loadGen.current) clearLocalAuth();
+      return;
+    }
+    setSession(next);
     setProfile(nextProfile);
-    if (nextProfile?.language) {
+    if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
   };
@@ -67,22 +111,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let mounted = true;
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 8000);
+
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
       try {
         await loadForSession(data.session);
+      } catch {
+        clearLocalAuth();
       } finally {
+        clearTimeout(timeout);
         if (mounted) setLoading(false);
       }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      void loadForSession(next);
+      // Defer so we do not hold the Supabase auth lock while loading the profile.
+      setTimeout(() => {
+        void loadForSession(next).catch(() => {
+          clearLocalAuth();
+        });
+      }, 0);
     });
+
+    const handleUrl = (url: string | null) => {
+      if (!url) return;
+      void applySessionFromUrl(url)
+        .then((applied) => {
+          if (applied) router.replace('/');
+        })
+        .catch(() => {
+          // Invalid or already-used link; the confirmed screen still explains next steps.
+        });
+    };
+
+    void Linking.getInitialURL().then(handleUrl);
+    const linking = Linking.addEventListener('url', ({ url }) => handleUrl(url));
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       sub.subscription.unsubscribe();
+      linking.remove();
     };
   }, []);
 
@@ -93,11 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: isSupabaseConfigured,
       signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
         if (error) throw error;
+        await loadForSession(data.session);
       },
       signUp: async (input) => {
         if (input.role === 'student') {
@@ -110,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: input.email.trim(),
           password: input.password,
           options: {
-            emailRedirectTo: Linking.createURL('/'),
+            emailRedirectTo: AUTH_REDIRECT_URL,
             data: {
               full_name: input.fullName,
               phone: input.phone,
@@ -124,9 +197,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
         return data.session ? 'ready' : 'verify';
       },
+      verifyEmail: async (email, token) => {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: email.trim(),
+          token: token.trim(),
+          type: 'signup',
+        });
+        if (error) throw error;
+        await loadForSession(data.session);
+      },
+      resendConfirmation: async (email) => {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email: email.trim(),
+          options: { emailRedirectTo: AUTH_REDIRECT_URL },
+        });
+        if (error) throw error;
+      },
       signOut: async () => {
-        setSession(null);
-        setProfile(null);
+        clearLocalAuth();
         await supabase.auth.signOut({ scope: 'local' });
         try {
           await supabase.auth.signOut({ scope: 'global' });

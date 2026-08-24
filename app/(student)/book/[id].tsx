@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
-import { Input } from '@/components/ui/Input';
+import { DateField } from '@/components/ui/DateField';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
@@ -19,13 +19,16 @@ const MONTHS = [1, 2, 3, 4, 6, 12];
 function defaultStart() {
   const date = new Date();
   date.setDate(date.getDate() + 3);
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function BookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { textAlign, row, lang } = useLayout();
+  const { rtlText, alignStart, lang } = useLayout();
   const { profile } = useAuth();
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [startDate, setStartDate] = useState(defaultStart());
@@ -69,12 +72,12 @@ export default function BookScreen() {
   };
 
   return (
-    <Screen>
-      <Text style={[styles.title, { textAlign }]}>{t('booking.title')}</Text>
-      <Text style={[styles.sub, { textAlign }]}>{localizedTitle(apartment, i18n.language)}</Text>
-      <Input label={t('booking.startDate')} value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" />
-      <Text style={[styles.label, { textAlign }]}>{t('booking.duration')}</Text>
-      <View style={[styles.row, row]}>
+    <Screen back>
+      <Text style={[styles.title, rtlText]}>{t('booking.title')}</Text>
+      <Text style={[styles.sub, rtlText]}>{localizedTitle(apartment, i18n.language)}</Text>
+      <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
+      <Text style={[styles.label, rtlText]}>{t('booking.duration')}</Text>
+      <View style={[styles.row, { justifyContent: alignStart }]}>
         {MONTHS.map((value) => (
           <Chip
             key={value}
@@ -84,17 +87,17 @@ export default function BookScreen() {
           />
         ))}
       </View>
-      <Text style={[styles.label, { textAlign }]}>{t('booking.method')}</Text>
-      <View style={[styles.row, row]}>
+      <Text style={[styles.label, rtlText]}>{t('booking.method')}</Text>
+      <View style={[styles.row, { justifyContent: alignStart }]}>
         <Chip label={t('payment.pay_now')} selected={method === 'pay_now'} onPress={() => setMethod('pay_now')} />
         <Chip label={t('payment.pay_later')} selected={method === 'pay_later'} onPress={() => setMethod('pay_later')} />
       </View>
-      <Text style={[styles.note, { textAlign }]}>{t('payment.simulated')}</Text>
-      <Text style={[styles.label, { textAlign }]}>{t('booking.summary')}</Text>
-      <Text style={[styles.body, { textAlign }]}>
+      <Text style={[styles.note, rtlText]}>{t('payment.simulated')}</Text>
+      <Text style={[styles.label, rtlText]}>{t('booking.summary')}</Text>
+      <Text style={[styles.body, rtlText]}>
         {t('booking.rent')}: {formatIls(apartment.price_month, lang)} × {months}
       </Text>
-      <Text style={[styles.total, { textAlign }]}>
+      <Text style={[styles.total, rtlText]}>
         {t('booking.total')}: {formatIls(total, lang)}
       </Text>
       <Button title={t('booking.submit')} onPress={submit} loading={loading} />
@@ -106,7 +109,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', color: colors.text },
   sub: { color: colors.textMuted, fontSize: 16 },
   label: { fontWeight: '800', color: colors.text },
-  row: { flexWrap: 'wrap', gap: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   note: { color: colors.warning, fontSize: 13 },
   body: { color: colors.text, fontSize: 16 },
   total: { color: colors.primary, fontSize: 20, fontWeight: '800' },
