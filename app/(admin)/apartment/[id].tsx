@@ -6,8 +6,8 @@ import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } fro
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
+import { ChromeBar } from '@/components/ui/ChromeBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -23,7 +23,7 @@ const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 export default function AdminApartmentReview() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { rtlText, row, lang, alignStart } = useLayout();
+  const { rtlText, row, lang } = useLayout();
   const { universities } = useCatalog();
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [busy, setBusy] = useState(false);
@@ -81,9 +81,7 @@ export default function AdminApartmentReview() {
   if (!apartment) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={[styles.top, { alignItems: alignStart }]}>
-          <BackButton />
-        </View>
+        <ChromeBar back />
         <View style={styles.center}>
           {loaded ? (
             <Text style={[styles.muted, rtlText]}>{t('admin.noListings')}</Text>
@@ -97,9 +95,7 @@ export default function AdminApartmentReview() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={[styles.top, { alignItems: alignStart }]}>
-        <BackButton />
-      </View>
+      <ChromeBar back />
       <ScrollView contentContainerStyle={styles.content}>
         {photos.length > 0 ? (
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
@@ -184,7 +180,6 @@ export default function AdminApartmentReview() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  top: { paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.sm },
   center: { flex: 1, justifyContent: 'center', backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
   cover: {

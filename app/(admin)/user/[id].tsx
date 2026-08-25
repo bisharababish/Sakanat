@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectionHead } from '@/components/profile/SectionHead';
-import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { ChromeBar } from '@/components/ui/ChromeBar';
 import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
@@ -23,7 +23,7 @@ import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
-import { colors, spacing } from '@/src/theme/colors';
+import { colors } from '@/src/theme/colors';
 import type { OwnerStatus, PersonGender, Profile, UserRole } from '@/src/types/database';
 
 export default function AdminUserEdit() {
@@ -172,9 +172,7 @@ export default function AdminUserEdit() {
   if (!user) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs }}>
-          <BackButton />
-        </View>
+        <ChromeBar back />
         <View style={{ flex: 1, justifyContent: 'center' }}>
           {loaded ? (
             <Text style={[styles.muted, rtlText]}>{t('admin.noUsers')}</Text>

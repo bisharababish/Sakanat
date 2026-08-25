@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { type ComponentProps, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,16 +11,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
-import { mailTo } from '@/src/lib/support';
+import { profileHref } from '@/src/lib/routes';
+import { appVersion, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl } from '@/src/lib/support';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
+type Pane = 'root' | 'how' | 'privacy' | 'terms';
 
 const OPEN = { duration: 340, easing: Easing.bezier(0.22, 1, 0.36, 1) };
 const CLOSE = { duration: 240, easing: Easing.in(Easing.cubic) };
+const VERSION = appVersion();
 
 const THEMES: { id: ThemePreference; icon: IconName }[] = [
   { id: 'light', icon: 'sunny-outline' },
@@ -37,7 +42,7 @@ function initials(name?: string | null) {
 }
 
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isRtl, row, textAlign, writingDirection } = useLayout();
   const { profile, signOut } = useAuth();
   const colors = useColors();
@@ -45,9 +50,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const { width } = useWindowDimensions();
   const [pushOn, setPushOn] = useState(true);
   const [open, setOpen] = useState(false);
+  const [pane, setPane] = useState<Pane>('root');
   const progress = useSharedValue(0);
   const copy = { textAlign, writingDirection };
   const sheetWidth = Math.min(340, Math.round(width * 0.84));
+  const university = localizedName(profile?.universities, i18n.language);
+  const city = localizedName(profile?.cities, i18n.language);
 
   useEffect(() => {
     if (!visible) return;
@@ -56,6 +64,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 
   useEffect(() => {
     if (visible) setOpen(true);
+    else setPane('root');
   }, [visible]);
 
   useEffect(() => {
@@ -78,6 +87,50 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     await setPushEnabled(next, profile?.id);
   };
 
+  const goProfile = () => {
+    if (!profile) return;
+    onClose();
+    router.push(profileHref(profile.role) as never);
+  };
+
+  const openUrl = (url: string) => {
+    void Linking.openURL(url);
+  };
+
+  const openWhatsApp = () => {
+    const url = supportWhatsAppUrl(t('menu.whatsappPrefill'));
+    if (url) {
+      openUrl(url);
+      return;
+    }
+    alert(t('menu.whatsapp'), t('menu.whatsappMissing'));
+    openUrl(mailTo(t('menu.supportSubject')));
+  };
+
+  const report = () => {
+    const role = profile ? t(`roles.${profile.role}`) : t('menu.guest');
+    openUrl(mailTo(t('menu.reportSubject'), t('menu.reportBody', { role, version: VERSION })));
+  };
+
+  const shareApp = async () => {
+    try {
+      await Share.share({
+        message: t('menu.shareMessage', { name: t('appName'), tagline: t('tagline') }),
+      });
+    } catch {
+      // user dismissed the sheet
+    }
+  };
+
+  const rateApp = async () => {
+    const url = rateUrl();
+    if (url) {
+      openUrl(url);
+      return;
+    }
+    alert(t('menu.rate'), t('menu.rateSoon'));
+  };
+
   const logout = () => {
     alert(t('common.logout'), t('common.confirmLogout'), [
       { text: t('common.no'), style: 'cancel' },
@@ -91,6 +144,14 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
       },
     ]);
   };
+
+  const paneTitle = pane === 'how' ? t('menu.how') : pane === 'privacy' ? t('menu.privacy') : t('menu.terms');
+  const paneBody =
+    pane === 'how'
+      ? t('menu.howBody')
+      : pane === 'privacy'
+        ? t('menu.privacyBody', { email: SUPPORT_EMAIL })
+        : t('menu.termsBody', { email: SUPPORT_EMAIL });
 
   if (!open) return null;
 
@@ -114,7 +175,20 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
         >
           <SafeAreaView edges={['top', 'bottom']} style={styles.sheetInner}>
             <View style={[styles.head, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.title, copy, { color: colors.primaryDark }]}>{t('menu.title')}</Text>
+              {pane !== 'root' ? (
+                <Pressable
+                  onPress={() => setPane('root')}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.back')}
+                  style={[styles.closeBtn, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.text} />
+                </Pressable>
+              ) : null}
+              <Text style={[styles.title, copy, { color: colors.primaryDark }]}>
+                {pane === 'root' ? t('menu.title') : paneTitle}
+              </Text>
               <Pressable
                 onPress={onClose}
                 hitSlop={12}
@@ -126,119 +200,171 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               </Pressable>
             </View>
 
-            <ScrollView
-              contentContainerStyle={styles.body}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {profile ? (
-                <View style={[styles.hero, row, { backgroundColor: colors.primary }]}>
-                  {profile.avatar_url ? (
-                    <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
-                      <Text style={[styles.initials, { color: colors.primary }]}>{initials(profile.full_name)}</Text>
-                    </View>
-                  )}
-                  <View style={styles.heroCopy}>
-                    <Text style={[styles.heroName, copy]} numberOfLines={1}>
-                      {profile.full_name}
-                    </Text>
-                    <View style={[styles.roleChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
-                      <Text style={styles.roleChipText}>{t(`roles.${profile.role}`)}</Text>
-                    </View>
-                  </View>
-                </View>
-              ) : null}
-
-              <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.preferences')}</Text>
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={[styles.row, row]}>
-                  <RowIcon name="language-outline" colors={colors} />
-                  <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('common.language')}</Text>
-                  <LanguageToggle />
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-                <View style={[styles.appearanceHead, row]}>
-                  <RowIcon name="color-palette-outline" colors={colors} />
-                  <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.appearance')}</Text>
-                </View>
-                <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
-                  {THEMES.map((item) => {
-                    const on = preference === item.id;
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => setPreference(item.id)}
-                        style={[
-                          styles.segmentBtn,
-                          on && { backgroundColor: colors.primary, borderColor: colors.primary },
-                        ]}
-                      >
-                        <Ionicons name={item.icon} size={16} color={on ? colors.white : colors.textMuted} />
-                        <Text style={[styles.segmentText, { color: on ? colors.white : colors.text }]}>
-                          {t(`menu.${item.id}`)}
+            {pane !== 'root' ? (
+              <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+                <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
+              </ScrollView>
+            ) : (
+              <ScrollView
+                contentContainerStyle={styles.body}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {profile ? (
+                  <Pressable onPress={goProfile} style={[styles.hero, row, { backgroundColor: colors.primary }]}>
+                    {profile.avatar_url ? (
+                      <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
+                        <Text style={[styles.initials, { color: colors.primary }]}>{initials(profile.full_name)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.heroCopy}>
+                      <Text style={[styles.heroName, copy]} numberOfLines={1}>
+                        {profile.full_name}
+                      </Text>
+                      <View style={[styles.roleChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
+                        <Text style={styles.roleChipText}>{t(`roles.${profile.role}`)}</Text>
+                      </View>
+                      {profile.email ? (
+                        <Text style={[styles.heroMeta, copy]} numberOfLines={1}>
+                          {profile.email}
                         </Text>
-                      </Pressable>
-                    );
-                  })}
+                      ) : null}
+                      {profile.role === 'student' && university ? (
+                        <Text style={[styles.heroMeta, copy]} numberOfLines={1}>
+                          {university}
+                        </Text>
+                      ) : null}
+                      {city ? (
+                        <Text style={[styles.heroMeta, copy]} numberOfLines={1}>
+                          {city}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color="rgba(255,255,255,0.8)" />
+                  </Pressable>
+                ) : (
+                  <View style={[styles.aboutCard, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.heroName, copy]}>{t('appName')}</Text>
+                    <Text style={[styles.heroMeta, copy]}>{t('tagline')}</Text>
+                    <Text style={[styles.heroMeta, copy]}>{t('menu.version', { version: VERSION })}</Text>
+                  </View>
+                )}
+
+                <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.preferences')}</Text>
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View style={[styles.row, row]}>
+                    <RowIcon name="language-outline" colors={colors} />
+                    <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('common.language')}</Text>
+                    <LanguageToggle />
+                  </View>
+
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                  <View style={[styles.appearanceHead, row]}>
+                    <RowIcon name="color-palette-outline" colors={colors} />
+                    <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.appearance')}</Text>
+                  </View>
+                  <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
+                    {THEMES.map((item) => {
+                      const on = preference === item.id;
+                      return (
+                        <Pressable
+                          key={item.id}
+                          onPress={() => setPreference(item.id)}
+                          style={[
+                            styles.segmentBtn,
+                            on && { backgroundColor: colors.primary, borderColor: colors.primary },
+                          ]}
+                        >
+                          <Ionicons name={item.icon} size={16} color={on ? colors.white : colors.textMuted} />
+                          <Text style={[styles.segmentText, { color: on ? colors.white : colors.text }]}>
+                            {t(`menu.${item.id}`)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {profile ? (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                      <View style={[styles.row, row]}>
+                        <RowIcon name="notifications-outline" colors={colors} />
+                        <View style={styles.rowCopy}>
+                          <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.notifications')}</Text>
+                          <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.notificationsHint')}</Text>
+                        </View>
+                        <Switch
+                          value={pushOn}
+                          onValueChange={(next) => void togglePush(next)}
+                          trackColor={{ false: colors.border, true: colors.primary }}
+                          thumbColor={colors.white}
+                        />
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+
+                <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.help')}</Text>
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <MenuLink icon="book-outline" label={t('menu.how')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('how')} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink
+                    icon="mail-outline"
+                    label={t('menu.contact')}
+                    colors={colors}
+                    copy={copy}
+                    row={row}
+                    isRtl={isRtl}
+                    onPress={() => openUrl(mailTo(t('menu.contactSubject')))}
+                  />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink icon="logo-whatsapp" label={t('menu.whatsapp')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={openWhatsApp} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink
+                    icon="help-circle-outline"
+                    label={t('menu.support')}
+                    colors={colors}
+                    copy={copy}
+                    row={row}
+                    isRtl={isRtl}
+                    onPress={() => openUrl(mailTo(t('menu.supportSubject')))}
+                  />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink icon="flag-outline" label={t('menu.report')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={report} />
+                </View>
+
+                <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
+                {profile ? (
+                  <View style={[styles.aboutCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+                    <Text style={[styles.aboutName, copy, { color: colors.primaryDark }]}>{t('appName')}</Text>
+                    <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
+                    <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.version', { version: VERSION })}</Text>
+                  </View>
+                ) : null}
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <MenuLink icon="shield-checkmark-outline" label={t('menu.privacy')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('privacy')} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink icon="document-text-outline" label={t('menu.terms')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('terms')} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink icon="share-social-outline" label={t('menu.share')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void shareApp()} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <MenuLink icon="star-outline" label={t('menu.rate')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void rateApp()} />
                 </View>
 
                 {profile ? (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <View style={[styles.row, row]}>
-                      <RowIcon name="notifications-outline" colors={colors} />
-                      <View style={styles.rowCopy}>
-                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.notifications')}</Text>
-                        <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.notificationsHint')}</Text>
-                      </View>
-                      <Switch
-                        value={pushOn}
-                        onValueChange={(next) => void togglePush(next)}
-                        trackColor={{ false: colors.border, true: colors.primary }}
-                        thumbColor={colors.white}
-                      />
-                    </View>
-                  </>
+                  <Pressable
+                    onPress={logout}
+                    style={[styles.logout, row, { backgroundColor: colors.dangerSoft, borderColor: colors.danger }]}
+                  >
+                    <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+                    <Text style={[styles.logoutText, copy, { color: colors.danger }]}>{t('common.logout')}</Text>
+                  </Pressable>
                 ) : null}
-              </View>
-
-              <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.help')}</Text>
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <MenuLink
-                  icon="mail-outline"
-                  label={t('menu.contact')}
-                  colors={colors}
-                  copy={copy}
-                  row={row}
-                  isRtl={isRtl}
-                  onPress={() => void Linking.openURL(mailTo(t('menu.contactSubject')))}
-                />
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <MenuLink
-                  icon="help-circle-outline"
-                  label={t('menu.support')}
-                  colors={colors}
-                  copy={copy}
-                  row={row}
-                  isRtl={isRtl}
-                  onPress={() => void Linking.openURL(mailTo(t('menu.supportSubject')))}
-                />
-              </View>
-
-              {profile ? (
-                <Pressable
-                  onPress={logout}
-                  style={[styles.logout, row, { backgroundColor: colors.dangerSoft, borderColor: colors.danger }]}
-                >
-                  <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-                  <Text style={[styles.logoutText, copy, { color: colors.danger }]}>{t('common.logout')}</Text>
-                </Pressable>
-              ) : null}
-            </ScrollView>
+              </ScrollView>
+            )}
           </SafeAreaView>
         </Animated.View>
       </View>
@@ -326,8 +452,9 @@ const styles = StyleSheet.create({
   avatar: { width: 48, height: 48, borderRadius: 16 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   initials: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  heroCopy: { flex: 1, minWidth: 0, gap: 6 },
+  heroCopy: { flex: 1, minWidth: 0, gap: 4 },
   heroName: { color: '#fff', fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroMeta: { color: 'rgba(255,255,255,0.78)', fontSize: 12, fontFamily: 'Cairo_400Regular' },
   roleChip: {
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderRadius: radius.full,
@@ -335,6 +462,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   roleChipText: { color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  aboutCard: {
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: 4,
+  },
+  aboutName: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   section: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_700Bold', marginTop: 4 },
   card: {
     borderRadius: radius.lg,
@@ -347,6 +480,7 @@ const styles = StyleSheet.create({
   rowCopy: { flex: 1, minWidth: 0, gap: 2 },
   rowLabel: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
   hint: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  article: { fontSize: 15, lineHeight: 26, fontFamily: 'Cairo_400Regular' },
   iconWrap: {
     width: 34,
     height: 34,

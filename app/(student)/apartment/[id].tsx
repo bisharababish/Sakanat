@@ -17,9 +17,9 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ChromeBar } from '@/components/ui/ChromeBar';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
@@ -114,9 +114,7 @@ export default function ApartmentDetails() {
   if (!apartment) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={[styles.top, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          <BackButton compact />
-        </View>
+        <ChromeBar back compactBack />
         <View style={styles.center}>
           {missing ? <Text style={[styles.muted, copy]}>{t('listing.notFound')}</Text> : <ActivityIndicator color={colors.primary} />}
         </View>
@@ -126,27 +124,30 @@ export default function ApartmentDetails() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={[styles.top, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
-        <BackButton compact />
-        <Pressable
-          onPress={async () => {
-            if (!profile) return;
-            setSaving(true);
-            try {
-              setSaved(await toggleSavedApartment(profile.id, apartment.id, saved));
-            } finally {
-              setSaving(false);
-            }
-          }}
-          disabled={saving}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={saved ? t('listing.saved') : t('listing.save')}
-          style={styles.heartBtn}
-        >
-          <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? colors.danger : colors.primary} />
-        </Pressable>
-      </View>
+      <ChromeBar
+        back
+        compactBack
+        extra={
+          <Pressable
+            onPress={async () => {
+              if (!profile) return;
+              setSaving(true);
+              try {
+                setSaved(await toggleSavedApartment(profile.id, apartment.id, saved));
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? t('listing.saved') : t('listing.save')}
+            style={styles.heartBtn}
+          >
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? colors.danger : colors.primary} />
+          </Pressable>
+        }
+      />
       <ScrollView contentContainerStyle={styles.content}>
         {photos.length > 0 ? (
           <View>
@@ -258,13 +259,6 @@ export default function ApartmentDetails() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  top: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   heartBtn: {
     width: 44,
     height: 44,
