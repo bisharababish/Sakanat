@@ -6,7 +6,11 @@ import { useAuth } from '@/src/lib/auth';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius } from '@/src/theme/colors';
 
-export function LanguageToggle() {
+type Props = {
+  onDark?: boolean;
+};
+
+export function LanguageToggle({ onDark }: Props) {
   const { lang } = useLayout();
   const { profile } = useAuth();
 
@@ -19,18 +23,22 @@ export function LanguageToggle() {
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, onDark ? styles.wrapDark : null]}>
       <Pressable
         onPress={() => void setLang('ar')}
         hitSlop={12}
-        style={[styles.btn, lang === 'ar' && styles.active]}>
-        <Text style={[styles.label, lang === 'ar' && styles.activeLabel]}>ع</Text>
+        style={[styles.btn, lang === 'ar' && (onDark ? styles.activeDark : styles.active)]}>
+        <Text style={[styles.label, onDark && styles.labelDark, lang === 'ar' && (onDark ? styles.activeLabelDark : styles.activeLabel)]}>
+          ع
+        </Text>
       </Pressable>
       <Pressable
         onPress={() => void setLang('en')}
         hitSlop={12}
-        style={[styles.btn, lang === 'en' && styles.active]}>
-        <Text style={[styles.label, lang === 'en' && styles.activeLabel]}>EN</Text>
+        style={[styles.btn, lang === 'en' && (onDark ? styles.activeDark : styles.active)]}>
+        <Text style={[styles.label, onDark && styles.labelDark, lang === 'en' && (onDark ? styles.activeLabelDark : styles.activeLabel)]}>
+          EN
+        </Text>
       </Pressable>
     </View>
   );
@@ -54,7 +62,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  wrapDark: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'transparent',
+  },
   active: { backgroundColor: colors.primary },
+  activeDark: { backgroundColor: colors.accent },
   label: { fontWeight: '800', fontSize: 12, color: colors.textMuted },
+  labelDark: { color: 'rgba(255,255,255,0.78)' },
   activeLabel: { color: colors.white },
+  activeLabelDark: { color: colors.primaryDark },
 });

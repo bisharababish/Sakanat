@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { authErrorMessage } from '@/src/lib/authErrors';
 import { colors } from '@/src/theme/colors';
 
 export default function VerifyEmailScreen() {
@@ -33,9 +34,8 @@ export default function VerifyEmailScreen() {
     setLoading(true);
     try {
       await verifyEmail(email, code);
-      router.replace('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'));
+      setError(authErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ export default function VerifyEmailScreen() {
       await resendConfirmation(email);
       setInfo(t('auth.codeSent'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'));
+      setError(authErrorMessage(err, t));
     } finally {
       setLoading(false);
     }

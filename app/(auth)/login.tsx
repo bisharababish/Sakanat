@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { authErrorMessage } from '@/src/lib/authErrors';
+import { sanitizeEmail } from '@/src/lib/eduEmail';
 import { colors } from '@/src/theme/colors';
 
 export default function LoginScreen() {
@@ -24,13 +26,21 @@ export default function LoginScreen() {
 
   const onSubmit = async () => {
     setError('');
+    const cleanEmail = sanitizeEmail(email);
+    if (!cleanEmail || !password) {
+      setError(t('auth.missingEmailOrPhone'));
+      return;
+    }
     setLoading(true);
     try {
-      await signIn(email, password);
-      router.replace('/');
+      await signIn(cleanEmail, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'));
-    } finally {
+      const raw = `${(err as { code?: string })?.code ?? ''} ${err instanceof Error ? err.message : ''}`;
+      if (/invalid login|invalid_credentials|invalid credentials/i.test(raw)) {
+        setError(t('auth.invalidLogin'));
+      } else {
+        setError(authErrorMessage(err, t));
+      }
       setLoading(false);
     }
   };

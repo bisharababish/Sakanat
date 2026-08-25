@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { type ComponentProps, useMemo, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,14 +15,17 @@ type Props = {
   placeholder: string;
   options: Option[];
   onChange: (value: string) => void;
+  compact?: boolean;
+  icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-export function SearchSelect({ label, value, placeholder, options, onChange }: Props) {
+export function SearchSelect({ label, value, placeholder, options, onChange, compact, icon }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const { t } = useTranslation();
-  const { rtlText, textAlign, alignStart } = useLayout();
+  const { rtlText, textAlign, writingDirection, alignStart, isRtl } = useLayout();
   const selected = options.find((option) => option.value === value);
+  const active = Boolean(value);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return options;
@@ -30,16 +34,36 @@ export function SearchSelect({ label, value, placeholder, options, onChange }: P
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, rtlText]}>{label}</Text>
+      {compact ? null : <Text style={[styles.label, rtlText]}>{label}</Text>}
       <Pressable
-        style={styles.field}
+        accessibilityLabel={label}
+        style={[
+          compact ? styles.compact : styles.field,
+          compact && active ? styles.compactOn : null,
+          compact ? { flexDirection: isRtl ? 'row-reverse' : 'row' } : null,
+        ]}
         onPress={() => {
           setQuery('');
           setOpen(true);
-        }}>
-        <Text style={[styles.value, rtlText, !selected && styles.placeholder]}>
+        }}
+      >
+        {compact && icon ? (
+          <Ionicons name={icon} size={16} color={active ? colors.primary : colors.textMuted} />
+        ) : null}
+        <Text
+          numberOfLines={1}
+          style={[
+            compact ? styles.compactValue : styles.value,
+            { textAlign, writingDirection },
+            !selected && styles.placeholder,
+            compact && active ? styles.compactValueOn : null,
+          ]}
+        >
           {selected?.label ?? placeholder}
         </Text>
+        {compact ? (
+          <Ionicons name="chevron-down" size={14} color={active ? colors.primary : colors.textMuted} />
+        ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
@@ -62,7 +86,7 @@ export function SearchSelect({ label, value, placeholder, options, onChange }: P
               ) : null}
               {filtered.map((option) => (
                 <Pressable
-                  key={option.value}
+                  key={option.value || 'empty'}
                   style={styles.option}
                   onPress={() => {
                     onChange(option.value);
@@ -91,6 +115,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
+  compact: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.full,
+    minHeight: 44,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  compactOn: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  compactValue: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Cairo_700Bold',
+    color: colors.text,
+  },
+  compactValueOn: { color: colors.primary },
   value: { fontSize: 16, color: colors.text },
   placeholder: { color: colors.textMuted },
   overlay: {

@@ -51,3 +51,19 @@ export function ownerStatusLabel(status: OwnerStatus, t: TFunction) {
 export function bookingStatusLabel(status: BookingStatus, t: TFunction) {
   return t(`bookingStatus.${status}`);
 }
+
+export function bookingTone(status: BookingStatus) {
+  if (status === 'confirmed' || status === 'completed') return 'approved' as const;
+  if (status === 'cancelled') return 'rejected' as const;
+  return 'pending' as const;
+}
+
+export function formatBookingDate(iso: string, lang: string) {
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(lang.startsWith('ar') ? 'ar' : 'en', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}

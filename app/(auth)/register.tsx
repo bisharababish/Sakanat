@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { colors, radius } from '@/src/theme/colors';
@@ -82,10 +83,11 @@ export default function RegisterScreen() {
         universityId,
         language: lang.startsWith('ar') ? 'ar' : 'en',
       });
-      router.replace(result === 'verify' ? { pathname: '/(auth)/verify-email', params: { email } } : '/');
+      if (result === 'verify') {
+        router.replace({ pathname: '/(auth)/verify-email', params: { email } });
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('common.error');
-      setError(message === 'studentEmailRequired' ? t('auth.studentEmailRequired') : message === 'invalidEmail' ? t('auth.invalidEmail') : message);
+      setError(authErrorMessage(err, t));
     } finally {
       setLoading(false);
     }

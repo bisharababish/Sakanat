@@ -32,7 +32,9 @@ export function applyRtl(language: string) {
 export async function changeAppLanguage(language: 'ar' | 'en') {
   await AsyncStorage.setItem(LANGUAGE_KEY, language);
   applyRtl(language);
-  await i18n.changeLanguage(language);
+  if (i18n.language !== language) {
+    await i18n.changeLanguage(language);
+  }
 }
 
 void i18n.use(initReactI18next).init({

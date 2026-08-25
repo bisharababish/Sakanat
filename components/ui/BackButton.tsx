@@ -14,7 +14,7 @@ export function goBack() {
   router.replace('/');
 }
 
-export function BackButton({ onPress }: { onPress?: () => void }) {
+export function BackButton({ onPress, compact }: { onPress?: () => void; compact?: boolean }) {
   const { t } = useTranslation();
   const { isRtl, row } = useLayout();
 
@@ -30,7 +30,7 @@ export function BackButton({ onPress }: { onPress?: () => void }) {
         size={24}
         color={colors.primary}
       />
-      <Text style={styles.label}>{t('common.back')}</Text>
+      {compact ? null : <Text style={styles.label}>{t('common.back')}</Text>}
     </Pressable>
   );
 }

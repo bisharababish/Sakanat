@@ -1,31 +1,35 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
+import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { listingDistanceKm } from '@/src/lib/distance';
-import { localizedName } from '@/src/lib/format';
+import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { colors, radius, spacing } from '@/src/theme/colors';
 import type { Apartment, GenderPolicy, University } from '@/src/types/database';
 
 type GenderFilter = 'suitable' | 'all' | GenderPolicy;
 
 export default function SearchScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText, isRtl, textAlign, writingDirection } = useLayout();
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const [cityId, setCityId] = useState(profile?.city_id ?? '');
   const [universityId, setUniversityId] = useState(profile?.university_id ?? '');
   const [maxPrice, setMaxPrice] = useState('');
@@ -74,6 +78,7 @@ export default function SearchScreen() {
   };
 
   const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
     const withDistance = apartments
       .filter((item) => !cityId || item.city_id === cityId)
       .filter((item) => {
@@ -83,6 +88,18 @@ export default function SearchScreen() {
           return item.gender_policy === 'any' || item.gender_policy === profile.gender;
         }
         return item.gender_policy === genderFilter;
+      })
+      .filter((item) => {
+        if (!needle) return true;
+        const haystack = [
+          localizedTitle(item, i18n.language),
+          localizedDescription(item, i18n.language),
+          localizedName(item.cities, i18n.language),
+          localizedName(item.universities, i18n.language),
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(needle);
       })
       .map((item) => ({
         item,
@@ -96,63 +113,129 @@ export default function SearchScreen() {
       return a.item.price_month - b.item.price_month;
     });
     return withDistance;
-  }, [apartments, cityId, genderFilter, maxKm, maxPrice, profile?.gender, selectedUniversity, sort]);
+  }, [
+    apartments,
+    cityId,
+    genderFilter,
+    i18n.language,
+    maxKm,
+    maxPrice,
+    profile?.gender,
+    query,
+    selectedUniversity,
+    sort,
+  ]);
+
+  const defaultGender: GenderFilter = profile?.gender ? 'suitable' : 'all';
+  const filtersOn = Boolean(
+    query.trim() || cityId || universityId || maxPrice || maxKm || genderFilter !== defaultGender,
+  );
+
+  const clearFilters = () => {
+    setQuery('');
+    setCityId('');
+    setUniversityId('');
+    setMaxPrice('');
+    setMaxKm('');
+    setGenderFilter(profile?.gender ? 'suitable' : 'all');
+    setSort('price');
+  };
+
+  const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
 
   return (
     <Screen>
-      <Text style={[styles.brand, rtlText]}>{t('appName')}</Text>
-      <Text style={[styles.title, rtlText]}>{t('search.title')}</Text>
-      <Text style={[styles.sub, rtlText]}>{t('search.subtitle')}</Text>
-      <Select
-        label={t('common.city')}
-        value={cityId}
-        placeholder={t('search.anyCity')}
-        options={[
-          { value: '', label: t('search.anyCity') },
-          ...cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
-        ]}
-        onChange={setCity}
-      />
-      <Select
-        label={t('common.university')}
-        value={universityId}
-        placeholder={t('search.anyUniversity')}
-        options={[
-          { value: '', label: t('search.anyUniversity') },
-          ...cityUniversities.map((item) => ({ value: item.id, label: localizedName(item, i18n.language) })),
-        ]}
-        onChange={setUniversityId}
-      />
-      <Select
-        label={t('search.maxPrice')}
-        value={maxPrice}
-        placeholder={t('common.all')}
-        options={[
-          { value: '', label: t('common.all') },
-          { value: '500', label: '₪500' },
-          { value: '700', label: '₪700' },
-          { value: '900', label: '₪900' },
-          { value: '1200', label: '₪1200' },
-          { value: '1500', label: '₪1500' },
-          { value: '2000', label: '₪2000' },
-        ]}
-        onChange={setMaxPrice}
-      />
-      <Select
-        label={t('search.maxKm')}
-        value={maxKm}
-        placeholder={t('common.all')}
-        options={[
-          { value: '', label: t('common.all') },
-          { value: '1', label: `1 ${t('common.km')}` },
-          { value: '3', label: `3 ${t('common.km')}` },
-          { value: '8', label: `8 ${t('common.km')}` },
-          { value: '15', label: `15 ${t('common.km')}` },
-        ]}
-        onChange={setMaxKm}
-      />
-      <Text style={[styles.label, rtlText]}>{t('search.whoFor')}</Text>
-      <View style={[styles.chipRow, { justifyContent: alignStart }]}>
+      <View style={styles.head}>
+        <Text style={[styles.title, rtlText]}>{t('search.title')}</Text>
+        <Text style={[styles.sub, rtlText]}>{t('search.subtitle')}</Text>
+      </View>
+
+      <View style={[styles.searchBar, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
+        <Ionicons name="search" size={20} color={colors.primary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t('search.placeholder')}
+          placeholderTextColor={colors.textMuted}
+          autoCorrect={false}
+          returnKeyType="search"
+          style={[styles.searchInput, { textAlign, writingDirection }]}
+        />
+        {query ? (
+          <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('search.clear')}>
+            <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={[styles.filterGrid, chipAlign]}>
+        <View style={styles.filterCell}>
+          <Select
+            compact
+            icon="location-outline"
+            label={t('common.city')}
+            value={cityId}
+            placeholder={t('search.anyCity')}
+            options={[
+              { value: '', label: t('search.anyCity') },
+              ...cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
+            ]}
+            onChange={setCity}
+          />
+        </View>
+        <View style={styles.filterCell}>
+          <SearchSelect
+            compact
+            icon="school-outline"
+            label={t('common.university')}
+            value={universityId}
+            placeholder={t('search.anyUniversity')}
+            options={[
+              { value: '', label: t('search.anyUniversity') },
+              ...cityUniversities.map((item) => ({ value: item.id, label: localizedName(item, i18n.language) })),
+            ]}
+            onChange={setUniversityId}
+          />
+        </View>
+        <View style={styles.filterCell}>
+          <Select
+            compact
+            icon="cash-outline"
+            label={t('search.maxPrice')}
+            value={maxPrice}
+            placeholder={t('search.maxPrice')}
+            options={[
+              { value: '', label: t('common.all') },
+              { value: '500', label: '₪500' },
+              { value: '700', label: '₪700' },
+              { value: '900', label: '₪900' },
+              { value: '1200', label: '₪1200' },
+              { value: '1500', label: '₪1500' },
+              { value: '2000', label: '₪2000' },
+            ]}
+            onChange={setMaxPrice}
+          />
+        </View>
+        <View style={styles.filterCell}>
+          <Select
+            compact
+            icon="navigate-outline"
+            label={t('search.maxKm')}
+            value={maxKm}
+            placeholder={t('search.maxKm')}
+            options={[
+              { value: '', label: t('common.all') },
+              { value: '1', label: `1 ${t('common.km')}` },
+              { value: '3', label: `3 ${t('common.km')}` },
+              { value: '8', label: `8 ${t('common.km')}` },
+              { value: '15', label: `15 ${t('common.km')}` },
+            ]}
+            onChange={setMaxKm}
+          />
+        </View>
+      </View>
+
+      <View style={[styles.chipRow, chipAlign]}>
         {profile?.gender ? (
           <Chip
             label={t('search.suitable')}
@@ -168,12 +251,27 @@ export default function SearchScreen() {
         />
         <Chip label={t('gender.male')} selected={genderFilter === 'male'} onPress={() => setGenderFilter('male')} />
       </View>
-      <View style={[styles.chipRow, { justifyContent: alignStart }]}>
+      <View style={[styles.chipRow, chipAlign]}>
         <Chip label={t('search.sortPrice')} selected={sort === 'price'} onPress={() => setSort('price')} />
         <Chip label={t('search.sortDistance')} selected={sort === 'distance'} onPress={() => setSort('distance')} />
       </View>
+
+      <View style={[styles.metaRow, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
+        <Text style={styles.count}>{loading ? t('common.loading') : t('search.results', { count: filtered.length })}</Text>
+        {filtersOn ? (
+          <Pressable onPress={clearFilters} hitSlop={8}>
+            <Text style={styles.clear}>{t('search.clear')}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       {loading ? <ActivityIndicator color={colors.primary} /> : null}
-      {!loading && filtered.length === 0 ? <EmptyState title={t('search.empty')} /> : null}
+      {!loading && filtered.length === 0 ? (
+        <View style={styles.empty}>
+          <EmptyState title={t('search.empty')} />
+          {filtersOn ? <Button title={t('search.clear')} onPress={clearFilters} variant="secondary" pill /> : null}
+        </View>
+      ) : null}
       {filtered.map(({ item, distance }) => (
         <ListingCard
           key={item.id}
@@ -193,9 +291,32 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  brand: { color: colors.primary, fontWeight: '800', fontSize: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: colors.text },
-  sub: { color: colors.textMuted, marginBottom: 4 },
-  label: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  head: { gap: 4 },
+  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
+  sub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  searchBar: {
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 54,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    color: colors.text,
+    fontFamily: 'Cairo_400Regular',
+    paddingVertical: 12,
+  },
+  filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  filterCell: { flexGrow: 1, flexBasis: '47%', minWidth: 148 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  metaRow: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  count: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  clear: { color: colors.primary, fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  empty: { gap: spacing.md },
 });

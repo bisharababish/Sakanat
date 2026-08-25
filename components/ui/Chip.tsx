@@ -15,7 +15,9 @@ export function Chip({ label, selected, onPress }: Props) {
     <Pressable
       onPress={onPress}
       style={[styles.chip, selected ? styles.selected : null]}>
-      <Text style={[styles.label, selected ? styles.selectedLabel : null, { writingDirection }]}>{label}</Text>
+      <Text style={[styles.label, selected ? styles.selectedLabel : null, { writingDirection }]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -28,6 +30,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+    flexShrink: 0,
   },
   selected: {
     backgroundColor: colors.primary,

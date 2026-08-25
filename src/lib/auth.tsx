@@ -132,11 +132,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'INITIAL_SESSION') return;
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordRecovery(true);
         setTimeout(() => router.replace('/(auth)/reset-password'), 0);
       }
-      // Defer so we do not hold the Supabase auth lock while loading the profile.
       setTimeout(() => {
         void loadForSession(next).catch(() => {
           clearLocalAuth();
@@ -155,7 +155,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.replace('/(auth)/reset-password');
             return;
           }
-          router.replace('/');
         })
         .catch(() => {
           // Invalid or already-used link; the confirmed screen still explains next steps.
@@ -185,7 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: email.trim(),
           password,
         });
-        if (error) throw error;
+        if (error) {
+          const wrapped = new Error(error.message);
+          (wrapped as { code?: string }).code = error.code;
+          throw wrapped;
+        }
         await loadForSession(data.session);
       },
       signUp: async (input) => {
@@ -231,7 +234,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
       },
       signOut: async () => {
-        clearLocalAuth();
         setPasswordRecovery(false);
         await supabase.auth.signOut({ scope: 'local' });
         try {
@@ -239,7 +241,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // Local sign-out is enough to leave the app.
         }
-        router.replace('/(auth)/welcome');
       },
       refreshProfile: async () => {
         if (!session?.user) return null;

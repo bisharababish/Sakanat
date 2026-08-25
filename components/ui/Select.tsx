@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { type ComponentProps, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -15,21 +16,47 @@ type Props = {
   options: Option[];
   onChange: (value: string) => void;
   soft?: boolean;
+  compact?: boolean;
+  icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-export function Select({ label, value, placeholder, options, onChange, soft }: Props) {
+export function Select({ label, value, placeholder, options, onChange, soft, compact, icon }: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText, alignStart, isRtl, textAlign, writingDirection } = useLayout();
   const selected = options.find((option) => option.value === value);
+  const active = Boolean(value);
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, rtlText]}>{label}</Text>
-      <Pressable style={[styles.field, soft ? styles.soft : null]} onPress={() => setOpen(true)}>
-        <Text style={[styles.value, rtlText, !selected && styles.placeholder]}>
+      {compact ? null : <Text style={[styles.label, rtlText]}>{label}</Text>}
+      <Pressable
+        accessibilityLabel={label}
+        style={[
+          compact ? styles.compact : styles.field,
+          soft && !compact ? styles.soft : null,
+          compact && active ? styles.compactOn : null,
+          compact ? { flexDirection: isRtl ? 'row-reverse' : 'row' } : null,
+        ]}
+        onPress={() => setOpen(true)}
+      >
+        {compact && icon ? (
+          <Ionicons name={icon} size={16} color={active ? colors.primary : colors.textMuted} />
+        ) : null}
+        <Text
+          numberOfLines={1}
+          style={[
+            compact ? styles.compactValue : styles.value,
+            { textAlign, writingDirection },
+            !selected && styles.placeholder,
+            compact && active ? styles.compactValueOn : null,
+          ]}
+        >
           {selected?.label ?? placeholder}
         </Text>
+        {compact ? (
+          <Ionicons name="chevron-down" size={14} color={active ? colors.primary : colors.textMuted} />
+        ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.overlay}>
@@ -73,6 +100,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
+  compact: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.full,
+    minHeight: 44,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  compactOn: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  compactValue: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Cairo_700Bold',
+    color: colors.text,
+  },
+  compactValueOn: { color: colors.primary },
   soft: {
     backgroundColor: colors.surfaceMuted,
     borderColor: 'transparent',

@@ -7,7 +7,7 @@ import { colors } from '@/src/theme/colors';
 
 export function AuthBrand({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
-  const { rtlText } = useLayout();
+  const { writingDirection } = useLayout();
 
   return (
     <View style={styles.wrap}>
@@ -15,13 +15,16 @@ export function AuthBrand({ compact }: { compact?: boolean }) {
         <Ionicons name="home" size={compact ? 26 : 32} color={colors.primary} />
         <View style={styles.gold} />
       </View>
-      <Text style={[styles.name, compact && styles.nameSm, rtlText]}>{t('appName')}</Text>
+      <View style={styles.titleBlock}>
+        <Text style={[styles.name, compact && styles.nameSm, { writingDirection }]}>{t('appNameLead')}</Text>
+        <Text style={[styles.tail, compact && styles.tailSm, { writingDirection }]}>{t('appNameTail')}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 12, marginBottom: 8 },
+  wrap: { alignItems: 'center', alignSelf: 'stretch', gap: 12, marginBottom: 8 },
   mark: {
     width: 72,
     height: 72,
@@ -42,13 +45,25 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primarySoft,
   },
+  titleBlock: { alignSelf: 'stretch', alignItems: 'center', paddingHorizontal: 8, gap: 2 },
   name: {
     fontSize: 26,
-    lineHeight: 36,
+    lineHeight: 42,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
     color: colors.primary,
     textAlign: 'center',
+    paddingVertical: 2,
   },
-  nameSm: { fontSize: 20, lineHeight: 28 },
+  nameSm: { fontSize: 20, lineHeight: 34 },
+  tail: {
+    fontSize: 20,
+    lineHeight: 34,
+    fontWeight: '800',
+    fontFamily: 'Cairo_800ExtraBold',
+    color: colors.accent,
+    textAlign: 'center',
+    paddingVertical: 2,
+  },
+  tailSm: { fontSize: 16, lineHeight: 28 },
 });

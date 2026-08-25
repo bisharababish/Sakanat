@@ -1,37 +1,26 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { EmptyState } from '@/components/EmptyState';
+import { BookingCard } from '@/components/booking/BookingCard';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
-import { bookingStatusLabel, formatIls, localizedTitle } from '@/src/lib/format';
+import { bookingStatusLabel } from '@/src/lib/format';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { colors, radius, spacing } from '@/src/theme/colors';
 import type { Apartment, Booking, BookingStatus } from '@/src/types/database';
 
 type Filter = 'all' | BookingStatus;
 
-function formatDate(iso: string, lang: string) {
-  const date = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(lang.startsWith('ar') ? 'ar' : 'en', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
 export default function StudentBookings() {
-  const { t, i18n } = useTranslation();
-  const { rtlText, alignStart, lang } = useLayout();
+  const { t } = useTranslation();
+  const { rtlText, isRtl } = useLayout();
   const { profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -86,12 +75,12 @@ export default function StudentBookings() {
     }
   };
 
-  const filters: Filter[] = ['all', 'pending', 'confirmed', 'cancelled'];
+  const filters: Filter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
 
   return (
     <Screen>
       <Text style={[styles.title, rtlText]}>{t('tabs.bookings')}</Text>
-      <View style={[styles.chips, { justifyContent: alignStart }]}>
+      <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
         {filters.map((value) => (
           <Chip
             key={value}
@@ -101,56 +90,69 @@ export default function StudentBookings() {
           />
         ))}
       </View>
-      {visible.length === 0 ? <EmptyState title={t('booking.empty')} /> : null}
-      {visible.map((booking) => (
-        <Card key={booking.id}>
-          <Text style={[styles.name, rtlText]}>{localizedTitle(booking.apartments, i18n.language)}</Text>
-          {booking.profiles?.full_name ? (
-            <Text style={[styles.meta, rtlText]}>
-              {t('listing.owner')}: {booking.profiles.full_name}
-            </Text>
-          ) : null}
-          <StatusBadge
-            label={bookingStatusLabel(booking.status, t)}
-            tone={booking.status === 'confirmed' ? 'approved' : booking.status === 'cancelled' ? 'rejected' : 'pending'}
-          />
-          <Text style={[styles.meta, rtlText]}>
-            {formatIls(booking.rent_amount, lang)} · {t(`payment.${booking.payment_method}`)} · {t(`payment.${booking.payment_status}`)}
-          </Text>
-          <Text style={[styles.meta, rtlText]}>
-            {formatDate(booking.start_date, i18n.language)} · {booking.months}{' '}
-            {booking.months === 1 ? t('common.month') : t('common.months')}
-          </Text>
-          <View style={styles.actions}>
-            {booking.apartment_id ? (
-              <Button
-                title={t('booking.viewListing')}
-                variant="secondary"
-                onPress={() =>
-                  router.push({ pathname: '/(student)/apartment/[id]', params: { id: booking.apartment_id } })
-                }
-              />
-            ) : null}
-            <Button
-              title={t('booking.messageOwner')}
-              variant="ghost"
-              loading={busyId === booking.id}
-              onPress={() => void messageOwner(booking)}
-            />
-            {booking.status === 'pending' ? (
-              <Button title={t('booking.cancelRequest')} variant="danger" onPress={() => cancel(booking.id)} />
-            ) : null}
+      {visible.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="calendar-outline" size={28} color={colors.primary} />
           </View>
-        </Card>
+          <Text style={[styles.emptyText, rtlText]}>
+            {bookings.length === 0 ? t('booking.empty') : t('booking.emptyFiltered')}
+          </Text>
+          {bookings.length === 0 ? (
+            <Button title={t('booking.findPlace')} onPress={() => router.push('/(student)/(tabs)/search')} pill />
+          ) : null}
+        </View>
+      ) : null}
+      {visible.map((booking) => (
+        <BookingCard
+          key={booking.id}
+          booking={booking}
+          personIcon="home"
+          personLabel={booking.profiles?.full_name ? `${t('listing.owner')}: ${booking.profiles.full_name}` : undefined}
+        >
+          {booking.apartment_id ? (
+            <Button
+              title={t('booking.viewListing')}
+              variant="secondary"
+              pill
+              onPress={() =>
+                router.push({ pathname: '/(student)/apartment/[id]', params: { id: booking.apartment_id } })
+              }
+            />
+          ) : null}
+          <Button
+            title={t('booking.messageOwner')}
+            variant="ghost"
+            pill
+            loading={busyId === booking.id}
+            onPress={() => void messageOwner(booking)}
+          />
+          {booking.status === 'pending' ? (
+            <Button title={t('booking.cancelRequest')} variant="danger" pill onPress={() => cancel(booking.id)} />
+          ) : null}
+        </BookingCard>
       ))}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', color: colors.text },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  name: { fontSize: 17, fontWeight: '800', color: colors.text },
-  meta: { color: colors.textMuted },
-  actions: { gap: 8, marginTop: 4 },
+  emptyBox: {
+    padding: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: { color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
 });

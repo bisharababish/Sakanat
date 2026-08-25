@@ -1,10 +1,14 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ProfileHero } from '@/components/profile/ProfileHero';
+import { ProfileSegments } from '@/components/profile/ProfileSegments';
+import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -13,7 +17,6 @@ import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
@@ -24,20 +27,14 @@ import { uploadProfilePhoto } from '@/src/lib/upload';
 import { colors } from '@/src/theme/colors';
 import type { PersonGender } from '@/src/types/database';
 
-function initials(name?: string | null) {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '؟';
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('');
-}
+type ProfileTab = 'account' | 'security';
 
 export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
-  const { profile, refreshProfile, signOut } = useAuth();
+  const { rtlText, isRtl, row } = useLayout();
+  const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
+  const [tab, setTab] = useState<ProfileTab>('account');
   const [fullName, setFullName] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
@@ -47,6 +44,7 @@ export default function OwnerProfile() {
   const [birthDate, setBirthDate] = useState('');
   const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [listingCount, setListingCount] = useState(0);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -69,19 +67,49 @@ export default function OwnerProfile() {
     setAvatarUrl(profile.avatar_url ?? null);
   }, [profile]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id) return;
+      void supabase
+        .from('apartments')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', profile.id)
+        .then(({ count }) => setListingCount(count ?? 0));
+    }, [profile?.id]),
+  );
+
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
     [cities, i18n.language],
   );
+  const cityName = useMemo(
+    () => localizedName(cities.find((item) => item.id === cityId), i18n.language),
+    [cities, cityId, i18n.language],
+  );
 
-  const accountTone =
-    profile?.owner_status === 'approved' ? 'approved' : profile?.owner_status === 'rejected' ? 'rejected' : 'pending';
-  const accountLabel =
+  const statusLabel =
     profile?.owner_status === 'approved'
       ? t('admin.ownerActive')
       : profile?.owner_status === 'rejected'
         ? t('admin.ownerSuspended')
         : t('admin.ownerWaiting');
+
+  const banner =
+    profile?.owner_status !== 'approved'
+      ? { icon: 'hourglass' as const, text: statusLabel, onPress: () => setTab('account') }
+      : listingCount > 0
+        ? {
+            icon: 'home' as const,
+            text: t('profile.listingCount', { count: listingCount }),
+            onPress: () => router.push('/(owner)/(tabs)/listings'),
+          }
+        : !phoneLocal.trim() || !cityId
+          ? { icon: 'sparkles' as const, text: t('profile.completeHint'), onPress: () => setTab('account') }
+          : {
+              icon: 'home' as const,
+              text: t('tabs.listings'),
+              onPress: () => router.push('/(owner)/(tabs)/listings'),
+            };
 
   const changePhoto = async () => {
     if (!profile) return;
@@ -178,103 +206,105 @@ export default function OwnerProfile() {
   };
 
   return (
-    <Screen>
-      <Text style={[styles.title, rtlText]}>{t('profile.title')}</Text>
-      <Card>
-        <Pressable style={styles.avatarWrap} onPress={() => void changePhoto()}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.initials}>{initials(fullName || profile?.full_name)}</Text>
+    <Screen showLanguage={false}>
+      <ProfileHero
+        name={fullName || profile?.full_name || t('profile.title')}
+        avatarUrl={avatarUrl}
+        uploading={uploading}
+        onChangePhoto={() => void changePhoto()}
+        metas={[
+          { icon: 'shield-checkmark', text: statusLabel },
+          ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
+        ]}
+        chip={t('roles.owner')}
+        email={profile?.email}
+      />
+      <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
+      <ProfileSegments
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { key: 'account', icon: 'person', label: t('profile.tabAccount') },
+          { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
+        ]}
+      />
+
+      {tab === 'account' ? (
+        <>
+          <Card>
+            <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
+            <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
+            <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
+            <View style={[row, styles.chipRow, { flexDirection: 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+              <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
+              <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
             </View>
-          )}
-          <Text style={styles.photoLabel}>{uploading ? t('common.loading') : t('profile.changePhoto')}</Text>
-        </Pressable>
-        <Text style={[styles.email, rtlText]}>{profile?.email}</Text>
-        <Text style={[styles.meta, rtlText]}>
-          {t('profile.role')}: {t('roles.owner')}
-        </Text>
-        <StatusBadge label={accountLabel} tone={accountTone} />
-      </Card>
+            <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
+            <Select
+              label={t('common.city')}
+              value={cityId}
+              placeholder={t('common.select')}
+              options={cityOptions}
+              onChange={setCityId}
+            />
+          </Card>
+          <Card>
+            <SectionHead icon="call-outline" title={t('profile.contactTitle')} />
+            <PhoneField
+              label={t('common.phone')}
+              region={phoneRegion}
+              local={phoneLocal}
+              onRegionChange={setPhoneRegion}
+              onLocalChange={setPhoneLocal}
+            />
+            <PhoneField
+              label={t('profile.whatsapp')}
+              region={waRegion}
+              local={waLocal}
+              onRegionChange={setWaRegion}
+              onLocalChange={setWaLocal}
+            />
+            <Button
+              title={t('profile.openWhatsapp')}
+              variant="secondary"
+              onPress={() => {
+                const number = toE164(waRegion, waLocal);
+                if (!number) {
+                  Alert.alert(t('common.error'), t('phone.invalid'));
+                  return;
+                }
+                void Linking.openURL(whatsappLink(number));
+              }}
+            />
+            <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
+          </Card>
+        </>
+      ) : null}
 
-      <Card>
-        <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
-        <PhoneField
-          label={t('common.phone')}
-          region={phoneRegion}
-          local={phoneLocal}
-          onRegionChange={setPhoneRegion}
-          onLocalChange={setPhoneLocal}
-        />
-        <PhoneField
-          label={t('profile.whatsapp')}
-          region={waRegion}
-          local={waLocal}
-          onRegionChange={setWaRegion}
-          onLocalChange={setWaLocal}
-        />
-        <Button
-          title={t('profile.openWhatsapp')}
-          variant="secondary"
-          onPress={() => {
-            const number = toE164(waRegion, waLocal);
-            if (!number) {
-              Alert.alert(t('common.error'), t('phone.invalid'));
-              return;
-            }
-            void Linking.openURL(whatsappLink(number));
-          }}
-        />
-        <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
-        <View style={[styles.chipRow, { justifyContent: alignStart }]}>
-          <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
-          <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
-        </View>
-        <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
-        <Select
-          label={t('common.city')}
-          value={cityId}
-          placeholder={t('common.select')}
-          options={cityOptions}
-          onChange={setCityId}
-        />
-        <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} />
-      </Card>
-
-      <Card>
-        <Text style={[styles.section, rtlText]}>{t('profile.passwordTitle')}</Text>
-        <Input
-          label={t('profile.currentPassword')}
-          value={currentPassword}
-          onChangeText={setCurrentPassword}
-          secureTextEntry
-        />
-        <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
-        <Input
-          label={t('profile.confirmPassword')}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
-        <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} />
-      </Card>
-
-      <Button title={t('common.logout')} variant="ghost" onPress={() => void signOut()} />
+      {tab === 'security' ? (
+        <Card>
+          <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
+          <Input
+            label={t('profile.currentPassword')}
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            secureTextEntry
+          />
+          <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
+          <Input
+            label={t('profile.confirmPassword')}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+          <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
+        </Card>
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', color: colors.text },
-  avatarWrap: { alignItems: 'center', gap: 8, paddingVertical: 8 },
-  avatar: { width: 104, height: 104, borderRadius: 52, backgroundColor: colors.primarySoft },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 32, fontWeight: '800', color: colors.primary },
-  photoLabel: { color: colors.primary, fontWeight: '700', textAlign: 'center' },
-  email: { fontSize: 15, fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted },
-  label: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  label: { color: colors.text, fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
-  section: { fontSize: 17, fontWeight: '800', color: colors.text },
 });

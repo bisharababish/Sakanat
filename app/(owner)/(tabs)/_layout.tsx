@@ -1,8 +1,8 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { colors } from '@/src/theme/colors';
+import { TabIcon } from '@/components/navigation/TabIcon';
+import { appTabScreenOptions } from '@/src/theme/tabs';
 
 export const unstable_settings = {
   initialRouteName: 'listings',
@@ -12,47 +12,42 @@ export default function OwnerTabs() {
   const { t } = useTranslation();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontWeight: '700', fontSize: 11 },
-      }}>
+    <Tabs screenOptions={appTabScreenOptions}>
       <Tabs.Screen
         name="listings"
         options={{
           title: t('tabs.listings'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="home-outline" filled="home" />,
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: t('tabs.bookings'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="calendar-outline" filled="calendar" />,
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
           title: t('tabs.chat'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} outline="chatbubbles-outline" filled="chatbubbles" />
+          ),
         }}
       />
       <Tabs.Screen
         name="earnings"
         options={{
           title: t('tabs.earnings'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="cash" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="cash-outline" filled="cash" />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: t('tabs.profile'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="person-outline" filled="person" />,
         }}
       />
     </Tabs>

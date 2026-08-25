@@ -1,5 +1,7 @@
 {
   "appName": "Need a place? Book with us",
+  "appNameLead": "Need a place?",
+  "appNameTail": "Book with us",
   "tagline": "Trusted student housing near Palestinian universities",
   "common": {
     "continue": "Continue",
@@ -34,6 +36,8 @@
     "logout": "Log out",
     "email": "Email",
     "password": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "name": "Full name",
     "phone": "Phone number",
     "city": "City",
@@ -102,6 +106,13 @@
     "resetTitle": "New password",
     "resetHint": "Choose a new password for your account.",
     "savePassword": "Save password",
+    "secureNote": "Your details are kept safe",
+    "missingEmailOrPhone": "Enter your email address",
+    "invalidLogin": "Wrong email or password",
+    "emailNotConfirmed": "Confirm your email before logging in",
+    "emailTaken": "This email is already registered. Log in or reset your password",
+    "rateLimit": "Too many attempts. Wait a moment and try again",
+    "samePassword": "The new password must be different",
     "noAccount": "No account yet?",
     "hasAccount": "Already have an account?",
     "chooseRole": "How will you use the app?",
@@ -150,6 +161,9 @@
     "anyUniversity": "All universities",
     "whoFor": "Who can live here",
     "suitable": "Fits me",
+    "placeholder": "Apartment, city, or university",
+    "results": "{{count}} places",
+    "clear": "Clear filters",
     "empty": "No matching apartments yet. Try another city or a higher price."
   },
   "listing": {
@@ -178,6 +192,8 @@
     "success": "Booking sent",
     "successBody": "The owner will review your request. Track it in Bookings or send a message.",
     "empty": "You have no bookings yet.",
+    "emptyFiltered": "No bookings in this status.",
+    "findPlace": "Find a place",
     "incoming": "Booking requests",
     "cancelRequest": "Cancel request",
     "confirmCancel": "Cancel this booking request?",
@@ -221,9 +237,14 @@
   "chat": {
     "title": "Messages",
     "empty": "No conversations yet. Start from an apartment page.",
-    "placeholder": "Ask about price or a discount...",
+    "emptyOwner": "When a student messages you, the chat will show up here.",
+    "emptyThread": "No messages yet. Say hello.",
+    "placeholder": "Write a message...",
     "send": "Send",
-    "unknownPerson": "User"
+    "unknownPerson": "User",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "you": "You"
   },
   "admin": {
     "overview": "Admin dashboard",
@@ -311,6 +332,17 @@
     "year6": "Sixth year",
     "savedListings": "Saved apartments",
     "savedEmpty": "No saved apartments yet. Save one from a listing page.",
-    "unsave": "Remove"
+    "unsave": "Remove",
+    "tabAccount": "Account",
+    "tabSaved": "Saved",
+    "tabSecurity": "Security",
+    "personalTitle": "Your details",
+    "contactTitle": "Contact",
+    "studiesTitle": "Studies",
+    "completeHint": "Complete your profile to find housing faster",
+    "savedCount": "{{count}} saved apartments",
+    "browseListings": "Browse apartments",
+    "listingCount": "{{count}} listings",
+    "tabSettings": "Settings"
   }
 }
