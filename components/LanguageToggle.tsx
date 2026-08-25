@@ -4,7 +4,8 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { changeAppLanguage } from '@/src/i18n';
 import { useAuth } from '@/src/lib/auth';
 import { supabase } from '@/src/lib/supabase';
-import { colors, radius } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   onDark?: boolean;
@@ -13,6 +14,7 @@ type Props = {
 export function LanguageToggle({ onDark }: Props) {
   const { lang } = useLayout();
   const { profile } = useAuth();
+  const colors = useColors();
 
   const setLang = async (next: 'ar' | 'en') => {
     if (next === lang) return;
@@ -23,20 +25,41 @@ export function LanguageToggle({ onDark }: Props) {
   };
 
   return (
-    <View style={[styles.wrap, onDark ? styles.wrapDark : null]}>
+    <View
+      style={[
+        styles.wrap,
+        onDark
+          ? styles.wrapDark
+          : { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
       <Pressable
         onPress={() => void setLang('ar')}
         hitSlop={12}
-        style={[styles.btn, lang === 'ar' && (onDark ? styles.activeDark : styles.active)]}>
-        <Text style={[styles.label, onDark && styles.labelDark, lang === 'ar' && (onDark ? styles.activeLabelDark : styles.activeLabel)]}>
+        style={[styles.btn, lang === 'ar' && { backgroundColor: onDark ? colors.accent : colors.primary }]}
+      >
+        <Text
+          style={[
+            styles.label,
+            { color: onDark ? 'rgba(255,255,255,0.78)' : colors.textMuted },
+            lang === 'ar' && { color: onDark ? colors.primaryDark : colors.white },
+          ]}
+        >
           ع
         </Text>
       </Pressable>
       <Pressable
         onPress={() => void setLang('en')}
         hitSlop={12}
-        style={[styles.btn, lang === 'en' && (onDark ? styles.activeDark : styles.active)]}>
-        <Text style={[styles.label, onDark && styles.labelDark, lang === 'en' && (onDark ? styles.activeLabelDark : styles.activeLabel)]}>
+        style={[styles.btn, lang === 'en' && { backgroundColor: onDark ? colors.accent : colors.primary }]}
+      >
+        <Text
+          style={[
+            styles.label,
+            { color: onDark ? 'rgba(255,255,255,0.78)' : colors.textMuted },
+            lang === 'en' && { color: onDark ? colors.primaryDark : colors.white },
+          ]}
+        >
           EN
         </Text>
       </Pressable>
@@ -47,12 +70,11 @@ export function LanguageToggle({ onDark }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    direction: 'ltr',
+    flexShrink: 0,
     borderRadius: radius.full,
     padding: 3,
-    alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: colors.border,
   },
   btn: {
     minWidth: 36,
@@ -66,10 +88,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderColor: 'transparent',
   },
-  active: { backgroundColor: colors.primary },
-  activeDark: { backgroundColor: colors.accent },
-  label: { fontWeight: '800', fontSize: 12, color: colors.textMuted },
-  labelDark: { color: 'rgba(255,255,255,0.78)' },
-  activeLabel: { color: colors.white },
-  activeLabelDark: { color: colors.primaryDark },
+  label: { fontWeight: '800', fontSize: 12 },
 });

@@ -3,10 +3,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { LanguageToggle } from '@/components/LanguageToggle';
-import { LogoutButton } from '@/components/ui/LogoutButton';
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Meta = { icon: ComponentProps<typeof Ionicons>['name']; text: string };
 
@@ -30,26 +29,23 @@ function initials(name?: string | null) {
 }
 
 export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas = [], chip, email }: Props) {
-  const { row, rtlText, alignStart, isRtl } = useLayout();
+  const { rtlText, isRtl, textAlign, writingDirection } = useLayout();
+  const colors = useColors();
 
   return (
-    <View style={styles.hero}>
+    <View style={[styles.hero, { backgroundColor: colors.primary }]}>
       <View style={[styles.blob, styles.blobGold]} />
       <View style={[styles.blob, styles.blobLight]} />
-      <View style={[styles.heroTop, row]}>
-        <LanguageToggle onDark />
-        <LogoutButton />
-      </View>
-      <View style={[styles.heroBody, row]}>
+      <View style={styles.heroBody}>
         <Pressable onPress={onChangePhoto} style={styles.avatarWrap}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.initials}>{initials(name)}</Text>
+            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
+              <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
             </View>
           )}
-          <View style={[styles.cameraBadge, isRtl ? styles.badgeStart : styles.badgeEnd]}>
+          <View style={[styles.cameraBadge, isRtl ? styles.badgeStart : styles.badgeEnd, { backgroundColor: colors.accent, borderColor: colors.primary }]}>
             <Ionicons name={uploading ? 'hourglass' : 'camera'} size={13} color={colors.white} />
           </View>
         </Pressable>
@@ -58,15 +54,18 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
             {name}
           </Text>
           {metas.map((item) => (
-            <View key={`${item.icon}-${item.text}`} style={[styles.heroMeta, row]}>
+            <View key={`${item.icon}-${item.text}`} style={styles.heroMeta}>
               <Ionicons name={item.icon} size={14} color={colors.accent} />
-              <Text style={styles.heroMetaText} numberOfLines={1}>
+              <Text
+                style={[styles.heroMetaText, { textAlign, writingDirection }]}
+                numberOfLines={1}
+              >
                 {item.text}
               </Text>
             </View>
           ))}
           {chip ? (
-            <View style={[styles.heroChip, { alignSelf: alignStart }]}>
+            <View style={[styles.heroChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
               <Text style={styles.heroChipText}>{chip}</Text>
             </View>
           ) : null}
@@ -83,16 +82,11 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
 
 const styles = StyleSheet.create({
   hero: {
-    backgroundColor: colors.primary,
     borderRadius: radius.xl,
     padding: spacing.md,
     overflow: 'hidden',
     gap: spacing.md,
-    minHeight: 176,
-  },
-  heroTop: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    minHeight: 148,
   },
   blob: {
     position: 'absolute',
@@ -111,6 +105,7 @@ const styles = StyleSheet.create({
     start: -40,
   },
   heroBody: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
@@ -119,37 +114,42 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#E4EFE7',
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.85)',
   },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.primary },
+  initials: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   cameraBadge: {
     position: 'absolute',
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.primary,
     bottom: 0,
   },
   badgeStart: { start: -2 },
   badgeEnd: { end: -2 },
-  heroInfo: { flex: 1, gap: 6 },
+  heroInfo: { flex: 1, minWidth: 0, gap: 6, alignItems: 'stretch' },
   heroName: {
-    color: colors.white,
+    color: '#fff',
     fontSize: 22,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
   },
-  heroMeta: { alignItems: 'center', gap: 6 },
+  heroMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
+    gap: 6,
+  },
   heroMetaText: {
     flex: 1,
-    color: colors.accentSoft,
+    minWidth: 0,
+    color: '#F4E9CF',
     fontSize: 13,
     fontFamily: 'Cairo_600SemiBold',
   },
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   heroChipText: {
-    color: colors.white,
+    color: '#fff',
     fontSize: 12,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',

@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { bookingStatusLabel, bookingTone, formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Booking } from '@/src/types/database';
 
 type Props = {
@@ -28,10 +29,11 @@ function MetaLine({
   color: string;
 }) {
   const { textAlign, writingDirection } = useLayout();
+  const colors = useColors();
   return (
     <View style={styles.metaRow}>
       <Ionicons name={icon} size={16} color={color} style={styles.metaIcon} />
-      <Text style={[styles.meta, { textAlign, writingDirection }]}>{text}</Text>
+      <Text style={[styles.meta, { textAlign, writingDirection, color: colors.textMuted }]}>{text}</Text>
     </View>
   );
 }
@@ -39,26 +41,27 @@ function MetaLine({
 export function BookingCard({ booking, personIcon = 'person', personLabel, extra, children }: Props) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, lang } = useLayout();
+  const colors = useColors();
   const photo = booking.apartments?.photos?.[0];
   const city = localizedName(booking.apartments?.cities, i18n.language);
   const monthsLabel = `${booking.months} ${booking.months === 1 ? t('common.month') : t('common.months')}`;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
       <View style={styles.top}>
         {photo ? (
           <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
         ) : (
-          <View style={[styles.photo, styles.photoFallback]}>
+          <View style={[styles.photo, styles.photoFallback, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="home" size={22} color={colors.primary} />
           </View>
         )}
         <View style={styles.head}>
-          <Text style={[styles.title, { textAlign, writingDirection }]} numberOfLines={2}>
+          <Text style={[styles.title, { textAlign, writingDirection, color: colors.text }]} numberOfLines={2}>
             {localizedTitle(booking.apartments, i18n.language)}
           </Text>
           {city ? (
-            <Text style={[styles.city, { textAlign, writingDirection }]} numberOfLines={1}>
+            <Text style={[styles.city, { textAlign, writingDirection, color: colors.textMuted }]} numberOfLines={1}>
               {city}
             </Text>
           ) : null}
@@ -87,13 +90,10 @@ export function BookingCard({ booking, personIcon = 'person', personLabel, extra
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
     borderRadius: radius.xl,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
     gap: 10,
-    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
@@ -108,7 +108,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -119,10 +118,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
-    color: colors.text,
     lineHeight: 24,
   },
-  city: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
+  city: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,7 +130,6 @@ const styles = StyleSheet.create({
   meta: {
     flex: 1,
     minWidth: 0,
-    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 22,
     fontFamily: 'Cairo_400Regular',

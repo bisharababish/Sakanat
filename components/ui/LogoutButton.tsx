@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { alert } from '@/src/lib/notice';
 import { colors, radius } from '@/src/theme/colors';
 
 export function LogoutButton() {
@@ -11,9 +12,16 @@ export function LogoutButton() {
   const { signOut } = useAuth();
   const { row } = useLayout();
 
+  const confirmLogout = () => {
+    alert(t('common.logout'), t('common.confirmLogout'), [
+      { text: t('common.no'), style: 'cancel' },
+      { text: t('common.yes'), style: 'destructive', onPress: () => void signOut() },
+    ]);
+  };
+
   return (
     <Pressable
-      onPress={() => void signOut()}
+      onPress={confirmLogout}
       accessibilityRole="button"
       accessibilityLabel={t('common.logout')}
       style={({ pressed }) => [styles.btn, row, { opacity: pressed ? 0.82 : 1 }]}

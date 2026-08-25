@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   label: string;
@@ -11,11 +12,22 @@ type Props = {
 
 export function Chip({ label, selected, onPress }: Props) {
   const { writingDirection } = useLayout();
+  const colors = useColors();
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.chip, selected ? styles.selected : null]}>
-      <Text style={[styles.label, selected ? styles.selectedLabel : null, { writingDirection }]} numberOfLines={1}>
+      style={[
+        styles.chip,
+        {
+          backgroundColor: selected ? colors.primary : colors.surface,
+          borderColor: selected ? colors.primary : colors.border,
+        },
+      ]}
+    >
+      <Text
+        style={[styles.label, { color: selected ? colors.white : colors.text, writingDirection }]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </Pressable>
@@ -27,15 +39,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
     borderRadius: radius.full,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     flexShrink: 0,
   },
-  selected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  label: { color: colors.text, fontWeight: '600', fontSize: 13 },
-  selectedLabel: { color: colors.white },
+  label: { fontWeight: '600', fontSize: 13 },
 });

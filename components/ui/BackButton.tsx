@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export function goBack() {
   if (router.canGoBack()) {
@@ -17,6 +17,7 @@ export function goBack() {
 export function BackButton({ onPress, compact }: { onPress?: () => void; compact?: boolean }) {
   const { t } = useTranslation();
   const { isRtl, row } = useLayout();
+  const colors = useColors();
 
   return (
     <Pressable
@@ -30,7 +31,7 @@ export function BackButton({ onPress, compact }: { onPress?: () => void; compact
         size={24}
         color={colors.primary}
       />
-      {compact ? null : <Text style={styles.label}>{t('common.back')}</Text>}
+      {compact ? null : <Text style={[styles.label, { color: colors.primary }]}>{t('common.back')}</Text>}
     </Pressable>
   );
 }
@@ -42,5 +43,5 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   pressed: { opacity: 0.7 },
-  label: { color: colors.primary, fontWeight: '800', fontSize: 16 },
+  label: { fontWeight: '800', fontSize: 16 },
 });

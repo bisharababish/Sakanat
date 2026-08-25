@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { formatKm, listingDistanceKm, mapsUrl } from '@/src/lib/distance';
 import { formatIls, listingBadgeTone, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
 import type { Apartment, ListingStatus } from '@/src/types/database';
@@ -57,20 +58,20 @@ export default function AdminApartmentReview() {
     setBusy(true);
     const { error } = await supabase.from('apartments').update({ status }).eq('id', apartment.id);
     setBusy(false);
-    if (error) Alert.alert(t('common.error'), error.message);
+    if (error) alert(t('common.error'), error.message);
     else void load();
   };
 
   const removeListing = () => {
     if (!apartment) return;
-    Alert.alert(t('admin.deleteListing'), t('admin.confirmDelete'), [
+    alert(t('admin.deleteListing'), t('admin.confirmDelete'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('admin.deleteListing'),
         style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('apartments').delete().eq('id', apartment.id);
-          if (error) Alert.alert(t('common.error'), error.message);
+          if (error) alert(t('common.error'), error.message);
           else router.back();
         },
       },
@@ -151,10 +152,29 @@ export default function AdminApartmentReview() {
           <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)} />
         ) : null}
         {apartment.status !== 'approved' ? (
-          <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} />
+          <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} pill />
+        ) : (
+          <Button title={t('owner.hideListing')} variant="secondary" onPress={() => void setStatus('hidden')} loading={busy} pill />
+        )}
+        {apartment.status === 'hidden' ? (
+          <Button title={t('owner.unhideListing')} variant="secondary" onPress={() => void setStatus('approved')} loading={busy} pill />
         ) : null}
         {apartment.status !== 'rejected' ? (
-          <Button title={t('admin.reject')} variant="danger" onPress={() => void setStatus('rejected')} loading={busy} />
+          <Button title={t('admin.reject')} variant="danger" onPress={() => void setStatus('rejected')} loading={busy} pill />
+        ) : null}
+        <Button
+          title={t('owner.editListing')}
+          variant="secondary"
+          pill
+          onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: apartment.id } })}
+        />
+        {apartment.owner_id ? (
+          <Button
+            title={t('admin.editUser')}
+            variant="ghost"
+            pill
+            onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: apartment.owner_id } })}
+          />
         ) : null}
         <Button title={t('admin.deleteListing')} variant="ghost" onPress={removeListing} />
       </ScrollView>

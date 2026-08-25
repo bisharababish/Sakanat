@@ -2,29 +2,31 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MenuButton } from '@/components/menu/MenuButton';
 import { BackButton } from '@/components/ui/BackButton';
-import { LanguageToggle } from '@/components/LanguageToggle';
-import { colors, spacing } from '@/src/theme/colors';
+import { spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   children: ReactNode;
   scroll?: boolean;
-  showLanguage?: boolean;
+  showMenu?: boolean;
   back?: boolean;
 };
 
-export function Screen({ children, scroll = true, showLanguage = true, back = false }: Props) {
+export function Screen({ children, scroll = true, showMenu = true, back = false }: Props) {
+  const colors = useColors();
   const bar =
-    back || showLanguage ? (
-      <View style={[styles.langBar, back ? styles.topRow : styles.langOnly]}>
+    back || showMenu ? (
+      <View style={[styles.langBar, back ? styles.topRow : styles.menuOnly]}>
         {back ? <BackButton /> : null}
-        {showLanguage ? <LanguageToggle /> : null}
+        {showMenu ? <MenuButton /> : null}
       </View>
     ) : null;
 
   if (!scroll) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
         {bar}
         <View style={styles.pad}>{children}</View>
       </SafeAreaView>
@@ -32,7 +34,7 @@ export function Screen({ children, scroll = true, showLanguage = true, back = fa
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {bar}
       <ScrollView contentContainerStyle={styles.pad} keyboardShouldPersistTaps="handled">
         {children}
@@ -42,8 +44,9 @@ export function Screen({ children, scroll = true, showLanguage = true, back = fa
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1 },
   langBar: {
+    direction: 'ltr',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
@@ -53,8 +56,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  langOnly: {
-    alignItems: 'flex-start',
+  menuOnly: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   pad: { flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingTop: spacing.md },
 });

@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { changeAppLanguage } from '@/src/i18n';
 import { studentEmailError } from '@/src/lib/eduEmail';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
-import type { Profile, UserRole } from '@/src/types/database';
+import type { PersonGender, Profile, UserRole } from '@/src/types/database';
 
 function paramsFromAuthUrl(url: string) {
   const query = url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
@@ -40,6 +40,7 @@ type SignUpInput = {
   role: Exclude<UserRole, 'admin'>;
   cityId?: string;
   universityId?: string;
+  gender?: PersonGender;
   language: 'ar' | 'en';
 };
 
@@ -100,6 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut({ scope: 'local' });
       if (mine === loadGen.current) clearLocalAuth();
       return;
+    }
+    const metaGender = next.user.user_metadata?.gender;
+    if (!nextProfile.gender && (metaGender === 'male' || metaGender === 'female')) {
+      await supabase.from('profiles').update({ gender: metaGender }).eq('id', nextProfile.id);
+      nextProfile.gender = metaGender;
     }
     setSession(next);
     setProfile(nextProfile);
@@ -192,11 +198,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadForSession(data.session);
       },
       signUp: async (input) => {
-        if (input.role === 'student') {
-          const emailIssue = studentEmailError(input.email);
-          if (emailIssue) {
-            throw new Error(emailIssue);
-          }
+        const emailIssue = studentEmailError(input.email);
+        if (emailIssue) {
+          throw new Error(emailIssue);
         }
         const { data, error } = await supabase.auth.signUp({
           email: input.email.trim(),
@@ -206,9 +210,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             data: {
               full_name: input.fullName,
               phone: input.phone,
-              role: input.role,
+              role: 'student',
               city_id: input.cityId ?? '',
               university_id: input.universityId ?? '',
+              gender: input.gender ?? '',
               language: input.language,
             },
           },

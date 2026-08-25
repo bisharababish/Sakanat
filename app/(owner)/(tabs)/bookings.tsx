@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
@@ -13,6 +13,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
 import { bookingStatusLabel } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { whatsappLink } from '@/src/lib/phone';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
@@ -53,7 +54,7 @@ export default function OwnerBookings() {
   const updateStatus = async (id: string, status: BookingStatus) => {
     const booking = bookings.find((item) => item.id === id);
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
-    if (error) Alert.alert(t('common.error'), error.message);
+    if (error) alert(t('common.error'), error.message);
     else {
       if (status === 'confirmed' && booking?.student_id) {
         void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
@@ -69,7 +70,7 @@ export default function OwnerBookings() {
       const conversationId = await openConversation(booking.apartments as Apartment, booking.student_id);
       router.push({ pathname: '/(owner)/conversation/[id]', params: { id: conversationId } });
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setBusyId(null);
     }

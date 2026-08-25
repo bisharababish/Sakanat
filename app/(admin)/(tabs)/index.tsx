@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { formatIls, localizedTitle } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { colors } from '@/src/theme/colors';
 import type { Apartment, Booking, Profile } from '@/src/types/database';
@@ -57,13 +58,13 @@ export default function AdminOverview() {
 
   const setOwnerStatus = async (id: string) => {
     const { error } = await supabase.from('profiles').update({ owner_status: 'approved' }).eq('id', id);
-    if (error) Alert.alert(t('common.error'), error.message);
+    if (error) alert(t('common.error'), error.message);
     else void load();
   };
 
   const setListingStatus = async (id: string) => {
     const { error } = await supabase.from('apartments').update({ status: 'approved' }).eq('id', id);
-    if (error) Alert.alert(t('common.error'), error.message);
+    if (error) alert(t('common.error'), error.message);
     else void load();
   };
 

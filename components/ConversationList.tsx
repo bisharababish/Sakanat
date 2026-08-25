@@ -43,7 +43,7 @@ export function ConversationList({
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
 }) {
   const { t, i18n } = useTranslation();
-  const { rtlText, row } = useLayout();
+  const { textAlign, writingDirection, isRtl } = useLayout();
   const { profile } = useAuth();
   const [items, setItems] = useState<Conversation[] | null>(null);
 
@@ -71,7 +71,7 @@ export function ConversationList({
         <View style={styles.emptyIcon}>
           <Ionicons name="chatbubbles-outline" size={28} color={colors.primary} />
         </View>
-        <Text style={[styles.emptyText, rtlText]}>
+        <Text style={[styles.emptyText, { textAlign, writingDirection }]}>
           {profile?.role === 'owner' ? t('chat.emptyOwner') : t('chat.empty')}
         </Text>
       </View>
@@ -89,7 +89,11 @@ export function ConversationList({
           <Pressable
             key={item.id}
             onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
-            style={({ pressed }) => [styles.card, row, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.card,
+              { flexDirection: isRtl ? 'row-reverse' : 'row' },
+              pressed && styles.pressed,
+            ]}
           >
             {photo ? (
               <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
@@ -99,8 +103,8 @@ export function ConversationList({
               </View>
             )}
             <View style={styles.body}>
-              <View style={[styles.top, row]}>
-                <Text style={[styles.title, rtlText]} numberOfLines={1}>
+              <View style={[styles.top, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.title, { textAlign, writingDirection }]} numberOfLines={1}>
                   {name}
                 </Text>
                 <Text style={styles.when}>
@@ -108,11 +112,11 @@ export function ConversationList({
                 </Text>
               </View>
               {listing ? (
-                <Text style={[styles.listing, rtlText]} numberOfLines={1}>
+                <Text style={[styles.listing, { textAlign, writingDirection }]} numberOfLines={1}>
                   {listing}
                 </Text>
               ) : null}
-              <Text style={[styles.preview, rtlText]} numberOfLines={1}>
+              <Text style={[styles.preview, { textAlign, writingDirection }]} numberOfLines={1}>
                 {item.last_message || '—'}
               </Text>
             </View>
@@ -145,9 +149,9 @@ const styles = StyleSheet.create({
   },
   photoFallback: { backgroundColor: colors.primarySoft },
   initials: { color: colors.primary, fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 18 },
-  body: { flex: 1, gap: 2 },
+  body: { flex: 1, minWidth: 0, gap: 2 },
   top: { alignItems: 'center', gap: 8 },
-  title: { flex: 1, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
+  title: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
   when: { color: colors.textMuted, fontSize: 12, fontFamily: 'Cairo_400Regular' },
   listing: { color: colors.primary, fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   preview: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular' },

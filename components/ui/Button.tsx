@@ -1,7 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   title: string;
@@ -14,6 +15,7 @@ type Props = {
 
 export function Button({ title, onPress, variant = 'primary', disabled, loading, pill }: Props) {
   const { writingDirection } = useLayout();
+  const colors = useColors();
   const palette = {
     primary: { bg: colors.primary, text: colors.white, border: colors.primary },
     secondary: { bg: colors.accentSoft, text: colors.primaryDark, border: colors.accent },

@@ -2,9 +2,10 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MenuButton } from '@/components/menu/MenuButton';
 import { BackButton } from '@/components/ui/BackButton';
-import { LanguageToggle } from '@/components/LanguageToggle';
-import { colors, spacing } from '@/src/theme/colors';
+import { spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   children: ReactNode;
@@ -13,11 +14,12 @@ type Props = {
 };
 
 export function AuthScreen({ children, back = false, center = true }: Props) {
+  const colors = useColors();
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={[styles.top, back ? styles.topRow : styles.langOnly]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <View style={[styles.top, back ? styles.topRow : styles.menuOnly]}>
         {back ? <BackButton /> : null}
-        <LanguageToggle />
+        <MenuButton />
       </View>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -32,9 +34,10 @@ export function AuthScreen({ children, back = false, center = true }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1 },
   flex: { flex: 1 },
   top: {
+    direction: 'ltr',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
@@ -44,10 +47,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  langOnly: {
+  menuOnly: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-end',
   },
   content: {
     flexGrow: 1,

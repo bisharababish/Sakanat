@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Option = { label: string; value: string };
 
@@ -24,18 +25,21 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { rtlText, alignStart, isRtl, textAlign, writingDirection } = useLayout();
+  const colors = useColors();
   const selected = options.find((option) => option.value === value);
   const active = Boolean(value);
 
   return (
     <View style={styles.wrap}>
-      {compact ? null : <Text style={[styles.label, rtlText]}>{label}</Text>}
+      {compact ? null : <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>}
       <Pressable
         accessibilityLabel={label}
         style={[
           compact ? styles.compact : styles.field,
-          soft && !compact ? styles.soft : null,
-          compact && active ? styles.compactOn : null,
+          {
+            backgroundColor: compact && active ? colors.primarySoft : soft && !compact ? colors.surfaceMuted : colors.surface,
+            borderColor: compact && active ? colors.primary : soft && !compact ? 'transparent' : colors.border,
+          },
           compact ? { flexDirection: isRtl ? 'row-reverse' : 'row' } : null,
         ]}
         onPress={() => setOpen(true)}
@@ -47,9 +51,7 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
           numberOfLines={1}
           style={[
             compact ? styles.compactValue : styles.value,
-            { textAlign, writingDirection },
-            !selected && styles.placeholder,
-            compact && active ? styles.compactValueOn : null,
+            { color: !selected ? colors.textMuted : compact && active ? colors.primary : colors.text, textAlign, writingDirection },
           ]}
         >
           {selected?.label ?? placeholder}
@@ -59,25 +61,25 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
         ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />
             </View>
             <ScrollView keyboardShouldPersistTaps="handled">
               {options.length === 0 ? (
-                <Text style={[styles.empty, rtlText]}>{t('common.noResults')}</Text>
+                <Text style={[styles.empty, rtlText, { color: colors.textMuted }]}>{t('common.noResults')}</Text>
               ) : null}
               {options.map((option) => (
                 <Pressable
                   key={option.value || 'empty'}
-                  style={styles.option}
+                  style={[styles.option, { borderBottomColor: colors.border }]}
                   onPress={() => {
                     onChange(option.value);
                     setOpen(false);
                   }}>
-                  <Text style={[styles.optionLabel, rtlText]}>{option.label}</Text>
+                  <Text style={[styles.optionLabel, rtlText, { color: colors.text }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -90,10 +92,8 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  label: { fontWeight: '700', fontSize: 14 },
   field: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
     minHeight: 52,
@@ -101,8 +101,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   compact: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.full,
     minHeight: 44,
@@ -110,36 +108,21 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
   },
-  compactOn: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
   compactValue: {
     flex: 1,
     minWidth: 0,
     fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
-    color: colors.text,
   },
-  compactValueOn: { color: colors.primary },
-  soft: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: 'transparent',
-    borderRadius: radius.full,
-    minHeight: 54,
-  },
-  value: { fontSize: 16, color: colors.text },
-  placeholder: { color: colors.textMuted },
+  value: { fontSize: 16 },
   overlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: spacing.lg,
   },
   sheet: {
     maxHeight: '70%',
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
@@ -147,8 +130,7 @@ const styles = StyleSheet.create({
   option: {
     padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
-  optionLabel: { fontSize: 16, color: colors.text },
-  empty: { padding: spacing.lg, color: colors.textMuted },
+  optionLabel: { fontSize: 16 },
+  empty: { padding: spacing.lg },
 });

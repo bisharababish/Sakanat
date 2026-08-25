@@ -5,11 +5,13 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { BrandLoader } from '@/components/BrandLoader';
+import { MenuProvider } from '@/components/menu/MenuProvider';
 import { AuthProvider, useAuth } from '@/src/lib/auth';
 import i18n, { applyRtl, loadSavedLanguage } from '@/src/i18n';
+import { NoticeProvider } from '@/src/lib/notice';
 import { registerPushToken } from '@/src/lib/push';
 import { homeHref } from '@/src/lib/routes';
-import { colors } from '@/src/theme/colors';
+import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -59,16 +61,34 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <SessionGuard>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        />
-      </SessionGuard>
+      <ThemeProvider>
+        <MenuProvider>
+          <NoticeProvider>
+            <ThemedStatusBar />
+            <SessionGuard>
+              <AppStack />
+            </SessionGuard>
+          </NoticeProvider>
+        </MenuProvider>
+      </ThemeProvider>
     </AuthProvider>
+  );
+}
+
+function ThemedStatusBar() {
+  const { scheme } = useTheme();
+  return <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />;
+}
+
+function AppStack() {
+  const colors = useColors();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    />
   );
 }
 

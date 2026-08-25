@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
@@ -21,6 +21,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
@@ -128,7 +129,7 @@ export default function OwnerProfile() {
       setAvatarUrl(url);
       await refreshProfile();
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUploading(false);
     }
@@ -136,17 +137,17 @@ export default function OwnerProfile() {
 
   const saveProfile = async () => {
     if (!profile || !fullName.trim()) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+      alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     if (phoneLocal.trim() && !cleanPhone) {
-      Alert.alert(t('common.error'), t('phone.invalid'));
+      alert(t('common.error'), t('phone.invalid'));
       return;
     }
     const cleanWhatsapp = waLocal.trim() ? toE164(waRegion, waLocal) : null;
     if (waLocal.trim() && !cleanWhatsapp) {
-      Alert.alert(t('common.error'), t('phone.invalid'));
+      alert(t('common.error'), t('phone.invalid'));
       return;
     }
     setSaving(true);
@@ -164,9 +165,9 @@ export default function OwnerProfile() {
         .eq('id', profile.id);
       if (error) throw error;
       await refreshProfile();
-      Alert.alert(t('common.done'), t('profile.saved'));
+      alert(t('common.done'), t('profile.saved'));
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setSaving(false);
     }
@@ -174,15 +175,15 @@ export default function OwnerProfile() {
 
   const changePassword = async () => {
     if (!profile?.email || !currentPassword || !newPassword) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+      alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert(t('common.error'), t('auth.weakPassword'));
+      alert(t('common.error'), t('auth.weakPassword'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('common.error'), t('profile.passwordMismatch'));
+      alert(t('common.error'), t('profile.passwordMismatch'));
       return;
     }
     setUpdatingPassword(true);
@@ -197,16 +198,16 @@ export default function OwnerProfile() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      Alert.alert(t('common.done'), t('profile.passwordChanged'));
+      alert(t('common.done'), t('profile.passwordChanged'));
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUpdatingPassword(false);
     }
   };
 
   return (
-    <Screen showLanguage={false}>
+    <Screen>
       <ProfileHero
         name={fullName || profile?.full_name || t('profile.title')}
         avatarUrl={avatarUrl}
@@ -270,7 +271,7 @@ export default function OwnerProfile() {
               onPress={() => {
                 const number = toE164(waRegion, waLocal);
                 if (!number) {
-                  Alert.alert(t('common.error'), t('phone.invalid'));
+                  alert(t('common.error'), t('phone.invalid'));
                   return;
                 }
                 void Linking.openURL(whatsappLink(number));

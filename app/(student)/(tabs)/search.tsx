@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
+import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
@@ -14,8 +15,10 @@ import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { listingDistanceKm } from '@/src/lib/distance';
+import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
+import { isStudentReady } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
 import type { Apartment, GenderPolicy, University } from '@/src/types/database';
@@ -36,6 +39,7 @@ export default function SearchScreen() {
   const [maxKm, setMaxKm] = useState('');
   const [sort, setSort] = useState<'price' | 'distance'>('price');
   const [genderFilter, setGenderFilter] = useState<GenderFilter>(profile?.gender ? 'suitable' : 'all');
+  const [savedIds, setSavedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (profile?.city_id) setCityId((current) => current || profile.city_id || '');
@@ -51,7 +55,14 @@ export default function SearchScreen() {
       .order('price_month');
     setApartments((data as Apartment[]) ?? []);
     setLoading(false);
-  }, []);
+    if (profile?.id) {
+      try {
+        setSavedIds(await loadSavedApartmentIds(profile.id));
+      } catch {
+        setSavedIds([]);
+      }
+    }
+  }, [profile?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -150,6 +161,14 @@ export default function SearchScreen() {
         <Text style={[styles.sub, rtlText]}>{t('search.subtitle')}</Text>
       </View>
 
+      {!isStudentReady(profile) ? (
+        <ProfileBanner
+          icon="sparkles"
+          text={t('profile.completeHint')}
+          onPress={() => router.push('/(student)/(tabs)/profile')}
+        />
+      ) : null}
+
       <View style={[styles.searchBar, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
         <Ionicons name="search" size={20} color={colors.primary} />
         <TextInput
@@ -225,10 +244,13 @@ export default function SearchScreen() {
             placeholder={t('search.maxKm')}
             options={[
               { value: '', label: t('common.all') },
+              { value: String(UNDER_ONE_KM), label: t('common.under1km') },
               { value: '1', label: `1 ${t('common.km')}` },
+              { value: '2', label: `2 ${t('common.km')}` },
               { value: '3', label: `3 ${t('common.km')}` },
+              { value: '5', label: `5 ${t('common.km')}` },
               { value: '8', label: `8 ${t('common.km')}` },
-              { value: '15', label: `15 ${t('common.km')}` },
+              { value: '10', label: `10 ${t('common.km')}` },
             ]}
             onChange={setMaxKm}
           />
@@ -278,6 +300,20 @@ export default function SearchScreen() {
           apartment={item}
           university={(selectedUniversity ?? item.universities) as University | null}
           distanceKm={distance}
+          saved={savedIds.includes(item.id)}
+          onToggleSave={() => {
+            if (!profile) return;
+            const currently = savedIds.includes(item.id);
+            setSavedIds((ids) => (currently ? ids.filter((id) => id !== item.id) : [...ids, item.id]));
+            void toggleSavedApartment(profile.id, item.id, currently).then((next) => {
+              setSavedIds((ids) => {
+                const has = ids.includes(item.id);
+                if (next && !has) return [...ids, item.id];
+                if (!next && has) return ids.filter((id) => id !== item.id);
+                return ids;
+              });
+            });
+          }}
           onPress={() =>
             router.push({
               pathname: '/(student)/apartment/[id]',

@@ -4,11 +4,13 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
+import { MenuButton } from '@/components/menu/MenuButton';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { loadConversation, otherPerson, personName } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
-import { colors, spacing } from '@/src/theme/colors';
+import { spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
 function initials(name: string) {
@@ -22,8 +24,9 @@ function initials(name: string) {
 
 export function ChatHeader({ conversationId }: { conversationId: string }) {
   const { t, i18n } = useTranslation();
-  const { row, rtlText } = useLayout();
+  const { rtlText } = useLayout();
   const { profile } = useAuth();
+  const colors = useColors();
   const [conversation, setConversation] = useState<Conversation | null>(null);
 
   useEffect(() => {
@@ -38,48 +41,48 @@ export function ChatHeader({ conversationId }: { conversationId: string }) {
   const photo = person?.avatar_url;
 
   return (
-    <View style={[styles.header, row]}>
+    <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
       <BackButton compact />
       {photo ? (
         <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
       ) : (
-        <View style={[styles.avatar, styles.fallback]}>
-          <Text style={styles.initials}>{initials(name)}</Text>
+        <View style={[styles.avatar, styles.fallback, { backgroundColor: colors.primarySoft }]}>
+          <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
         </View>
       )}
       <View style={styles.meta}>
-        <Text style={[styles.name, rtlText]} numberOfLines={1}>
+        <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
           {name}
         </Text>
         {listing ? (
-          <Text style={[styles.sub, rtlText]} numberOfLines={1}>
+          <Text style={[styles.sub, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
             {listing}
           </Text>
         ) : null}
       </View>
+      <MenuButton />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    flexDirection: 'row',
+    direction: 'ltr',
     paddingHorizontal: spacing.lg,
     paddingVertical: 10,
     alignItems: 'center',
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primarySoft,
   },
   fallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { color: colors.primary, fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
+  initials: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
   meta: { flex: 1, gap: 1 },
-  name: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  sub: { fontSize: 12, color: colors.textMuted, fontFamily: 'Cairo_400Regular' },
+  name: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
 });

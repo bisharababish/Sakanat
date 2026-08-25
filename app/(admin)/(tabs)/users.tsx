@@ -1,6 +1,6 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +16,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { AUTH_REDIRECT_URL, createDetachedClient, supabase } from '@/src/lib/supabase';
 import { colors } from '@/src/theme/colors';
@@ -56,7 +57,7 @@ export default function AdminUsers() {
   const setOwnerStatus = async (id: string, owner_status: OwnerStatus) => {
     const { error } = await supabase.from('profiles').update({ owner_status }).eq('id', id);
     if (error) {
-      Alert.alert(t('common.error'), error.message);
+      alert(t('common.error'), error.message);
       return;
     }
     if (owner_status === 'rejected') {
@@ -66,7 +67,7 @@ export default function AdminUsers() {
   };
 
   const suspend = (user: Profile) => {
-    Alert.alert(t('admin.suspend'), t('admin.confirmSuspend'), [
+    alert(t('admin.suspend'), t('admin.confirmSuspend'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('admin.suspend'),
@@ -79,20 +80,20 @@ export default function AdminUsers() {
   const createOwner = async () => {
     const cleanEmail = sanitizeEmail(email);
     if (!fullName.trim() || !cleanEmail || !password) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+      alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     if (!isValidEmail(cleanEmail)) {
-      Alert.alert(t('common.error'), t('auth.invalidEmail'));
+      alert(t('common.error'), t('auth.invalidEmail'));
       return;
     }
     if (password.length < 6) {
-      Alert.alert(t('common.error'), t('auth.weakPassword'));
+      alert(t('common.error'), t('auth.weakPassword'));
       return;
     }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : '';
     if (phoneLocal.trim() && !cleanPhone) {
-      Alert.alert(t('common.error'), t('phone.invalid'));
+      alert(t('common.error'), t('phone.invalid'));
       return;
     }
     setCreating(true);
@@ -124,14 +125,14 @@ export default function AdminUsers() {
           })
           .eq('id', data.user.id);
       }
-      Alert.alert(t('common.done'), t('admin.ownerCreated'));
+      alert(t('common.done'), t('admin.ownerCreated'));
       setFullName('');
       setEmail('');
       setPhoneLocal('');
       setPassword('');
       void load();
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setCreating(false);
     }
@@ -204,7 +205,7 @@ export default function AdminUsers() {
         const city = localizedName(user.cities, i18n.language);
         const university = localizedName(user.universities, i18n.language);
         return (
-          <Card key={user.id}>
+          <Card key={user.id} onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}>
             <Text style={[styles.name, rtlText]}>{user.full_name || user.email}</Text>
             <Text style={[styles.meta, rtlText]}>{user.email}</Text>
             {phone ? <Text style={[styles.meta, rtlText]}>{phone}</Text> : null}
@@ -218,6 +219,11 @@ export default function AdminUsers() {
               </Text>
             ) : null}
             {user.role === 'owner' ? <StatusBadge label={ownerLabel(user.owner_status)} tone={ownerTone(user.owner_status)} /> : null}
+            <Button
+              title={t('admin.editUser')}
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
+            />
             {user.role === 'owner' && user.id !== profile?.id ? (
               <View style={[styles.row, { justifyContent: alignStart }]}>
                 {user.owner_status !== 'approved' ? (

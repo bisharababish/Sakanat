@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
@@ -20,6 +20,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
@@ -101,7 +102,7 @@ export default function AdminSettings() {
       setAvatarUrl(url);
       await refreshProfile();
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUploading(false);
     }
@@ -109,12 +110,12 @@ export default function AdminSettings() {
 
   const saveProfile = async () => {
     if (!profile || !fullName.trim()) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+      alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     if (phoneLocal.trim() && !cleanPhone) {
-      Alert.alert(t('common.error'), t('phone.invalid'));
+      alert(t('common.error'), t('phone.invalid'));
       return;
     }
     setSaving(true);
@@ -131,9 +132,9 @@ export default function AdminSettings() {
         .eq('id', profile.id);
       if (error) throw error;
       await refreshProfile();
-      Alert.alert(t('common.done'), t('profile.saved'));
+      alert(t('common.done'), t('profile.saved'));
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setSaving(false);
     }
@@ -141,15 +142,15 @@ export default function AdminSettings() {
 
   const changePassword = async () => {
     if (!profile?.email || !currentPassword || !newPassword) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+      alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert(t('common.error'), t('auth.weakPassword'));
+      alert(t('common.error'), t('auth.weakPassword'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('common.error'), t('profile.passwordMismatch'));
+      alert(t('common.error'), t('profile.passwordMismatch'));
       return;
     }
     setUpdatingPassword(true);
@@ -164,9 +165,9 @@ export default function AdminSettings() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      Alert.alert(t('common.done'), t('profile.passwordChanged'));
+      alert(t('common.done'), t('profile.passwordChanged'));
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUpdatingPassword(false);
     }
@@ -179,12 +180,12 @@ export default function AdminSettings() {
       .update({ commission_percent: Number(percent), updated_at: new Date().toISOString() })
       .eq('id', 1);
     setSavingCommission(false);
-    if (error) Alert.alert(t('common.error'), error.message);
-    else Alert.alert(t('common.done'));
+    if (error) alert(t('common.error'), error.message);
+    else alert(t('common.done'));
   };
 
   return (
-    <Screen showLanguage={false}>
+    <Screen>
       <ProfileHero
         name={fullName || profile?.full_name || t('profile.title')}
         avatarUrl={avatarUrl}

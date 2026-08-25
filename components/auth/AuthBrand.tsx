@@ -3,21 +3,22 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export function AuthBrand({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
   const { writingDirection } = useLayout();
+  const colors = useColors();
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.mark, compact && styles.markSm]}>
+      <View style={[styles.mark, compact && styles.markSm, { backgroundColor: colors.primarySoft }]}>
         <Ionicons name="home" size={compact ? 26 : 32} color={colors.primary} />
-        <View style={styles.gold} />
+        <View style={[styles.gold, { backgroundColor: colors.accent, borderColor: colors.primarySoft }]} />
       </View>
       <View style={styles.titleBlock}>
-        <Text style={[styles.name, compact && styles.nameSm, { writingDirection }]}>{t('appNameLead')}</Text>
-        <Text style={[styles.tail, compact && styles.tailSm, { writingDirection }]}>{t('appNameTail')}</Text>
+        <Text style={[styles.name, compact && styles.nameSm, { writingDirection, color: colors.primary }]}>{t('appNameLead')}</Text>
+        <Text style={[styles.tail, compact && styles.tailSm, { writingDirection, color: colors.accent }]}>{t('appNameTail')}</Text>
       </View>
     </View>
   );
@@ -29,7 +30,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -41,9 +41,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.accent,
     borderWidth: 2,
-    borderColor: colors.primarySoft,
   },
   titleBlock: { alignSelf: 'stretch', alignItems: 'center', paddingHorizontal: 8, gap: 2 },
   name: {
@@ -51,7 +49,6 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
-    color: colors.primary,
     textAlign: 'center',
     paddingVertical: 2,
   },
@@ -61,7 +58,6 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
-    color: colors.accent,
     textAlign: 'center',
     paddingVertical: 2,
   },

@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { TabIcon } from '@/components/navigation/TabIcon';
-import { appTabScreenOptions } from '@/src/theme/tabs';
+import { useAppTabScreenOptions } from '@/src/theme/tabs';
 
 export const unstable_settings = {
   initialRouteName: 'search',
@@ -10,9 +10,10 @@ export const unstable_settings = {
 
 export default function StudentTabs() {
   const { t } = useTranslation();
+  const tabOptions = useAppTabScreenOptions();
 
   return (
-    <Tabs screenOptions={appTabScreenOptions}>
+    <Tabs screenOptions={tabOptions}>
       <Tabs.Screen
         name="search"
         options={{

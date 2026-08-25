@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ListingCard } from '@/components/ListingCard';
@@ -25,6 +25,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { supabase } from '@/src/lib/supabase';
@@ -90,13 +91,15 @@ export default function StudentProfileScreen() {
   );
   const universityOptions = useMemo(
     () =>
-      universities.map((item) => ({
-        value: item.id,
-        label: item.cities
-          ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
-          : localizedName(item, i18n.language),
-      })),
-    [universities, i18n.language],
+      universities
+        .filter((item) => !cityId || item.city_id === cityId)
+        .map((item) => ({
+          value: item.id,
+          label: item.cities
+            ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
+            : localizedName(item, i18n.language),
+        })),
+    [cityId, universities, i18n.language],
   );
   const yearOptions = useMemo(
     () => [
@@ -133,7 +136,7 @@ export default function StudentProfileScreen() {
     [universities, universityId, i18n.language],
   );
   const majorName = major ? majorLabel(major, i18n.language) : '';
-  const incomplete = !major || !universityId || !cityId || !phoneLocal.trim();
+  const incomplete = !gender || !universityId || !cityId || !phoneLocal.trim();
 
   const reloadSaved = useCallback(async () => {
     if (!profile?.id) return;
@@ -167,29 +170,29 @@ export default function StudentProfileScreen() {
       setAvatarUrl(url);
       await refreshProfile();
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUploading(false);
     }
   };
 
   const saveProfile = async () => {
-    if (!profile || !fullName.trim()) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+    if (!profile || !fullName.trim() || !phoneLocal.trim() || !gender || !cityId || !universityId) {
+      alert(t('common.error'), t('profile.completeRequired'));
       return;
     }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     if (phoneLocal.trim() && !cleanPhone) {
-      Alert.alert(t('common.error'), t('phone.invalid'));
+      alert(t('common.error'), t('phone.invalid'));
       return;
     }
     const cleanWhatsapp = waLocal.trim() ? toE164(waRegion, waLocal) : null;
     if (waLocal.trim() && !cleanWhatsapp) {
-      Alert.alert(t('common.error'), t('phone.invalid'));
+      alert(t('common.error'), t('phone.invalid'));
       return;
     }
     if (studentId.trim() && !isValidStudentId(studentId)) {
-      Alert.alert(t('common.error'), t('profile.studentIdHint'));
+      alert(t('common.error'), t('profile.studentIdHint'));
       return;
     }
     setSaving(true);
@@ -212,9 +215,9 @@ export default function StudentProfileScreen() {
         .eq('id', profile.id);
       if (error) throw error;
       await refreshProfile();
-      Alert.alert(t('common.done'), t('profile.saved'));
+      alert(t('common.done'), t('profile.saved'));
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setSaving(false);
     }
@@ -222,15 +225,15 @@ export default function StudentProfileScreen() {
 
   const changePassword = async () => {
     if (!profile?.email || !currentPassword || !newPassword) {
-      Alert.alert(t('common.error'), t('auth.missingFields'));
+      alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert(t('common.error'), t('auth.weakPassword'));
+      alert(t('common.error'), t('auth.weakPassword'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('common.error'), t('profile.passwordMismatch'));
+      alert(t('common.error'), t('profile.passwordMismatch'));
       return;
     }
     setUpdatingPassword(true);
@@ -245,9 +248,9 @@ export default function StudentProfileScreen() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      Alert.alert(t('common.done'), t('profile.passwordChanged'));
+      alert(t('common.done'), t('profile.passwordChanged'));
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUpdatingPassword(false);
     }
@@ -280,7 +283,7 @@ export default function StudentProfileScreen() {
   ];
 
   return (
-    <Screen showLanguage={false}>
+    <Screen>
       <ProfileHero
         name={fullName || profile?.full_name || t('profile.title')}
         avatarUrl={avatarUrl}
@@ -317,7 +320,13 @@ export default function StudentProfileScreen() {
               value={cityId}
               placeholder={t('common.select')}
               options={cityOptions}
-              onChange={setCityId}
+              onChange={(next) => {
+                setCityId(next);
+                if (next && universityId) {
+                  const stillValid = universities.some((item) => item.id === universityId && item.city_id === next);
+                  if (!stillValid) setUniversityId('');
+                }
+              }}
             />
           </Card>
 
@@ -343,7 +352,7 @@ export default function StudentProfileScreen() {
               onPress={() => {
                 const number = toE164(waRegion, waLocal);
                 if (!number) {
-                  Alert.alert(t('common.error'), t('phone.invalid'));
+                  alert(t('common.error'), t('phone.invalid'));
                   return;
                 }
                 void Linking.openURL(whatsappLink(number));
@@ -383,7 +392,7 @@ export default function StudentProfileScreen() {
               options={yearOptions}
               onChange={setStudyYear}
             />
-            <Select
+            <SearchSelect
               label={t('auth.studyUniversity')}
               value={universityId}
               placeholder={t('common.select')}
@@ -417,21 +426,18 @@ export default function StudentProfileScreen() {
                   apartment={item}
                   university={item.universities}
                   distanceKm={item.campus_distance_km}
+                  saved
+                  onToggleSave={async () => {
+                    if (!profile) return;
+                    await toggleSavedApartment(profile.id, item.id, true);
+                    await reloadSaved();
+                  }}
                   onPress={() =>
                     router.push({
                       pathname: '/(student)/apartment/[id]',
                       params: { id: item.id, universityId: universityId || '' },
                     })
                   }
-                />
-                <Button
-                  title={t('profile.unsave')}
-                  variant="ghost"
-                  onPress={async () => {
-                    if (!profile) return;
-                    await toggleSavedApartment(profile.id, item.id, true);
-                    await reloadSaved();
-                  }}
                 />
               </View>
             ))

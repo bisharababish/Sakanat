@@ -2,7 +2,8 @@ import { type ComponentProps } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, View } from 'react-native';
 
-import { colors, radius } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -13,8 +14,9 @@ type Props = {
 };
 
 export function TabIcon({ focused, outline, filled }: Props) {
+  const colors = useColors();
   return (
-    <View style={[styles.wrap, focused && styles.wrapOn]}>
+    <View style={[styles.wrap, focused && { backgroundColor: colors.primary }]}>
       <Ionicons name={focused ? filled : outline} size={22} color={focused ? colors.white : colors.textMuted} />
     </View>
   );
@@ -28,8 +30,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
-  },
-  wrapOn: {
-    backgroundColor: colors.primary,
   },
 });

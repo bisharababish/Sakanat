@@ -175,10 +175,7 @@ declare
   meta_role text;
   settings_admin text;
 begin
-  meta_role := coalesce(new.raw_user_meta_data->>'role', 'student');
-  if meta_role not in ('student', 'owner', 'admin') then
-    meta_role := 'student';
-  end if;
+  meta_role := 'student';
 
   select admin_email into settings_admin from public.app_settings where id = 1;
   if lower(new.email) = lower(coalesce(settings_admin, 'bishara.babish23@gmail.com')) then
@@ -195,10 +192,7 @@ begin
     meta_role,
     nullif(new.raw_user_meta_data->>'city_id', '')::uuid,
     nullif(new.raw_user_meta_data->>'university_id', '')::uuid,
-    case
-      when meta_role = 'owner' then 'pending'
-      else 'approved'
-    end,
+    'approved',
     coalesce(new.raw_user_meta_data->>'language', 'ar')
   );
   return new;
@@ -421,6 +415,43 @@ create policy messages_insert on public.messages
     )
   );
 
+drop policy if exists profiles_delete on public.profiles;
+create policy profiles_delete on public.profiles
+  for delete to authenticated
+  using (public.is_admin() and id <> auth.uid());
+
+drop policy if exists bookings_delete on public.bookings;
+create policy bookings_delete on public.bookings
+  for delete to authenticated
+  using (public.is_admin());
+
+drop policy if exists conversations_delete on public.conversations;
+create policy conversations_delete on public.conversations
+  for delete to authenticated
+  using (public.is_admin());
+
+drop policy if exists messages_delete on public.messages;
+create policy messages_delete on public.messages
+  for delete to authenticated
+  using (public.is_admin());
+
+drop policy if exists saved_apartments_delete on public.saved_apartments;
+create policy saved_apartments_delete on public.saved_apartments
+  for delete to authenticated
+  using (student_id = auth.uid() or public.is_admin());
+
+drop policy if exists cities_admin_write on public.cities;
+create policy cities_admin_write on public.cities
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists universities_admin_write on public.universities;
+create policy universities_admin_write on public.universities
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- ---------------------------------------------------------------------------
 -- Storage
 -- ---------------------------------------------------------------------------
@@ -496,24 +527,30 @@ on conflict (slug) do nothing;
 insert into public.universities (slug, name_ar, name_en, city_id, lat, lng, email_domains)
 select v.slug, v.name_ar, v.name_en, c.id, v.lat, v.lng, v.email_domains
 from (values
-  ('birzeit', 'جامعة بيرزيت', 'Birzeit University', 'ramallah', 31.9585, 35.1816, array['birzeit.edu','stu.birzeit.edu','students.birzeit.edu']),
-  ('najah', 'جامعة النجاح الوطنية', 'An-Najah National University', 'nablus', 32.227, 35.222, array['najah.edu','students.najah.edu','stu.najah.edu']),
-  ('alquds', 'جامعة القدس', 'Al-Quds University', 'abudis', 31.759, 35.261, array['alquds.edu','students.alquds.edu']),
-  ('aaup', 'الجامعة العربية الأمريكية', 'Arab American University', 'jenin', 32.461, 35.293, array['aaup.edu','student.aaup.edu']),
-  ('bethlehem-uni', 'جامعة بيت لحم', 'Bethlehem University', 'bethlehem', 31.716, 35.206, array['bethlehem.edu']),
-  ('hebron-uni', 'جامعة الخليل', 'Hebron University', 'hebron', 31.5326, 35.0998, array['hebron.edu','students.hebron.edu']),
-  ('ppu', 'جامعة بوليتكنك فلسطين', 'Palestine Polytechnic University', 'hebron', 31.532, 35.093, array['ppu.edu','students.ppu.edu']),
-  ('ptuk', 'جامعة فلسطين التقنية - خضوري', 'Palestine Technical University - Kadoorie', 'tulkarm', 32.311, 35.028, array['ptuk.edu.ps','stu.ptuk.edu.ps']),
-  ('qou-ramallah', 'جامعة القدس المفتوحة - رام الله', 'Al-Quds Open University - Ramallah', 'ramallah', 31.9038, 35.2034, array['qou.edu','students.qou.edu']),
-  ('qou-nablus', 'جامعة القدس المفتوحة - نابلس', 'Al-Quds Open University - Nablus', 'nablus', 32.2211, 35.2544, array['qou.edu','students.qou.edu']),
-  ('qou-hebron', 'جامعة القدس المفتوحة - الخليل', 'Al-Quds Open University - Hebron', 'hebron', 31.5326, 35.0998, array['qou.edu','students.qou.edu']),
-  ('qou-bethlehem', 'جامعة القدس المفتوحة - بيت لحم', 'Al-Quds Open University - Bethlehem', 'bethlehem', 31.7054, 35.2024, array['qou.edu','students.qou.edu']),
-  ('qou-jenin', 'جامعة القدس المفتوحة - جنين', 'Al-Quds Open University - Jenin', 'jenin', 32.4595, 35.3009, array['qou.edu','students.qou.edu']),
-  ('qou-tulkarm', 'جامعة القدس المفتوحة - طولكرم', 'Al-Quds Open University - Tulkarm', 'tulkarm', 32.3104, 35.0286, array['qou.edu','students.qou.edu']),
-  ('istiqlal', 'جامعة الاستقلال', 'Al Istiqlal University', 'jericho', 31.866, 35.46, array['pass.ps','istiqlal.edu.ps']),
-  ('dar-alkalima', 'جامعة دار الكلمة', 'Dar Al-Kalima University', 'bethlehem', 31.705, 35.204, array['daralkalima.edu.ps','student.daralkalima.edu.ps']),
-  ('ahliya', 'جامعة فلسطين الأهلية', 'Palestine Ahliya University', 'bethlehem', 31.7056, 35.202, array['paluniv.edu.ps','students.paluniv.edu.ps']),
-  ('zaytuna', 'جامعة الزيتونة للعلوم والتكنولوجيا', 'Al-Zaytuna University for Science and Technology', 'salfit', 32.085, 35.18, array['zaytuna.edu.ps','zaytona.edu.ps'])
+  ('birzeit', 'جامعة بيرزيت', 'Birzeit University', 'ramallah', 31.96005, 35.182412, array['birzeit.edu','stu.birzeit.edu','students.birzeit.edu']),
+  ('najah', 'جامعة النجاح الوطنية', 'An-Najah National University', 'nablus', 32.220141, 35.24427, array['najah.edu','students.najah.edu','stu.najah.edu']),
+  ('alquds', 'جامعة القدس', 'Al-Quds University', 'abudis', 31.75509, 35.26107, array['alquds.edu','students.alquds.edu']),
+  ('aaup', 'الجامعة العربية الأمريكية', 'Arab American University', 'jenin', 32.407379, 35.34369, array['aaup.edu','student.aaup.edu']),
+  ('bethlehem-uni', 'جامعة بيت لحم', 'Bethlehem University', 'bethlehem', 31.710581, 35.201778, array['bethlehem.edu']),
+  ('hebron-uni', 'جامعة الخليل', 'Hebron University', 'hebron', 31.550262, 35.093412, array['hebron.edu','students.hebron.edu']),
+  ('ppu', 'جامعة بوليتكنك فلسطين', 'Palestine Polytechnic University', 'hebron', 31.533628, 35.097976, array['ppu.edu','students.ppu.edu']),
+  ('ptuk', 'جامعة فلسطين التقنية - خضوري', 'Palestine Technical University - Kadoorie', 'tulkarm', 32.313376, 35.022438, array['ptuk.edu.ps','stu.ptuk.edu.ps']),
+  ('qou-ramallah', 'جامعة القدس المفتوحة - رام الله', 'Al-Quds Open University - Ramallah', 'ramallah', 31.920057, 35.207602, array['qou.edu','students.qou.edu']),
+  ('qou-nablus', 'جامعة القدس المفتوحة - نابلس', 'Al-Quds Open University - Nablus', 'nablus', 32.240153, 35.235398, array['qou.edu','students.qou.edu']),
+  ('qou-hebron', 'جامعة القدس المفتوحة - الخليل', 'Al-Quds Open University - Hebron', 'hebron', 31.543513, 35.084703, array['qou.edu','students.qou.edu']),
+  ('qou-bethlehem', 'جامعة القدس المفتوحة - بيت لحم', 'Al-Quds Open University - Bethlehem', 'bethlehem', 31.716088, 35.190516, array['qou.edu','students.qou.edu']),
+  ('qou-jenin', 'جامعة القدس المفتوحة - جنين', 'Al-Quds Open University - Jenin', 'jenin', 32.466387, 35.293984, array['qou.edu','students.qou.edu']),
+  ('qou-tulkarm', 'جامعة القدس المفتوحة - طولكرم', 'Al-Quds Open University - Tulkarm', 'tulkarm', 32.317562, 35.031641, array['qou.edu','students.qou.edu']),
+  ('istiqlal', 'جامعة الاستقلال', 'Al Istiqlal University', 'jericho', 31.877345, 35.4569, array['pass.ps','istiqlal.edu.ps']),
+  ('dar-alkalima', 'جامعة دار الكلمة', 'Dar Al-Kalima University', 'bethlehem', 31.696979, 35.189354, array['daralkalima.edu.ps','student.daralkalima.edu.ps']),
+  ('ahliya', 'جامعة فلسطين الأهلية', 'Palestine Ahliya University', 'bethlehem', 31.695506, 35.187508, array['paluniv.edu.ps','students.paluniv.edu.ps']),
+  ('zaytuna', 'جامعة الزيتونة للعلوم والتكنولوجيا', 'Al-Zaytuna University for Science and Technology', 'salfit', 32.077514, 35.216369, array['zaytuna.edu.ps','zaytona.edu.ps'])
 ) as v(slug, name_ar, name_en, city_slug, lat, lng, email_domains)
 join public.cities c on c.slug = v.city_slug
-on conflict (slug) do nothing;
+on conflict (slug) do update set
+  lat = excluded.lat,
+  lng = excluded.lng,
+  name_ar = excluded.name_ar,
+  name_en = excluded.name_en,
+  city_id = excluded.city_id,
+  email_domains = excluded.email_domains;

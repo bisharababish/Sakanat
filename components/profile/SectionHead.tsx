@@ -3,7 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   icon: ComponentProps<typeof Ionicons>['name'];
@@ -12,16 +12,17 @@ type Props = {
 
 export function SectionHead({ icon, title }: Props) {
   const { isRtl, textAlign, writingDirection } = useLayout();
+  const colors = useColors();
 
   return (
     <View style={styles.sectionHead}>
-      <View style={styles.sectionIcon}>
+      <View style={[styles.sectionIcon, { backgroundColor: colors.primarySoft }]}>
         <Ionicons name={icon} size={18} color={colors.primary} />
       </View>
       <Text
         style={[
           styles.sectionTitle,
-          { textAlign, writingDirection },
+          { textAlign, writingDirection, color: colors.primary },
           isRtl ? styles.titleRtl : null,
         ]}
       >
@@ -42,7 +43,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 12,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -51,7 +51,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
-    color: colors.primary,
   },
   titleRtl: { textAlign: 'right' },
 });

@@ -8,8 +8,10 @@ import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -17,15 +19,14 @@ import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
-import { colors, radius } from '@/src/theme/colors';
-import type { UserRole } from '@/src/types/database';
+import { colors } from '@/src/theme/colors';
+import type { PersonGender } from '@/src/types/database';
 
 export default function RegisterScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText, isRtl } = useLayout();
   const { signUp } = useAuth();
   const { cities, universities } = useCatalog();
-  const [role, setRole] = useState<Exclude<UserRole, 'admin'>>('student');
   const [fullName, setFullName] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
@@ -33,6 +34,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [cityId, setCityId] = useState('');
   const [universityId, setUniversityId] = useState('');
+  const [gender, setGender] = useState<PersonGender | ''>('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const lang = i18n.language;
@@ -43,18 +45,28 @@ export default function RegisterScreen() {
   );
   const universityOptions = useMemo(
     () =>
-      universities.map((item) => ({
-        value: item.id,
-        label: item.cities
-          ? `${localizedName(item, lang)} — ${localizedName(item.cities, lang)}`
-          : localizedName(item, lang),
-      })),
-    [universities, lang],
+      universities
+        .filter((item) => !cityId || item.city_id === cityId)
+        .map((item) => ({
+          value: item.id,
+          label: item.cities
+            ? `${localizedName(item, lang)} — ${localizedName(item.cities, lang)}`
+            : localizedName(item, lang),
+        })),
+    [cityId, universities, lang],
   );
+
+  const setCity = (next: string) => {
+    setCityId(next);
+    if (next && universityId) {
+      const stillValid = universities.some((item) => item.id === universityId && item.city_id === next);
+      if (!stillValid) setUniversityId('');
+    }
+  };
 
   const onSubmit = async () => {
     setError('');
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || !gender || !phoneLocal.trim() || !cityId || !universityId) {
       setError(t('auth.missingFields'));
       return;
     }
@@ -62,13 +74,9 @@ export default function RegisterScreen() {
       setError(t('auth.weakPassword'));
       return;
     }
-    const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
-    if (phoneLocal.trim() && !cleanPhone) {
+    const cleanPhone = toE164(phoneRegion, phoneLocal);
+    if (!cleanPhone) {
       setError(t('phone.invalid'));
-      return;
-    }
-    if (!cityId || (role === 'student' && !universityId)) {
-      setError(t('auth.missingFields'));
       return;
     }
     setLoading(true);
@@ -77,10 +85,11 @@ export default function RegisterScreen() {
         email,
         password,
         fullName,
-        phone: cleanPhone ?? '',
-        role,
+        phone: cleanPhone,
+        role: 'student',
         cityId,
         universityId,
+        gender,
         language: lang.startsWith('ar') ? 'ar' : 'en',
       });
       if (result === 'verify') {
@@ -99,16 +108,12 @@ export default function RegisterScreen() {
       <AuthCard>
         <Text style={[styles.title, rtlText]}>{t('auth.registerTitle')}</Text>
         <Text style={[styles.hint, rtlText]}>{t('auth.registerHint')}</Text>
-        <Text style={[styles.label, rtlText]}>{t('auth.chooseRole')}</Text>
-        <View style={[styles.roles, { justifyContent: alignStart }]}>
-          <Pressable style={[styles.role, role === 'student' && styles.roleOn]} onPress={() => setRole('student')}>
-            <Text style={[styles.roleLabel, role === 'student' && styles.roleLabelOn]}>{t('roles.student')}</Text>
-          </Pressable>
-          <Pressable style={[styles.role, role === 'owner' && styles.roleOn]} onPress={() => setRole('owner')}>
-            <Text style={[styles.roleLabel, role === 'owner' && styles.roleLabelOn]}>{t('roles.owner')}</Text>
-          </Pressable>
+        <Text style={[styles.roleHint, rtlText]}>{t('auth.studentHint')}</Text>
+        <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
+        <View style={[styles.roles, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+          <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
+          <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
         </View>
-        <Text style={[styles.roleHint, rtlText]}>{role === 'student' ? t('auth.studentHint') : t('auth.ownerHint')}</Text>
         <Input label={t('common.name')} value={fullName} onChangeText={setFullName} soft />
         <PhoneField
           label={t('common.phone')}
@@ -119,14 +124,14 @@ export default function RegisterScreen() {
           soft
         />
         <Input
-          label={role === 'student' ? t('auth.studentEmail') : t('common.email')}
+          label={t('auth.studentEmail')}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
           ltr
-          hint={role === 'student' ? t('auth.studentEmailHint') : undefined}
+          hint={t('auth.studentEmailHint')}
           soft
         />
         <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
@@ -135,19 +140,16 @@ export default function RegisterScreen() {
           value={cityId}
           placeholder={t('common.select')}
           options={cityOptions}
-          onChange={setCityId}
+          onChange={setCity}
           soft
         />
-        {role === 'student' ? (
-          <Select
-            label={t('auth.studyUniversity')}
-            value={universityId}
-            placeholder={t('common.select')}
-            options={universityOptions}
-            onChange={setUniversityId}
-            soft
-          />
-        ) : null}
+        <SearchSelect
+          label={t('auth.studyUniversity')}
+          value={universityId}
+          placeholder={t('common.select')}
+          options={universityOptions}
+          onChange={setUniversityId}
+        />
         {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
         <View style={styles.lockRow}>
           <Ionicons name="lock-closed" size={14} color={colors.primary} />
@@ -182,15 +184,6 @@ const styles = StyleSheet.create({
   },
   label: { color: colors.text, fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 14 },
   roles: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  role: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceMuted,
-  },
-  roleOn: { backgroundColor: colors.primary },
-  roleLabel: { fontWeight: '700', fontFamily: 'Cairo_700Bold', color: colors.text },
-  roleLabelOn: { color: colors.white },
   roleHint: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   error: { color: colors.danger, fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },

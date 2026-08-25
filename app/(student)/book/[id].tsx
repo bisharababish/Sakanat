@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { SectionHead } from '@/components/profile/SectionHead';
@@ -12,20 +12,26 @@ import { DateField } from '@/components/ui/DateField';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { formatIls, localizedTitle } from '@/src/lib/format';
+import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
+import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius } from '@/src/theme/colors';
 import type { Apartment, PaymentMethod } from '@/src/types/database';
 
 const MONTHS = [1, 2, 3, 4, 6, 12];
 
-function defaultStart() {
-  const date = new Date();
-  date.setDate(date.getDate() + 3);
+function isoDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function defaultStart() {
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return isoDate(date);
 }
 
 export default function BookScreen() {
@@ -34,6 +40,7 @@ export default function BookScreen() {
   const { rtlText, isRtl, lang } = useLayout();
   const { profile } = useAuth();
   const [apartment, setApartment] = useState<Apartment | null>(null);
+  const [missing, setMissing] = useState(false);
   const [startDate, setStartDate] = useState(defaultStart());
   const [months, setMonths] = useState(1);
   const [method, setMethod] = useState<PaymentMethod>('pay_now');
@@ -41,16 +48,39 @@ export default function BookScreen() {
 
   useEffect(() => {
     if (!id) return;
-    supabase.from('apartments').select('*').eq('id', id).single().then(({ data }) => setApartment(data as Apartment));
+    supabase
+      .from('apartments')
+      .select('*, cities(*)')
+      .eq('id', id)
+      .single()
+      .then(({ data }) => {
+        if (data) setApartment(data as Apartment);
+        else setMissing(true);
+      });
   }, [id]);
 
-  if (!apartment) return null;
-
-  const total = apartment.price_month * months;
-  const photo = apartment.photos[0];
+  const today = isoDate(new Date());
+  const total = apartment ? apartment.price_month * months : 0;
+  const photo = apartment?.photos[0];
+  const city = apartment ? localizedName(apartment.cities, i18n.language) : '';
 
   const submit = async () => {
-    if (!profile) return;
+    if (!profile || !apartment) return;
+    if (!isStudentReady(profile)) {
+      alert(t('booking.needProfile'), t('profile.completeToBook'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('profile.title'), onPress: () => router.replace('/(student)/(tabs)/profile') },
+      ]);
+      return;
+    }
+    if (!listingFitsStudent(apartment.gender_policy, profile.gender)) {
+      alert(t('common.error'), t('listing.genderMismatch'));
+      return;
+    }
+    if (startDate < today) {
+      alert(t('common.error'), t('booking.pastDate'));
+      return;
+    }
     setLoading(true);
     try {
       const { error } = await supabase.from('bookings').insert({
@@ -65,15 +95,27 @@ export default function BookScreen() {
         commission_amount: 0,
       });
       if (error) throw error;
-      Alert.alert(t('booking.success'), t('booking.successBody'), [
+      alert(t('booking.success'), t('booking.successBody'), [
         { text: t('common.done'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
       ]);
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setLoading(false);
     }
   };
+
+  if (!apartment) {
+    return (
+      <Screen back>
+        {missing ? (
+          <Text style={[styles.sub, rtlText]}>{t('listing.notFound')}</Text>
+        ) : (
+          <ActivityIndicator color={colors.primary} />
+        )}
+      </Screen>
+    );
+  }
 
   return (
     <Screen back>
@@ -81,6 +123,7 @@ export default function BookScreen() {
       <Card>
         {photo ? <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" /> : null}
         <Text style={[styles.sub, rtlText]}>{localizedTitle(apartment, i18n.language)}</Text>
+        {city ? <Text style={[styles.body, rtlText]}>{city}</Text> : null}
         <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
         <Text style={[styles.label, rtlText]}>{t('booking.duration')}</Text>
         <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>

@@ -1,13 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, spacing } from '@/src/theme/colors';
+import { spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export function EmptyState({ title }: { title: string }) {
   const { rtlText } = useLayout();
+  const colors = useColors();
   return (
-    <View style={styles.box}>
-      <Text style={[styles.text, rtlText]}>{title}</Text>
+    <View style={[styles.box, { backgroundColor: colors.surface, shadowColor: colors.text }]}>
+      <Text style={[styles.text, rtlText, { color: colors.textMuted }]}>{title}</Text>
     </View>
   );
 }
@@ -15,13 +17,11 @@ export function EmptyState({ title }: { title: string }) {
 const styles = StyleSheet.create({
   box: {
     padding: spacing.xl,
-    backgroundColor: colors.surface,
     borderRadius: 24,
-    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
   },
-  text: { color: colors.textMuted, fontSize: 15, lineHeight: 22 },
+  text: { fontSize: 15, lineHeight: 22 },
 });

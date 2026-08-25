@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
@@ -10,6 +10,7 @@ import { Chip } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { bookingStatusLabel, formatIls } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
@@ -42,7 +43,7 @@ export default function AdminBookings() {
   const updateStatus = async (id: string, status: BookingStatus) => {
     const booking = bookings.find((item) => item.id === id);
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
-    if (error) Alert.alert(t('common.error'), error.message);
+    if (error) alert(t('common.error'), error.message);
     else {
       if (status === 'confirmed' && booking?.student_id) {
         void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
@@ -53,8 +54,23 @@ export default function AdminBookings() {
 
   const updatePayment = async (id: string, payment_status: PaymentStatus) => {
     const { error } = await supabase.from('bookings').update({ payment_status }).eq('id', id);
-    if (error) Alert.alert(t('common.error'), error.message);
+    if (error) alert(t('common.error'), error.message);
     else void load();
+  };
+
+  const removeBooking = (id: string) => {
+    alert(t('admin.deleteBooking'), t('admin.confirmDeleteBooking'), [
+      { text: t('common.no'), style: 'cancel' },
+      {
+        text: t('common.yes'),
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('bookings').delete().eq('id', id);
+          if (error) alert(t('common.error'), error.message);
+          else void load();
+        },
+      },
+    ]);
   };
 
   const visible = useMemo(
@@ -113,6 +129,22 @@ export default function AdminBookings() {
             {booking.status === 'confirmed' ? (
               <Button title={t('booking.complete')} pill onPress={() => void updateStatus(booking.id, 'completed')} />
             ) : null}
+            {booking.status === 'cancelled' ? (
+              <Button
+                title={t('admin.restoreBooking')}
+                variant="secondary"
+                pill
+                onPress={() => void updateStatus(booking.id, 'pending')}
+              />
+            ) : null}
+            {booking.status === 'completed' ? (
+              <Button
+                title={t('admin.restoreBooking')}
+                variant="ghost"
+                pill
+                onPress={() => void updateStatus(booking.id, 'confirmed')}
+              />
+            ) : null}
             {booking.payment_status === 'unpaid' && booking.status !== 'cancelled' ? (
               <Button
                 title={t('admin.markPaid')}
@@ -137,6 +169,15 @@ export default function AdminBookings() {
                 onPress={() => router.push({ pathname: '/(admin)/apartment/[id]', params: { id: booking.apartment_id } })}
               />
             ) : null}
+            {booking.student_id ? (
+              <Button
+                title={t('admin.editUser')}
+                variant="ghost"
+                pill
+                onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: booking.student_id } })}
+              />
+            ) : null}
+            <Button title={t('admin.deleteBooking')} variant="danger" pill onPress={() => removeBooking(booking.id)} />
           </BookingCard>
         );
       })}

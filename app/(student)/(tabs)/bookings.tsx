@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
@@ -12,6 +12,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
 import { bookingStatusLabel } from '@/src/lib/format';
+import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
 import type { Apartment, Booking, BookingStatus } from '@/src/types/database';
@@ -48,14 +49,14 @@ export default function StudentBookings() {
   );
 
   const cancel = (id: string) => {
-    Alert.alert(t('booking.cancelRequest'), t('booking.confirmCancel'), [
+    alert(t('booking.cancelRequest'), t('booking.confirmCancel'), [
       { text: t('common.no'), style: 'cancel' },
       {
         text: t('common.yes'),
         style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
-          if (error) Alert.alert(t('common.error'), error.message);
+          if (error) alert(t('common.error'), error.message);
           else void load();
         },
       },
@@ -69,7 +70,7 @@ export default function StudentBookings() {
       const conversationId = await openConversation(booking.apartments as Apartment, profile.id);
       router.push({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
     } catch (err) {
-      Alert.alert(t('common.error'), err instanceof Error ? err.message : '');
+      alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setBusyId(null);
     }
