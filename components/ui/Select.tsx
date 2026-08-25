@@ -14,9 +14,10 @@ type Props = {
   placeholder: string;
   options: Option[];
   onChange: (value: string) => void;
+  soft?: boolean;
 };
 
-export function Select({ label, value, placeholder, options, onChange }: Props) {
+export function Select({ label, value, placeholder, options, onChange, soft }: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { rtlText, alignStart } = useLayout();
@@ -25,7 +26,7 @@ export function Select({ label, value, placeholder, options, onChange }: Props) 
   return (
     <View style={styles.wrap}>
       <Text style={[styles.label, rtlText]}>{label}</Text>
-      <Pressable style={styles.field} onPress={() => setOpen(true)}>
+      <Pressable style={[styles.field, soft ? styles.soft : null]} onPress={() => setOpen(true)}>
         <Text style={[styles.value, rtlText, !selected && styles.placeholder]}>
           {selected?.label ?? placeholder}
         </Text>
@@ -71,6 +72,12 @@ const styles = StyleSheet.create({
     minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
+  },
+  soft: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderRadius: radius.full,
+    minHeight: 54,
   },
   value: { fontSize: 16, color: colors.text },
   placeholder: { color: colors.textMuted },

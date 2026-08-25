@@ -15,8 +15,13 @@ export function EmptyState({ title }: { title: string }) {
 const styles = StyleSheet.create({
   box: {
     padding: spacing.xl,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   text: { color: colors.textMuted, fontSize: 15, lineHeight: 22 },
 });

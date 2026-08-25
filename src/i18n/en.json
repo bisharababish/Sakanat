@@ -89,7 +89,19 @@
     "welcome": "Welcome",
     "welcomeBody": "Find student housing across Palestinian cities, compare prices, and see how far a flat is from your university.",
     "login": "Log in",
+    "loginTitle": "Log in",
+    "loginHint": "Enter your email and password to continue.",
     "register": "Create account",
+    "registerTitle": "Create your account",
+    "registerHint": "Add a few details so we can find the right place for you.",
+    "forgotPassword": "Forgot password?",
+    "forgotTitle": "Reset password",
+    "forgotHint": "Enter your email and we will send a reset link.",
+    "forgotSent": "If that email is registered, a reset link is on the way. Open it from the email.",
+    "sendReset": "Send link",
+    "resetTitle": "New password",
+    "resetHint": "Choose a new password for your account.",
+    "savePassword": "Save password",
     "noAccount": "No account yet?",
     "hasAccount": "Already have an account?",
     "chooseRole": "How will you use the app?",
@@ -173,6 +185,10 @@
     "messageOwner": "Message owner",
     "messageStudent": "Message student",
     "complete": "Mark completed"
+  },
+  "push": {
+    "bookingApprovedTitle": "Your booking was approved",
+    "bookingApprovedBody": "The owner confirmed your stay. Open Bookings for details."
   },
   "owner": {
     "addListing": "Add apartment",

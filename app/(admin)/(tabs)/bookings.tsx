@@ -11,6 +11,7 @@ import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { bookingStatusLabel, formatIls, localizedTitle } from '@/src/lib/format';
+import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import { colors } from '@/src/theme/colors';
 import type { Booking, BookingStatus, PaymentStatus } from '@/src/types/database';
@@ -56,9 +57,15 @@ export default function AdminBookings() {
   );
 
   const updateStatus = async (id: string, status: BookingStatus) => {
+    const booking = bookings.find((item) => item.id === id);
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
     if (error) Alert.alert(t('common.error'), error.message);
-    else void load();
+    else {
+      if (status === 'confirmed' && booking?.student_id) {
+        void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
+      }
+      void load();
+    }
   };
 
   const updatePayment = async (id: string, payment_status: PaymentStatus) => {

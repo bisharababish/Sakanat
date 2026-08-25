@@ -15,6 +15,7 @@ type Props = {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
   ltr?: boolean;
+  soft?: boolean;
 };
 
 export function Input({
@@ -29,6 +30,7 @@ export function Input({
   autoCapitalize,
   autoCorrect,
   ltr,
+  soft,
 }: Props) {
   const layout = useLayout();
   const inputAlign = ltr ? 'left' : layout.textAlign;
@@ -50,6 +52,7 @@ export function Input({
         textAlign={inputAlign}
         style={[
           styles.input,
+          soft ? styles.soft : null,
           { writingDirection },
           multiline ? styles.multiline : null,
         ]}
@@ -72,6 +75,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
-  multiline: { minHeight: 110, textAlignVertical: 'top', paddingTop: 12 },
+  soft: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderRadius: radius.full,
+    minHeight: 54,
+  },
+  multiline: { minHeight: 110, textAlignVertical: 'top', paddingTop: 12, borderRadius: radius.lg },
   hint: { color: colors.textMuted, fontSize: 12 },
 });

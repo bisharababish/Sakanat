@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>استعادة كلمة المرور — بدك سكن؟ اطلب منا</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --text: #1c241e;
+        --muted: #5e6b62;
+        --primary: #2d5a3d;
+        --soft: #e4efe7;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Cairo, sans-serif;
+      }
+      .card {
+        width: min(420px, 100%);
+        background: #fff;
+        border: 1px solid #d9d0c0;
+        border-radius: 22px;
+        padding: 32px 24px;
+        text-align: center;
+      }
+      .mark {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 18px;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--primary);
+        display: grid;
+        place-items: center;
+        font-size: 30px;
+        font-weight: 800;
+      }
+      h1 { margin: 0 0 10px; font-size: 28px; }
+      p { margin: 0 0 22px; color: var(--muted); line-height: 1.7; font-size: 16px; }
+      a {
+        display: inline-block;
+        background: var(--primary);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 800;
+        border-radius: 16px;
+        padding: 14px 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="mark">⌂</div>
+      <h1>رجع للتطبيق</h1>
+      <p>افتح تطبيق بدك سكن؟ اطلب منا عشان تحط كلمة مرور جديدة.</p>
+      <p lang="en" dir="ltr">Open the app to choose a new password.</p>
+      <a id="open" href="sakanat://reset-password">فتح التطبيق</a>
+    </main>
+    <script>
+      var query = location.search || '';
+      var hash = location.hash || '';
+      var open = 'sakanat://reset-password' + query + hash;
+      document.getElementById('open').setAttribute('href', open);
+      var params = new URLSearchParams(query + hash.replace('#', '&'));
+      if (params.get('error') || params.get('error_description')) {
+        document.querySelector('h1').textContent = 'ما قدرنا نفتح الرابط';
+        document.querySelectorAll('p')[0].textContent = params.get('error_description') || 'اطلب رابط جديد من التطبيق.';
+      } else {
+        setTimeout(function () {
+          location.href = open;
+        }, 800);
+      }
+    </script>
+  </body>
+</html>

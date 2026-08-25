@@ -22,11 +22,16 @@ export function Card({ children, onPress }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.sm,
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
   },
-  pressed: { opacity: 0.9 },
+  pressed: { opacity: 0.92 },
 });

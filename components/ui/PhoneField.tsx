@@ -12,9 +12,10 @@ type Props = {
   onRegionChange: (region: PhoneRegion) => void;
   onLocalChange: (value: string) => void;
   hint?: string;
+  soft?: boolean;
 };
 
-export function PhoneField({ label, region, local, onRegionChange, onLocalChange, hint }: Props) {
+export function PhoneField({ label, region, local, onRegionChange, onLocalChange, hint, soft }: Props) {
   const { rtlText, alignStart } = useLayout();
 
   return (
@@ -24,7 +25,7 @@ export function PhoneField({ label, region, local, onRegionChange, onLocalChange
         <Chip label={regionPrefix('ps')} selected={region === 'ps'} onPress={() => onRegionChange('ps')} />
         <Chip label={regionPrefix('il')} selected={region === 'il'} onPress={() => onRegionChange('il')} />
       </View>
-      <View style={[styles.inputRow, { flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row' }]}>
+      <View style={[styles.inputRow, soft ? styles.soft : null, { flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row' }]}>
         <Text style={styles.prefix}>{regionPrefix(region)}</Text>
         <TextInput
           value={local}
@@ -56,6 +57,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     minHeight: 52,
     gap: 8,
+  },
+  soft: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: 'transparent',
+    borderRadius: radius.full,
+    minHeight: 54,
   },
   prefix: { fontWeight: '800', color: colors.primary, writingDirection: 'ltr' },
   input: { flex: 1, fontSize: 16, color: colors.text, minHeight: 48 },

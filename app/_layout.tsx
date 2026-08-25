@@ -4,13 +4,16 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, type ReactNode } from 'react';
 
+import { BrandLoader } from '@/components/BrandLoader';
 import { AuthProvider, useAuth } from '@/src/lib/auth';
 import i18n, { applyRtl, loadSavedLanguage } from '@/src/i18n';
+import { registerPushToken } from '@/src/lib/push';
 import { colors } from '@/src/theme/colors';
 
 export { ErrorBoundary } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 400, fade: true });
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -37,12 +40,14 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (ready) {
-      SplashScreen.hideAsync();
+    if (ready && fontsLoaded) {
+      void SplashScreen.hideAsync();
     }
   }, [ready, fontsLoaded]);
 
-  if (!ready) return null;
+  if (!ready || !fontsLoaded) {
+    return <BrandLoader />;
+  }
 
   return (
     <AuthProvider>
@@ -59,16 +64,27 @@ export default function RootLayout() {
   );
 }
 
+const AUTH_HOLD = new Set(['verify-email', 'confirmed', 'reset-password', 'forgot-password']);
+
 function SessionGuard({ children }: { children: ReactNode }) {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, passwordRecovery } = useAuth();
   const segments = useSegments();
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    void registerPushToken(profile.id);
+  }, [profile?.id]);
 
   useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
+    const screen = String(segments[1] ?? '');
+    if (passwordRecovery) {
+      if (screen !== 'reset-password') router.replace('/(auth)/reset-password');
+      return;
+    }
     if (session && profile && inAuth) {
-      const screen = String(segments[1] ?? '');
-      if (screen !== 'verify-email' && screen !== 'confirmed') {
+      if (!AUTH_HOLD.has(screen)) {
         router.replace('/');
       }
       return;
@@ -76,7 +92,8 @@ function SessionGuard({ children }: { children: ReactNode }) {
     if (!session && !inAuth) {
       router.replace('/(auth)/welcome');
     }
-  }, [session, profile, loading, segments]);
+  }, [session, profile, loading, segments, passwordRecovery]);
 
+  if (loading) return <BrandLoader />;
   return children;
 }

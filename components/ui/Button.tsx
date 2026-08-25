@@ -9,9 +9,10 @@ type Props = {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   disabled?: boolean;
   loading?: boolean;
+  pill?: boolean;
 };
 
-export function Button({ title, onPress, variant = 'primary', disabled, loading }: Props) {
+export function Button({ title, onPress, variant = 'primary', disabled, loading, pill }: Props) {
   const { writingDirection } = useLayout();
   const palette = {
     primary: { bg: colors.primary, text: colors.white, border: colors.primary },
@@ -26,6 +27,7 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading 
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.base,
+        pill ? styles.pill : null,
         { backgroundColor: palette.bg, borderColor: palette.border, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
       ]}>
       {loading ? (
@@ -49,5 +51,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Cairo_700Bold',
   },
+  pill: { borderRadius: radius.full, minHeight: 54 },
 });

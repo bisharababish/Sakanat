@@ -56,5 +56,5 @@ const styles = StyleSheet.create({
   langOnly: {
     alignItems: 'flex-start',
   },
-  pad: { flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingTop: spacing.sm },
+  pad: { flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingTop: spacing.md },
 });

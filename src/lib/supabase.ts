@@ -10,6 +10,7 @@ export const isSupabaseConfigured = Boolean(url && key);
 
 /** Public confirmation page after email verify. Also add this in Supabase Auth redirect URLs. */
 export const AUTH_REDIRECT_URL = 'https://bisharababish.github.io/Sakanat/confirmed.html';
+export const AUTH_RESET_URL = 'https://bisharababish.github.io/Sakanat/reset.html';
 
 const memory = new Map<string, string>();
 const canUseNativeStorage = typeof window !== 'undefined';

@@ -1,5 +1,6 @@
+import { BrandLoader } from '@/components/BrandLoader';
 import { Redirect } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
@@ -21,11 +22,7 @@ export default function Gate() {
   }
 
   if (loading || (session && !profile)) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <BrandLoader />;
   }
 
   if (!session || !profile) {

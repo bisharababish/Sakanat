@@ -46,6 +46,7 @@ export type Profile = {
   study_year: string | null;
   degree_level: string | null;
   major: string | null;
+  expo_push_token?: string | null;
   created_at: string;
   cities?: City | null;
   universities?: University | null;

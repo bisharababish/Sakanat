@@ -44,9 +44,9 @@ export function ListingCard({ apartment, university, distanceKm, onPress }: Prop
 }
 
 const styles = StyleSheet.create({
-  photo: { width: '100%', height: 160, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
-  photoFallback: { width: '100%', height: 120, borderRadius: radius.md, backgroundColor: colors.primarySoft },
-  title: { fontSize: 18, fontWeight: '800', color: colors.text },
+  photo: { width: '100%', height: 168, borderRadius: radius.lg, backgroundColor: colors.surfaceMuted },
+  photoFallback: { width: '100%', height: 128, borderRadius: radius.lg, backgroundColor: colors.primarySoft },
+  title: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
   meta: { alignItems: 'baseline' },
   price: { fontSize: 18, fontWeight: '800', color: colors.primary },
   muted: { color: colors.textMuted, fontSize: 13 },

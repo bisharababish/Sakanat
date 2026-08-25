@@ -1,32 +1,52 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AuthBrand } from '@/components/auth/AuthBrand';
+import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/ui/Button';
-import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, spacing } from '@/src/theme/colors';
+import { colors } from '@/src/theme/colors';
 
 export default function WelcomeScreen() {
   const { t } = useTranslation();
-  const { textAlign } = useLayout();
+  const { rtlText } = useLayout();
 
   return (
-    <Screen>
-      <View style={styles.hero}>
-        <Text style={[styles.brand, { textAlign }]}>{t('appName')}</Text>
-        <Text style={[styles.tag, { textAlign }]}>{t('tagline')}</Text>
-        <Text style={[styles.body, { textAlign }]}>{t('auth.welcomeBody')}</Text>
-      </View>
-      <Button title={t('auth.login')} onPress={() => router.push('/(auth)/login')} />
-      <Button title={t('auth.register')} variant="secondary" onPress={() => router.push('/(auth)/register')} />
-    </Screen>
+    <AuthScreen>
+      <AuthBrand />
+      <AuthCard>
+        <Text style={[styles.title, rtlText]}>{t('auth.welcome')}</Text>
+        <Text style={[styles.tag, rtlText]}>{t('tagline')}</Text>
+        <Text style={[styles.body, rtlText]}>{t('auth.welcomeBody')}</Text>
+      </AuthCard>
+      <Button title={t('auth.login')} onPress={() => router.push('/(auth)/login')} pill />
+      <Button title={t('auth.register')} variant="secondary" onPress={() => router.push('/(auth)/register')} pill />
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: spacing.xl, marginBottom: spacing.lg, gap: spacing.sm },
-  brand: { fontSize: 34, fontWeight: '800', color: colors.primary, lineHeight: 44 },
-  tag: { fontSize: 18, fontWeight: '700', color: colors.text },
-  body: { fontSize: 16, color: colors.textMuted, lineHeight: 24 },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    fontFamily: 'Cairo_800ExtraBold',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  tag: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Cairo_700Bold',
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  body: {
+    fontSize: 15,
+    color: colors.textMuted,
+    fontFamily: 'Cairo_400Regular',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
 });

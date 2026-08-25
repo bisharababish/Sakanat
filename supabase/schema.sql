@@ -52,6 +52,7 @@ create table if not exists public.profiles (
   study_year text,
   degree_level text,
   major text,
+  expo_push_token text,
   created_at timestamptz not null default now()
 );
 

@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 
 import { changeAppLanguage } from '@/src/i18n';
 import { studentEmailError } from '@/src/lib/eduEmail';
-import { AUTH_REDIRECT_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
+import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
 import type { Profile, UserRole } from '@/src/types/database';
 
 function paramsFromAuthUrl(url: string) {
@@ -54,6 +54,9 @@ type AuthContextValue = {
   resendConfirmation: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<Profile | null>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  passwordRecovery: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const loadGen = useRef(0);
 
   const clearLocalAuth = () => {
@@ -127,7 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
+        setTimeout(() => router.replace('/(auth)/reset-password'), 0);
+      }
       // Defer so we do not hold the Supabase auth lock while loading the profile.
       setTimeout(() => {
         void loadForSession(next).catch(() => {
@@ -138,9 +146,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleUrl = (url: string | null) => {
       if (!url) return;
+      const recovery = url.includes('reset-password') || url.includes('recovery') || url.includes('type=recovery');
       void applySessionFromUrl(url)
         .then((applied) => {
-          if (applied) router.replace('/');
+          if (!applied) return;
+          if (recovery) {
+            setPasswordRecovery(true);
+            router.replace('/(auth)/reset-password');
+            return;
+          }
+          router.replace('/');
         })
         .catch(() => {
           // Invalid or already-used link; the confirmed screen still explains next steps.
@@ -164,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       configured: isSupabaseConfigured,
+      passwordRecovery,
       signIn: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -216,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         clearLocalAuth();
+        setPasswordRecovery(false);
         await supabase.auth.signOut({ scope: 'local' });
         try {
           await supabase.auth.signOut({ scope: 'global' });
@@ -230,8 +247,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(next);
         return next;
       },
+      requestPasswordReset: async (email) => {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: AUTH_RESET_URL,
+        });
+        if (error) throw error;
+      },
+      updatePassword: async (password) => {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setPasswordRecovery(false);
+      },
     }),
-    [session, profile, loading],
+    [session, profile, loading, passwordRecovery],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
