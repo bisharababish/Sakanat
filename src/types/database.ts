@@ -110,8 +110,8 @@ export type Conversation = {
   last_message_at: string;
   last_message: string | null;
   apartments?: Pick<Apartment, 'id' | 'title_ar' | 'title_en' | 'photos'>;
-  student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
-  owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'> | null;
+  student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone'> | null;
+  owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone'> | null;
 };
 
 export type Message = {

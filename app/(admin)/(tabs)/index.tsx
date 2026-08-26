@@ -29,12 +29,14 @@ export default function AdminOverview() {
   const [renters, setRenters] = useState(0);
   const [listings, setListings] = useState<Apartment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [chats, setChats] = useState(0);
 
   const load = useCallback(async () => {
-    const [profileRes, listingRes, bookingRes] = await Promise.all([
+    const [profileRes, listingRes, bookingRes, chatRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email, role, owner_status, phone'),
       supabase.from('apartments').select('id, title_ar, title_en, status, owner_id'),
       supabase.from('bookings').select('id, status, commission_amount, created_at'),
+      supabase.from('conversations').select('id', { count: 'exact', head: true }),
     ]);
     const profiles = (profileRes.data as Profile[]) ?? [];
     setStudents(profiles.filter((item) => item.role === 'student').length);
@@ -42,6 +44,7 @@ export default function AdminOverview() {
     setOwners(profiles.filter((item) => item.role === 'owner'));
     setListings((listingRes.data as Apartment[]) ?? []);
     setBookings((bookingRes.data as Booking[]) ?? []);
+    setChats(chatRes.count ?? 0);
   }, []);
 
   useFocusEffect(
@@ -125,6 +128,12 @@ export default function AdminOverview() {
           </Card>
         </View>
       </View>
+
+      <Card onPress={() => router.push('/(admin)/(tabs)/chat')}>
+        <Text style={[styles.label, rtlText]}>{t('admin.inboxTitle')}</Text>
+        <Text style={[styles.value, rtlText]}>{chats}</Text>
+        <Text style={[styles.meta, rtlText]}>{t('admin.openChat')}</Text>
+      </Card>
 
       <Card onPress={() => router.push('/(admin)/(tabs)/catalog')}>
         <Text style={[styles.label, rtlText]}>{t('admin.catalogTitle')}</Text>

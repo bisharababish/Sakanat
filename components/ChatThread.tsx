@@ -45,7 +45,21 @@ function timeLabel(iso: string, lang: string) {
   return date.toLocaleTimeString(lang.startsWith('ar') ? 'ar' : 'en', { hour: 'numeric', minute: '2-digit' });
 }
 
-export function ChatThread({ conversationId }: { conversationId: string }) {
+export function ChatThread({
+  conversationId,
+  readOnly = false,
+  studentId,
+  ownerId,
+  studentName,
+  ownerName,
+}: {
+  conversationId: string;
+  readOnly?: boolean;
+  studentId?: string;
+  ownerId?: string;
+  studentName?: string;
+  ownerName?: string;
+}) {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
@@ -98,7 +112,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
   }, [messages]);
 
   const onSend = async () => {
-    if (!profile || !draft.trim() || sending) return;
+    if (readOnly || !profile || !draft.trim() || sending) return;
     const body = draft.trim();
     const temp: Message = {
       id: `temp-${Date.now()}`,
@@ -138,11 +152,16 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
             <View style={styles.emptyIcon}>
               <Ionicons name="chatbubbles-outline" size={28} color={colors.primary} />
             </View>
-            <Text style={[styles.empty, { textAlign }]}>{t('chat.emptyThread')}</Text>
+            <Text style={[styles.empty, { textAlign }]}>
+              {readOnly ? t('chat.emptyThreadAdmin') : t('chat.emptyThread')}
+            </Text>
           </View>
         }
         renderItem={({ item }) => {
-          const mine = item.sender_id === profile?.id;
+          const fromStudent = Boolean(studentId && item.sender_id === studentId);
+          const fromOwner = Boolean(ownerId && item.sender_id === ownerId);
+          const mine = readOnly ? fromOwner : item.sender_id === profile?.id;
+          const senderLabel = fromStudent ? studentName : fromOwner ? ownerName : undefined;
           return (
             <View>
               {item.showDay ? (
@@ -151,6 +170,11 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
                     {dayLabel(item.created_at, i18n.language, t('chat.today'), t('chat.yesterday'))}
                   </Text>
                 </View>
+              ) : null}
+              {readOnly && senderLabel ? (
+                <Text style={[styles.sender, mine ? styles.senderMine : styles.senderTheirs]}>
+                  {senderLabel}
+                </Text>
               ) : null}
               <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                 <Text style={[styles.body, mine ? styles.mineText : styles.theirsText, { writingDirection }]}>
@@ -164,6 +188,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
           );
         }}
       />
+      {readOnly ? null : (
       <View
         style={[
           styles.composer,
@@ -198,6 +223,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
           )}
         </Pressable>
       </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -253,6 +279,9 @@ const styles = StyleSheet.create({
   time: { fontSize: 11, fontFamily: 'Cairo_400Regular', alignSelf: 'flex-end' },
   mineTime: { color: 'rgba(255,255,255,0.7)' },
   theirsTime: { color: colors.textMuted },
+  sender: { fontSize: 11, fontFamily: 'Cairo_700Bold', color: colors.textMuted, marginBottom: 2 },
+  senderMine: { alignSelf: 'flex-end' },
+  senderTheirs: { alignSelf: 'flex-start' },
   composer: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,

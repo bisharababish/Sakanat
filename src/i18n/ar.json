@@ -9,6 +9,8 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "back": "رجوع",
+    "next": "التالي",
+    "previous": "السابق",
     "close": "إغلاق",
     "search": "بحث",
     "filter": "تصفية",
@@ -329,7 +331,9 @@
     "unknownPerson": "مستخدم",
     "today": "اليوم",
     "yesterday": "أمس",
-    "you": "أنت"
+    "you": "أنت",
+    "emptyAdmin": "لا توجد محادثات بعد.",
+    "emptyThreadAdmin": "لا توجد رسائل في هذه المحادثة."
   },
   "admin": {
     "overview": "لوحة المدير",
@@ -407,7 +411,15 @@
     "ownerStatus": "حالة المالك",
     "deleteBooking": "حذف الحجز",
     "confirmDeleteBooking": "هل تريد حذف هذا الحجز؟",
-    "restoreBooking": "إرجاع الحجز"
+    "restoreBooking": "إرجاع الحجز",
+    "inboxTitle": "المحادثات",
+    "inboxHint": "كل المحادثات بين الطالب والمالك. افتحها للقراءة، أو احذف المحادثة كلها. ولا يمكنك الإرسال كمدير.",
+    "openChat": "فتح المحادثة",
+    "searchChats": "ابحث بالاسم أو البريد أو الهاتف أو الشقة أو نص الرسالة",
+    "noChatsMatch": "لا توجد محادثة تطابق هذا البحث",
+    "inboxPage": "{{from}}–{{to}} من {{total}}",
+    "deleteConversation": "حذف المحادثة",
+    "confirmDeleteConversation": "هل تريد حذف هذه المحادثة وكل رسائلها؟"
   },
   "phone": {
     "palestine": "فلسطين",

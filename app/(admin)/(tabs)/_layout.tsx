@@ -39,6 +39,13 @@ export default function AdminTabs() {
         }}
       />
       <Tabs.Screen
+        name="chat"
+        options={{
+          title: t('tabs.chat'),
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="chatbubbles-outline" filled="chatbubbles" />,
+        }}
+      />
+      <Tabs.Screen
         name="catalog"
         options={{
           title: t('tabs.catalog'),

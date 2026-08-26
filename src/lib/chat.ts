@@ -61,6 +61,41 @@ export async function loadConversation(id: string) {
   return data as Conversation;
 }
 
+export function conversationParties(conversation: Conversation | null | undefined) {
+  return {
+    student: asPerson(conversation?.student),
+    owner: asPerson(conversation?.owner),
+  };
+}
+
+export async function loadAllConversations() {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(
+      '*, apartments(id, title_ar, title_en, photos), student:profiles!student_id(id, full_name, avatar_url, email, phone), owner:profiles!owner_id(id, full_name, avatar_url, email, phone)',
+    )
+    .order('last_message_at', { ascending: false });
+  if (error) throw error;
+  return (data as Conversation[]) ?? [];
+}
+
+export async function conversationIdsMatchingMessage(query: string) {
+  const needle = query.trim().replace(/[%_]/g, '');
+  if (needle.length < 2) return [] as string[];
+  const { data, error } = await supabase
+    .from('messages')
+    .select('conversation_id')
+    .ilike('body', `%${needle}%`)
+    .limit(200);
+  if (error) throw error;
+  return [...new Set((data ?? []).map((row) => row.conversation_id as string))];
+}
+
+export async function deleteConversation(id: string) {
+  const { error } = await supabase.from('conversations').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function sendMessage(conversationId: string, senderId: string, body: string) {
   const trimmed = body.trim();
   if (!trimmed) return;

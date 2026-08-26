@@ -9,6 +9,8 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
     "close": "Close",
     "search": "Search",
     "filter": "Filter",
@@ -329,7 +331,9 @@
     "unknownPerson": "User",
     "today": "Today",
     "yesterday": "Yesterday",
-    "you": "You"
+    "you": "You",
+    "emptyAdmin": "No conversations yet.",
+    "emptyThreadAdmin": "This thread has no messages."
   },
   "admin": {
     "overview": "Admin dashboard",
@@ -407,7 +411,15 @@
     "ownerStatus": "Owner status",
     "deleteBooking": "Delete booking",
     "confirmDeleteBooking": "Delete this booking?",
-    "restoreBooking": "Restore booking"
+    "restoreBooking": "Restore booking",
+    "inboxTitle": "Messages",
+    "inboxHint": "Every student–owner thread. Open to read, or delete the whole conversation. You cannot send as admin.",
+    "openChat": "Open chat",
+    "searchChats": "Search by name, email, phone, listing, or message",
+    "noChatsMatch": "No conversations match that search",
+    "inboxPage": "{{from}}–{{to}} of {{total}}",
+    "deleteConversation": "Delete chat",
+    "confirmDeleteConversation": "Delete this conversation and all of its messages?"
   },
   "phone": {
     "palestine": "Palestine",
