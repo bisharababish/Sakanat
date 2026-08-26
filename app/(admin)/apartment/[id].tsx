@@ -13,6 +13,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { formatKm, listingDistanceKm, mapsUrl } from '@/src/lib/distance';
 import { formatIls, listingBadgeTone, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { notifyListingApproved } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
@@ -59,7 +60,12 @@ export default function AdminApartmentReview() {
     const { error } = await supabase.from('apartments').update({ status }).eq('id', apartment.id);
     setBusy(false);
     if (error) alert(t('common.error'), error.message);
-    else void load();
+    else {
+      if (status === 'approved' && apartment.status !== 'approved') {
+        notifyListingApproved(apartment.owner_id);
+      }
+      void load();
+    }
   };
 
   const removeListing = () => {

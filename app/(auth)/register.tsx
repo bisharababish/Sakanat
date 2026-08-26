@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { LegalAcceptRow, LegalDocModal } from '@/components/LegalDocModal';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Input } from '@/components/ui/Input';
@@ -20,13 +21,14 @@ import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { colors } from '@/src/theme/colors';
-import type { PersonGender } from '@/src/types/database';
+import type { PersonGender, PublicSignupRole } from '@/src/types/database';
 
 export default function RegisterScreen() {
   const { t, i18n } = useTranslation();
   const { rtlText, isRtl } = useLayout();
   const { signUp } = useAuth();
   const { cities, universities } = useCatalog();
+  const [kind, setKind] = useState<PublicSignupRole>('student');
   const [fullName, setFullName] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
@@ -35,9 +37,12 @@ export default function RegisterScreen() {
   const [cityId, setCityId] = useState('');
   const [universityId, setUniversityId] = useState('');
   const [gender, setGender] = useState<PersonGender | ''>('');
+  const [accepted, setAccepted] = useState(false);
+  const [legal, setLegal] = useState<'terms' | 'privacy' | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const lang = i18n.language;
+  const isStudent = kind === 'student';
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, lang) })),
@@ -64,14 +69,25 @@ export default function RegisterScreen() {
     }
   };
 
+  const pickKind = (next: PublicSignupRole) => {
+    setKind(next);
+    setError('');
+    if (next === 'renter') setUniversityId('');
+  };
+
   const onSubmit = async () => {
     setError('');
-    if (!fullName || !email || !password || !gender || !phoneLocal.trim() || !cityId || !universityId) {
+    const missingUniversity = isStudent && !universityId;
+    if (!fullName || !email || !password || !gender || !phoneLocal.trim() || !cityId || missingUniversity) {
       setError(t('auth.missingFields'));
       return;
     }
     if (password.length < 6) {
       setError(t('auth.weakPassword'));
+      return;
+    }
+    if (!accepted) {
+      setError(t('auth.mustAccept'));
       return;
     }
     const cleanPhone = toE164(phoneRegion, phoneLocal);
@@ -86,9 +102,9 @@ export default function RegisterScreen() {
         password,
         fullName,
         phone: cleanPhone,
-        role: 'student',
+        role: kind,
         cityId,
-        universityId,
+        universityId: isStudent ? universityId : undefined,
         gender,
         language: lang.startsWith('ar') ? 'ar' : 'en',
       });
@@ -108,7 +124,12 @@ export default function RegisterScreen() {
       <AuthCard>
         <Text style={[styles.title, rtlText]}>{t('auth.registerTitle')}</Text>
         <Text style={[styles.hint, rtlText]}>{t('auth.registerHint')}</Text>
-        <Text style={[styles.roleHint, rtlText]}>{t('auth.studentHint')}</Text>
+        <Text style={[styles.label, rtlText]}>{t('auth.chooseRole')}</Text>
+        <View style={[styles.roles, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+          <Chip label={t('auth.accountStudent')} selected={isStudent} onPress={() => pickKind('student')} />
+          <Chip label={t('auth.accountRenter')} selected={!isStudent} onPress={() => pickKind('renter')} />
+        </View>
+        <Text style={[styles.roleHint, rtlText]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
         <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
         <View style={[styles.roles, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
           <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
@@ -124,14 +145,14 @@ export default function RegisterScreen() {
           soft
         />
         <Input
-          label={t('auth.studentEmail')}
+          label={isStudent ? t('auth.studentEmail') : t('common.email')}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
           ltr
-          hint={t('auth.studentEmailHint')}
+          hint={isStudent ? t('auth.studentEmailHint') : t('auth.renterEmailHint')}
           soft
         />
         <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
@@ -143,13 +164,16 @@ export default function RegisterScreen() {
           onChange={setCity}
           soft
         />
-        <SearchSelect
-          label={t('auth.studyUniversity')}
-          value={universityId}
-          placeholder={t('common.select')}
-          options={universityOptions}
-          onChange={setUniversityId}
-        />
+        {isStudent ? (
+          <SearchSelect
+            label={t('auth.studyUniversity')}
+            value={universityId}
+            placeholder={t('common.select')}
+            options={universityOptions}
+            onChange={setUniversityId}
+          />
+        ) : null}
+        <LegalAcceptRow accepted={accepted} onToggle={() => setAccepted((value) => !value)} onOpen={setLegal} />
         {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
         <View style={styles.lockRow}>
           <Ionicons name="lock-closed" size={14} color={colors.primary} />
@@ -162,6 +186,7 @@ export default function RegisterScreen() {
           {t('auth.hasAccount')} <Text style={styles.link}>{t('auth.login')}</Text>
         </Text>
       </Pressable>
+      <LegalDocModal kind={legal} onClose={() => setLegal(null)} />
     </AuthScreen>
   );
 }

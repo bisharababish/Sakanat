@@ -1,7 +1,28 @@
--- Superseded by supabase/renter-role.sql.
--- Public signup is student or renter. Owners are created by an admin
--- (Admin → Users → Create owner), which updates profiles.role after insert.
--- Safe to re-run; owner/admin metadata on public signup is ignored.
+-- Public signup: student (campus .edu / .edu.ps) or renter (workers, families).
+-- Owners still cannot self-register; the admin creates those accounts.
+-- Run once in the Supabase SQL editor.
+-- After this, also run supabase/account-moderation.sql. Do not re-run this file
+-- after that, or you will overwrite the newer handle_new_user().
+
+do $$
+declare
+  cname text;
+begin
+  for cname in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.profiles'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ~* 'role'
+      and pg_get_constraintdef(oid) ~* 'student'
+  loop
+    execute format('alter table public.profiles drop constraint %I', cname);
+  end loop;
+end $$;
+
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('student', 'renter', 'owner', 'admin'));
 
 create or replace function public.handle_new_user()
 returns trigger

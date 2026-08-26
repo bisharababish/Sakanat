@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Chip } from '@/components/ui/Chip';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { DateField } from '@/components/ui/DateField';
@@ -20,6 +21,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
+import { deleteUserAccount, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
@@ -50,6 +52,7 @@ export default function AdminUserEdit() {
   const [degreeLevel, setDegreeLevel] = useState('');
   const [studyYear, setStudyYear] = useState('');
   const [saving, setSaving] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
 
   useEffect(() => {
@@ -77,6 +80,7 @@ export default function AdminUserEdit() {
         setUniversityId(next.university_id ?? '');
         setRole(next.role);
         setOwnerStatus(next.owner_status);
+        setAccountStatus(next.account_status === 'suspended' ? 'suspended' : 'active');
         setStudentId(next.student_id_number ?? '');
         setMajor(next.major ?? '');
         setDegreeLevel(next.degree_level ?? '');
@@ -153,6 +157,33 @@ export default function AdminUserEdit() {
     }
   };
 
+  const toggleSuspend = () => {
+    if (!user || user.role === 'admin' || user.id === me?.id) return;
+    const next = accountStatus !== 'suspended';
+    alert(
+      next ? t('admin.suspend') : t('admin.restoreAccount'),
+      next ? t('admin.confirmSuspend') : t('admin.confirmRestore'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: next ? t('admin.suspend') : t('admin.restoreAccount'),
+          style: next ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              await setSuspended(user, next);
+              setAccountStatus(next ? 'suspended' : 'active');
+              setUser({ ...user, account_status: next ? 'suspended' : 'active' });
+              if (user.role === 'owner') setOwnerStatus(next ? 'rejected' : 'approved');
+              alert(t('common.done'), next ? t('admin.accountSuspended') : t('admin.accountActive'));
+            } catch (err) {
+              alert(t('common.error'), err instanceof Error ? err.message : '');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const removeUser = () => {
     if (!user || user.role === 'admin' || user.id === me?.id) return;
     alert(t('admin.deleteUser'), t('admin.confirmDeleteUser'), [
@@ -161,9 +192,12 @@ export default function AdminUserEdit() {
         text: t('common.yes'),
         style: 'destructive',
         onPress: async () => {
-          const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-          if (error) alert(t('common.error'), error.message);
-          else router.back();
+          try {
+            await deleteUserAccount(user.id);
+            router.back();
+          } catch (err) {
+            alert(t('common.error'), err instanceof Error ? err.message : '');
+          }
         },
       },
     ]);
@@ -188,6 +222,12 @@ export default function AdminUserEdit() {
     <Screen back>
       <Text style={[styles.title, rtlText]}>{t('admin.editUser')}</Text>
       <Text style={[styles.sub, rtlText]}>{user.email}</Text>
+      {accountStatus === 'suspended' ? <StatusBadge label={t('admin.accountSuspended')} tone="rejected" /> : null}
+      {user.accepted_terms_at ? (
+        <Text style={[styles.sub, rtlText]}>
+          {t('admin.acceptedTerms')}: {user.accepted_terms_at.slice(0, 10)}
+        </Text>
+      ) : null}
 
       <Card>
         <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
@@ -237,6 +277,7 @@ export default function AdminUserEdit() {
           <SectionHead icon="shield-outline" title={t('profile.role')} />
           <View style={[styles.chips, chipAlign]}>
             <Chip label={t('roles.student')} selected={role === 'student'} onPress={() => setRole('student')} />
+            <Chip label={t('roles.renter')} selected={role === 'renter'} onPress={() => setRole('renter')} />
             <Chip label={t('roles.owner')} selected={role === 'owner'} onPress={() => setRole('owner')} />
           </View>
           {role === 'owner' ? (
@@ -306,7 +347,15 @@ export default function AdminUserEdit() {
 
       <Button title={t('common.save')} onPress={() => void save()} loading={saving} pill />
       {user.role !== 'admin' && user.id !== me?.id ? (
-        <Button title={t('admin.deleteUser')} variant="danger" onPress={removeUser} pill />
+        <>
+          <Button
+            title={accountStatus === 'suspended' ? t('admin.restoreAccount') : t('admin.suspend')}
+            variant={accountStatus === 'suspended' ? 'secondary' : 'danger'}
+            onPress={toggleSuspend}
+            pill
+          />
+          <Button title={t('admin.deleteUser')} variant="danger" onPress={removeUser} pill />
+        </>
       ) : null}
     </Screen>
   );

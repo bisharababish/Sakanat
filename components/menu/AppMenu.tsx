@@ -2,13 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { type ComponentProps, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { type ComponentProps, useEffect, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, Share, StatusBar, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
@@ -48,9 +49,13 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const colors = useColors();
   const { preference, setPreference } = useTheme();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0);
   const [pushOn, setPushOn] = useState(true);
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('root');
+  const [askLogout, setAskLogout] = useState(false);
+  const pendingSignOut = useRef(false);
   const progress = useSharedValue(0);
   const copy = { textAlign, writingDirection };
   const sheetWidth = Math.min(340, Math.round(width * 0.84));
@@ -63,8 +68,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   }, [visible]);
 
   useEffect(() => {
-    if (visible) setOpen(true);
-    else setPane('root');
+    if (visible) {
+      setOpen(true);
+      return;
+    }
+    setPane('root');
+    setAskLogout(false);
   }, [visible]);
 
   useEffect(() => {
@@ -73,6 +82,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
       if (finished && !visible) runOnJS(setOpen)(false);
     });
   }, [open, progress, visible]);
+
+  useEffect(() => {
+    if (open || !pendingSignOut.current) return;
+    pendingSignOut.current = false;
+    void signOut();
+  }, [open, signOut]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
@@ -131,18 +146,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     alert(t('menu.rate'), t('menu.rateSoon'));
   };
 
-  const logout = () => {
-    alert(t('common.logout'), t('common.confirmLogout'), [
-      { text: t('common.no'), style: 'cancel' },
-      {
-        text: t('common.yes'),
-        style: 'destructive',
-        onPress: () => {
-          onClose();
-          void signOut();
-        },
-      },
-    ]);
+  const confirmLogout = () => {
+    pendingSignOut.current = true;
+    onClose();
   };
 
   const paneTitle = pane === 'how' ? t('menu.how') : pane === 'privacy' ? t('menu.privacy') : t('menu.terms');
@@ -173,8 +179,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
             },
           ]}
         >
-          <SafeAreaView edges={['top', 'bottom']} style={styles.sheetInner}>
-            <View style={[styles.head, { borderBottomColor: colors.border }]}>
+          <SafeAreaView edges={['bottom']} style={styles.sheetInner}>
+            <View style={[styles.head, { borderBottomColor: colors.border, paddingTop: topInset + spacing.md }]}>
               {pane !== 'root' ? (
                 <Pressable
                   onPress={() => setPane('root')}
@@ -201,11 +207,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
             </View>
 
             {pane !== 'root' ? (
-              <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
                 <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
               </ScrollView>
             ) : (
               <ScrollView
+                style={styles.flex}
                 contentContainerStyle={styles.body}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
@@ -353,18 +360,35 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="star-outline" label={t('menu.rate')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void rateApp()} />
                 </View>
-
-                {profile ? (
-                  <Pressable
-                    onPress={logout}
-                    style={[styles.logout, row, { backgroundColor: colors.dangerSoft, borderColor: colors.danger }]}
-                  >
-                    <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-                    <Text style={[styles.logoutText, copy, { color: colors.danger }]}>{t('common.logout')}</Text>
-                  </Pressable>
-                ) : null}
               </ScrollView>
             )}
+            {pane === 'root' && profile ? (
+              <View style={[styles.logoutBar, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
+                {askLogout ? (
+                  <View style={styles.confirmBox}>
+                    <Text style={[styles.confirmText, copy, { color: colors.text }]}>{t('common.confirmLogout')}</Text>
+                    <View style={styles.confirmActions}>
+                      <View style={styles.confirmBtn}>
+                        <Button title={t('common.no')} variant="ghost" onPress={() => setAskLogout(false)} />
+                      </View>
+                      <View style={styles.confirmBtn}>
+                        <Button title={t('common.yes')} onPress={confirmLogout} />
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => setAskLogout(true)}
+                    style={[styles.row, row]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.logout')}
+                  >
+                    <RowIcon name="log-out-outline" colors={colors} />
+                    <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('common.logout')}</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : null}
           </SafeAreaView>
         </Animated.View>
       </View>
@@ -423,13 +447,14 @@ const styles = StyleSheet.create({
     elevation: 18,
   },
   sheetInner: { flex: 1 },
+  flex: { flex: 1 },
   head: {
     flexDirection: 'row',
     direction: 'ltr',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
   },
   title: { flex: 1, minWidth: 0, fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
@@ -509,14 +534,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   segmentText: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  logout: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    minHeight: 52,
-    borderRadius: radius.md,
-    borderWidth: 1,
+  logoutBar: {
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  logoutText: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_700Bold' },
+  confirmBox: { gap: spacing.sm },
+  confirmText: { fontSize: 14, fontFamily: 'Cairo_600SemiBold' },
+  confirmActions: { flexDirection: 'row', direction: 'ltr', gap: 8 },
+  confirmBtn: { flex: 1 },
 });

@@ -39,6 +39,13 @@ export default function AdminTabs() {
         }}
       />
       <Tabs.Screen
+        name="catalog"
+        options={{
+          title: t('tabs.catalog'),
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="map-outline" filled="map" />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: t('tabs.settings'),

@@ -70,6 +70,15 @@ export function BookingCard({ booking, personIcon = 'person', personLabel, extra
       </View>
 
       {personLabel ? <MetaLine icon={personIcon} text={personLabel} color={colors.primary} /> : null}
+      <MetaLine
+        icon="people-outline"
+        text={
+          (booking.occupants ?? 1) === 1
+            ? t('booking.onePerson')
+            : t('booking.people', { count: booking.occupants ?? 1 })
+        }
+        color={colors.primary}
+      />
       <MetaLine icon="cash-outline" text={formatIls(booking.rent_amount, lang)} color={colors.accent} />
       <MetaLine
         icon="card-outline"

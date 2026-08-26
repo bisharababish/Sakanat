@@ -38,6 +38,7 @@ export function authErrorMessage(err: unknown, t: TFunction) {
   if (err instanceof Error) {
     if (err.message === 'studentEmailRequired') return t('auth.studentEmailRequired');
     if (err.message === 'invalidEmail') return t('auth.invalidEmail');
+    if (err.message === 'accountSuspended') return t('auth.accountSuspended');
   }
   const { code, text } = authBits(err);
   if (code && BY_CODE[code]) return t(BY_CODE[code]);

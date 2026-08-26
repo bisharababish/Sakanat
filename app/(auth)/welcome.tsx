@@ -23,6 +23,7 @@ export default function WelcomeScreen() {
       </AuthCard>
       <Button title={t('auth.login')} onPress={() => router.push('/(auth)/login')} pill />
       <Button title={t('auth.register')} variant="secondary" onPress={() => router.push('/(auth)/register')} pill />
+      <Button title={t('auth.continueGuest')} variant="ghost" onPress={() => router.replace('/(guest)/(tabs)/search')} pill />
     </AuthScreen>
   );
 }

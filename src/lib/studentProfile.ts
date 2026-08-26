@@ -1,14 +1,16 @@
 import type { GenderPolicy, PersonGender, Profile } from '@/src/types/database';
 
+export function isSeeker(profile: Profile | null | undefined) {
+  return profile?.role === 'student' || profile?.role === 'renter';
+}
+
 export function isStudentReady(profile: Profile | null | undefined) {
-  if (!profile) return false;
-  return Boolean(
-    profile.full_name?.trim() &&
-      profile.phone?.trim() &&
-      profile.gender &&
-      profile.city_id &&
-      profile.university_id,
+  if (!profile || !isSeeker(profile)) return false;
+  const basics = Boolean(
+    profile.full_name?.trim() && profile.phone?.trim() && profile.gender && profile.city_id,
   );
+  if (profile.role === 'renter') return basics;
+  return basics && Boolean(profile.university_id);
 }
 
 export function listingFitsStudent(policy: GenderPolicy, gender?: PersonGender | null) {

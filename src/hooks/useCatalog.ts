@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { subscribeCatalog } from '@/src/lib/catalog';
 import { supabase } from '@/src/lib/supabase';
 import type { City, University } from '@/src/types/database';
 
@@ -7,6 +8,9 @@ export function useCatalog() {
   const [cities, setCities] = useState<City[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => subscribeCatalog(() => setTick((value) => value + 1)), []);
 
   useEffect(() => {
     let mounted = true;
@@ -23,7 +27,7 @@ export function useCatalog() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [tick]);
 
   return { cities, universities, loading };
 }

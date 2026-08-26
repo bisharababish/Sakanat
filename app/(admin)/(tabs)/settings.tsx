@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -267,16 +267,23 @@ export default function AdminSettings() {
       ) : null}
 
       {tab === 'settings' ? (
-        <Card>
-          <SectionHead icon="settings-outline" title={t('admin.platformSettings')} />
-          <Input
-            label={`${t('admin.commissionRate')} %`}
-            value={percent}
-            onChangeText={setPercent}
-            keyboardType="numeric"
-          />
-          <Button title={t('admin.saveSettings')} onPress={saveCommission} loading={savingCommission} pill />
-        </Card>
+        <>
+          <Card>
+            <SectionHead icon="settings-outline" title={t('admin.platformSettings')} />
+            <Input
+              label={`${t('admin.commissionRate')} %`}
+              value={percent}
+              onChangeText={setPercent}
+              keyboardType="numeric"
+            />
+            <Button title={t('admin.saveSettings')} onPress={saveCommission} loading={savingCommission} pill />
+          </Card>
+          <Card>
+            <SectionHead icon="map-outline" title={t('admin.catalogTitle')} />
+            <Text style={[styles.hint, rtlText]}>{t('admin.catalogHint')}</Text>
+            <Button title={t('admin.openCatalog')} onPress={() => router.push('/(admin)/(tabs)/catalog')} pill />
+          </Card>
+        </>
       ) : null}
     </Screen>
   );
@@ -284,5 +291,6 @@ export default function AdminSettings() {
 
 const styles = StyleSheet.create({
   label: { color: colors.text, fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  hint: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
 });

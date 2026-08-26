@@ -16,6 +16,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
+import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { AUTH_REDIRECT_URL, createDetachedClient, supabase } from '@/src/lib/supabase';
@@ -66,15 +67,27 @@ export default function AdminUsers() {
     void load();
   };
 
-  const suspend = (user: Profile) => {
-    alert(t('admin.suspend'), t('admin.confirmSuspend'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('admin.suspend'),
-        style: 'destructive',
-        onPress: () => void setOwnerStatus(user.id, 'rejected'),
-      },
-    ]);
+  const toggleSuspend = (user: Profile) => {
+    const next = !isSuspended(user);
+    alert(
+      next ? t('admin.suspend') : t('admin.restoreAccount'),
+      next ? t('admin.confirmSuspend') : t('admin.confirmRestore'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: next ? t('admin.suspend') : t('admin.restoreAccount'),
+          style: next ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              await setSuspended(user, next);
+              void load();
+            } catch (err) {
+              alert(t('common.error'), err instanceof Error ? err.message : '');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const createOwner = async () => {
@@ -187,6 +200,7 @@ export default function AdminUsers() {
       <View style={[styles.chips, { justifyContent: alignStart }]}>
         <Chip label={t('common.all')} selected={role === 'all'} onPress={() => setRole('all')} />
         <Chip label={t('roles.student')} selected={role === 'student'} onPress={() => setRole('student')} />
+        <Chip label={t('roles.renter')} selected={role === 'renter'} onPress={() => setRole('renter')} />
         <Chip label={t('roles.owner')} selected={role === 'owner'} onPress={() => setRole('owner')} />
         <Chip label={t('roles.admin')} selected={role === 'admin'} onPress={() => setRole('admin')} />
       </View>
@@ -218,21 +232,29 @@ export default function AdminUsers() {
                 {t('profile.studentId')}: {user.student_id_number}
               </Text>
             ) : null}
-            {user.role === 'owner' ? <StatusBadge label={ownerLabel(user.owner_status)} tone={ownerTone(user.owner_status)} /> : null}
+            {isSuspended(user) ? (
+              <StatusBadge label={t('admin.accountSuspended')} tone="rejected" />
+            ) : user.role === 'owner' ? (
+              <StatusBadge label={ownerLabel(user.owner_status)} tone={ownerTone(user.owner_status)} />
+            ) : null}
             <Button
               title={t('admin.editUser')}
               variant="secondary"
               onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
             />
-            {user.role === 'owner' && user.id !== profile?.id ? (
+            {user.role !== 'admin' && user.id !== profile?.id ? (
               <View style={[styles.row, { justifyContent: alignStart }]}>
-                {user.owner_status !== 'approved' ? (
+                {user.role === 'owner' && user.owner_status !== 'approved' && !isSuspended(user) ? (
                   <View style={styles.flex}>
                     <Button title={t('admin.approveAlways')} onPress={() => void setOwnerStatus(user.id, 'approved')} />
                   </View>
                 ) : (
                   <View style={styles.flex}>
-                    <Button title={t('admin.suspend')} variant="danger" onPress={() => suspend(user)} />
+                    <Button
+                      title={isSuspended(user) ? t('admin.restoreAccount') : t('admin.suspend')}
+                      variant={isSuspended(user) ? 'secondary' : 'danger'}
+                      onPress={() => toggleSuspend(user)}
+                    />
                   </View>
                 )}
               </View>

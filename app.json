@@ -39,11 +39,17 @@
       ],
       "expo-localization",
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "color": "#2D5A3D",
+          "defaultChannel": "default"
+        }
+      ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "نحتاج الصور حتى يضيف المالك صور الشقة."
+          "photosPermission": "نحتاج إلى الصور حتى يضيف المالك صور الشقة."
         }
       ],
       "@react-native-community/datetimepicker"

@@ -28,6 +28,7 @@ import { formatKm, listingDistanceKm, mapsUrl } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
+import { requireAccount } from '@/src/lib/guest';
 import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
@@ -85,7 +86,11 @@ export default function ApartmentDetails() {
   };
 
   const startChat = async () => {
-    if (!profile || !apartment) return;
+    if (!profile) {
+      requireAccount();
+      return;
+    }
+    if (!apartment) return;
     setBusy(true);
     try {
       const conversationId = await openConversation(apartment, profile.id);
@@ -96,6 +101,10 @@ export default function ApartmentDetails() {
   };
 
   const goBook = () => {
+    if (!profile) {
+      requireAccount();
+      return;
+    }
     if (!apartment) return;
     if (!isStudentReady(profile)) {
       alert(t('booking.needProfile'), t('profile.completeToBook'), [
@@ -129,14 +138,19 @@ export default function ApartmentDetails() {
         compactBack
         extra={
           <Pressable
-            onPress={async () => {
-              if (!profile) return;
-              setSaving(true);
-              try {
-                setSaved(await toggleSavedApartment(profile.id, apartment.id, saved));
-              } finally {
-                setSaving(false);
+            onPress={() => {
+              if (!profile) {
+                requireAccount();
+                return;
               }
+              void (async () => {
+                setSaving(true);
+                try {
+                  setSaved(await toggleSavedApartment(profile.id, apartment.id, saved));
+                } finally {
+                  setSaving(false);
+                }
+              })();
             }}
             disabled={saving}
             hitSlop={8}
@@ -233,12 +247,14 @@ export default function ApartmentDetails() {
         <Card>
           <Text style={[styles.section, copy]}>{t('listing.owner')}</Text>
           <Text style={[styles.body, copy]}>{apartment.profiles?.full_name}</Text>
-          {apartment.profiles?.phone ? (
+          {profile && apartment.profiles?.phone ? (
             <Button
               title={t('common.call')}
               variant="ghost"
               onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
             />
+          ) : !profile ? (
+            <Button title={t('common.call')} variant="ghost" onPress={requireAccount} />
           ) : null}
         </Card>
       </ScrollView>

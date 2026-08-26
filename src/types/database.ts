@@ -1,4 +1,5 @@
-export type UserRole = 'student' | 'owner' | 'admin';
+export type UserRole = 'student' | 'renter' | 'owner' | 'admin';
+export type PublicSignupRole = 'student' | 'renter';
 export type OwnerStatus = 'pending' | 'approved' | 'rejected';
 export type ListingStatus = 'pending' | 'approved' | 'rejected' | 'hidden';
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
@@ -47,6 +48,8 @@ export type Profile = {
   degree_level: string | null;
   major: string | null;
   expo_push_token?: string | null;
+  account_status?: 'active' | 'suspended';
+  accepted_terms_at?: string | null;
   created_at: string;
   cities?: City | null;
   universities?: University | null;
@@ -88,6 +91,7 @@ export type Booking = {
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
   status: BookingStatus;
+  occupants: number;
   rent_amount: number;
   commission_percent: number;
   commission_amount: number;

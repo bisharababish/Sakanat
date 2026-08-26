@@ -136,7 +136,8 @@ export default function StudentProfileScreen() {
     [universities, universityId, i18n.language],
   );
   const majorName = major ? majorLabel(major, i18n.language) : '';
-  const incomplete = !gender || !universityId || !cityId || !phoneLocal.trim();
+  const isStudent = profile?.role !== 'renter';
+  const incomplete = !gender || !cityId || !phoneLocal.trim() || (isStudent && !universityId);
 
   const reloadSaved = useCallback(async () => {
     if (!profile?.id) return;
@@ -177,8 +178,8 @@ export default function StudentProfileScreen() {
   };
 
   const saveProfile = async () => {
-    if (!profile || !fullName.trim() || !phoneLocal.trim() || !gender || !cityId || !universityId) {
-      alert(t('common.error'), t('profile.completeRequired'));
+    if (!profile || !fullName.trim() || !phoneLocal.trim() || !gender || !cityId || (isStudent && !universityId)) {
+      alert(t('common.error'), t(isStudent ? 'profile.completeRequired' : 'profile.completeRequiredRenter'));
       return;
     }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
@@ -191,7 +192,7 @@ export default function StudentProfileScreen() {
       alert(t('common.error'), t('phone.invalid'));
       return;
     }
-    if (studentId.trim() && !isValidStudentId(studentId)) {
+    if (isStudent && studentId.trim() && !isValidStudentId(studentId)) {
       alert(t('common.error'), t('profile.studentIdHint'));
       return;
     }
@@ -202,15 +203,15 @@ export default function StudentProfileScreen() {
         .update({
           full_name: fullName.trim(),
           phone: cleanPhone,
-          student_id_number: studentId.trim() || null,
+          student_id_number: isStudent ? studentId.trim() || null : null,
           whatsapp: cleanWhatsapp,
-          major: major || null,
-          degree_level: degreeLevel || null,
-          study_year: studyYear || null,
+          major: isStudent ? major || null : null,
+          degree_level: isStudent ? degreeLevel || null : null,
+          study_year: isStudent ? studyYear || null : null,
           gender: gender || null,
           date_of_birth: birthDate || null,
           city_id: cityId || null,
-          university_id: universityId || null,
+          university_id: isStudent ? universityId || null : null,
         })
         .eq('id', profile.id);
       if (error) throw error;
@@ -276,9 +277,9 @@ export default function StudentProfileScreen() {
           };
 
   const heroMetas = [
-    ...(majorName ? [{ icon: 'school' as const, text: majorName }] : []),
-    ...((cityName || universityName)
-      ? [{ icon: 'location' as const, text: [universityName, cityName].filter(Boolean).join(' · ') }]
+    ...(isStudent && majorName ? [{ icon: 'school' as const, text: majorName }] : []),
+    ...((cityName || (isStudent && universityName))
+      ? [{ icon: 'location' as const, text: [isStudent ? universityName : '', cityName].filter(Boolean).join(' · ') }]
       : []),
   ];
 
@@ -358,49 +359,53 @@ export default function StudentProfileScreen() {
                 void Linking.openURL(whatsappLink(number));
               }}
             />
-            <Input
-              label={t('profile.studentId')}
-              value={studentId}
-              onChangeText={(value) => setStudentId(value.replace(/\D/g, '').slice(0, 10))}
-              keyboardType="number-pad"
-              hint={t('profile.studentIdHint')}
-              autoCapitalize="none"
-              ltr
-            />
+            {isStudent ? (
+              <Input
+                label={t('profile.studentId')}
+                value={studentId}
+                onChangeText={(value) => setStudentId(value.replace(/\D/g, '').slice(0, 10))}
+                keyboardType="number-pad"
+                hint={t('profile.studentIdHint')}
+                autoCapitalize="none"
+                ltr
+              />
+            ) : null}
           </Card>
 
-          <Card>
-            <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
-            <SearchSelect
-              label={t('profile.major')}
-              value={major}
-              placeholder={t('profile.searchMajor')}
-              options={majorOptions}
-              onChange={setMajor}
-            />
-            <Select
-              label={t('profile.degree')}
-              value={degreeLevel}
-              placeholder={t('common.select')}
-              options={degreeOptions}
-              onChange={setDegreeLevel}
-            />
-            <Select
-              label={t('profile.studyYear')}
-              value={studyYear}
-              placeholder={t('common.select')}
-              options={yearOptions}
-              onChange={setStudyYear}
-            />
-            <SearchSelect
-              label={t('auth.studyUniversity')}
-              value={universityId}
-              placeholder={t('common.select')}
-              options={universityOptions}
-              onChange={setUniversityId}
-            />
-            <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
-          </Card>
+          {isStudent ? (
+            <Card>
+              <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
+              <SearchSelect
+                label={t('profile.major')}
+                value={major}
+                placeholder={t('profile.searchMajor')}
+                options={majorOptions}
+                onChange={setMajor}
+              />
+              <Select
+                label={t('profile.degree')}
+                value={degreeLevel}
+                placeholder={t('common.select')}
+                options={degreeOptions}
+                onChange={setDegreeLevel}
+              />
+              <Select
+                label={t('profile.studyYear')}
+                value={studyYear}
+                placeholder={t('common.select')}
+                options={yearOptions}
+                onChange={setStudyYear}
+              />
+              <SearchSelect
+                label={t('auth.studyUniversity')}
+                value={universityId}
+                placeholder={t('common.select')}
+                options={universityOptions}
+                onChange={setUniversityId}
+              />
+            </Card>
+          ) : null}
+          <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
         </>
       ) : null}
 

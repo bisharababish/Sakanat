@@ -19,6 +19,7 @@ import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import { isStudentReady } from '@/src/lib/studentProfile';
+import { apartmentPath, requireAccount } from '@/src/lib/guest';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius, spacing } from '@/src/theme/colors';
 import type { Apartment, GenderPolicy, University } from '@/src/types/database';
@@ -161,7 +162,9 @@ export default function SearchScreen() {
         <Text style={[styles.sub, rtlText]}>{t('search.subtitle')}</Text>
       </View>
 
-      {!isStudentReady(profile) ? (
+      {!profile ? (
+        <ProfileBanner icon="person-outline" text={t('guest.banner')} onPress={() => router.push('/(auth)/register')} />
+      ) : !isStudentReady(profile) ? (
         <ProfileBanner
           icon="sparkles"
           text={t('profile.completeHint')}
@@ -302,7 +305,10 @@ export default function SearchScreen() {
           distanceKm={distance}
           saved={savedIds.includes(item.id)}
           onToggleSave={() => {
-            if (!profile) return;
+            if (!profile) {
+              requireAccount();
+              return;
+            }
             const currently = savedIds.includes(item.id);
             setSavedIds((ids) => (currently ? ids.filter((id) => id !== item.id) : [...ids, item.id]));
             void toggleSavedApartment(profile.id, item.id, currently).then((next) => {
@@ -316,7 +322,7 @@ export default function SearchScreen() {
           }}
           onPress={() =>
             router.push({
-              pathname: '/(student)/apartment/[id]',
+              pathname: apartmentPath(Boolean(profile)),
               params: { id: item.id, universityId: universityId || '' },
             })
           }

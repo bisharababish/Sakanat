@@ -10,6 +10,7 @@ import { Chip } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { listingBadgeTone } from '@/src/lib/format';
+import { notifyListingApproved } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { colors } from '@/src/theme/colors';
@@ -39,9 +40,16 @@ export default function AdminListings() {
   );
 
   const setListingStatus = async (id: string, next: ListingStatus) => {
+    const item = listings.find((row) => row.id === id);
     const { error } = await supabase.from('apartments').update({ status: next }).eq('id', id);
-    if (error) alert(t('common.error'), error.message);
-    else void load();
+    if (error) {
+      alert(t('common.error'), error.message);
+      return;
+    }
+    if (next === 'approved' && item?.owner_id && item.status !== 'approved') {
+      notifyListingApproved(item.owner_id);
+    }
+    void load();
   };
 
   const removeListing = (item: Apartment) => {

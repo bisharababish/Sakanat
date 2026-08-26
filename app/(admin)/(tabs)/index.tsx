@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { formatIls, localizedTitle } from '@/src/lib/format';
+import { notifyListingApproved } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { colors } from '@/src/theme/colors';
@@ -25,6 +26,7 @@ export default function AdminOverview() {
   const { rtlText, alignStart, lang } = useLayout();
   const [owners, setOwners] = useState<Profile[]>([]);
   const [students, setStudents] = useState(0);
+  const [renters, setRenters] = useState(0);
   const [listings, setListings] = useState<Apartment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
@@ -36,6 +38,7 @@ export default function AdminOverview() {
     ]);
     const profiles = (profileRes.data as Profile[]) ?? [];
     setStudents(profiles.filter((item) => item.role === 'student').length);
+    setRenters(profiles.filter((item) => item.role === 'renter').length);
     setOwners(profiles.filter((item) => item.role === 'owner'));
     setListings((listingRes.data as Apartment[]) ?? []);
     setBookings((bookingRes.data as Booking[]) ?? []);
@@ -63,9 +66,13 @@ export default function AdminOverview() {
   };
 
   const setListingStatus = async (id: string) => {
+    const item = listings.find((row) => row.id === id);
     const { error } = await supabase.from('apartments').update({ status: 'approved' }).eq('id', id);
     if (error) alert(t('common.error'), error.message);
-    else void load();
+    else {
+      if (item?.owner_id) notifyListingApproved(item.owner_id);
+      void load();
+    }
   };
 
   return (
@@ -112,9 +119,18 @@ export default function AdminOverview() {
           <Card onPress={() => router.push('/(admin)/(tabs)/users')}>
             <Text style={[styles.label, rtlText]}>{t('admin.students')}</Text>
             <Text style={[styles.value, rtlText]}>{students}</Text>
+            <Text style={[styles.meta, rtlText]}>
+              {t('admin.renters')}: {renters}
+            </Text>
           </Card>
         </View>
       </View>
+
+      <Card onPress={() => router.push('/(admin)/(tabs)/catalog')}>
+        <Text style={[styles.label, rtlText]}>{t('admin.catalogTitle')}</Text>
+        <Text style={[styles.meta, rtlText]}>{t('admin.catalogHint')}</Text>
+        <Button title={t('admin.openCatalog')} variant="secondary" onPress={() => router.push('/(admin)/(tabs)/catalog')} />
+      </Card>
 
       <Text style={[styles.section, rtlText]}>{t('admin.pendingOwners')}</Text>
       {pendingOwners.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}

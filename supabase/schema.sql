@@ -39,7 +39,7 @@ create table if not exists public.profiles (
   email text not null,
   full_name text not null default '',
   phone text,
-  role text not null check (role in ('student', 'owner', 'admin')),
+  role text not null check (role in ('student', 'renter', 'owner', 'admin')),
   city_id uuid references public.cities(id),
   university_id uuid references public.universities(id),
   owner_status text not null default 'approved' check (owner_status in ('pending', 'approved', 'rejected')),
@@ -53,6 +53,8 @@ create table if not exists public.profiles (
   degree_level text,
   major text,
   expo_push_token text,
+  account_status text not null default 'active' check (account_status in ('active', 'suspended')),
+  accepted_terms_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -96,6 +98,7 @@ create table if not exists public.bookings (
   payment_method text not null check (payment_method in ('pay_now', 'pay_later')),
   payment_status text not null default 'unpaid' check (payment_status in ('unpaid', 'paid')),
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'cancelled', 'completed')),
+  occupants int not null default 1 check (occupants between 1 and 8),
   rent_amount numeric not null,
   commission_percent numeric not null,
   commission_amount numeric not null,
@@ -174,16 +177,27 @@ as $$
 declare
   meta_role text;
   settings_admin text;
+  terms_at timestamptz;
 begin
-  meta_role := 'student';
+  if coalesce(new.raw_user_meta_data->>'role', '') in ('student', 'renter') then
+    meta_role := new.raw_user_meta_data->>'role';
+  else
+    meta_role := 'student';
+  end if;
 
   select admin_email into settings_admin from public.app_settings where id = 1;
   if lower(new.email) = lower(coalesce(settings_admin, 'bishara.babish23@gmail.com')) then
     meta_role := 'admin';
   end if;
 
+  begin
+    terms_at := nullif(new.raw_user_meta_data->>'accepted_terms_at', '')::timestamptz;
+  exception when others then
+    terms_at := null;
+  end;
+
   insert into public.profiles (
-    id, email, full_name, phone, role, city_id, university_id, owner_status, language
+    id, email, full_name, phone, role, city_id, university_id, owner_status, language, account_status, accepted_terms_at
   ) values (
     new.id,
     new.email,
@@ -193,7 +207,9 @@ begin
     nullif(new.raw_user_meta_data->>'city_id', '')::uuid,
     nullif(new.raw_user_meta_data->>'university_id', '')::uuid,
     'approved',
-    coalesce(new.raw_user_meta_data->>'language', 'ar')
+    coalesce(new.raw_user_meta_data->>'language', 'ar'),
+    'active',
+    terms_at
   );
   return new;
 end;
@@ -213,6 +229,7 @@ as $$
 begin
   if auth.uid() is not null and not public.is_admin() then
     new.role := old.role;
+    new.account_status := old.account_status;
     if old.role = 'owner' and new.owner_status is distinct from old.owner_status then
       new.owner_status := old.owner_status;
     end if;
@@ -242,9 +259,10 @@ begin
   end if;
   select commission_percent into percent from public.app_settings where id = 1;
   new.owner_id := apt.owner_id;
+  new.occupants := greatest(1, least(4, coalesce(new.occupants, 1)));
   new.rent_amount := apt.price_month * new.months;
   new.commission_percent := coalesce(percent, 10);
-  new.commission_amount := round(new.rent_amount * new.commission_percent / 100, 2);
+  new.commission_amount := round(new.rent_amount * new.commission_percent / 100 * new.occupants, 2);
   if new.payment_method = 'pay_now' then
     new.payment_status := 'paid';
   end if;
@@ -329,6 +347,11 @@ drop policy if exists apartments_read on public.apartments;
 create policy apartments_read on public.apartments
   for select to authenticated
   using (status = 'approved' or owner_id = auth.uid() or public.is_admin());
+
+drop policy if exists apartments_read_anon on public.apartments;
+create policy apartments_read_anon on public.apartments
+  for select to anon
+  using (status = 'approved');
 
 drop policy if exists apartments_insert on public.apartments;
 create policy apartments_insert on public.apartments

@@ -1,3 +1,5 @@
+import i18n from '@/src/i18n';
+import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment, Conversation, Profile } from '@/src/types/database';
 
@@ -72,4 +74,13 @@ export async function sendMessage(conversationId: string, senderId: string, body
     .from('conversations')
     .update({ last_message: trimmed, last_message_at: new Date().toISOString() })
     .eq('id', conversationId);
+  const { data: convo } = await supabase
+    .from('conversations')
+    .select('student_id, owner_id')
+    .eq('id', conversationId)
+    .maybeSingle();
+  const otherId = convo?.student_id === senderId ? convo.owner_id : convo?.student_id;
+  if (otherId) {
+    void notifyUser(otherId, i18n.t('push.newMessageTitle'), trimmed.slice(0, 90));
+  }
 }

@@ -9,7 +9,9 @@ import { MenuProvider } from '@/components/menu/MenuProvider';
 import { AuthProvider, useAuth } from '@/src/lib/auth';
 import i18n, { applyRtl, loadSavedLanguage } from '@/src/i18n';
 import { NoticeProvider } from '@/src/lib/notice';
-import { registerPushToken } from '@/src/lib/push';
+import { PushPrompt } from '@/components/PushPrompt';
+import { isSuspended } from '@/src/lib/moderation';
+import { syncPushToken } from '@/src/lib/push';
 import { homeHref } from '@/src/lib/routes';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 
@@ -62,14 +64,15 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <MenuProvider>
-          <NoticeProvider>
+        <NoticeProvider>
+          <MenuProvider>
             <ThemedStatusBar />
             <SessionGuard>
               <AppStack />
+              <PushPrompt />
             </SessionGuard>
-          </NoticeProvider>
-        </MenuProvider>
+          </MenuProvider>
+        </NoticeProvider>
       </ThemeProvider>
     </AuthProvider>
   );
@@ -95,20 +98,25 @@ function AppStack() {
 const AUTH_HOLD = new Set(['verify-email', 'confirmed', 'reset-password', 'forgot-password']);
 
 function SessionGuard({ children }: { children: ReactNode }) {
-  const { session, profile, loading, passwordRecovery } = useAuth();
+  const { session, profile, loading, passwordRecovery, signOut } = useAuth();
   const segments = useSegments();
   const lastDest = useRef<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id) return;
-    void registerPushToken(profile.id);
-  }, [profile?.id]);
+    if (isSuspended(profile)) {
+      void signOut();
+      return;
+    }
+    void syncPushToken(profile.id);
+  }, [profile, signOut]);
 
   useEffect(() => {
     if (loading) return;
     const group = String(segments[0] ?? '');
     const screen = String(segments[1] ?? '');
     const inAuth = group === '(auth)';
+    const inGuest = group === '(guest)';
     const inApp = group === '(student)' || group === '(owner)' || group === '(admin)';
 
     let dest: string | null = null;
@@ -118,7 +126,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
       if (inAuth && AUTH_HOLD.has(screen)) dest = null;
       else if (inApp) dest = null;
       else dest = homeHref(profile.role);
-    } else if (!session && !inAuth) {
+    } else if (!session && !inAuth && !inGuest) {
       dest = '/(auth)/welcome';
     }
 

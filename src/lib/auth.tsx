@@ -4,9 +4,10 @@ import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 
 import { changeAppLanguage } from '@/src/i18n';
-import { studentEmailError } from '@/src/lib/eduEmail';
+import { isValidEmail, studentEmailError } from '@/src/lib/eduEmail';
+import { isSuspended } from '@/src/lib/moderation';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
-import type { PersonGender, Profile, UserRole } from '@/src/types/database';
+import type { PersonGender, Profile, PublicSignupRole } from '@/src/types/database';
 
 function paramsFromAuthUrl(url: string) {
   const query = url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
@@ -37,7 +38,7 @@ type SignUpInput = {
   password: string;
   fullName: string;
   phone: string;
-  role: Exclude<UserRole, 'admin'>;
+  role: PublicSignupRole;
   cityId?: string;
   universityId?: string;
   gender?: PersonGender;
@@ -101,6 +102,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.auth.signOut({ scope: 'local' });
       if (mine === loadGen.current) clearLocalAuth();
       return;
+    }
+    if (isSuspended(nextProfile)) {
+      await supabase.auth.signOut({ scope: 'local' });
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch {
+        // Local sign-out is enough.
+      }
+      if (mine === loadGen.current) clearLocalAuth();
+      throw new Error('accountSuspended');
     }
     const metaGender = next.user.user_metadata?.gender;
     if (!nextProfile.gender && (metaGender === 'male' || metaGender === 'female')) {
@@ -198,9 +209,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadForSession(data.session);
       },
       signUp: async (input) => {
-        const emailIssue = studentEmailError(input.email);
-        if (emailIssue) {
-          throw new Error(emailIssue);
+        const role: PublicSignupRole = input.role === 'renter' ? 'renter' : 'student';
+        if (role === 'student') {
+          const emailIssue = studentEmailError(input.email);
+          if (emailIssue) throw new Error(emailIssue);
+        } else if (!isValidEmail(input.email)) {
+          throw new Error('invalidEmail');
         }
         const { data, error } = await supabase.auth.signUp({
           email: input.email.trim(),
@@ -210,11 +224,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             data: {
               full_name: input.fullName,
               phone: input.phone,
-              role: 'student',
+              role,
               city_id: input.cityId ?? '',
-              university_id: input.universityId ?? '',
+              university_id: role === 'student' ? (input.universityId ?? '') : '',
               gender: input.gender ?? '',
               language: input.language,
+              accepted_terms_at: new Date().toISOString(),
             },
           },
         });

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -12,8 +12,10 @@ import { DateField } from '@/components/ui/DateField';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { occupantChoices } from '@/src/lib/booking';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { notifyUser } from '@/src/lib/push';
 import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { colors, radius } from '@/src/theme/colors';
@@ -43,8 +45,21 @@ export default function BookScreen() {
   const [missing, setMissing] = useState(false);
   const [startDate, setStartDate] = useState(defaultStart());
   const [months, setMonths] = useState(1);
+  const [occupants, setOccupants] = useState(1);
+  const [percent, setPercent] = useState(10);
   const [method, setMethod] = useState<PaymentMethod>('pay_now');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('commission_percent')
+      .eq('id', 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.commission_percent != null) setPercent(Number(data.commission_percent));
+      });
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -54,13 +69,19 @@ export default function BookScreen() {
       .eq('id', id)
       .single()
       .then(({ data }) => {
-        if (data) setApartment(data as Apartment);
-        else setMissing(true);
+        if (data) {
+          const next = data as Apartment;
+          setApartment(next);
+          setOccupants((current) => Math.min(current, occupantChoices(next.rooms).length));
+        } else setMissing(true);
       });
   }, [id]);
 
   const today = isoDate(new Date());
+  const people = occupantChoices(apartment?.rooms);
+  const headcount = Math.min(occupants, people.length || 1);
   const total = apartment ? apartment.price_month * months : 0;
+  const commission = Math.round(total * percent * headcount) / 100;
   const photo = apartment?.photos[0];
   const city = apartment ? localizedName(apartment.cities, i18n.language) : '';
 
@@ -89,12 +110,14 @@ export default function BookScreen() {
         owner_id: apartment.owner_id,
         start_date: startDate,
         months,
+        occupants: headcount,
         payment_method: method,
         rent_amount: total,
         commission_percent: 0,
         commission_amount: 0,
       });
       if (error) throw error;
+      void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'));
       alert(t('booking.success'), t('booking.successBody'), [
         { text: t('common.done'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
       ]);
@@ -125,6 +148,18 @@ export default function BookScreen() {
         <Text style={[styles.sub, rtlText]}>{localizedTitle(apartment, i18n.language)}</Text>
         {city ? <Text style={[styles.body, rtlText]}>{city}</Text> : null}
         <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
+        <Text style={[styles.label, rtlText]}>{t('booking.occupants')}</Text>
+        <Text style={[styles.hint, rtlText]}>{t('booking.occupantsHint')}</Text>
+        <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+          {people.map((value) => (
+            <Chip
+              key={value}
+              label={value === 1 ? t('booking.onePerson') : t('booking.people', { count: value })}
+              selected={headcount === value}
+              onPress={() => setOccupants(value)}
+            />
+          ))}
+        </View>
         <Text style={[styles.label, rtlText]}>{t('booking.duration')}</Text>
         <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
           {MONTHS.map((value) => (
@@ -148,6 +183,12 @@ export default function BookScreen() {
         <Text style={[styles.body, rtlText]}>
           {t('booking.rent')}: {formatIls(apartment.price_month, lang)} × {months}
         </Text>
+        <Text style={[styles.body, rtlText]}>
+          {t('booking.occupants')}: {headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
+        </Text>
+        <Text style={[styles.body, rtlText]}>
+          {t('booking.commission')}: {formatIls(commission, lang)} ({percent}% × {headcount})
+        </Text>
         <Text style={[styles.total, rtlText]}>
           {t('booking.total')}: {formatIls(total, lang)}
         </Text>
@@ -164,6 +205,7 @@ const styles = StyleSheet.create({
   label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   note: { color: colors.warning, fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  hint: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20, marginTop: -4 },
   body: { color: colors.text, fontSize: 16, fontFamily: 'Cairo_400Regular' },
   total: { color: colors.primary, fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
 });
