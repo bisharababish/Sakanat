@@ -1,4 +1,6 @@
-import type { Apartment, University } from '@/src/types/database';
+import type { Apartment, City, University } from '@/src/types/database';
+
+export type DistancePlace = 'campus' | 'city';
 
 const EARTH_KM = 6371;
 export const UNDER_ONE_KM = 0.5;
@@ -28,10 +30,17 @@ export function haversineKm(
   return 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-export function listingDistanceKm(apartment: Apartment, university?: University | null) {
+export function listingDistanceKm(
+  apartment: Apartment,
+  university?: University | null,
+  city?: Pick<City, 'lat' | 'lng'> | null,
+) {
   if (university?.lat && university?.lng && apartment.lat && apartment.lng) {
     const computed = haversineKm(apartment, university);
     if (computed >= 0.15) return Number(computed.toFixed(1));
+  }
+  if (!university && city?.lat != null && city?.lng != null && apartment.lat && apartment.lng) {
+    return Number(haversineKm(apartment, city).toFixed(1));
   }
   if (!university) return apartment.campus_distance_km;
   if (apartment.nearest_university_id === university.id && apartment.campus_distance_km != null) {
@@ -40,11 +49,20 @@ export function listingDistanceKm(apartment: Apartment, university?: University 
   return apartment.campus_distance_km;
 }
 
-export function formatKm(km: number | null | undefined, locale: 'ar' | 'en') {
+export function formatKm(
+  km: number | null | undefined,
+  locale: 'ar' | 'en',
+  place: DistancePlace = 'campus',
+) {
   if (km == null || Number.isNaN(km)) return locale === 'ar' ? 'المسافة غير محددة' : 'Distance unknown';
-  if (km < 1) return locale === 'ar' ? 'أقل من 1 كم عن الجامعة' : 'Less than 1 km from campus';
+  const city = place === 'city';
+  if (km < 1) {
+    if (locale === 'ar') return city ? 'أقل من 1 كم عن وسط المدينة' : 'أقل من 1 كم عن الجامعة';
+    return city ? 'Less than 1 km from city center' : 'Less than 1 km from campus';
+  }
   const value = Math.abs(km - Math.round(km)) < 0.05 ? String(Math.round(km)) : km.toFixed(1);
-  return locale === 'ar' ? `${value} كم عن الجامعة` : `${value} km from campus`;
+  if (locale === 'ar') return city ? `${value} كم عن وسط المدينة` : `${value} كم عن الجامعة`;
+  return city ? `${value} km from city center` : `${value} km from campus`;
 }
 
 export function mapsUrl(lat: number, lng: number, label?: string) {

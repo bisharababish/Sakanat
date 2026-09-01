@@ -7,9 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { LegalAcceptRow, LegalDocModal } from '@/components/LegalDocModal';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { SearchSelect } from '@/components/ui/SearchSelect';
@@ -19,13 +20,15 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
+import { isPasswordValid } from '@/src/lib/password';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, PublicSignupRole } from '@/src/types/database';
 
 export default function RegisterScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl } = useLayout();
+  const { rtlText } = useLayout();
+  const colors = useColors();
   const { signUp } = useAuth();
   const { cities, universities } = useCatalog();
   const [kind, setKind] = useState<PublicSignupRole>('student');
@@ -34,6 +37,7 @@ export default function RegisterScreen() {
   const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [cityId, setCityId] = useState('');
   const [universityId, setUniversityId] = useState('');
   const [gender, setGender] = useState<PersonGender | ''>('');
@@ -68,11 +72,11 @@ export default function RegisterScreen() {
   const onSubmit = async () => {
     setError('');
     const missingUniversity = isStudent && !universityId;
-    if (!fullName || !email || !password || !gender || !phoneLocal.trim() || !cityId || missingUniversity) {
+    if (!fullName || !email || !password || !confirmPassword || !gender || !phoneLocal.trim() || !cityId || missingUniversity) {
       setError(t('auth.missingFields'));
       return;
     }
-    if (password.length < 6) {
+    if (!isPasswordValid(password, confirmPassword)) {
       setError(t('auth.weakPassword'));
       return;
     }
@@ -112,19 +116,27 @@ export default function RegisterScreen() {
     <AuthScreen back center={false}>
       <AuthBrand compact />
       <AuthCard>
-        <Text style={[styles.title, rtlText]}>{t('auth.registerTitle')}</Text>
-        <Text style={[styles.hint, rtlText]}>{t('auth.registerHint')}</Text>
-        <Text style={[styles.label, rtlText]}>{t('auth.chooseRole')}</Text>
-        <View style={[styles.roles, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          <Chip label={t('auth.accountStudent')} selected={isStudent} onPress={() => pickKind('student')} />
-          <Chip label={t('auth.accountRenter')} selected={!isStudent} onPress={() => pickKind('renter')} />
-        </View>
-        <Text style={[styles.roleHint, rtlText]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
-        <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
-        <View style={[styles.roles, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
-          <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
-        </View>
+        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('auth.registerTitle')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('auth.registerHint')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
+        <FilterPills
+          value={kind}
+          onChange={pickKind}
+          items={[
+            { value: 'student', label: t('auth.accountStudent') },
+            { value: 'renter', label: t('auth.accountRenter') },
+          ]}
+        />
+        <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
+        <FilterPills
+          value={gender}
+          onChange={setGender}
+          items={[
+            { value: 'male', label: t('profile.male') },
+            { value: 'female', label: t('profile.female') },
+          ]}
+        />
         <Input label={t('common.name')} value={fullName} onChangeText={setFullName} soft />
         <PhoneField
           label={t('common.phone')}
@@ -146,6 +158,14 @@ export default function RegisterScreen() {
           soft
         />
         <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
+        <Input
+          label={t('profile.confirmPassword')}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          soft
+        />
+        <PasswordChecks password={password} confirm={confirmPassword} />
         <Select
           label={t('auth.homeCity')}
           value={cityId}
@@ -164,16 +184,16 @@ export default function RegisterScreen() {
           />
         ) : null}
         <LegalAcceptRow accepted={accepted} onToggle={() => setAccepted((value) => !value)} onOpen={setLegal} />
-        {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
+        {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
         <View style={styles.lockRow}>
           <Ionicons name="lock-closed" size={14} color={colors.primary} />
-          <Text style={styles.lock}>{t('auth.secureNote')}</Text>
+          <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
         </View>
       </AuthCard>
       <Button title={t('auth.register')} onPress={onSubmit} loading={loading} pill />
       <Pressable onPress={() => router.push('/(auth)/login')} style={styles.footer}>
-        <Text style={[styles.footerText, rtlText]}>
-          {t('auth.hasAccount')} <Text style={styles.link}>{t('auth.login')}</Text>
+        <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
+          {t('auth.hasAccount')} <Text style={[styles.link, { color: colors.primary }]}>{t('auth.login')}</Text>
         </Text>
       </Pressable>
       <LegalDocModal kind={legal} onClose={() => setLegal(null)} />
@@ -186,24 +206,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
-    color: colors.text,
     textAlign: 'center',
   },
   hint: {
     fontSize: 14,
-    color: colors.textMuted,
     fontFamily: 'Cairo_400Regular',
     lineHeight: 22,
     textAlign: 'center',
     marginTop: -4,
   },
-  label: { color: colors.text, fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 14 },
-  roles: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  roleHint: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
-  error: { color: colors.danger, fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
+  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 14 },
+  roleHint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
+  error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  lock: { color: colors.textMuted, fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  lock: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   footer: { alignItems: 'center', paddingVertical: 8, paddingBottom: 16 },
-  footerText: { color: colors.textMuted, fontSize: 15, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
-  link: { color: colors.primary, fontWeight: '800', fontFamily: 'Cairo_700Bold' },
+  footerText: { fontSize: 15, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
+  link: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
 });

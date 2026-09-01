@@ -38,3 +38,7 @@ export async function deleteUserAccount(userId: string) {
 export function notifyListingApproved(ownerId: string) {
   void notifyUser(ownerId, i18n.t('push.listingApprovedTitle'), i18n.t('push.listingApprovedBody'));
 }
+
+export function notifyListingRejected(ownerId: string) {
+  void notifyUser(ownerId, i18n.t('push.listingRejectedTitle'), i18n.t('push.listingRejectedBody'));
+}

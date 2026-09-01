@@ -1,46 +1,38 @@
-import { Image } from 'expo-image';
-import * as Linking from 'expo-linking';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ApartmentView } from '@/components/ApartmentView';
 import { Button } from '@/components/ui/Button';
-import { ChromeBar } from '@/components/ui/ChromeBar';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { NoteModal } from '@/components/ui/NoteModal';
 import { useCatalog } from '@/src/hooks/useCatalog';
-import { useLayout } from '@/src/hooks/useLayout';
-import { formatKm, listingDistanceKm, mapsUrl } from '@/src/lib/distance';
-import { formatIls, listingBadgeTone, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
-import { notifyListingApproved } from '@/src/lib/moderation';
+import { listingDistanceKm } from '@/src/lib/distance';
+import { updateListingStatus } from '@/src/lib/listing';
+import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { radius, spacing } from '@/src/theme/colors';
-import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, ListingStatus } from '@/src/types/database';
-
-const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 
 export default function AdminApartmentReview() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, i18n } = useTranslation();
-  const { rtlText, row, lang } = useLayout();
-  const colors = useColors();
+  const { t } = useTranslation();
   const { universities } = useCatalog();
   const [apartment, setApartment] = useState<Apartment | null>(null);
+  const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
     const { data } = await supabase
       .from('apartments')
-      .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, phone, email)')
+      .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, phone, email, whatsapp)')
       .eq('id', id)
       .single();
-    setApartment((data as Apartment) ?? null);
-    setLoaded(true);
+    if (data) setApartment(data as Apartment);
+    else setMissing(true);
   }, [id]);
 
   useFocusEffect(
@@ -53,21 +45,21 @@ export default function AdminApartmentReview() {
     () => universities.find((item) => item.id === apartment?.nearest_university_id) ?? apartment?.universities,
     [apartment, universities],
   );
-  const distance = apartment ? listingDistanceKm(apartment, university) : null;
-  const photos = apartment?.photos?.filter(Boolean) ?? [];
 
-  const setStatus = async (status: ListingStatus) => {
+  const setStatus = async (status: ListingStatus, reason?: string | null) => {
     if (!apartment) return;
     setBusy(true);
-    const { error } = await supabase.from('apartments').update({ status }).eq('id', apartment.id);
+    const { error } = await updateListingStatus(apartment.id, status, reason);
     setBusy(false);
-    if (error) alert(t('common.error'), error.message);
-    else {
-      if (status === 'approved' && apartment.status !== 'approved') {
-        notifyListingApproved(apartment.owner_id);
-      }
-      void load();
+    if (error) {
+      alert(t('common.error'), error.message);
+      return;
     }
+    if (status === 'approved' && apartment.status !== 'approved') notifyListingApproved(apartment.owner_id);
+    if (status === 'rejected' && apartment.status !== 'rejected') notifyListingRejected(apartment.owner_id);
+    setRejecting(false);
+    setRejectNote('');
+    void load();
   };
 
   const removeListing = () => {
@@ -86,121 +78,83 @@ export default function AdminApartmentReview() {
     ]);
   };
 
-  if (!apartment) {
-    return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        <ChromeBar back />
-        <View style={styles.center}>
-          {loaded ? (
-            <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('admin.noListings')}</Text>
-          ) : (
-            <ActivityIndicator color={colors.primary} />
-          )}
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-      <ChromeBar back />
-      <ScrollView contentContainerStyle={styles.content}>
-        {photos.length > 0 ? (
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-            {photos.map((uri) => (
-              <Image key={uri} source={{ uri }} style={[styles.cover, { width: PHOTO_WIDTH, backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={[styles.coverFallback, { backgroundColor: colors.primarySoft }]} />
-        )}
-        <StatusBadge label={t(`status.${apartment.status}`)} tone={listingBadgeTone(apartment.status)} />
-        <Text style={[styles.title, rtlText, { color: colors.text }]}>{localizedTitle(apartment, i18n.language)}</Text>
-        <Text style={[styles.price, rtlText, { color: colors.primary }]}>
-          {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
-        </Text>
-        <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>
-          {localizedName(apartment.cities, i18n.language)} · {t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms })}
-          {apartment.area_m2 ? ` · ${t('listing.area', { area: apartment.area_m2 })}` : ''}
-        </Text>
-        <StatusBadge label={t(`gender.${apartment.gender_policy}`)} tone="info" />
-        {localizedDescription(apartment, i18n.language) ? (
-          <Text style={[styles.body, rtlText, { color: colors.text }]}>{localizedDescription(apartment, i18n.language)}</Text>
-        ) : null}
-        <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('listing.distance')}</Text>
-        <Text style={[styles.body, rtlText, { color: colors.text }]}>
-          {university ? localizedName(university, i18n.language) : ''}
-          {distance != null ? `\n${formatKm(distance, lang)}` : ''}
-        </Text>
-        <Button
-          title={t('common.openMaps')}
-          variant="ghost"
-          onPress={() => Linking.openURL(mapsUrl(apartment.lat, apartment.lng, localizedTitle(apartment, i18n.language)))}
-        />
-        <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('listing.amenities')}</Text>
-        {apartment.amenities.length === 0 ? (
-          <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('listing.noAmenities')}</Text>
-        ) : (
-          <View style={[styles.wrap, row]}>
-            {apartment.amenities.map((item) => (
-              <View key={item} style={[styles.amenity, { backgroundColor: colors.primarySoft }]}>
-                <Text style={[styles.amenityText, { color: colors.primaryDark }]}>{t(`amenities.${item}`)}</Text>
-              </View>
-            ))}
+    <>
+      <ApartmentView
+        apartment={apartment}
+        missing={missing}
+        university={university}
+        distance={apartment ? listingDistanceKm(apartment, university) : null}
+        preview
+        signedIn
+      >
+        {apartment ? (
+          <View style={styles.actions}>
+            {apartment.status !== 'approved' ? (
+              <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} pill />
+            ) : (
+              <Button
+                title={t('owner.hideListing')}
+                variant="secondary"
+                onPress={() => void setStatus('hidden')}
+                loading={busy}
+                pill
+              />
+            )}
+            {apartment.status === 'hidden' ? (
+              <Button
+                title={t('owner.unhideListing')}
+                variant="secondary"
+                onPress={() => void setStatus('approved')}
+                loading={busy}
+                pill
+              />
+            ) : null}
+            {apartment.status !== 'rejected' ? (
+              <Button
+                title={t('admin.reject')}
+                variant="danger"
+                onPress={() => {
+                  setRejectNote('');
+                  setRejecting(true);
+                }}
+                pill
+              />
+            ) : null}
+            <Button
+              title={t('owner.editListing')}
+              variant="secondary"
+              pill
+              onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: apartment.id } })}
+            />
+            {apartment.owner_id ? (
+              <Button
+                title={t('admin.editUser')}
+                variant="ghost"
+                pill
+                onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: apartment.owner_id } })}
+              />
+            ) : null}
+            <Button title={t('admin.deleteListing')} variant="ghost" onPress={removeListing} />
           </View>
-        )}
-        <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('listing.owner')}</Text>
-        <Text style={[styles.body, rtlText, { color: colors.text }]}>{apartment.profiles?.full_name}</Text>
-        {apartment.profiles?.email ? <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{apartment.profiles.email}</Text> : null}
-        {apartment.profiles?.phone ? (
-          <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)} />
         ) : null}
-        {apartment.status !== 'approved' ? (
-          <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} pill />
-        ) : (
-          <Button title={t('owner.hideListing')} variant="secondary" onPress={() => void setStatus('hidden')} loading={busy} pill />
-        )}
-        {apartment.status === 'hidden' ? (
-          <Button title={t('owner.unhideListing')} variant="secondary" onPress={() => void setStatus('approved')} loading={busy} pill />
-        ) : null}
-        {apartment.status !== 'rejected' ? (
-          <Button title={t('admin.reject')} variant="danger" onPress={() => void setStatus('rejected')} loading={busy} pill />
-        ) : null}
-        <Button
-          title={t('owner.editListing')}
-          variant="secondary"
-          pill
-          onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: apartment.id } })}
-        />
-        {apartment.owner_id ? (
-          <Button
-            title={t('admin.editUser')}
-            variant="ghost"
-            pill
-            onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: apartment.owner_id } })}
-          />
-        ) : null}
-        <Button title={t('admin.deleteListing')} variant="ghost" onPress={removeListing} />
-      </ScrollView>
-    </SafeAreaView>
+      </ApartmentView>
+      <NoteModal
+        visible={rejecting}
+        title={t('admin.rejectListing')}
+        label={t('booking.rejectNote')}
+        hint={t('admin.rejectListingHint')}
+        value={rejectNote}
+        confirmTitle={t('admin.reject')}
+        loading={busy}
+        onChange={setRejectNote}
+        onConfirm={() => void setStatus('rejected', rejectNote)}
+        onClose={() => setRejecting(false)}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center' },
-  content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
-  cover: {
-    height: 220,
-    borderRadius: radius.lg,
-  },
-  coverFallback: { width: '100%', height: 160, borderRadius: radius.lg },
-  title: { fontSize: 26, fontWeight: '800' },
-  price: { fontSize: 20, fontWeight: '800' },
-  muted: {},
-  body: { fontSize: 16, lineHeight: 24 },
-  section: { marginTop: 8, fontWeight: '800', fontSize: 16 },
-  wrap: { flexWrap: 'wrap', gap: 8 },
-  amenity: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 6 },
-  amenityText: { fontWeight: '700' },
+  actions: { gap: 8 },
 });

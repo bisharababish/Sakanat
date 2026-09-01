@@ -17,6 +17,9 @@ type Props = {
   personIcon?: ComponentProps<typeof Ionicons>['name'];
   personLabel?: string;
   extra?: string;
+  extraIcon?: ComponentProps<typeof Ionicons>['name'];
+  warning?: string;
+  note?: string;
   children?: ReactNode;
 };
 
@@ -38,7 +41,16 @@ function Fact({
   );
 }
 
-export function BookingCard({ booking, personIcon = 'person', personLabel, extra, children }: Props) {
+export function BookingCard({
+  booking,
+  personIcon = 'person',
+  personLabel,
+  extra,
+  extraIcon = 'pricetag-outline',
+  warning,
+  note,
+  children,
+}: Props) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, lang, row, isRtl } = useLayout();
   const colors = useColors();
@@ -91,8 +103,18 @@ export function BookingCard({ booking, personIcon = 'person', personLabel, extra
             text={people === 1 ? t('booking.onePerson') : t('booking.people', { count: people })}
           />
           <Fact icon="calendar-outline" text={`${formatBookingDate(booking.start_date, i18n.language)} · ${monthsLabel}`} />
-          {extra ? <Fact icon="pricetag-outline" text={extra} /> : null}
+          {extra ? <Fact icon={extraIcon} text={extra} /> : null}
         </View>
+
+        {warning ? (
+          <View style={[styles.warn, { backgroundColor: colors.warningSoft }]}>
+            <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
+            <Text style={[styles.warnText, { color: colors.warning, textAlign, writingDirection }]}>{warning}</Text>
+          </View>
+        ) : null}
+        {note ? (
+          <Text style={[styles.note, { color: colors.textMuted, textAlign, writingDirection }]}>{note}</Text>
+        ) : null}
 
         {children ? <View style={styles.actions}>{children}</View> : null}
       </View>
@@ -138,5 +160,15 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   factText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
+  warn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  warnText: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  note: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   actions: { gap: 8, marginTop: 4 },
 });

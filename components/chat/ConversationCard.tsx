@@ -37,12 +37,14 @@ export function ConversationCard({
   conversation,
   title,
   photo,
+  unread,
   onPress,
   children,
 }: {
   conversation: Conversation;
   title: string;
   photo?: string | null;
+  unread?: boolean;
   onPress: () => void;
   children?: ReactNode;
 }) {
@@ -76,10 +78,18 @@ export function ConversationCard({
         )}
         <View style={styles.body}>
           <View style={[styles.top, row]}>
-            <Text style={[styles.title, { textAlign, writingDirection, color: colors.text }]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.title,
+                { textAlign, writingDirection, color: colors.text },
+                unread && styles.titleUnread,
+              ]}
+              numberOfLines={1}
+            >
               {title}
             </Text>
-            <Text style={[styles.when, { color: colors.textMuted }]}>
+            {unread ? <View style={[styles.dot, { backgroundColor: colors.primary }]} /> : null}
+            <Text style={[styles.when, { color: unread ? colors.primary : colors.textMuted }]}>
               {formatWhen(conversation.last_message_at, i18n.language, t('chat.yesterday'))}
             </Text>
           </View>
@@ -88,7 +98,14 @@ export function ConversationCard({
               {listing}
             </Text>
           ) : null}
-          <Text style={[styles.preview, { textAlign, writingDirection, color: colors.textMuted }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.preview,
+              { textAlign, writingDirection, color: unread ? colors.text : colors.textMuted },
+              unread && styles.previewUnread,
+            ]}
+            numberOfLines={1}
+          >
             {conversation.last_message || '—'}
           </Text>
         </View>
@@ -129,9 +146,12 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0, gap: 2 },
   top: { alignItems: 'center', gap: 8 },
   title: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  titleUnread: { fontWeight: '800' },
   when: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   listing: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   preview: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  previewUnread: { fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  dot: { width: 8, height: 8, borderRadius: 4 },
   listingPhoto: { width: 48, height: 48, borderRadius: 14 },
   actions: { marginTop: 8, gap: 8 },
 });

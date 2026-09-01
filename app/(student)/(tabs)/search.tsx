@@ -33,22 +33,25 @@ export default function SearchScreen() {
   const colors = useColors();
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
+  const isRenter = profile?.role === 'renter';
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [cityId, setCityId] = useState(profile?.city_id ?? '');
-  const [universityId, setUniversityId] = useState(profile?.university_id ?? '');
+  const [universityId, setUniversityId] = useState(isRenter ? '' : (profile?.university_id ?? ''));
   const [maxPrice, setMaxPrice] = useState('');
   const [maxKm, setMaxKm] = useState('');
   const [sort, setSort] = useState<'price' | 'distance'>('price');
   const [genderFilter, setGenderFilter] = useState<GenderFilter>(profile?.gender ? 'suitable' : 'all');
+  const [roomsFilter, setRoomsFilter] = useState('');
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (profile?.city_id) setCityId((current) => current || profile.city_id || '');
-    if (profile?.university_id) setUniversityId((current) => current || profile.university_id || '');
+    if (isRenter) setUniversityId('');
+    else if (profile?.university_id) setUniversityId((current) => current || profile.university_id || '');
     if (profile?.gender) setGenderFilter((current) => (current === 'all' ? 'suitable' : current));
-  }, [profile?.city_id, profile?.gender, profile?.university_id]);
+  }, [isRenter, profile?.city_id, profile?.gender, profile?.university_id]);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -74,9 +77,10 @@ export default function SearchScreen() {
   );
 
   const selectedUniversity = useMemo(
-    () => universities.find((item) => item.id === universityId) ?? null,
-    [universities, universityId],
+    () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
+    [isRenter, universities, universityId],
   );
+  const distancePlace = selectedUniversity ? ('campus' as const) : ('city' as const);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -96,7 +100,7 @@ export default function SearchScreen() {
           localizedTitle(item, i18n.language),
           localizedDescription(item, i18n.language),
           localizedName(item.cities, i18n.language),
-          localizedName(item.universities, i18n.language),
+          ...(isRenter ? [] : [localizedName(item.universities, i18n.language)]),
         ]
           .join(' ')
           .toLowerCase();
@@ -104,10 +108,19 @@ export default function SearchScreen() {
       })
       .map((item) => ({
         item,
-        distance: listingDistanceKm(item, selectedUniversity),
+        distance: listingDistanceKm(
+          item,
+          selectedUniversity,
+          selectedUniversity ? null : item.cities,
+        ),
       }))
       .filter((entry) => !maxPrice || entry.item.price_month <= Number(maxPrice))
-      .filter((entry) => !maxKm || (entry.distance != null && entry.distance <= Number(maxKm)));
+      .filter((entry) => !maxKm || (entry.distance != null && entry.distance <= Number(maxKm)))
+      .filter((entry) => {
+        if (!roomsFilter) return true;
+        if (roomsFilter === '4') return entry.item.rooms >= 4;
+        return entry.item.rooms === Number(roomsFilter);
+      });
 
     withDistance.sort((a, b) => {
       if (sort === 'distance') return (a.distance ?? 999) - (b.distance ?? 999);
@@ -119,17 +132,25 @@ export default function SearchScreen() {
     cityId,
     genderFilter,
     i18n.language,
+    isRenter,
     maxKm,
     maxPrice,
     profile?.gender,
     query,
+    roomsFilter,
     selectedUniversity,
     sort,
   ]);
 
   const defaultGender: GenderFilter = profile?.gender ? 'suitable' : 'all';
   const filtersOn = Boolean(
-    query.trim() || cityId || universityId || maxPrice || maxKm || genderFilter !== defaultGender,
+    query.trim() ||
+      cityId ||
+      (!isRenter && universityId) ||
+      maxPrice ||
+      maxKm ||
+      roomsFilter ||
+      genderFilter !== defaultGender,
   );
 
   const clearFilters = () => {
@@ -138,6 +159,7 @@ export default function SearchScreen() {
     setUniversityId('');
     setMaxPrice('');
     setMaxKm('');
+    setRoomsFilter('');
     setGenderFilter(profile?.gender ? 'suitable' : 'all');
     setSort('price');
   };
@@ -155,7 +177,9 @@ export default function SearchScreen() {
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.search')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('search.title')}</Text>
-        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('search.subtitle')}</Text>
+        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>
+          {t(isRenter ? 'search.subtitleRenter' : 'search.subtitle')}
+        </Text>
       </View>
 
       {!profile ? (
@@ -183,7 +207,7 @@ export default function SearchScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder={t('search.placeholder')}
+          placeholder={t(isRenter ? 'search.placeholderRenter' : 'search.placeholder')}
           placeholderTextColor={colors.textMuted}
           autoCorrect={false}
           returnKeyType="search"
@@ -220,25 +244,27 @@ export default function SearchScreen() {
               onChange={setCityId}
             />
           </View>
-          <View style={styles.filterCell}>
-            <SearchSelect
-              compact
-              icon="school-outline"
-              label={t('common.university')}
-              value={universityId}
-              placeholder={t('search.anyUniversity')}
-              options={[
-                { value: '', label: t('search.anyUniversity') },
-                ...universities.map((item) => ({
-                  value: item.id,
-                  label: item.cities
-                    ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
-                    : localizedName(item, i18n.language),
-                })),
-              ]}
-              onChange={setUniversityId}
-            />
-          </View>
+          {isRenter ? null : (
+            <View style={styles.filterCell}>
+              <SearchSelect
+                compact
+                icon="school-outline"
+                label={t('common.university')}
+                value={universityId}
+                placeholder={t('search.anyUniversity')}
+                options={[
+                  { value: '', label: t('search.anyUniversity') },
+                  ...universities.map((item) => ({
+                    value: item.id,
+                    label: item.cities
+                      ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
+                      : localizedName(item, i18n.language),
+                  })),
+                ]}
+                onChange={setUniversityId}
+              />
+            </View>
+          )}
           <View style={styles.filterCell}>
             <Select
               compact
@@ -262,9 +288,9 @@ export default function SearchScreen() {
             <Select
               compact
               icon="navigate-outline"
-              label={t('search.maxKm')}
+              label={distancePlace === 'campus' ? t('search.maxKm') : t('search.maxKmCity')}
               value={maxKm}
-              placeholder={t('search.maxKm')}
+              placeholder={distancePlace === 'campus' ? t('search.maxKm') : t('search.maxKmCity')}
               options={[
                 { value: '', label: t('common.all') },
                 { value: String(UNDER_ONE_KM), label: t('common.under1km') },
@@ -279,6 +305,18 @@ export default function SearchScreen() {
             />
           </View>
         </View>
+        <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.rooms')}</Text>
+        <FilterPills
+          value={roomsFilter}
+          onChange={setRoomsFilter}
+          items={[
+            { value: '', label: t('common.all') },
+            { value: '1', label: '1' },
+            { value: '2', label: '2' },
+            { value: '3', label: '3' },
+            { value: '4', label: t('search.roomsPlus') },
+          ]}
+        />
         <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
         <FilterPills value={genderFilter} onChange={setGenderFilter} items={genderItems} />
         <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
@@ -319,8 +357,9 @@ export default function SearchScreen() {
         <ListingCard
           key={item.id}
           apartment={item}
-          university={(selectedUniversity ?? item.universities) as University | null}
+          university={isRenter ? null : distancePlace === 'campus' ? (selectedUniversity ?? item.universities) as University | null : null}
           distanceKm={distance}
+          distancePlace={distancePlace}
           saved={savedIds.includes(item.id)}
           onToggleSave={() => {
             if (!profile) {
@@ -341,7 +380,13 @@ export default function SearchScreen() {
           onPress={() =>
             router.push({
               pathname: apartmentPath(Boolean(profile)),
-              params: { id: item.id, universityId: universityId || '' },
+              params: isRenter
+                ? { id: item.id, from: 'city' }
+                : {
+                    id: item.id,
+                    universityId: universityId || '',
+                    from: selectedUniversity ? 'campus' : 'city',
+                  },
             })
           }
         />

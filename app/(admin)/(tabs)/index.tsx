@@ -7,10 +7,13 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { paymentBucket } from '@/src/lib/booking';
 import { formatIls, localizedTitle } from '@/src/lib/format';
-import { notifyListingApproved } from '@/src/lib/moderation';
+import { updateListingStatus } from '@/src/lib/listing';
+import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -67,12 +70,15 @@ export default function AdminOverview() {
   const [listings, setListings] = useState<Apartment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [chats, setChats] = useState(0);
+  const [rejecting, setRejecting] = useState<Apartment | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const [profileRes, listingRes, bookingRes, chatRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email, role, owner_status, phone'),
-      supabase.from('apartments').select('id, title_ar, title_en, status, owner_id'),
-      supabase.from('bookings').select('id, status, commission_amount, created_at'),
+      supabase.from('apartments').select('id, title_ar, title_en, status, owner_id, reject_reason'),
+      supabase.from('bookings').select('id, status, commission_amount, payment_method, created_at'),
       supabase.from('conversations').select('id', { count: 'exact', head: true }),
     ]);
     const profiles = (profileRes.data as Profile[]) ?? [];
@@ -93,6 +99,19 @@ export default function AdminOverview() {
   const earned = useMemo(() => bookings.filter((item) => item.status === 'confirmed' || item.status === 'completed'), [bookings]);
   const monthly = earned.filter((item) => isThisMonth(item.created_at)).reduce((sum, item) => sum + Number(item.commission_amount), 0);
   const allTime = earned.reduce((sum, item) => sum + Number(item.commission_amount), 0);
+  const paySplit = useMemo(() => {
+    const next = {
+      cash: { fee: 0, count: 0 },
+      check: { fee: 0, count: 0 },
+      visa: { fee: 0, count: 0 },
+    };
+    for (const item of earned) {
+      const bucket = paymentBucket(item.payment_method);
+      next[bucket].fee += Number(item.commission_amount);
+      next[bucket].count += 1;
+    }
+    return next;
+  }, [earned]);
   const pendingOwners = owners.filter((item) => item.owner_status === 'pending');
   const pendingListings = listings.filter((item) => item.status === 'pending');
   const pendingBookings = bookings.filter((item) => item.status === 'pending').length;
@@ -105,14 +124,19 @@ export default function AdminOverview() {
     else void load();
   };
 
-  const setListingStatus = async (id: string) => {
-    const item = listings.find((row) => row.id === id);
-    const { error } = await supabase.from('apartments').update({ status: 'approved' }).eq('id', id);
-    if (error) alert(t('common.error'), error.message);
-    else {
-      if (item?.owner_id) notifyListingApproved(item.owner_id);
-      void load();
+  const setListingStatus = async (item: Apartment, status: 'approved' | 'rejected' = 'approved', reason?: string | null) => {
+    setBusy(true);
+    const { error } = await updateListingStatus(item.id, status, reason);
+    setBusy(false);
+    if (error) {
+      alert(t('common.error'), error.message);
+      return;
     }
+    if (status === 'approved' && item.owner_id) notifyListingApproved(item.owner_id);
+    if (status === 'rejected' && item.owner_id) notifyListingRejected(item.owner_id);
+    setRejecting(null);
+    setRejectNote('');
+    void load();
   };
 
   return (
@@ -130,6 +154,18 @@ export default function AdminOverview() {
           {t('admin.allTimeCommission')}: {formatIls(allTime, lang)}
         </Text>
       </Pressable>
+
+      <Card>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.commissionSplit')}</Text>
+        {(['cash', 'check', 'visa'] as const).map((method) => (
+          <View key={method} style={[styles.splitRow, row]}>
+            <Text style={[styles.meta, rtlText, { color: colors.text }]}>
+              {t(`payment.${method}`)} · {paySplit[method].count}
+            </Text>
+            <Text style={[styles.splitValue, { color: colors.primary }]}>{formatIls(paySplit[method].fee, lang)}</Text>
+          </View>
+        ))}
+      </Card>
 
       <View style={[styles.grid, row]}>
         <StatTile
@@ -194,11 +230,31 @@ export default function AdminOverview() {
               <Button title={t('admin.review')} variant="secondary" onPress={() => router.push({ pathname: '/(admin)/apartment/[id]', params: { id: item.id } })} />
             </View>
             <View style={styles.flex}>
-              <Button title={t('admin.approve')} onPress={() => void setListingStatus(item.id)} />
+              <Button title={t('admin.approve')} onPress={() => void setListingStatus(item)} />
             </View>
           </View>
+          <Button
+            title={t('admin.reject')}
+            variant="danger"
+            onPress={() => {
+              setRejectNote('');
+              setRejecting(item);
+            }}
+          />
         </Card>
       ))}
+      <NoteModal
+        visible={Boolean(rejecting)}
+        title={t('admin.rejectListing')}
+        label={t('booking.rejectNote')}
+        hint={t('admin.rejectListingHint')}
+        value={rejectNote}
+        confirmTitle={t('admin.reject')}
+        loading={busy}
+        onChange={setRejectNote}
+        onConfirm={() => rejecting && void setListingStatus(rejecting, 'rejected', rejectNote)}
+        onClose={() => setRejecting(null)}
+      />
     </Screen>
   );
 }
@@ -250,4 +306,6 @@ const styles = StyleSheet.create({
   tileMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   row: { gap: 8 },
   flex: { flex: 1 },
+  splitRow: { alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 },
+  splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
 });

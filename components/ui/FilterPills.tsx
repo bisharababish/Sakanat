@@ -13,11 +13,17 @@ export type FilterPillItem<T extends string> = {
 export function FilterPills<T extends string>({
   value,
   onChange,
+  values,
+  onToggle,
   items,
+  allowDeselect,
 }: {
-  value: T;
-  onChange: (next: T) => void;
+  value?: T;
+  onChange?: (next: T) => void;
+  values?: readonly T[];
+  onToggle?: (next: T) => void;
   items: FilterPillItem<T>[];
+  allowDeselect?: boolean;
 }) {
   const { row } = useLayout();
   const colors = useColors();
@@ -25,11 +31,19 @@ export function FilterPills<T extends string>({
   return (
     <View style={[styles.wrap, row]}>
       {items.map((item) => {
-        const on = value === item.value;
+        const on = values ? values.includes(item.value) : value === item.value;
         return (
           <Pressable
             key={item.value}
-            onPress={() => onChange(item.value)}
+            onPress={() => {
+              if (onToggle) {
+                onToggle(item.value);
+                return;
+              }
+              if (!onChange) return;
+              if (allowDeselect && value === item.value) onChange('' as T);
+              else onChange(item.value);
+            }}
             style={[
               styles.pill,
               row,

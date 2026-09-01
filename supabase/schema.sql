@@ -29,7 +29,7 @@ create table if not exists public.universities (
 
 create table if not exists public.app_settings (
   id int primary key default 1 check (id = 1),
-  commission_percent numeric not null default 10,
+  commission_percent numeric not null default 6,
   admin_email text not null default 'bishara.babish23@gmail.com',
   updated_at timestamptz not null default now()
 );
@@ -78,6 +78,7 @@ create table if not exists public.apartments (
   lng double precision not null,
   campus_distance_km numeric,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'hidden')),
+  reject_reason text,
   created_at timestamptz not null default now()
 );
 
@@ -102,6 +103,7 @@ create table if not exists public.bookings (
   rent_amount numeric not null,
   commission_percent numeric not null,
   commission_amount numeric not null,
+  cancel_reason text,
   created_at timestamptz not null default now()
 );
 
@@ -112,6 +114,10 @@ create table if not exists public.conversations (
   owner_id uuid not null references public.profiles(id) on delete cascade,
   last_message text,
   last_message_at timestamptz not null default now(),
+  student_last_read_at timestamptz,
+  owner_last_read_at timestamptz,
+  student_delivered_at timestamptz,
+  owner_delivered_at timestamptz,
   unique (apartment_id, student_id)
 );
 
@@ -124,7 +130,7 @@ create table if not exists public.messages (
 );
 
 insert into public.app_settings (id, commission_percent, admin_email)
-values (1, 10, 'bishara.babish23@gmail.com')
+values (1, 6, 'bishara.babish23@gmail.com')
 on conflict (id) do update set admin_email = excluded.admin_email;
 
 -- ---------------------------------------------------------------------------
@@ -261,7 +267,7 @@ begin
   new.owner_id := apt.owner_id;
   new.occupants := greatest(1, least(4, coalesce(new.occupants, 1)));
   new.rent_amount := apt.price_month * new.months;
-  new.commission_percent := coalesce(percent, 10);
+  new.commission_percent := coalesce(percent, 6);
   new.commission_amount := round(new.rent_amount * new.commission_percent / 100 * new.occupants, 2);
   if new.payment_method in ('pay_now', 'visa') then
     new.payment_status := 'paid';

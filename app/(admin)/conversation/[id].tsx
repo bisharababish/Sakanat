@@ -8,6 +8,7 @@ import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatThread } from '@/components/ChatThread';
 import { conversationParties, deleteConversation, loadConversation, personName } from '@/src/lib/chat';
 import { alert } from '@/src/lib/notice';
+import { seekerRoleLabel } from '@/src/lib/seeker';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
@@ -55,7 +56,7 @@ export default function AdminConversation() {
           readOnly
           studentId={conversation?.student_id}
           ownerId={conversation?.owner_id}
-          studentName={personName(student) || t('roles.student')}
+          studentName={personName(student) || seekerRoleLabel(student?.role, t)}
           ownerName={personName(owner) || t('roles.owner')}
         />
       ) : null}

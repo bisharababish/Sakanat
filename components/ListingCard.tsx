@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
-import { formatKm } from '@/src/lib/distance';
+import { formatKm, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -16,6 +16,7 @@ type Props = {
   apartment: Apartment;
   university?: University | null;
   distanceKm?: number | null;
+  distancePlace?: DistancePlace;
   saved?: boolean;
   onToggleSave?: () => void;
   badge?: { label: string; tone: 'pending' | 'approved' | 'rejected' | 'info' };
@@ -44,6 +45,7 @@ export function ListingCard({
   apartment,
   university,
   distanceKm,
+  distancePlace = 'campus',
   saved,
   onToggleSave,
   badge,
@@ -124,7 +126,7 @@ export function ListingCard({
           <Fact icon="bed-outline" text={String(apartment.rooms)} />
           <Fact icon="water-outline" text={String(apartment.bathrooms)} />
           <Fact icon="people-outline" text={t(`gender.${apartment.gender_policy}`)} />
-          {distanceKm != null ? <Fact icon="navigate-outline" text={formatKm(distanceKm, lang)} /> : null}
+          {distanceKm != null ? <Fact icon="navigate-outline" text={formatKm(distanceKm, lang, distancePlace)} /> : null}
         </View>
       </View>
     </Pressable>

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
@@ -40,7 +40,7 @@ async function uniqueSlug(table: 'cities' | 'universities', base: string, except
 
 export default function AdminCatalog() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const [pane, setPane] = useState<Pane>('cities');
   const [cities, setCities] = useState<City[]>([]);
@@ -50,6 +50,7 @@ export default function AdminCatalog() {
   const [cityId, setCityId] = useState<string | null>(null);
   const [uniId, setUniId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     const [cityRes, uniRes] = await Promise.all([
@@ -69,6 +70,26 @@ export default function AdminCatalog() {
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
     [cities, i18n.language],
+  );
+  const needle = query.trim().toLowerCase();
+  const visibleCities = useMemo(
+    () =>
+      cities.filter((city) => {
+        if (!needle) return true;
+        return [city.name_ar, city.name_en, city.slug].join(' ').toLowerCase().includes(needle);
+      }),
+    [cities, needle],
+  );
+  const visibleUniversities = useMemo(
+    () =>
+      universities.filter((item) => {
+        if (!needle) return true;
+        return [item.name_ar, item.name_en, item.slug, localizedName(item.cities, i18n.language), ...(item.email_domains ?? [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle);
+      }),
+    [universities, needle, i18n.language],
   );
 
   const resetCity = () => {
@@ -240,12 +261,18 @@ export default function AdminCatalog() {
 
   return (
     <Screen>
+      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.catalog')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.catalogTitle')}</Text>
       <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
-      <View style={[styles.chips, { justifyContent: alignStart }]}>
-        <Chip label={t('admin.cities')} selected={pane === 'cities'} onPress={() => setPane('cities')} />
-        <Chip label={t('admin.universities')} selected={pane === 'universities'} onPress={() => setPane('universities')} />
-      </View>
+      <FilterPills
+        value={pane}
+        onChange={setPane}
+        items={[
+          { value: 'cities', label: t('admin.cities'), count: visibleCities.length },
+          { value: 'universities', label: t('admin.universities'), count: visibleUniversities.length },
+        ]}
+      />
+      <Input label={t('admin.searchCatalog')} value={query} onChangeText={setQuery} />
 
       {pane === 'cities' ? (
         <>
@@ -258,8 +285,8 @@ export default function AdminCatalog() {
             <Button title={t('common.save')} onPress={() => void saveCity()} loading={saving} pill />
             {cityId ? <Button title={t('admin.newInstead')} variant="ghost" onPress={resetCity} pill /> : null}
           </Card>
-          {cities.length === 0 ? <EmptyState title={t('admin.noCities')} /> : null}
-          {cities.map((city) => (
+          {visibleCities.length === 0 ? <EmptyState title={t('admin.noCities')} /> : null}
+          {visibleCities.map((city) => (
             <Card key={city.id}>
               <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedName(city, i18n.language)}</Text>
               <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{city.name_en}</Text>
@@ -297,8 +324,8 @@ export default function AdminCatalog() {
             <Button title={t('common.save')} onPress={() => void saveUni()} loading={saving} pill />
             {uniId ? <Button title={t('admin.newInstead')} variant="ghost" onPress={resetUni} pill /> : null}
           </Card>
-          {universities.length === 0 ? <EmptyState title={t('admin.noUniversities')} /> : null}
-          {universities.map((item) => (
+          {visibleUniversities.length === 0 ? <EmptyState title={t('admin.noUniversities')} /> : null}
+          {visibleUniversities.map((item) => (
             <Card key={item.id}>
               <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedName(item, i18n.language)}</Text>
               <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{item.name_en}</Text>
@@ -317,9 +344,9 @@ export default function AdminCatalog() {
 }
 
 const styles = StyleSheet.create({
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22, marginTop: -8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   name: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   meta: { fontFamily: 'Cairo_400Regular' },
 });

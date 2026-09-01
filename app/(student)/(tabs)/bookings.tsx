@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -13,6 +14,7 @@ import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
 import { bookingStatusLabel } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { whatsappLink } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -33,7 +35,7 @@ export default function StudentBookings() {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
-      .select('*, apartments(*, cities(*)), profiles!owner_id(id, full_name, phone)')
+      .select('*, apartments(*, cities(*)), profiles!owner_id(id, full_name, phone, whatsapp)')
       .eq('student_id', profile.id)
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -90,6 +92,23 @@ export default function StudentBookings() {
     }
   };
 
+  const payVisa = (id: string) => {
+    alert(t('booking.payNow'), t('booking.confirmVisa'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.confirm'),
+        onPress: async () => {
+          const { error } = await supabase.from('bookings').update({ payment_status: 'paid' }).eq('id', id);
+          if (error) alert(t('common.error'), error.message);
+          else {
+            alert(t('common.done'), t('booking.paidOk'));
+            void load();
+          }
+        },
+      },
+    ]);
+  };
+
   const filters: Filter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
 
   return (
@@ -130,35 +149,60 @@ export default function StudentBookings() {
         </View>
       ) : null}
 
-      {visible.map((booking) => (
-        <BookingCard
-          key={booking.id}
-          booking={booking}
-          personIcon="home"
-          personLabel={booking.profiles?.full_name ? `${t('listing.owner')}: ${booking.profiles.full_name}` : undefined}
-        >
-          {booking.apartment_id ? (
+      {visible.map((booking) => {
+        const phone = booking.profiles?.phone;
+        const whatsapp = booking.profiles?.whatsapp || phone;
+        return (
+          <BookingCard
+            key={booking.id}
+            booking={booking}
+            personIcon="home"
+            personLabel={booking.profiles?.full_name ? `${t('listing.owner')}: ${booking.profiles.full_name}` : undefined}
+            note={
+              booking.status === 'cancelled' && booking.cancel_reason
+                ? t('booking.cancelledNote', { note: booking.cancel_reason })
+                : undefined
+            }
+          >
+            {booking.apartment_id ? (
+              <Button
+                title={t('booking.viewListing')}
+                variant="secondary"
+                pill
+                onPress={() =>
+                  router.push({ pathname: '/(student)/apartment/[id]', params: { id: booking.apartment_id } })
+                }
+              />
+            ) : null}
             <Button
-              title={t('booking.viewListing')}
-              variant="secondary"
+              title={t('booking.messageOwner')}
+              variant="ghost"
               pill
-              onPress={() =>
-                router.push({ pathname: '/(student)/apartment/[id]', params: { id: booking.apartment_id } })
-              }
+              loading={busyId === booking.id}
+              onPress={() => void messageOwner(booking)}
             />
-          ) : null}
-          <Button
-            title={t('booking.messageOwner')}
-            variant="ghost"
-            pill
-            loading={busyId === booking.id}
-            onPress={() => void messageOwner(booking)}
-          />
-          {booking.status === 'pending' ? (
-            <Button title={t('booking.cancelRequest')} variant="danger" pill onPress={() => cancel(booking.id)} />
-          ) : null}
-        </BookingCard>
-      ))}
+            {phone ? (
+              <Button title={t('common.call')} variant="ghost" pill onPress={() => Linking.openURL(`tel:${phone}`)} />
+            ) : null}
+            {whatsapp ? (
+              <Button
+                title={t('profile.openWhatsapp')}
+                variant="ghost"
+                pill
+                onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+              />
+            ) : null}
+            {(booking.payment_method === 'visa' || booking.payment_method === 'pay_now') &&
+            booking.payment_status === 'unpaid' &&
+            booking.status !== 'cancelled' ? (
+              <Button title={t('booking.payNow')} pill onPress={() => payVisa(booking.id)} />
+            ) : null}
+            {booking.status === 'pending' ? (
+              <Button title={t('booking.cancelRequest')} variant="danger" pill onPress={() => cancel(booking.id)} />
+            ) : null}
+          </BookingCard>
+        );
+      })}
     </Screen>
   );
 }

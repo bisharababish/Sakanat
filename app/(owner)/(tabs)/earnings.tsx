@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { paymentI18nKey } from '@/src/lib/booking';
+import { paymentBucket, paymentI18nKey } from '@/src/lib/booking';
 import { formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -99,6 +99,19 @@ export default function OwnerEarnings() {
   const list = period === 'month' ? monthBookings : bookings;
   const keepShare = shown.rent > 0 ? Math.round((shown.keep / shown.rent) * 100) : 0;
   const feeShare = 100 - keepShare;
+  const paySplit = useMemo(() => {
+    const next = {
+      cash: { keep: 0, count: 0 },
+      check: { keep: 0, count: 0 },
+      visa: { keep: 0, count: 0 },
+    };
+    for (const item of list) {
+      const bucket = paymentBucket(item.payment_method);
+      next[bucket].keep += Math.max(0, Number(item.rent_amount) - Number(item.commission_amount));
+      next[bucket].count += 1;
+    }
+    return next;
+  }, [list]);
   const months = useMemo(() => lastSixMonths(i18n.language), [i18n.language]);
   const chart = useMemo(() => {
     const points = months.map((item) => ({
@@ -186,6 +199,33 @@ export default function OwnerEarnings() {
           value={String(shown.count)}
           rtlText={rtlText}
         />
+      </View>
+
+      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+        <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.paySplit')}</Text>
+        <View style={styles.splitList}>
+          {(['cash', 'check', 'visa'] as const).map((method, index) => (
+            <View
+              key={method}
+              style={[
+                styles.splitRow,
+                row,
+                index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : null,
+              ]}
+            >
+              <View>
+                <Text style={[styles.splitLabel, rtlText, { color: colors.text }]}>{t(`payment.${method}`)}</Text>
+                <Text style={[styles.splitMeta, rtlText, { color: colors.textMuted }]}>
+                  {t('owner.bookingsCount')}: {paySplit[method].count}
+                </Text>
+              </View>
+              <Text style={[styles.splitValue, { color: colors.primary }]}>
+                {formatIls(paySplit[method].keep, lang)}
+              </Text>
+            </View>
+          ))}
+        </View>
+        <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.payoutNote')}</Text>
       </View>
 
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
@@ -387,6 +427,16 @@ const styles = StyleSheet.create({
   },
   metricLabel: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
   metricValue: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  splitList: { gap: 0 },
+  splitRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  splitLabel: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  splitMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  splitHint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular', marginTop: 8 },
   panel: {
     borderRadius: 24,
     borderWidth: 1,

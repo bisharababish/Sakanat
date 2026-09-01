@@ -7,10 +7,12 @@ import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { listingBadgeTone } from '@/src/lib/format';
-import { notifyListingApproved } from '@/src/lib/moderation';
+import { updateListingStatus } from '@/src/lib/listing';
+import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -24,6 +26,9 @@ export default function AdminListings() {
   const colors = useColors();
   const [listings, setListings] = useState<Apartment[]>([]);
   const [status, setStatus] = useState<Filter>('pending');
+  const [rejecting, setRejecting] = useState<Apartment | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -51,16 +56,18 @@ export default function AdminListings() {
     return next;
   }, [listings]);
 
-  const setListingStatus = async (id: string, next: ListingStatus) => {
-    const item = listings.find((row) => row.id === id);
-    const { error } = await supabase.from('apartments').update({ status: next }).eq('id', id);
+  const setListingStatus = async (item: Apartment, next: ListingStatus, reason?: string | null) => {
+    setBusy(true);
+    const { error } = await updateListingStatus(item.id, next, reason);
+    setBusy(false);
     if (error) {
       alert(t('common.error'), error.message);
       return;
     }
-    if (next === 'approved' && item?.owner_id && item.status !== 'approved') {
-      notifyListingApproved(item.owner_id);
-    }
+    if (next === 'approved' && item.owner_id && item.status !== 'approved') notifyListingApproved(item.owner_id);
+    if (next === 'rejected' && item.owner_id && item.status !== 'rejected') notifyListingRejected(item.owner_id);
+    setRejecting(null);
+    setRejectNote('');
     void load();
   };
 
@@ -114,6 +121,11 @@ export default function AdminListings() {
               {t('admin.ownerName')}: {item.profiles.full_name}
             </Text>
           ) : null}
+          {item.status === 'rejected' && item.reject_reason ? (
+            <Text style={[styles.owner, rtlText, { color: colors.warning }]}>
+              {t('admin.rejectedNote', { note: item.reject_reason })}
+            </Text>
+          ) : null}
           <ListingCard
             apartment={item}
             university={item.universities}
@@ -124,7 +136,7 @@ export default function AdminListings() {
           <View style={[styles.row, row]}>
             {item.status !== 'approved' ? (
               <View style={styles.flex}>
-                <Button title={t('admin.approve')} pill onPress={() => void setListingStatus(item.id, 'approved')} />
+                <Button title={t('admin.approve')} pill onPress={() => void setListingStatus(item, 'approved')} />
               </View>
             ) : (
               <View style={styles.flex}>
@@ -132,7 +144,7 @@ export default function AdminListings() {
                   title={t('owner.hideListing')}
                   variant="secondary"
                   pill
-                  onPress={() => void setListingStatus(item.id, 'hidden')}
+                  onPress={() => void setListingStatus(item, 'hidden')}
                 />
               </View>
             )}
@@ -142,7 +154,10 @@ export default function AdminListings() {
                   title={t('admin.reject')}
                   variant="danger"
                   pill
-                  onPress={() => void setListingStatus(item.id, 'rejected')}
+                  onPress={() => {
+                    setRejectNote('');
+                    setRejecting(item);
+                  }}
                 />
               </View>
             ) : null}
@@ -157,6 +172,18 @@ export default function AdminListings() {
           <Button title={t('admin.deleteListing')} variant="ghost" onPress={() => removeListing(item)} />
         </View>
       ))}
+      <NoteModal
+        visible={Boolean(rejecting)}
+        title={t('admin.rejectListing')}
+        label={t('booking.rejectNote')}
+        hint={t('admin.rejectListingHint')}
+        value={rejectNote}
+        confirmTitle={t('admin.reject')}
+        loading={busy}
+        onChange={setRejectNote}
+        onConfirm={() => rejecting && void setListingStatus(rejecting, 'rejected', rejectNote)}
+        onClose={() => setRejecting(null)}
+      />
     </Screen>
   );
 }

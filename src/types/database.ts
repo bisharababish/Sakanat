@@ -75,10 +75,11 @@ export type Apartment = {
   lng: number;
   campus_distance_km: number | null;
   status: ListingStatus;
+  reject_reason?: string | null;
   created_at: string;
   cities?: City;
   universities?: University | null;
-  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'>;
+  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp'>;
 };
 
 export type Booking = {
@@ -95,10 +96,17 @@ export type Booking = {
   rent_amount: number;
   commission_percent: number;
   commission_amount: number;
+  cancel_reason?: string | null;
   created_at: string;
   apartments?: Apartment;
-  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp'>;
-  student?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp'> | null;
+  profiles?: Pick<
+    Profile,
+    'id' | 'full_name' | 'phone' | 'email' | 'whatsapp' | 'gender' | 'university_id' | 'city_id' | 'role'
+  > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
+  student?: Pick<
+    Profile,
+    'id' | 'full_name' | 'phone' | 'email' | 'whatsapp' | 'gender' | 'university_id' | 'city_id' | 'role'
+  > | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'> | null;
 };
 
@@ -109,9 +117,13 @@ export type Conversation = {
   owner_id: string;
   last_message_at: string;
   last_message: string | null;
+  student_last_read_at?: string | null;
+  owner_last_read_at?: string | null;
+  student_delivered_at?: string | null;
+  owner_delivered_at?: string | null;
   apartments?: Pick<Apartment, 'id' | 'title_ar' | 'title_en' | 'photos'>;
-  student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone'> | null;
-  owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone'> | null;
+  student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
+  owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
 };
 
 export type Message = {

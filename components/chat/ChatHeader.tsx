@@ -10,6 +10,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { conversationParties, loadConversation, otherPerson, personName } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
+import { seekerRoleLabel } from '@/src/lib/seeker';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
@@ -47,7 +48,7 @@ export function ChatHeader({
   const { student, owner } = conversationParties(conversation);
   const person = admin ? student : otherPerson(conversation, profile?.id);
   const name = admin
-    ? [personName(student) || t('roles.student'), personName(owner) || t('roles.owner')].join(' · ')
+    ? [personName(student) || seekerRoleLabel(student?.role, t), personName(owner) || t('roles.owner')].join(' · ')
     : personName(person) || t('chat.unknownPerson');
   const listing = conversation?.apartments ? localizedTitle(conversation.apartments, i18n.language) : '';
   const photo = person?.avatar_url;

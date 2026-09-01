@@ -8,8 +8,10 @@ import { BookingCard } from '@/components/booking/BookingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Screen } from '@/components/ui/Screen';
+import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
-import { bookingStatusLabel, formatIls } from '@/src/lib/format';
+import { bookingStatusLabel, formatIls, localizedName } from '@/src/lib/format';
+import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
@@ -20,9 +22,10 @@ import type { Booking, BookingStatus, PaymentStatus } from '@/src/types/database
 type Filter = 'all' | BookingStatus;
 
 export default function AdminBookings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { rtlText, row, lang } = useLayout();
   const colors = useColors();
+  const { universities } = useCatalog();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
 
@@ -30,7 +33,7 @@ export default function AdminBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, phone, email, whatsapp), owner:profiles!owner_id(id, full_name, phone, email)',
+        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, phone, email, whatsapp, gender, university_id, city_id, role), owner:profiles!owner_id(id, full_name, phone, email)',
       )
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -125,14 +128,35 @@ export default function AdminBookings() {
         </View>
       ) : null}
       {visible.map((booking) => {
-        const people = [booking.student?.full_name, booking.owner?.full_name].filter(Boolean).join(' · ');
+        const student = booking.student;
+        const gender =
+          student?.gender === 'male' ? t('profile.male') : student?.gender === 'female' ? t('profile.female') : '';
+        const university = localizedName(
+          universities.find((item) => item.id === student?.university_id),
+          i18n.language,
+        );
+        const personBits = [
+          student?.full_name,
+          gender,
+          seekerRoleLabel(student?.role, t),
+          booking.owner?.full_name,
+        ].filter(Boolean);
+        const extraBits = [
+          university,
+          `${t('admin.commission')}: ${formatIls(Number(booking.commission_amount), lang)}`,
+        ].filter(Boolean);
         return (
           <BookingCard
             key={booking.id}
             booking={booking}
-            personIcon="people"
-            personLabel={people || undefined}
-            extra={`${t('admin.commission')}: ${formatIls(Number(booking.commission_amount), lang)}`}
+            personIcon={seekerIcon(student?.role)}
+            personLabel={personBits.join(' · ') || undefined}
+            extra={extraBits.join(' · ')}
+            note={
+              booking.status === 'cancelled' && booking.cancel_reason
+                ? t('booking.cancelledNote', { note: booking.cancel_reason })
+                : undefined
+            }
           >
             {booking.status === 'pending' ? (
               <View style={styles.row}>

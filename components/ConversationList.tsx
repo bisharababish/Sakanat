@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { ConversationCard } from '@/components/chat/ConversationCard';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { loadConversations, otherPerson, personName } from '@/src/lib/chat';
+import { loadConversations, otherPerson, personName, isConversationUnread, markInboxDelivered } from '@/src/lib/chat';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
@@ -27,7 +27,9 @@ export function ConversationList({
     if (!profile) return;
     const column = profile.role === 'owner' ? 'owner_id' : 'student_id';
     try {
-      setItems(await loadConversations(column, profile.id));
+      const rows = await loadConversations(column, profile.id);
+      setItems(rows);
+      void markInboxDelivered(rows, profile.role === 'owner');
     } catch {
       setItems([]);
     }
@@ -64,6 +66,7 @@ export function ConversationList({
             conversation={item}
             title={personName(person) || t('chat.unknownPerson')}
             photo={person?.avatar_url}
+            unread={isConversationUnread(item, profile?.id)}
             onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
           />
         );

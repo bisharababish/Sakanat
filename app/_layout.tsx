@@ -95,7 +95,7 @@ function AppStack() {
   );
 }
 
-const AUTH_HOLD = new Set(['verify-email', 'confirmed', 'reset-password', 'forgot-password']);
+const AUTH_HOLD = new Set(['reset-password', 'forgot-password']);
 
 function SessionGuard({ children }: { children: ReactNode }) {
   const { session, profile, loading, passwordRecovery, signOut } = useAuth();

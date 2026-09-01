@@ -8,12 +8,13 @@ import { useTranslation } from 'react-i18next';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
 import { DateField } from '@/components/ui/DateField';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { occupantChoices, PAYMENT_CHOICES, paymentHintKey, paymentI18nKey } from '@/src/lib/booking';
+import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
@@ -68,7 +69,7 @@ export default function BookScreen() {
   const [startDate, setStartDate] = useState(defaultStart());
   const [months, setMonths] = useState(1);
   const [occupants, setOccupants] = useState(1);
-  const [percent, setPercent] = useState(10);
+  const [percent, setPercent] = useState(DEFAULT_COMMISSION_PERCENT);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [loading, setLoading] = useState(false);
 
@@ -124,30 +125,41 @@ export default function BookScreen() {
       alert(t('common.error'), t('booking.pastDate'));
       return;
     }
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('bookings').insert({
-        apartment_id: apartment.id,
-        student_id: profile.id,
-        owner_id: apartment.owner_id,
-        start_date: startDate,
-        months,
-        occupants: headcount,
-        payment_method: method,
-        rent_amount: total,
-        commission_percent: 0,
-        commission_amount: 0,
-      });
-      if (error) throw error;
-      void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'));
-      alert(t('booking.success'), t('booking.successBody'), [
-        { text: t('common.done'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
+    const place = async () => {
+      setLoading(true);
+      try {
+        const { error } = await supabase.from('bookings').insert({
+          apartment_id: apartment.id,
+          student_id: profile.id,
+          owner_id: apartment.owner_id,
+          start_date: startDate,
+          months,
+          occupants: headcount,
+          payment_method: method,
+          rent_amount: total,
+          commission_percent: 0,
+          commission_amount: 0,
+        });
+        if (error) throw error;
+        void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'));
+        const visa = method === 'visa' || method === 'pay_now';
+        alert(t('booking.success'), visa ? t('booking.successVisa') : t('booking.successBody'), [
+          { text: t('common.done'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
+        ]);
+      } catch (err) {
+        alert(t('common.error'), err instanceof Error ? err.message : '');
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (method === 'visa' || method === 'pay_now') {
+      alert(t('booking.payNow'), t('booking.confirmVisa'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), onPress: () => void place() },
       ]);
-    } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
-    } finally {
-      setLoading(false);
+      return;
     }
+    void place();
   };
 
   if (!apartment) {
@@ -196,38 +208,32 @@ export default function BookScreen() {
         <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.occupants')}</Text>
         <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.occupantsHint')}</Text>
-        <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          {people.map((value) => (
-            <Chip
-              key={value}
-              label={value === 1 ? t('booking.onePerson') : t('booking.people', { count: value })}
-              selected={headcount === value}
-              onPress={() => setOccupants(value)}
-            />
-          ))}
-        </View>
+        <FilterPills
+          value={String(headcount)}
+          onChange={(next) => setOccupants(Number(next))}
+          items={people.map((value) => ({
+            value: String(value),
+            label: value === 1 ? t('booking.onePerson') : t('booking.people', { count: value }),
+          }))}
+        />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
-        <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          {MONTHS.map((value) => (
-            <Chip
-              key={value}
-              label={`${value} ${value === 1 ? t('common.month') : t('common.months')}`}
-              selected={months === value}
-              onPress={() => setMonths(value)}
-            />
-          ))}
-        </View>
+        <FilterPills
+          value={String(months)}
+          onChange={(next) => setMonths(Number(next))}
+          items={MONTHS.map((value) => ({
+            value: String(value),
+            label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
+          }))}
+        />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.method')}</Text>
-        <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          {PAYMENT_CHOICES.map((value) => (
-            <Chip
-              key={value}
-              label={t(paymentI18nKey(value))}
-              selected={method === value}
-              onPress={() => setMethod(value)}
-            />
-          ))}
-        </View>
+        <FilterPills
+          value={method}
+          onChange={setMethod}
+          items={PAYMENT_CHOICES.map((value) => ({
+            value,
+            label: t(paymentI18nKey(value)),
+          }))}
+        />
         <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
         <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
       </Card>
@@ -281,7 +287,6 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', lineHeight: 26 },
   heroCity: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   label: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   note: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20, marginTop: -4 },
   summaryRow: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },

@@ -1,0 +1,1 @@
+export const DEFAULT_COMMISSION_PERCENT = 6;

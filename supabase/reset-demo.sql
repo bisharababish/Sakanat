@@ -18,5 +18,5 @@ delete from auth.users;
 update public.app_settings
 set
   admin_email = 'bishara.babish23@gmail.com',
-  commission_percent = 10
+  commission_percent = 6
 where id = 1;

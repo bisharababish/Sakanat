@@ -52,7 +52,7 @@ type AuthContextValue = {
   configured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<'verify' | 'ready'>;
-  verifyEmail: (email: string, token: string) => Promise<void>;
+  verifyEmail: (email: string, token: string) => Promise<Profile | null>;
   resendConfirmation: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<Profile | null>;
@@ -71,6 +71,15 @@ async function fetchProfile(userId: string) {
     .maybeSingle();
   if (error) return null;
   return (data as Profile | null) ?? null;
+}
+
+async function fetchProfileWithRetry(userId: string) {
+  for (let i = 0; i < 8; i++) {
+    const row = await fetchProfile(userId);
+    if (row) return row;
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+  return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -96,11 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Fine if the function is not installed yet.
     }
-    const nextProfile = await fetchProfile(next.user.id);
+    const nextProfile = await fetchProfileWithRetry(next.user.id);
     if (mine !== loadGen.current) return;
     if (!nextProfile) {
-      await supabase.auth.signOut({ scope: 'local' });
-      if (mine === loadGen.current) clearLocalAuth();
+      if (mine === loadGen.current) {
+        setSession(next);
+        setProfile(null);
+      }
       return;
     }
     if (isSuspended(nextProfile)) {
@@ -237,13 +248,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return data.session ? 'ready' : 'verify';
       },
       verifyEmail: async (email, token) => {
-        const { data, error } = await supabase.auth.verifyOtp({
-          email: email.trim(),
-          token: token.trim(),
+        const cleanEmail = email.trim();
+        const cleanToken = token.replace(/\s/g, '');
+        let result = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanToken,
           type: 'signup',
         });
-        if (error) throw error;
-        await loadForSession(data.session);
+        if (result.error) {
+          result = await supabase.auth.verifyOtp({
+            email: cleanEmail,
+            token: cleanToken,
+            type: 'email',
+          });
+        }
+        if (result.error) throw result.error;
+        await loadForSession(result.data.session);
+        if (result.data.session?.user.id) {
+          const row = await fetchProfileWithRetry(result.data.session.user.id);
+          if (row) return row;
+        }
+        return (await fetchProfile(result.data.session?.user.id ?? '')) ?? null;
       },
       resendConfirmation: async (email) => {
         const { error } = await supabase.auth.resend({

@@ -11,10 +11,11 @@ import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
+import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
 import { DateField } from '@/components/ui/DateField';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
@@ -24,8 +25,10 @@ import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { isPasswordValid } from '@/src/lib/password';
 import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { supabase } from '@/src/lib/supabase';
@@ -38,7 +41,7 @@ type ProfileTab = 'account' | 'saved' | 'security';
 
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl, row } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities, universities } = useCatalog();
@@ -229,12 +232,8 @@ export default function StudentProfileScreen() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
-    if (newPassword.length < 6) {
+    if (!isPasswordValid(newPassword, confirmPassword)) {
       alert(t('common.error'), t('auth.weakPassword'));
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert(t('common.error'), t('profile.passwordMismatch'));
       return;
     }
     setUpdatingPassword(true);
@@ -311,10 +310,14 @@ export default function StudentProfileScreen() {
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-            <View style={[row, styles.chipRow, { flexDirection: 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-              <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
-              <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
-            </View>
+            <FilterPills
+              value={gender}
+              onChange={setGender}
+              items={[
+                { value: 'male', label: t('profile.male') },
+                { value: 'female', label: t('profile.female') },
+              ]}
+            />
             <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
             <Select
               label={t('auth.homeCity')}
@@ -423,8 +426,11 @@ export default function StudentProfileScreen() {
               <View key={item.id} style={styles.savedBlock}>
                 <ListingCard
                   apartment={item}
-                  university={item.universities}
-                  distanceKm={item.campus_distance_km}
+                  university={isStudent ? item.universities : null}
+                  distanceKm={
+                    isStudent ? item.campus_distance_km : listingDistanceKm(item, null, item.cities)
+                  }
+                  distancePlace={isStudent ? 'campus' : 'city'}
                   saved
                   onToggleSave={async () => {
                     if (!profile) return;
@@ -434,7 +440,11 @@ export default function StudentProfileScreen() {
                   onPress={() =>
                     router.push({
                       pathname: '/(student)/apartment/[id]',
-                      params: { id: item.id, universityId: universityId || '' },
+                      params: {
+                        id: item.id,
+                        universityId: isStudent ? universityId || '' : '',
+                        from: isStudent ? 'campus' : 'city',
+                      },
                     })
                   }
                 />
@@ -465,6 +475,7 @@ export default function StudentProfileScreen() {
             onChangeText={setConfirmPassword}
             secureTextEntry
           />
+          <PasswordChecks password={newPassword} confirm={confirmPassword} />
           <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
         </Card>
       ) : null}
@@ -474,7 +485,6 @@ export default function StudentProfileScreen() {
 
 const styles = StyleSheet.create({
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
-  chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   savedBlock: { gap: 8 },
   emptyBox: {
     borderRadius: radius.lg,

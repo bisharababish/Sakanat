@@ -2,41 +2,51 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
+import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation } from '@/src/lib/chat';
-import { bookingStatusLabel } from '@/src/lib/format';
+import { bookingStatusLabel, localizedName } from '@/src/lib/format';
+import { seekerExtraIcon, seekerIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { whatsappLink } from '@/src/lib/phone';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
-import { spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, Booking, BookingStatus } from '@/src/types/database';
 
 type Filter = 'all' | BookingStatus;
 
 export default function OwnerBookings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
+  const { cities, universities } = useCatalog();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<Booking | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [rejectingBusy, setRejectingBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
-      .select('*, apartments(*, cities(*)), profiles!student_id(id, full_name, phone, email, whatsapp)')
+      .select(
+        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, phone, email, whatsapp, gender, university_id, city_id, role)',
+      )
       .eq('owner_id', profile.id)
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -65,15 +75,43 @@ export default function OwnerBookings() {
     [bookings, filter],
   );
 
-  const updateStatus = async (id: string, status: BookingStatus) => {
-    const booking = bookings.find((item) => item.id === id);
-    const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
-    if (error) alert(t('common.error'), error.message);
-    else {
-      if (status === 'confirmed' && booking?.student_id) {
-        void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
-      }
-      void load();
+  const applyStatus = async (booking: Booking, status: BookingStatus, cancelReason?: string | null) => {
+    const patch: { status: BookingStatus; cancel_reason?: string | null } = { status };
+    if (status === 'cancelled') patch.cancel_reason = cancelReason?.trim() || null;
+    const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id);
+    if (error) {
+      alert(t('common.error'), error.message);
+      return;
+    }
+    if (status === 'confirmed' && booking.student_id) {
+      void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
+    }
+    if (status === 'cancelled' && booking.student_id) {
+      void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'));
+    }
+    void load();
+  };
+
+  const updateStatus = (booking: Booking, status: BookingStatus) => {
+    if (status === 'confirmed' && hasConfirmedOverlap(booking, bookings)) {
+      alert(t('owner.overlapTitle'), t('owner.overlapBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('owner.approveAnyway'), onPress: () => void applyStatus(booking, 'confirmed') },
+      ]);
+      return;
+    }
+    void applyStatus(booking, status);
+  };
+
+  const submitReject = async () => {
+    if (!rejecting) return;
+    setRejectingBusy(true);
+    try {
+      await applyStatus(rejecting, 'cancelled', rejectNote);
+      setRejecting(null);
+      setRejectNote('');
+    } finally {
+      setRejectingBusy(false);
     }
   };
 
@@ -128,33 +166,66 @@ export default function OwnerBookings() {
       {visible.map((booking) => {
         const phone = booking.profiles?.phone;
         const whatsapp = booking.profiles?.whatsapp || phone;
+        const gender = booking.profiles?.gender;
+        const role = booking.profiles?.role;
+        const university = universities.find((item) => item.id === booking.profiles?.university_id);
+        const city = cities.find((item) => item.id === booking.profiles?.city_id);
+        const extraName =
+          role === 'renter'
+            ? localizedName(city, i18n.language)
+            : localizedName(university, i18n.language);
+        const personBits = [
+          booking.profiles?.full_name,
+          gender === 'male' ? t('profile.male') : gender === 'female' ? t('profile.female') : '',
+          seekerRoleLabel(role, t),
+        ].filter(Boolean);
+        const overlapConfirmed = hasConfirmedOverlap(booking, bookings);
+        const overlapPending =
+          booking.status === 'pending' && overlappingBookings(booking, bookings, ['pending']).length > 0;
         return (
           <BookingCard
             key={booking.id}
             booking={booking}
-            personIcon="school"
-            personLabel={booking.profiles?.full_name}
+            personIcon={seekerIcon(role)}
+            personLabel={personBits.join(' · ') || undefined}
+            extra={extraName || undefined}
+            extraIcon={seekerExtraIcon(role)}
+            warning={
+              booking.status === 'pending' && overlapConfirmed
+                ? t('owner.overlapWarn')
+                : booking.status === 'pending' && overlapPending
+                  ? t('owner.overlapPending')
+                  : undefined
+            }
+            note={
+              booking.status === 'cancelled' && booking.cancel_reason
+                ? t('booking.cancelledNote', { note: booking.cancel_reason })
+                : undefined
+            }
           >
             {booking.status === 'pending' ? (
               <View style={styles.actions}>
                 <View style={styles.flex}>
-                  <Button title={t('admin.approve')} pill onPress={() => updateStatus(booking.id, 'confirmed')} />
+                  <Button title={t('admin.approve')} pill onPress={() => updateStatus(booking, 'confirmed')} />
                 </View>
                 <View style={styles.flex}>
                   <Button
                     title={t('admin.reject')}
                     variant="danger"
                     pill
-                    onPress={() => updateStatus(booking.id, 'cancelled')}
+                    onPress={() => {
+                      setRejectNote('');
+                      setRejecting(booking);
+                    }}
                   />
                 </View>
               </View>
             ) : null}
             {booking.status === 'confirmed' ? (
-              <Button title={t('booking.complete')} pill onPress={() => updateStatus(booking.id, 'completed')} />
+              <Button title={t('booking.complete')} pill onPress={() => updateStatus(booking, 'completed')} />
             ) : null}
             <Button
-              title={t('booking.messageStudent')}
+              title={t(seekerMessageKey(role))}
               variant="secondary"
               pill
               loading={busyId === booking.id}
@@ -174,6 +245,29 @@ export default function OwnerBookings() {
           </BookingCard>
         );
       })}
+
+      <Modal
+        visible={Boolean(rejecting)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRejecting(null)}
+      >
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setRejecting(null)} />
+          <View style={[styles.rejectCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.rejectTitle, rtlText, { color: colors.primaryDark }]}>{t('booking.rejectConfirm')}</Text>
+            <Input
+              label={t('booking.rejectNote')}
+              value={rejectNote}
+              onChangeText={setRejectNote}
+              hint={t('booking.rejectNoteHint')}
+              multiline
+            />
+            <Button title={t('admin.reject')} variant="danger" pill loading={rejectingBusy} onPress={() => void submitReject()} />
+            <Button title={t('common.cancel')} variant="ghost" pill onPress={() => setRejecting(null)} />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -210,4 +304,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  overlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  rejectCard: {
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    borderWidth: 1,
+    zIndex: 1,
+  },
+  rejectTitle: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
 });

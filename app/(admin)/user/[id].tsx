@@ -8,9 +8,9 @@ import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Chip } from '@/components/ui/Chip';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { DateField } from '@/components/ui/DateField';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
@@ -31,7 +31,7 @@ import type { OwnerStatus, PersonGender, Profile, UserRole } from '@/src/types/d
 export default function AdminUserEdit() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile: me } = useAuth();
   const { cities, universities } = useCatalog();
@@ -54,7 +54,6 @@ export default function AdminUserEdit() {
   const [studyYear, setStudyYear] = useState('');
   const [saving, setSaving] = useState(false);
   const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
-  const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
 
   useEffect(() => {
     if (!id) return;
@@ -228,10 +227,14 @@ export default function AdminUserEdit() {
         <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
         <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-        <View style={[styles.chips, chipAlign]}>
-          <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
-          <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
-        </View>
+        <FilterPills
+          value={gender}
+          onChange={setGender}
+          items={[
+            { value: 'male', label: t('profile.male') },
+            { value: 'female', label: t('profile.female') },
+          ]}
+        />
         <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
         <Select
           label={t('common.city')}
@@ -270,31 +273,27 @@ export default function AdminUserEdit() {
       {user.role !== 'admin' ? (
         <Card>
           <SectionHead icon="shield-outline" title={t('profile.role')} />
-          <View style={[styles.chips, chipAlign]}>
-            <Chip label={t('roles.student')} selected={role === 'student'} onPress={() => setRole('student')} />
-            <Chip label={t('roles.renter')} selected={role === 'renter'} onPress={() => setRole('renter')} />
-            <Chip label={t('roles.owner')} selected={role === 'owner'} onPress={() => setRole('owner')} />
-          </View>
+          <FilterPills
+            value={role}
+            onChange={setRole}
+            items={[
+              { value: 'student', label: t('roles.student') },
+              { value: 'renter', label: t('roles.renter') },
+              { value: 'owner', label: t('roles.owner') },
+            ]}
+          />
           {role === 'owner' ? (
             <>
               <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('admin.ownerStatus')}</Text>
-              <View style={[styles.chips, chipAlign]}>
-                <Chip
-                  label={t('admin.ownerWaiting')}
-                  selected={ownerStatus === 'pending'}
-                  onPress={() => setOwnerStatus('pending')}
-                />
-                <Chip
-                  label={t('admin.ownerActive')}
-                  selected={ownerStatus === 'approved'}
-                  onPress={() => setOwnerStatus('approved')}
-                />
-                <Chip
-                  label={t('admin.ownerSuspended')}
-                  selected={ownerStatus === 'rejected'}
-                  onPress={() => setOwnerStatus('rejected')}
-                />
-              </View>
+              <FilterPills
+                value={ownerStatus}
+                onChange={setOwnerStatus}
+                items={[
+                  { value: 'pending', label: t('admin.ownerWaiting') },
+                  { value: 'approved', label: t('admin.ownerActive') },
+                  { value: 'rejected', label: t('admin.ownerSuspended') },
+                ]}
+              />
             </>
           ) : null}
         </Card>
@@ -316,27 +315,26 @@ export default function AdminUserEdit() {
             onChange={setMajor}
           />
           <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.degree')}</Text>
-          <View style={[styles.chips, chipAlign]}>
-            {(['bachelor', 'master', 'doctorate', 'diploma', 'otherDegree'] as const).map((value) => (
-              <Chip
-                key={value}
-                label={t(`profile.${value}`)}
-                selected={degreeLevel === (value === 'otherDegree' ? 'other' : value)}
-                onPress={() => setDegreeLevel(value === 'otherDegree' ? 'other' : value)}
-              />
-            ))}
-          </View>
+          <FilterPills
+            value={degreeLevel}
+            onChange={setDegreeLevel}
+            items={[
+              { value: 'bachelor', label: t('profile.bachelor') },
+              { value: 'master', label: t('profile.master') },
+              { value: 'doctorate', label: t('profile.doctorate') },
+              { value: 'diploma', label: t('profile.diploma') },
+              { value: 'other', label: t('profile.otherDegree') },
+            ]}
+          />
           <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.studyYear')}</Text>
-          <View style={[styles.chips, chipAlign]}>
-            {(['1', '2', '3', '4', '5'] as const).map((value) => (
-              <Chip
-                key={value}
-                label={t(`profile.year${value}`)}
-                selected={studyYear === value}
-                onPress={() => setStudyYear(value)}
-              />
-            ))}
-          </View>
+          <FilterPills
+            value={studyYear}
+            onChange={setStudyYear}
+            items={(['1', '2', '3', '4', '5', '6'] as const).map((value) => ({
+              value,
+              label: t(`profile.year${value}`),
+            }))}
+          />
         </Card>
       ) : null}
 
@@ -361,5 +359,4 @@ const styles = StyleSheet.create({
   sub: { fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4 },
   label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
   muted: { textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
 });

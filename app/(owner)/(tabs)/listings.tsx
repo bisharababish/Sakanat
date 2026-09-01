@@ -11,6 +11,7 @@ import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { listingBadgeTone } from '@/src/lib/format';
+import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -95,6 +96,24 @@ export default function OwnerListings() {
     else void load();
   };
 
+  const duplicateListing = async (item: Apartment) => {
+    const { data, error } = await supabase
+      .from('apartments')
+      .insert({
+        ...apartmentWriteFields(item),
+        ...copyListingTitles(item, t('owner.copySuffix')),
+      })
+      .select('id')
+      .single();
+    if (error) {
+      alert(t('common.error'), error.message);
+      return;
+    }
+    alert(t('common.done'), t('owner.duplicated'));
+    if (data?.id) router.push({ pathname: '/(owner)/listing/[id]', params: { id: data.id } });
+    else void load();
+  };
+
   const addListing = () => router.push('/(owner)/listing/new');
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
 
@@ -102,7 +121,8 @@ export default function OwnerListings() {
     <Screen>
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('tabs.listings')}</Text>
+          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.listings')}</Text>
+          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('owner.yourListings')}</Text>
           <Text style={[styles.count, rtlText, { color: colors.textMuted }]}>
             {t('owner.listingCount', { count: listings.length })}
           </Text>
@@ -159,7 +179,30 @@ export default function OwnerListings() {
             badge={{ label: t(`status.${item.status}`), tone: listingBadgeTone(item.status) }}
             onPress={() => router.push({ pathname: '/(owner)/listing/[id]', params: { id: item.id } })}
           />
+          {item.status === 'rejected' && item.reject_reason ? (
+            <Text style={[styles.warn, rtlText, { color: colors.warning }]}>
+              {t('admin.rejectedNote', { note: item.reject_reason })}
+            </Text>
+          ) : null}
           <View style={[styles.actions, row]}>
+            <Pressable
+              onPress={() => router.push({ pathname: '/(owner)/apartment/[id]', params: { id: item.id } })}
+              style={[styles.action, { backgroundColor: colors.accentSoft }]}
+            >
+              <Ionicons name="phone-portrait-outline" size={16} color={colors.primaryDark} />
+              <Text style={[styles.actionText, { writingDirection, color: colors.primaryDark }]}>
+                {t('owner.preview')}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void duplicateListing(item)}
+              style={[styles.action, { backgroundColor: colors.accentSoft }]}
+            >
+              <Ionicons name="copy-outline" size={16} color={colors.primaryDark} />
+              <Text style={[styles.actionText, { writingDirection, color: colors.primaryDark }]}>
+                {t('owner.duplicate')}
+              </Text>
+            </Pressable>
             {item.status === 'approved' ? (
               <Pressable
                 onPress={() => hideListing(item.id)}
@@ -201,6 +244,7 @@ export default function OwnerListings() {
 const styles = StyleSheet.create({
   top: { alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   count: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   warnBox: {

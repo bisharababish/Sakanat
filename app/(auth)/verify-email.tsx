@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
+import { homeHref } from '@/src/lib/routes';
 import { colors } from '@/src/theme/colors';
 
 export default function VerifyEmailScreen() {
@@ -33,7 +34,12 @@ export default function VerifyEmailScreen() {
     }
     setLoading(true);
     try {
-      await verifyEmail(email, code);
+      const profile = await verifyEmail(email, code);
+      if (profile) {
+        router.replace(homeHref(profile.role));
+        return;
+      }
+      router.replace('/(student)/(tabs)/search');
     } catch (err) {
       setError(authErrorMessage(err, t));
     } finally {
@@ -90,7 +96,6 @@ export default function VerifyEmailScreen() {
       </AuthCard>
       <Button title={t('auth.confirmCode')} onPress={onConfirm} loading={loading} pill />
       <Button title={t('auth.resendCode')} variant="secondary" onPress={onResend} loading={loading} pill />
-      <Button title={t('auth.backToLogin')} variant="ghost" onPress={() => router.replace('/(auth)/login')} pill />
     </AuthScreen>
   );
 }

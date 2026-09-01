@@ -16,11 +16,18 @@ import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { sendMessage } from '@/src/lib/chat';
+import {
+  loadConversation,
+  markConversationDelivered,
+  markConversationRead,
+  messageReceipt,
+  sendMessage,
+  type MessageReceipt,
+} from '@/src/lib/chat';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { Message } from '@/src/types/database';
+import type { Conversation, Message } from '@/src/types/database';
 
 function dayKey(iso: string) {
   const date = new Date(iso);
@@ -46,6 +53,22 @@ function timeLabel(iso: string, lang: string) {
   return date.toLocaleTimeString(lang.startsWith('ar') ? 'ar' : 'en', { hour: 'numeric', minute: '2-digit' });
 }
 
+function ReceiptTick({
+  status,
+  onMine,
+}: {
+  status: MessageReceipt;
+  onMine: boolean;
+}) {
+  const colors = useColors();
+  const muted = onMine ? 'rgba(255,255,255,0.72)' : colors.textMuted;
+  const read = onMine ? colors.accent : colors.primary;
+  if (status === 'pending') return <Ionicons name="time-outline" size={13} color={muted} />;
+  if (status === 'sent') return <Ionicons name="checkmark" size={13} color={muted} />;
+  if (status === 'delivered') return <Ionicons name="checkmark-done" size={13} color={muted} />;
+  return <Ionicons name="checkmark-done" size={13} color={read} />;
+}
+
 export function ChatThread({
   conversationId,
   readOnly = false,
@@ -67,12 +90,21 @@ export function ChatThread({
   const { textAlign, writingDirection, isRtl, row } = useLayout();
   const colors = useColors();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+  const asOwner = profile?.role === 'owner';
 
   useEffect(() => {
     let mounted = true;
+    void loadConversation(conversationId)
+      .then((row) => {
+        if (mounted) setConversation(row);
+      })
+      .catch(() => {
+        if (mounted) setConversation(null);
+      });
     supabase
       .from('messages')
       .select('*')
@@ -83,7 +115,7 @@ export function ChatThread({
       });
 
     const channel = supabase
-      .channel(`messages:${conversationId}`)
+      .channel(`thread:${conversationId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
@@ -96,6 +128,15 @@ export function ChatThread({
             );
             return [...withoutTemp, next];
           });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` },
+        (payload) => {
+          setConversation((current) =>
+            current ? { ...current, ...(payload.new as Partial<Conversation>) } : (payload.new as Conversation),
+          );
         },
       )
       .subscribe();
@@ -122,6 +163,12 @@ export function ChatThread({
       };
     });
   }, [messages]);
+
+  useEffect(() => {
+    if (!profile?.id || readOnly) return;
+    void markConversationDelivered(conversationId, asOwner);
+    void markConversationRead(conversationId, profile.id, asOwner);
+  }, [asOwner, conversationId, profile?.id, readOnly, messages.length]);
 
   const onSend = async () => {
     if (readOnly || !profile || !draft.trim() || sending) return;
@@ -177,6 +224,8 @@ export function ChatThread({
           const mine = readOnly ? fromOwner : item.sender_id === profile?.id;
           const senderLabel = fromStudent ? studentName : fromOwner ? ownerName : undefined;
           const pending = item.id.startsWith('temp-');
+          const receipt = messageReceipt(item, conversation);
+          const showTicks = item.lastInGroup && (readOnly || mine);
           return (
             <View style={{ marginTop: item.showDay ? 4 : item.grouped ? 3 : 10 }}>
               {item.showDay ? (
@@ -229,13 +278,7 @@ export function ChatThread({
                     <Text style={[styles.time, { color: mine ? 'rgba(255,255,255,0.72)' : colors.textMuted }]}>
                       {timeLabel(item.created_at, i18n.language)}
                     </Text>
-                    {mine ? (
-                      <Ionicons
-                        name={pending ? 'time-outline' : 'checkmark-done'}
-                        size={13}
-                        color={pending ? 'rgba(255,255,255,0.72)' : colors.accent}
-                      />
-                    ) : null}
+                    {showTicks ? <ReceiptTick status={receipt} onMine={mine} /> : null}
                   </View>
                 ) : null}
               </View>

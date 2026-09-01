@@ -2,11 +2,21 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { TabIcon } from '@/components/navigation/TabIcon';
+import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { useAppTabScreenOptions } from '@/src/theme/tabs';
+import { useColors } from '@/src/theme/ThemeProvider';
+
+function badge(count: number) {
+  if (count <= 0) return undefined;
+  return count > 9 ? '9+' : count;
+}
 
 export default function AdminTabs() {
   const { t } = useTranslation();
   const tabOptions = useAppTabScreenOptions();
+  const colors = useColors();
+  const pending = useAdminPendingCounts();
+  const badgeStyle = { backgroundColor: colors.warning, color: colors.white, fontSize: 10 };
 
   return (
     <Tabs screenOptions={tabOptions}>
@@ -21,6 +31,8 @@ export default function AdminTabs() {
         name="users"
         options={{
           title: t('tabs.users'),
+          tabBarBadge: badge(pending.owners),
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="people-outline" filled="people" />,
         }}
       />
@@ -28,6 +40,8 @@ export default function AdminTabs() {
         name="listings"
         options={{
           title: t('tabs.listings'),
+          tabBarBadge: badge(pending.listings),
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="home-outline" filled="home" />,
         }}
       />
@@ -35,6 +49,8 @@ export default function AdminTabs() {
         name="bookings"
         options={{
           title: t('tabs.bookings'),
+          tabBarBadge: badge(pending.bookings),
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="calendar-outline" filled="calendar" />,
         }}
       />

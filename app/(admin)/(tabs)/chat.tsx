@@ -18,6 +18,7 @@ import {
 } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { seekerRoleLabel } from '@/src/lib/seeker';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
@@ -168,7 +169,7 @@ export default function AdminInbox() {
       <View style={styles.list}>
         {visible.map((item) => {
           const { student, owner } = conversationParties(item);
-          const studentLabel = personName(student) || t('roles.student');
+          const studentLabel = personName(student) || seekerRoleLabel(student?.role, t);
           const ownerLabel = personName(owner) || t('roles.owner');
           return (
             <ConversationCard

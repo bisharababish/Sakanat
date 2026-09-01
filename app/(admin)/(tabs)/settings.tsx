@@ -1,17 +1,18 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
 import { DateField } from '@/components/ui/DateField';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
@@ -21,6 +22,8 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { isPasswordValid } from '@/src/lib/password';
+import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
@@ -31,7 +34,7 @@ type ProfileTab = 'account' | 'security' | 'settings';
 
 export default function AdminSettings() {
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl, row } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
@@ -46,7 +49,7 @@ export default function AdminSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [percent, setPercent] = useState('10');
+  const [percent, setPercent] = useState(String(DEFAULT_COMMISSION_PERCENT));
   const [saving, setSaving] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -146,12 +149,8 @@ export default function AdminSettings() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
-    if (newPassword.length < 6) {
+    if (!isPasswordValid(newPassword, confirmPassword)) {
       alert(t('common.error'), t('auth.weakPassword'));
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert(t('common.error'), t('profile.passwordMismatch'));
       return;
     }
     setUpdatingPassword(true);
@@ -220,10 +219,14 @@ export default function AdminSettings() {
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-            <View style={[row, styles.chipRow, { flexDirection: 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-              <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
-              <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
-            </View>
+            <FilterPills
+              value={gender}
+              onChange={setGender}
+              items={[
+                { value: 'male', label: t('profile.male') },
+                { value: 'female', label: t('profile.female') },
+              ]}
+            />
             <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
             <Select
               label={t('common.city')}
@@ -263,6 +266,7 @@ export default function AdminSettings() {
             onChangeText={setConfirmPassword}
             secureTextEntry
           />
+          <PasswordChecks password={newPassword} confirm={confirmPassword} />
           <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
         </Card>
       ) : null}
@@ -293,5 +297,4 @@ export default function AdminSettings() {
 const styles = StyleSheet.create({
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
-  chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
 });

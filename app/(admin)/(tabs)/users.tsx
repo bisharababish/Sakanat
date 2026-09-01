@@ -4,10 +4,11 @@ import { StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useTranslation } from 'react-i18next';
 
+import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
@@ -18,6 +19,7 @@ import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
 import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
+import { isPasswordValid } from '@/src/lib/password';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { AUTH_REDIRECT_URL, createDetachedClient, supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -40,6 +42,7 @@ export default function AdminUsers() {
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -101,7 +104,7 @@ export default function AdminUsers() {
       alert(t('common.error'), t('auth.invalidEmail'));
       return;
     }
-    if (password.length < 6) {
+    if (!isPasswordValid(password, confirmPassword)) {
       alert(t('common.error'), t('auth.weakPassword'));
       return;
     }
@@ -144,6 +147,7 @@ export default function AdminUsers() {
       setEmail('');
       setPhoneLocal('');
       setPassword('');
+      setConfirmPassword('');
       void load();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -174,6 +178,7 @@ export default function AdminUsers() {
 
   return (
     <Screen>
+      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.users')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.users')}</Text>
       <Card>
         <Text style={[styles.formTitle, rtlText, { color: colors.text }]}>{t('admin.createOwner')}</Text>
@@ -194,24 +199,39 @@ export default function AdminUsers() {
           onRegionChange={setPhoneRegion}
           onLocalChange={setPhoneLocal}
         />
-        <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry />
-        <Button title={t('admin.createOwner')} onPress={createOwner} loading={creating} />
+        <Input label={t('admin.createOwnerPassword')} value={password} onChangeText={setPassword} secureTextEntry />
+        <Input
+          label={t('admin.confirmOwnerPassword')}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+        />
+        <PasswordChecks password={password} confirm={confirmPassword} />
+        <Button title={t('admin.createOwner')} onPress={createOwner} loading={creating} pill />
       </Card>
       <Input label={t('admin.searchUsers')} value={query} onChangeText={setQuery} />
-      <View style={[styles.chips, { justifyContent: alignStart }]}>
-        <Chip label={t('common.all')} selected={role === 'all'} onPress={() => setRole('all')} />
-        <Chip label={t('roles.student')} selected={role === 'student'} onPress={() => setRole('student')} />
-        <Chip label={t('roles.renter')} selected={role === 'renter'} onPress={() => setRole('renter')} />
-        <Chip label={t('roles.owner')} selected={role === 'owner'} onPress={() => setRole('owner')} />
-        <Chip label={t('roles.admin')} selected={role === 'admin'} onPress={() => setRole('admin')} />
-      </View>
+      <FilterPills
+        value={role}
+        onChange={setRole}
+        items={[
+          { value: 'all', label: t('common.all') },
+          { value: 'student', label: t('roles.student') },
+          { value: 'renter', label: t('roles.renter') },
+          { value: 'owner', label: t('roles.owner') },
+          { value: 'admin', label: t('roles.admin') },
+        ]}
+      />
       {role === 'owner' ? (
-        <View style={[styles.chips, { justifyContent: alignStart }]}>
-          <Chip label={t('common.all')} selected={ownerFilter === 'all'} onPress={() => setOwnerFilter('all')} />
-          <Chip label={t('admin.ownerWaiting')} selected={ownerFilter === 'pending'} onPress={() => setOwnerFilter('pending')} />
-          <Chip label={t('admin.ownerActive')} selected={ownerFilter === 'approved'} onPress={() => setOwnerFilter('approved')} />
-          <Chip label={t('admin.ownerSuspended')} selected={ownerFilter === 'rejected'} onPress={() => setOwnerFilter('rejected')} />
-        </View>
+        <FilterPills
+          value={ownerFilter}
+          onChange={setOwnerFilter}
+          items={[
+            { value: 'all', label: t('common.all') },
+            { value: 'pending', label: t('admin.ownerWaiting') },
+            { value: 'approved', label: t('admin.ownerActive') },
+            { value: 'rejected', label: t('admin.ownerSuspended') },
+          ]}
+        />
       ) : null}
       {visible.length === 0 ? <EmptyState title={t('admin.noUsers')} /> : null}
       {visible.map((user) => {
@@ -272,9 +292,9 @@ export default function AdminUsers() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800' },
-  formTitle: { fontSize: 17, fontWeight: '800' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  formTitle: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   row: { flexDirection: 'row', gap: 8 },
   name: { fontSize: 17, fontWeight: '800' },
   meta: {},

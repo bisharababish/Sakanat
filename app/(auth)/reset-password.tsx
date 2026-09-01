@@ -6,11 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
+import { isPasswordValid } from '@/src/lib/password';
 import { colors } from '@/src/theme/colors';
 
 export default function ResetPasswordScreen() {
@@ -28,12 +30,8 @@ export default function ResetPasswordScreen() {
       setError(t('auth.missingFields'));
       return;
     }
-    if (password.length < 6) {
+    if (!isPasswordValid(password, confirm)) {
       setError(t('auth.weakPassword'));
-      return;
-    }
-    if (password !== confirm) {
-      setError(t('profile.passwordMismatch'));
       return;
     }
     setLoading(true);
@@ -54,6 +52,7 @@ export default function ResetPasswordScreen() {
         <Text style={[styles.hint, rtlText]}>{t('auth.resetHint')}</Text>
         <Input label={t('profile.newPassword')} value={password} onChangeText={setPassword} secureTextEntry soft />
         <Input label={t('profile.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry soft />
+        <PasswordChecks password={password} confirm={confirm} />
         {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
       </AuthCard>
       <Button title={t('auth.savePassword')} onPress={onSubmit} loading={loading} pill />

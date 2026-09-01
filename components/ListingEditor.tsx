@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Chip } from '@/components/ui/Chip';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
@@ -20,6 +20,7 @@ import { useAuth } from '@/src/lib/auth';
 import { CAMPUS_KM_VALUES, campusKmChipValue, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
 import { supabase } from '@/src/lib/supabase';
 import { uploadApartmentPhoto } from '@/src/lib/upload';
 import { radius } from '@/src/theme/colors';
@@ -115,11 +116,41 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
     }
   };
 
-  const removePhoto = (uri: string) => {
-    alert(t('owner.removePhoto'), '', [
-      { text: t('common.no'), style: 'cancel' },
-      { text: t('common.yes'), style: 'destructive', onPress: () => setPhotos((current) => current.filter((item) => item !== uri)) },
+  const setCover = (uri: string) => {
+    setPhotos((current) => [uri, ...current.filter((item) => item !== uri)]);
+  };
+
+  const onPhotoPress = (uri: string, index: number) => {
+    alert(t('owner.photoActions'), '', [
+      ...(index > 0 ? [{ text: t('owner.setCover'), onPress: () => setCover(uri) }] : []),
+      {
+        text: t('owner.removePhoto'),
+        style: 'destructive' as const,
+        onPress: () => setPhotos((current) => current.filter((item) => item !== uri)),
+      },
+      { text: t('common.cancel'), style: 'cancel' as const },
     ]);
+  };
+
+  const duplicateListing = async () => {
+    if (!apartment || !profile) return;
+    setLoading(true);
+    try {
+      const payload = {
+        ...apartmentWriteFields(apartment),
+        ...copyListingTitles(apartment, t('owner.copySuffix')),
+        photos,
+        amenities,
+      };
+      const { data, error } = await supabase.from('apartments').insert(payload).select('id').single();
+      if (error) throw error;
+      alert(t('common.done'), t('owner.duplicated'));
+      if (data?.id) router.replace({ pathname: '/(owner)/listing/[id]', params: { id: data.id } });
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const save = async () => {
@@ -159,7 +190,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
         const update = asAdmin
           ? { ...payload, status: listingStatus }
           : resubmit
-            ? { ...payload, status: 'pending' as const }
+            ? { ...payload, status: 'pending' as const, reject_reason: null }
             : payload;
         const { error } = await supabase.from('apartments').update(update).eq('id', apartment.id);
         if (error) throw error;
@@ -227,23 +258,17 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
         <SectionHead icon="images-outline" title={t('owner.photos')} />
         <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('owner.photosHint')}</Text>
         {cover ? (
-          <Pressable onPress={() => removePhoto(cover)} style={styles.coverWrap}>
+          <Pressable onPress={() => onPhotoPress(cover, 0)} style={styles.coverWrap}>
             <Image source={{ uri: cover }} style={[styles.cover, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
             <View style={[styles.coverBadge, isRtl ? styles.coverBadgeStart : styles.coverBadgeEnd, { backgroundColor: colors.primary }]}>
               <Text style={[styles.coverBadgeText, { color: colors.white }]}>{t('owner.coverPhoto')}</Text>
             </View>
-            <View style={[styles.photoX, { backgroundColor: colors.danger }]}>
-              <Ionicons name="close" size={14} color={colors.white} />
-            </View>
           </Pressable>
         ) : null}
         <View style={[styles.photoGrid, chipAlign]}>
-          {photos.slice(1).map((uri) => (
-            <Pressable key={uri} onPress={() => removePhoto(uri)} style={styles.photoWrap}>
+          {photos.slice(1).map((uri, index) => (
+            <Pressable key={uri} onPress={() => onPhotoPress(uri, index + 1)} style={styles.photoWrap}>
               <Image source={{ uri }} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
-              <View style={[styles.photoX, { backgroundColor: colors.danger }]}>
-                <Ionicons name="close" size={14} color={colors.white} />
-              </View>
             </Pressable>
           ))}
           {photos.length < 12 ? (
@@ -286,84 +311,95 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
           onChange={setUniversityId}
         />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('owner.campusKm')}</Text>
-        <View style={[styles.chips, chipAlign]}>
-          {CAMPUS_KM_VALUES.map((km) => {
-            const value = String(km);
-            return (
-              <Chip
-                key={value}
-                label={km === UNDER_ONE_KM ? t('common.under1km') : `${km} ${t('common.km')}`}
-                selected={campusKm === value}
-                onPress={() => setCampusKm((current) => (current === value ? '' : value))}
-              />
-            );
-          })}
-        </View>
+        <FilterPills
+          value={campusKm}
+          onChange={setCampusKm}
+          allowDeselect
+          items={CAMPUS_KM_VALUES.map((km) => ({
+            value: String(km),
+            label: km === UNDER_ONE_KM ? t('common.under1km') : `${km} ${t('common.km')}`,
+          }))}
+        />
       </Card>
 
       <Card>
         <SectionHead icon="home-outline" title={t('owner.detailsTitle')} />
         <Input label={t('common.price')} value={price} onChangeText={setPrice} keyboardType="numeric" />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('common.rooms')}</Text>
-        <View style={[styles.chips, chipAlign]}>
-          {ROOM_COUNTS.map((value) => (
-            <Chip key={value} label={value} selected={rooms === value} onPress={() => setRooms(value)} />
-          ))}
-        </View>
+        <FilterPills
+          value={rooms}
+          onChange={setRooms}
+          items={ROOM_COUNTS.map((value) => ({ value, label: value }))}
+        />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('common.bathrooms')}</Text>
-        <View style={[styles.chips, chipAlign]}>
-          {BATH_COUNTS.map((value) => (
-            <Chip key={value} label={value} selected={baths === value} onPress={() => setBaths(value)} />
-          ))}
-        </View>
+        <FilterPills
+          value={baths}
+          onChange={setBaths}
+          items={BATH_COUNTS.map((value) => ({ value, label: value }))}
+        />
         <Input label={t('owner.area')} value={area} onChangeText={setArea} keyboardType="numeric" />
       </Card>
 
       <Card>
         <SectionHead icon="people-outline" title={t('search.whoFor')} />
-        <View style={[styles.chips, chipAlign]}>
-          {(['any', 'female', 'male'] as GenderPolicy[]).map((value) => (
-            <Chip key={value} label={t(`gender.${value}`)} selected={gender === value} onPress={() => setGender(value)} />
-          ))}
-        </View>
+        <FilterPills
+          value={gender}
+          onChange={setGender}
+          items={(['any', 'female', 'male'] as GenderPolicy[]).map((value) => ({
+            value,
+            label: t(`gender.${value}`),
+          }))}
+        />
       </Card>
 
       <Card>
         <SectionHead icon="star-outline" title={t('listing.amenities')} />
-        <View style={[styles.chips, chipAlign]}>
-          {AMENITIES.map((item) => (
-            <Chip
-              key={item}
-              label={t(`amenities.${item}`)}
-              selected={amenities.includes(item)}
-              onPress={() => toggleAmenity(item)}
-            />
-          ))}
-        </View>
+        <FilterPills
+          values={amenities}
+          onToggle={toggleAmenity}
+          items={AMENITIES.map((item) => ({
+            value: item,
+            label: t(`amenities.${item}`),
+          }))}
+        />
       </Card>
 
       {asAdmin ? (
         <Card>
           <SectionHead icon="shield-checkmark-outline" title={t('admin.listingStatus')} />
-          <View style={[styles.chips, chipAlign]}>
-            {(['pending', 'approved', 'hidden', 'rejected'] as ListingStatus[]).map((value) => (
-              <Chip
-                key={value}
-                label={t(`status.${value}`)}
-                selected={listingStatus === value}
-                onPress={() => setListingStatus(value)}
-              />
-            ))}
-          </View>
+          <FilterPills
+            value={listingStatus}
+            onChange={setListingStatus}
+            items={(['pending', 'approved', 'hidden', 'rejected'] as ListingStatus[]).map((value) => ({
+              value,
+              label: t(`status.${value}`),
+            }))}
+          />
         </Card>
       ) : null}
 
+      {!asAdmin && apartment?.status === 'rejected' && apartment.reject_reason ? (
+        <Text style={[styles.note, rtlText, { color: colors.warning }]}>
+          {t('admin.rejectedNote', { note: apartment.reject_reason })}
+        </Text>
+      ) : null}
       {!asAdmin &&
       (apartment?.status === 'approved' || apartment?.status === 'hidden' || apartment?.status === 'rejected') ? (
         <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('owner.editNeedsReview')}</Text>
       ) : null}
 
       <Button title={t('common.save')} onPress={() => void save()} loading={loading} pill />
+      {apartment && !asAdmin ? (
+        <Button
+          title={t('owner.preview')}
+          variant="secondary"
+          onPress={() => router.push({ pathname: '/(owner)/apartment/[id]', params: { id: apartment.id } })}
+          pill
+        />
+      ) : null}
+      {apartment && !asAdmin ? (
+        <Button title={t('owner.duplicate')} variant="secondary" onPress={() => void duplicateListing()} loading={loading} pill />
+      ) : null}
       {apartment?.status === 'approved' ? (
         <Button title={t('owner.hideListing')} variant="secondary" onPress={() => setVisibility('hidden')} pill />
       ) : null}
@@ -382,7 +418,6 @@ const styles = StyleSheet.create({
   sub: { fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4, marginBottom: 4 },
   hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   coverWrap: { width: '100%', height: 196 },
   cover: { width: '100%', height: 196, borderRadius: radius.lg },
   coverBadge: {
@@ -398,16 +433,6 @@ const styles = StyleSheet.create({
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   photoWrap: { width: 96, height: 96 },
   thumb: { width: 96, height: 96, borderRadius: radius.md },
-  photoX: {
-    position: 'absolute',
-    top: 6,
-    end: 6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   addTile: {
     width: 96,
     height: 96,
