@@ -50,24 +50,14 @@ export default function RegisterScreen() {
   );
   const universityOptions = useMemo(
     () =>
-      universities
-        .filter((item) => !cityId || item.city_id === cityId)
-        .map((item) => ({
-          value: item.id,
-          label: item.cities
-            ? `${localizedName(item, lang)} — ${localizedName(item.cities, lang)}`
-            : localizedName(item, lang),
-        })),
-    [cityId, universities, lang],
+      universities.map((item) => ({
+        value: item.id,
+        label: item.cities
+          ? `${localizedName(item, lang)} — ${localizedName(item.cities, lang)}`
+          : localizedName(item, lang),
+      })),
+    [universities, lang],
   );
-
-  const setCity = (next: string) => {
-    setCityId(next);
-    if (next && universityId) {
-      const stillValid = universities.some((item) => item.id === universityId && item.city_id === next);
-      if (!stillValid) setUniversityId('');
-    }
-  };
 
   const pickKind = (next: PublicSignupRole) => {
     setKind(next);
@@ -161,7 +151,7 @@ export default function RegisterScreen() {
           value={cityId}
           placeholder={t('common.select')}
           options={cityOptions}
-          onChange={setCity}
+          onChange={setCityId}
           soft
         />
         {isStudent ? (

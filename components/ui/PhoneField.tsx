@@ -3,7 +3,8 @@ import { I18nManager, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Chip } from '@/components/ui/Chip';
 import { useLayout } from '@/src/hooks/useLayout';
 import { regionPrefix, type PhoneRegion } from '@/src/lib/phone';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   label: string;
@@ -17,16 +18,28 @@ type Props = {
 
 export function PhoneField({ label, region, local, onRegionChange, onLocalChange, hint, soft }: Props) {
   const { rtlText, alignStart } = useLayout();
+  const colors = useColors();
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, rtlText]}>{label}</Text>
+      <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>
       <View style={[styles.chipRow, { justifyContent: alignStart }]}>
         <Chip label={regionPrefix('ps')} selected={region === 'ps'} onPress={() => onRegionChange('ps')} />
         <Chip label={regionPrefix('il')} selected={region === 'il'} onPress={() => onRegionChange('il')} />
       </View>
-      <View style={[styles.inputRow, soft ? styles.soft : null, { flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row' }]}>
-        <Text style={styles.prefix}>{regionPrefix(region)}</Text>
+      <View
+        style={[
+          styles.inputRow,
+          {
+            flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
+            backgroundColor: soft ? colors.surfaceMuted : colors.surface,
+            borderColor: soft ? 'transparent' : colors.border,
+            borderRadius: soft ? radius.full : radius.md,
+            minHeight: soft ? 54 : 52,
+          },
+        ]}
+      >
+        <Text style={[styles.prefix, { color: colors.primary }]}>{regionPrefix(region)}</Text>
         <TextInput
           value={local}
           onChangeText={onLocalChange}
@@ -36,35 +49,25 @@ export function PhoneField({ label, region, local, onRegionChange, onLocalChange
           autoCapitalize="none"
           autoCorrect={false}
           textAlign="left"
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
         />
       </View>
-      {hint ? <Text style={[styles.hint, rtlText]}>{hint}</Text> : null}
+      {hint ? <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{hint}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  label: { fontWeight: '700', fontSize: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   inputRow: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    minHeight: 52,
     gap: 8,
   },
-  soft: {
-    backgroundColor: colors.surfaceMuted,
-    borderColor: 'transparent',
-    borderRadius: radius.full,
-    minHeight: 54,
-  },
-  prefix: { fontWeight: '800', color: colors.primary, writingDirection: 'ltr' },
-  input: { flex: 1, fontSize: 16, color: colors.text, minHeight: 48 },
-  hint: { color: colors.textMuted, fontSize: 12 },
+  prefix: { fontWeight: '800', writingDirection: 'ltr' },
+  input: { flex: 1, fontSize: 16, minHeight: 48 },
+  hint: { fontSize: 12 },
 });

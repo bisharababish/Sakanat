@@ -6,21 +6,23 @@ import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { bookingStatusLabel, formatIls } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Booking, BookingStatus, PaymentStatus } from '@/src/types/database';
 
 type Filter = 'all' | BookingStatus;
 
 export default function AdminBookings() {
   const { t } = useTranslation();
-  const { rtlText, isRtl, lang } = useLayout();
+  const { rtlText, row, lang } = useLayout();
+  const colors = useColors();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
 
@@ -73,6 +75,18 @@ export default function AdminBookings() {
     ]);
   };
 
+  const counts = useMemo(() => {
+    const next: Record<Filter, number> = {
+      all: bookings.length,
+      pending: 0,
+      confirmed: 0,
+      completed: 0,
+      cancelled: 0,
+    };
+    for (const item of bookings) next[item.status] += 1;
+    return next;
+  }, [bookings]);
+
   const visible = useMemo(
     () => (filter === 'all' ? bookings : bookings.filter((item) => item.status === filter)),
     [bookings, filter],
@@ -82,23 +96,32 @@ export default function AdminBookings() {
 
   return (
     <Screen>
-      <Text style={[styles.title, rtlText]}>{t('admin.bookings')}</Text>
-      <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-        {filters.map((value) => (
-          <Chip
-            key={value}
-            label={value === 'all' ? t('common.all') : bookingStatusLabel(value, t)}
-            selected={filter === value}
-            onPress={() => setFilter(value)}
-          />
-        ))}
+      <View style={[styles.top, row]}>
+        <View style={styles.topCopy}>
+          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
+          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.bookings')}</Text>
+        </View>
+        {counts.pending > 0 ? (
+          <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+            <Text style={[styles.countText, { color: colors.warning }]}>{counts.pending}</Text>
+          </View>
+        ) : null}
       </View>
+      <FilterPills
+        value={filter}
+        onChange={setFilter}
+        items={filters.map((value) => ({
+          value,
+          label: value === 'all' ? t('common.all') : bookingStatusLabel(value, t),
+          count: counts[value],
+        }))}
+      />
       {visible.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <View style={styles.emptyIcon}>
+        <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="calendar-outline" size={28} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyText, rtlText]}>{t('booking.emptyFiltered')}</Text>
+          <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>{t('booking.emptyFiltered')}</Text>
         </View>
       ) : null}
       {visible.map((booking) => {
@@ -186,24 +209,35 @@ export default function AdminBookings() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  topCopy: { flex: 1, minWidth: 0, gap: 2 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  countPill: {
+    minWidth: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  countText: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   row: { flexDirection: 'row', gap: 8 },
   flex: { flex: 1, minWidth: 0 },
   emptyBox: {
     padding: spacing.xl,
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+    borderRadius: 24,
     alignItems: 'center',
     gap: spacing.sm,
+    borderWidth: 1,
   },
   emptyIcon: {
     width: 56,
     height: 56,
     borderRadius: 18,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: { color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
 });

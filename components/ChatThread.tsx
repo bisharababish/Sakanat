@@ -18,7 +18,8 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { sendMessage } from '@/src/lib/chat';
 import { supabase } from '@/src/lib/supabase';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Message } from '@/src/types/database';
 
 function dayKey(iso: string) {
@@ -64,6 +65,7 @@ export function ChatThread({
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { textAlign, writingDirection, isRtl, row } = useLayout();
+  const colors = useColors();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -105,10 +107,20 @@ export function ChatThread({
   }, [conversationId]);
 
   const items = useMemo(() => {
-    return messages.map((item, index) => ({
-      ...item,
-      showDay: index === 0 || dayKey(item.created_at) !== dayKey(messages[index - 1].created_at),
-    }));
+    return messages.map((item, index) => {
+      const prev = messages[index - 1];
+      const next = messages[index + 1];
+      const sameDayPrev = prev && dayKey(prev.created_at) === dayKey(item.created_at);
+      const sameDayNext = next && dayKey(next.created_at) === dayKey(item.created_at);
+      const grouped = Boolean(prev && prev.sender_id === item.sender_id && sameDayPrev);
+      const lastInGroup = !(next && next.sender_id === item.sender_id && sameDayNext);
+      return {
+        ...item,
+        showDay: index === 0 || dayKey(item.created_at) !== dayKey(messages[index - 1].created_at),
+        grouped,
+        lastInGroup,
+      };
+    });
   }, [messages]);
 
   const onSend = async () => {
@@ -134,9 +146,11 @@ export function ChatThread({
     }
   };
 
+  const canSend = Boolean(draft.trim()) && !sending;
+
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
@@ -148,11 +162,11 @@ export function ChatThread({
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            <View style={styles.emptyIcon}>
+          <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
               <Ionicons name="chatbubbles-outline" size={28} color={colors.primary} />
             </View>
-            <Text style={[styles.empty, { textAlign }]}>
+            <Text style={[styles.empty, { textAlign, color: colors.textMuted }]}>
               {readOnly ? t('chat.emptyThreadAdmin') : t('chat.emptyThread')}
             </Text>
           </View>
@@ -162,89 +176,150 @@ export function ChatThread({
           const fromOwner = Boolean(ownerId && item.sender_id === ownerId);
           const mine = readOnly ? fromOwner : item.sender_id === profile?.id;
           const senderLabel = fromStudent ? studentName : fromOwner ? ownerName : undefined;
+          const pending = item.id.startsWith('temp-');
           return (
-            <View>
+            <View style={{ marginTop: item.showDay ? 4 : item.grouped ? 3 : 10 }}>
               {item.showDay ? (
                 <View style={styles.dayWrap}>
-                  <Text style={styles.day}>
+                  <Text style={[styles.day, { backgroundColor: colors.accentSoft, color: colors.primaryDark }]}>
                     {dayLabel(item.created_at, i18n.language, t('chat.today'), t('chat.yesterday'))}
                   </Text>
                 </View>
               ) : null}
-              {readOnly && senderLabel ? (
-                <Text style={[styles.sender, mine ? styles.senderMine : styles.senderTheirs]}>
+              {readOnly && senderLabel && !item.grouped ? (
+                <Text
+                  style={[
+                    styles.sender,
+                    { color: colors.textMuted },
+                    mine ? styles.senderMine : styles.senderTheirs,
+                  ]}
+                >
                   {senderLabel}
                 </Text>
               ) : null}
-              <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-                <Text style={[styles.body, mine ? styles.mineText : styles.theirsText, { writingDirection }]}>
+              <View
+                style={[
+                  styles.bubble,
+                  mine
+                    ? {
+                        alignSelf: 'flex-end',
+                        backgroundColor: colors.primary,
+                        borderBottomRightRadius: item.lastInGroup ? 6 : 20,
+                        opacity: pending ? 0.78 : 1,
+                      }
+                    : {
+                        alignSelf: 'flex-start',
+                        backgroundColor: colors.surface,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderBottomLeftRadius: item.lastInGroup ? 6 : 20,
+                      },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.body,
+                    { writingDirection, color: mine ? colors.white : colors.text },
+                  ]}
+                >
                   {item.body}
                 </Text>
-                <Text style={[styles.time, mine ? styles.mineTime : styles.theirsTime]}>
-                  {timeLabel(item.created_at, i18n.language)}
-                </Text>
+                {item.lastInGroup ? (
+                  <View style={[styles.meta, row]}>
+                    <Text style={[styles.time, { color: mine ? 'rgba(255,255,255,0.72)' : colors.textMuted }]}>
+                      {timeLabel(item.created_at, i18n.language)}
+                    </Text>
+                    {mine ? (
+                      <Ionicons
+                        name={pending ? 'time-outline' : 'checkmark-done'}
+                        size={13}
+                        color={pending ? 'rgba(255,255,255,0.72)' : colors.accent}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
             </View>
           );
         }}
       />
       {readOnly ? null : (
-      <View
-        style={[
-          styles.composer,
-          row,
-          { paddingBottom: Math.max(insets.bottom, spacing.sm) },
-        ]}
-      >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={t('chat.placeholder')}
-          placeholderTextColor={colors.textMuted}
-          multiline
-          style={[styles.input, { textAlign, writingDirection }]}
-        />
-        <Pressable
-          onPress={() => void onSend()}
-          disabled={sending || !draft.trim()}
-          accessibilityRole="button"
-          accessibilityLabel={t('chat.send')}
-          style={[styles.send, (sending || !draft.trim()) && styles.sendOff]}
+        <View
+          style={[
+            styles.composer,
+            row,
+            {
+              paddingBottom: Math.max(insets.bottom, spacing.sm),
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+            },
+          ]}
         >
-          {sending ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Ionicons
-              name="send"
-              size={18}
-              color={colors.white}
-              style={isRtl ? { transform: [{ scaleX: -1 }] } : undefined}
-            />
-          )}
-        </Pressable>
-      </View>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={t('chat.placeholder')}
+            placeholderTextColor={colors.textMuted}
+            multiline
+            style={[
+              styles.input,
+              {
+                textAlign,
+                writingDirection,
+                backgroundColor: colors.surfaceMuted,
+                color: colors.text,
+              },
+            ]}
+          />
+          <Pressable
+            onPress={() => void onSend()}
+            disabled={!canSend}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.send')}
+            style={[
+              styles.send,
+              { backgroundColor: canSend || sending ? colors.primary : colors.surfaceMuted },
+            ]}
+          >
+            {sending ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Ionicons
+                name="send"
+                size={18}
+                color={canSend ? colors.white : colors.textMuted}
+                style={isRtl ? { transform: [{ scaleX: -1 }] } : undefined}
+              />
+            )}
+          </Pressable>
+        </View>
       )}
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  list: { padding: spacing.md, gap: 8, flexGrow: 1, paddingBottom: spacing.lg },
-  emptyBox: { alignItems: 'center', gap: 10, marginTop: 48, paddingHorizontal: spacing.lg },
+  flex: { flex: 1 },
+  list: { padding: spacing.md, flexGrow: 1, paddingBottom: spacing.lg },
+  emptyBox: {
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 48,
+    marginHorizontal: spacing.sm,
+    padding: spacing.xl,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
   emptyIcon: {
     width: 56,
     height: 56,
     borderRadius: 18,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  empty: { color: colors.textMuted, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
-  dayWrap: { alignItems: 'center', marginVertical: 8 },
+  empty: { fontFamily: 'Cairo_400Regular', lineHeight: 22 },
+  dayWrap: { alignItems: 'center', marginVertical: 10 },
   day: {
-    backgroundColor: colors.accentSoft,
-    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
@@ -258,28 +333,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: 6,
+    paddingBottom: 8,
     gap: 4,
   },
-  mine: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 6,
-  },
-  theirs: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderBottomLeftRadius: 6,
-  },
   body: { fontSize: 15, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
-  mineText: { color: colors.white },
-  theirsText: { color: colors.text },
-  time: { fontSize: 11, fontFamily: 'Cairo_400Regular', alignSelf: 'flex-end' },
-  mineTime: { color: 'rgba(255,255,255,0.7)' },
-  theirsTime: { color: colors.textMuted },
-  sender: { fontSize: 11, fontFamily: 'Cairo_700Bold', color: colors.textMuted, marginBottom: 2 },
+  meta: { alignItems: 'center', gap: 4, alignSelf: 'flex-end' },
+  time: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  sender: { fontSize: 11, fontFamily: 'Cairo_700Bold', marginBottom: 4, marginHorizontal: 4 },
   senderMine: { alignSelf: 'flex-end' },
   senderTheirs: { alignSelf: 'flex-start' },
   composer: {
@@ -287,20 +347,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
     alignItems: 'flex-end',
   },
   input: {
     flex: 1,
     minHeight: 48,
     maxHeight: 120,
-    borderWidth: 0,
-    borderRadius: radius.full,
+    borderRadius: 24,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
-    backgroundColor: colors.surfaceMuted,
-    color: colors.text,
     fontSize: 16,
     fontFamily: 'Cairo_400Regular',
   },
@@ -308,9 +363,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendOff: { opacity: 0.4, backgroundColor: colors.primary },
 });

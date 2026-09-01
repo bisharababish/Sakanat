@@ -22,7 +22,8 @@ import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { uploadApartmentPhoto } from '@/src/lib/upload';
-import { colors, radius } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import { AMENITIES, type Apartment, type GenderPolicy, type ListingStatus } from '@/src/types/database';
 
 type Props = {
@@ -37,6 +38,7 @@ const BATH_COUNTS = ['1', '2', '3', '4'];
 export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
   const { t, i18n } = useTranslation();
   const { rtlText, isRtl } = useLayout();
+  const colors = useColors();
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
   const [titleAr, setTitleAr] = useState(apartment?.title_ar ?? '');
@@ -218,19 +220,19 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
 
   return (
     <Screen back>
-      <Text style={[styles.title, rtlText]}>{apartment ? t('owner.editListing') : t('owner.addListing')}</Text>
-      <Text style={[styles.sub, rtlText]}>{t('owner.addHint')}</Text>
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>{apartment ? t('owner.editListing') : t('owner.addListing')}</Text>
+      <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('owner.addHint')}</Text>
 
       <Card>
         <SectionHead icon="images-outline" title={t('owner.photos')} />
-        <Text style={[styles.hint, rtlText]}>{t('owner.photosHint')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('owner.photosHint')}</Text>
         {cover ? (
           <Pressable onPress={() => removePhoto(cover)} style={styles.coverWrap}>
-            <Image source={{ uri: cover }} style={styles.cover} contentFit="cover" />
-            <View style={[styles.coverBadge, isRtl ? styles.coverBadgeStart : styles.coverBadgeEnd]}>
-              <Text style={styles.coverBadgeText}>{t('owner.coverPhoto')}</Text>
+            <Image source={{ uri: cover }} style={[styles.cover, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
+            <View style={[styles.coverBadge, isRtl ? styles.coverBadgeStart : styles.coverBadgeEnd, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.coverBadgeText, { color: colors.white }]}>{t('owner.coverPhoto')}</Text>
             </View>
-            <View style={styles.photoX}>
+            <View style={[styles.photoX, { backgroundColor: colors.danger }]}>
               <Ionicons name="close" size={14} color={colors.white} />
             </View>
           </Pressable>
@@ -238,16 +240,22 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
         <View style={[styles.photoGrid, chipAlign]}>
           {photos.slice(1).map((uri) => (
             <Pressable key={uri} onPress={() => removePhoto(uri)} style={styles.photoWrap}>
-              <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
-              <View style={styles.photoX}>
+              <Image source={{ uri }} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
+              <View style={[styles.photoX, { backgroundColor: colors.danger }]}>
                 <Ionicons name="close" size={14} color={colors.white} />
               </View>
             </Pressable>
           ))}
           {photos.length < 12 ? (
-            <Pressable onPress={() => void addPhoto()} style={styles.addTile} disabled={loading}>
+            <Pressable
+              onPress={() => void addPhoto()}
+              style={[styles.addTile, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}
+              disabled={loading}
+            >
               <Ionicons name="camera-outline" size={26} color={colors.primary} />
-              <Text style={styles.addTileText}>{photos.length === 0 ? t('owner.addPhoto') : t('owner.addMorePhotos')}</Text>
+              <Text style={[styles.addTileText, { color: colors.primary }]}>
+                {photos.length === 0 ? t('owner.addPhoto') : t('owner.addMorePhotos')}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -277,7 +285,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
           options={universityOptions}
           onChange={setUniversityId}
         />
-        <Text style={[styles.label, rtlText]}>{t('owner.campusKm')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('owner.campusKm')}</Text>
         <View style={[styles.chips, chipAlign]}>
           {CAMPUS_KM_VALUES.map((km) => {
             const value = String(km);
@@ -296,13 +304,13 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
       <Card>
         <SectionHead icon="home-outline" title={t('owner.detailsTitle')} />
         <Input label={t('common.price')} value={price} onChangeText={setPrice} keyboardType="numeric" />
-        <Text style={[styles.label, rtlText]}>{t('common.rooms')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('common.rooms')}</Text>
         <View style={[styles.chips, chipAlign]}>
           {ROOM_COUNTS.map((value) => (
             <Chip key={value} label={value} selected={rooms === value} onPress={() => setRooms(value)} />
           ))}
         </View>
-        <Text style={[styles.label, rtlText]}>{t('common.bathrooms')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('common.bathrooms')}</Text>
         <View style={[styles.chips, chipAlign]}>
           {BATH_COUNTS.map((value) => (
             <Chip key={value} label={value} selected={baths === value} onPress={() => setBaths(value)} />
@@ -352,7 +360,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
 
       {!asAdmin &&
       (apartment?.status === 'approved' || apartment?.status === 'hidden' || apartment?.status === 'rejected') ? (
-        <Text style={[styles.note, rtlText]}>{t('owner.editNeedsReview')}</Text>
+        <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('owner.editNeedsReview')}</Text>
       ) : null}
 
       <Button title={t('common.save')} onPress={() => void save()} loading={loading} pill />
@@ -370,27 +378,26 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  sub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4, marginBottom: 4 },
-  hint: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
-  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', color: colors.text, fontSize: 14 },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4, marginBottom: 4 },
+  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
+  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   coverWrap: { width: '100%', height: 196 },
-  cover: { width: '100%', height: 196, borderRadius: radius.lg, backgroundColor: colors.surfaceMuted },
+  cover: { width: '100%', height: 196, borderRadius: radius.lg },
   coverBadge: {
     position: 'absolute',
     bottom: 10,
-    backgroundColor: colors.primary,
     borderRadius: radius.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   coverBadgeStart: { start: 10 },
   coverBadgeEnd: { end: 10 },
-  coverBadgeText: { color: colors.white, fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_700Bold' },
+  coverBadgeText: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_700Bold' },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   photoWrap: { width: 96, height: 96 },
-  thumb: { width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.surfaceMuted },
+  thumb: { width: 96, height: 96, borderRadius: radius.md },
   photoX: {
     position: 'absolute',
     top: 6,
@@ -398,7 +405,6 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -408,12 +414,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
-  addTileText: { color: colors.primary, fontSize: 11, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  note: { color: colors.warning, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
+  addTileText: { fontSize: 11, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  note: { lineHeight: 22, fontFamily: 'Cairo_400Regular' },
 });

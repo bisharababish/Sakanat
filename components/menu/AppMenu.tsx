@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -252,10 +253,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                     <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color="rgba(255,255,255,0.8)" />
                   </Pressable>
                 ) : (
-                  <View style={[styles.aboutCard, { backgroundColor: colors.primary }]}>
-                    <Text style={[styles.heroName, copy]}>{t('appName')}</Text>
-                    <Text style={[styles.heroMeta, copy]}>{t('tagline')}</Text>
-                    <Text style={[styles.heroMeta, copy]}>{t('menu.version', { version: VERSION })}</Text>
+                  <View style={[styles.aboutCard, { backgroundColor: colors.surface }]}>
+                    <View style={styles.menuLogo}>
+                      <BrandLogo size={140} plate />
+                    </View>
+                    <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
+                    <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{t('menu.version', { version: VERSION })}</Text>
                   </View>
                 )}
 
@@ -346,7 +349,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
                 {profile ? (
                   <View style={[styles.aboutCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
-                    <Text style={[styles.aboutName, copy, { color: colors.primaryDark }]}>{t('appName')}</Text>
+                    <View style={styles.menuLogo}>
+                      <BrandLogo size={120} plate />
+                    </View>
                     <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
                     <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.version', { version: VERSION })}</Text>
                   </View>
@@ -490,9 +495,9 @@ const styles = StyleSheet.create({
   aboutCard: {
     borderRadius: radius.lg,
     padding: spacing.md,
-    gap: 4,
+    gap: 8,
   },
-  aboutName: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  menuLogo: { alignSelf: 'center' },
   section: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_700Bold', marginTop: 4 },
   card: {
     borderRadius: radius.lg,

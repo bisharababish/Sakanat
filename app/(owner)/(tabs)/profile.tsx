@@ -25,7 +25,7 @@ import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'security';
@@ -33,6 +33,7 @@ type ProfileTab = 'account' | 'security';
 export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
   const { rtlText, isRtl, row } = useLayout();
+  const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
   const [tab, setTab] = useState<ProfileTab>('account');
@@ -235,7 +236,7 @@ export default function OwnerProfile() {
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
-            <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <View style={[row, styles.chipRow, { flexDirection: 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
               <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
               <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
@@ -306,6 +307,6 @@ export default function OwnerProfile() {
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.text, fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
 });

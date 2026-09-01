@@ -1,12 +1,12 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ConversationCard } from '@/components/chat/ConversationCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import {
@@ -18,7 +18,8 @@ import {
 } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
-import { colors } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
 const PAGE_SIZE = 3;
@@ -44,7 +45,8 @@ function haystack(item: Conversation, lang: string) {
 
 export default function AdminInbox() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText, row, textAlign, writingDirection } = useLayout();
+  const colors = useColors();
   const [items, setItems] = useState<Conversation[] | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -125,49 +127,77 @@ export default function AdminInbox() {
 
   return (
     <Screen>
-      <Text style={[styles.title, rtlText]}>{t('admin.inboxTitle')}</Text>
-      <Text style={[styles.hint, rtlText]}>{t('admin.inboxHint')}</Text>
-      <Input
-        label={t('common.search')}
-        value={query}
-        onChangeText={setQuery}
-        placeholder={t('admin.searchChats')}
-        autoCorrect={false}
-      />
+      <View style={styles.head}>
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
+        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.inboxTitle')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.inboxHint')}</Text>
+      </View>
+
+      <View
+        style={[
+          styles.searchBar,
+          row,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            shadowColor: colors.text,
+          },
+        ]}
+      >
+        <Ionicons name="search" size={20} color={colors.primary} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t('admin.searchChats')}
+          placeholderTextColor={colors.textMuted}
+          autoCorrect={false}
+          returnKeyType="search"
+          style={[styles.searchInput, { textAlign, writingDirection, color: colors.text }]}
+        />
+        {query ? (
+          <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('search.clear')}>
+            <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+
       {items == null ? null : filtered.length === 0 ? (
         <EmptyState title={query.trim() ? t('admin.noChatsMatch') : t('chat.emptyAdmin')} />
       ) : null}
-      {visible.map((item) => {
-        const { student, owner } = conversationParties(item);
-        const studentLabel = personName(student) || t('roles.student');
-        const ownerLabel = personName(owner) || t('roles.owner');
-        const listing = item.apartments ? localizedTitle(item.apartments, i18n.language) : '';
-        return (
-          <Card key={item.id}>
-            <Text style={[styles.name, rtlText]}>
-              {studentLabel} · {ownerLabel}
-            </Text>
-            {listing ? <Text style={[styles.listing, rtlText]}>{listing}</Text> : null}
-            <Text style={[styles.meta, rtlText]} numberOfLines={2}>
-              {item.last_message || '—'}
-            </Text>
-            <View style={[styles.row, { justifyContent: alignStart }]}>
-              <View style={styles.flex}>
-                <Button title={t('admin.openChat')} variant="secondary" onPress={() => open(item.id)} />
+
+      <View style={styles.list}>
+        {visible.map((item) => {
+          const { student, owner } = conversationParties(item);
+          const studentLabel = personName(student) || t('roles.student');
+          const ownerLabel = personName(owner) || t('roles.owner');
+          return (
+            <ConversationCard
+              key={item.id}
+              conversation={item}
+              title={`${studentLabel} · ${ownerLabel}`}
+              photo={student?.avatar_url}
+              onPress={() => open(item.id)}
+            >
+              <View style={[styles.row, row]}>
+                <View style={styles.flex}>
+                  <Button title={t('admin.openChat')} variant="secondary" pill onPress={() => open(item.id)} />
+                </View>
+                <View style={styles.flex}>
+                  <Button title={t('admin.deleteConversation')} variant="danger" pill onPress={() => remove(item.id)} />
+                </View>
               </View>
-              <View style={styles.flex}>
-                <Button title={t('admin.deleteConversation')} variant="danger" onPress={() => remove(item.id)} />
-              </View>
-            </View>
-          </Card>
-        );
-      })}
+            </ConversationCard>
+          );
+        })}
+      </View>
+
       {filtered.length > PAGE_SIZE ? (
-        <View style={[styles.row, { justifyContent: alignStart }]}>
+        <View style={[styles.row, row]}>
           <View style={styles.flex}>
             <Button
               title={t('common.previous')}
               variant="secondary"
+              pill
               disabled={current === 0}
               onPress={() => setPage(current - 1)}
             />
@@ -176,6 +206,7 @@ export default function AdminInbox() {
             <Button
               title={t('common.next')}
               variant="secondary"
+              pill
               disabled={current >= pages - 1}
               onPress={() => setPage(current + 1)}
             />
@@ -183,7 +214,7 @@ export default function AdminInbox() {
         </View>
       ) : null}
       {filtered.length > 0 ? (
-        <Text style={[styles.meta, rtlText]}>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
           {t('admin.inboxPage', { from, to, total: filtered.length })}
         </Text>
       ) : null}
@@ -192,11 +223,31 @@ export default function AdminInbox() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  hint: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22, marginTop: -8 },
-  name: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  listing: { color: colors.primary, fontFamily: 'Cairo_600SemiBold' },
-  meta: { color: colors.textMuted, fontFamily: 'Cairo_400Regular' },
-  row: { flexDirection: 'row', gap: 8 },
+  head: { gap: 2 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
+  searchBar: {
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 54,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    fontFamily: 'Cairo_400Regular',
+    paddingVertical: 12,
+  },
+  list: { gap: 10 },
+  meta: { fontFamily: 'Cairo_400Regular' },
+  row: { gap: 8 },
   flex: { flex: 1 },
 });

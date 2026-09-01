@@ -6,11 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListingEditor } from '@/components/ListingEditor';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment } from '@/src/types/database';
 
 export default function AdminEditListing() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const colors = useColors();
   const [apartment, setApartment] = useState<Apartment | null>(null);
 
   useEffect(() => {

@@ -20,7 +20,7 @@ import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { AUTH_REDIRECT_URL, createDetachedClient, supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { OwnerStatus, Profile, UserRole } from '@/src/types/database';
 
 type RoleFilter = UserRole | 'all';
@@ -29,6 +29,7 @@ type OwnerFilter = OwnerStatus | 'all';
 export default function AdminUsers() {
   const { t, i18n } = useTranslation();
   const { rtlText, alignStart } = useLayout();
+  const colors = useColors();
   const { profile } = useAuth();
   const [users, setUsers] = useState<Profile[]>([]);
   const [role, setRole] = useState<RoleFilter>('all');
@@ -173,9 +174,9 @@ export default function AdminUsers() {
 
   return (
     <Screen>
-      <Text style={[styles.title, rtlText]}>{t('admin.users')}</Text>
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.users')}</Text>
       <Card>
-        <Text style={[styles.formTitle, rtlText]}>{t('admin.createOwner')}</Text>
+        <Text style={[styles.formTitle, rtlText, { color: colors.text }]}>{t('admin.createOwner')}</Text>
         <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
         <Input
           label={t('common.email')}
@@ -220,15 +221,15 @@ export default function AdminUsers() {
         const university = localizedName(user.universities, i18n.language);
         return (
           <Card key={user.id} onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}>
-            <Text style={[styles.name, rtlText]}>{user.full_name || user.email}</Text>
-            <Text style={[styles.meta, rtlText]}>{user.email}</Text>
-            {phone ? <Text style={[styles.meta, rtlText]}>{phone}</Text> : null}
-            <Text style={[styles.meta, rtlText]}>{t(`roles.${user.role}`)}</Text>
+            <Text style={[styles.name, rtlText, { color: colors.text }]}>{user.full_name || user.email}</Text>
+            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{user.email}</Text>
+            {phone ? <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{phone}</Text> : null}
+            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t(`roles.${user.role}`)}</Text>
             {city || university ? (
-              <Text style={[styles.meta, rtlText]}>{[city, university].filter(Boolean).join(' · ')}</Text>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{[city, university].filter(Boolean).join(' · ')}</Text>
             ) : null}
             {user.role === 'student' && user.student_id_number ? (
-              <Text style={[styles.meta, rtlText]}>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
                 {t('profile.studentId')}: {user.student_id_number}
               </Text>
             ) : null}
@@ -271,11 +272,11 @@ export default function AdminUsers() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', color: colors.text },
-  formTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
+  title: { fontSize: 26, fontWeight: '800' },
+  formTitle: { fontSize: 17, fontWeight: '800' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   row: { flexDirection: 'row', gap: 8 },
-  name: { fontSize: 17, fontWeight: '800', color: colors.text },
-  meta: { color: colors.textMuted },
+  name: { fontSize: 17, fontWeight: '800' },
+  meta: {},
   flex: { flex: 1 },
 });

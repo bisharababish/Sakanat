@@ -1,6 +1,7 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { type ComponentProps, useCallback, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -12,7 +13,8 @@ import { formatIls, localizedTitle } from '@/src/lib/format';
 import { notifyListingApproved } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, Booking, Profile } from '@/src/types/database';
 
 function isThisMonth(iso: string) {
@@ -21,9 +23,44 @@ function isThisMonth(iso: string) {
   return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
+function StatTile({
+  icon,
+  label,
+  value,
+  meta,
+  onPress,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  value: string;
+  meta: string;
+  onPress: () => void;
+}) {
+  const { rtlText } = useLayout();
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tile,
+        { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text },
+        pressed && { opacity: 0.92 },
+      ]}
+    >
+      <View style={[styles.tileIcon, { backgroundColor: colors.primarySoft }]}>
+        <Ionicons name={icon} size={18} color={colors.primary} />
+      </View>
+      <Text style={[styles.tileLabel, rtlText, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.tileValue, rtlText, { color: colors.primary }]}>{value}</Text>
+      <Text style={[styles.tileMeta, rtlText, { color: colors.textMuted }]}>{meta}</Text>
+    </Pressable>
+  );
+}
+
 export default function AdminOverview() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart, lang } = useLayout();
+  const { rtlText, row, lang } = useLayout();
+  const colors = useColors();
   const [owners, setOwners] = useState<Profile[]>([]);
   const [students, setStudents] = useState(0);
   const [renters, setRenters] = useState(0);
@@ -80,83 +117,79 @@ export default function AdminOverview() {
 
   return (
     <Screen>
-      <Text style={[styles.title, rtlText]}>{t('admin.overview')}</Text>
+      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.overview')}</Text>
 
-      <Card onPress={() => router.push('/(admin)/(tabs)/bookings')}>
-        <Text style={[styles.label, rtlText]}>{t('admin.monthlyCommission')}</Text>
-        <Text style={[styles.value, rtlText]}>{formatIls(monthly, lang)}</Text>
-        <Text style={[styles.meta, rtlText]}>
+      <Pressable
+        onPress={() => router.push('/(admin)/(tabs)/bookings')}
+        style={[styles.hero, { backgroundColor: colors.primary, shadowColor: colors.text }]}
+      >
+        <Text style={styles.heroLabel}>{t('admin.monthlyCommission')}</Text>
+        <Text style={styles.heroValue}>{formatIls(monthly, lang)}</Text>
+        <Text style={styles.heroMeta}>
           {t('admin.allTimeCommission')}: {formatIls(allTime, lang)}
         </Text>
-      </Card>
+      </Pressable>
 
-      <View style={styles.grid}>
-        <View style={styles.tile}>
-          <Card onPress={() => router.push('/(admin)/(tabs)/users')}>
-            <Text style={[styles.label, rtlText]}>{t('admin.pendingOwners')}</Text>
-            <Text style={[styles.value, rtlText]}>{pendingOwners.length}</Text>
-            <Text style={[styles.meta, rtlText]}>
-              {t('admin.owners')}: {activeOwners}
-            </Text>
-          </Card>
-        </View>
-        <View style={styles.tile}>
-          <Card onPress={() => router.push('/(admin)/(tabs)/listings')}>
-            <Text style={[styles.label, rtlText]}>{t('admin.pendingListings')}</Text>
-            <Text style={[styles.value, rtlText]}>{pendingListings.length}</Text>
-            <Text style={[styles.meta, rtlText]}>
-              {t('admin.approvedListings')}: {liveListings}
-            </Text>
-          </Card>
-        </View>
-        <View style={styles.tile}>
-          <Card onPress={() => router.push('/(admin)/(tabs)/bookings')}>
-            <Text style={[styles.label, rtlText]}>{t('admin.pendingBookings')}</Text>
-            <Text style={[styles.value, rtlText]}>{pendingBookings}</Text>
-            <Text style={[styles.meta, rtlText]}>
-              {t('admin.bookings')}: {bookings.length}
-            </Text>
-          </Card>
-        </View>
-        <View style={styles.tile}>
-          <Card onPress={() => router.push('/(admin)/(tabs)/users')}>
-            <Text style={[styles.label, rtlText]}>{t('admin.students')}</Text>
-            <Text style={[styles.value, rtlText]}>{students}</Text>
-            <Text style={[styles.meta, rtlText]}>
-              {t('admin.renters')}: {renters}
-            </Text>
-          </Card>
-        </View>
+      <View style={[styles.grid, row]}>
+        <StatTile
+          icon="people-outline"
+          label={t('admin.pendingOwners')}
+          value={String(pendingOwners.length)}
+          meta={`${t('admin.owners')}: ${activeOwners}`}
+          onPress={() => router.push('/(admin)/(tabs)/users')}
+        />
+        <StatTile
+          icon="home-outline"
+          label={t('admin.pendingListings')}
+          value={String(pendingListings.length)}
+          meta={`${t('admin.approvedListings')}: ${liveListings}`}
+          onPress={() => router.push('/(admin)/(tabs)/listings')}
+        />
+        <StatTile
+          icon="calendar-outline"
+          label={t('admin.pendingBookings')}
+          value={String(pendingBookings)}
+          meta={`${t('admin.bookings')}: ${bookings.length}`}
+          onPress={() => router.push('/(admin)/(tabs)/bookings')}
+        />
+        <StatTile
+          icon="school-outline"
+          label={t('admin.students')}
+          value={String(students)}
+          meta={`${t('admin.renters')}: ${renters}`}
+          onPress={() => router.push('/(admin)/(tabs)/users')}
+        />
       </View>
 
       <Card onPress={() => router.push('/(admin)/(tabs)/chat')}>
-        <Text style={[styles.label, rtlText]}>{t('admin.inboxTitle')}</Text>
-        <Text style={[styles.value, rtlText]}>{chats}</Text>
-        <Text style={[styles.meta, rtlText]}>{t('admin.openChat')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.inboxTitle')}</Text>
+        <Text style={[styles.value, rtlText, { color: colors.primary }]}>{chats}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.openChat')}</Text>
       </Card>
 
       <Card onPress={() => router.push('/(admin)/(tabs)/catalog')}>
-        <Text style={[styles.label, rtlText]}>{t('admin.catalogTitle')}</Text>
-        <Text style={[styles.meta, rtlText]}>{t('admin.catalogHint')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.catalogTitle')}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
         <Button title={t('admin.openCatalog')} variant="secondary" onPress={() => router.push('/(admin)/(tabs)/catalog')} />
       </Card>
 
-      <Text style={[styles.section, rtlText]}>{t('admin.pendingOwners')}</Text>
+      <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingOwners')}</Text>
       {pendingOwners.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
       {pendingOwners.slice(0, 6).map((owner) => (
         <Card key={owner.id}>
-          <Text style={[styles.name, rtlText]}>{owner.full_name || owner.email}</Text>
-          <Text style={[styles.meta, rtlText]}>{owner.email}</Text>
+          <Text style={[styles.name, rtlText, { color: colors.text }]}>{owner.full_name || owner.email}</Text>
+          <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{owner.email}</Text>
           <Button title={t('admin.approveAlways')} onPress={() => void setOwnerStatus(owner.id)} />
         </Card>
       ))}
 
-      <Text style={[styles.section, rtlText]}>{t('admin.pendingListings')}</Text>
+      <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingListings')}</Text>
       {pendingListings.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
       {pendingListings.slice(0, 6).map((item) => (
         <Card key={item.id}>
-          <Text style={[styles.name, rtlText]}>{localizedTitle(item, i18n.language)}</Text>
-          <View style={[styles.row, { justifyContent: alignStart }]}>
+          <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedTitle(item, i18n.language)}</Text>
+          <View style={[styles.row, row]}>
             <View style={styles.flex}>
               <Button title={t('admin.review')} variant="secondary" onPress={() => router.push({ pathname: '/(admin)/apartment/[id]', params: { id: item.id } })} />
             </View>
@@ -171,14 +204,50 @@ export default function AdminOverview() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', color: colors.text },
-  section: { fontSize: 18, fontWeight: '800', color: colors.text, marginTop: 8 },
-  label: { color: colors.textMuted, fontWeight: '700' },
-  value: { fontSize: 28, fontWeight: '800', color: colors.primary },
-  meta: { color: colors.textMuted },
-  name: { fontSize: 16, fontWeight: '800', color: colors.text },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { width: '47%', flexGrow: 1 },
-  row: { flexDirection: 'row', gap: 8 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -8 },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  hero: {
+    borderRadius: 28,
+    padding: spacing.lg,
+    overflow: 'hidden',
+    gap: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  heroLabel: { color: 'rgba(255,255,255,0.78)', fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  heroValue: { color: '#fff', fontSize: 32, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroMeta: { color: 'rgba(255,255,255,0.72)', fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  section: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginTop: 8 },
+  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  value: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontFamily: 'Cairo_400Regular' },
+  name: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  grid: { flexWrap: 'wrap', gap: 8 },
+  tile: {
+    width: '47%',
+    flexGrow: 1,
+    borderRadius: 22,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  tileIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  tileLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  tileValue: { fontSize: 24, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  tileMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  row: { gap: 8 },
   flex: { flex: 1 },
 });

@@ -21,7 +21,7 @@ begin
   new.rent_amount := apt.price_month * new.months;
   new.commission_percent := coalesce(percent, 10);
   new.commission_amount := round(new.rent_amount * new.commission_percent / 100 * new.occupants, 2);
-  if new.payment_method = 'pay_now' then
+  if new.payment_method in ('pay_now', 'visa') then
     new.payment_status := 'paid';
   end if;
   return new;

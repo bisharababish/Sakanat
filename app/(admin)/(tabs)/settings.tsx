@@ -24,7 +24,7 @@ import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'security' | 'settings';
@@ -32,6 +32,7 @@ type ProfileTab = 'account' | 'security' | 'settings';
 export default function AdminSettings() {
   const { t, i18n } = useTranslation();
   const { rtlText, isRtl, row } = useLayout();
+  const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
   const [tab, setTab] = useState<ProfileTab>('account');
@@ -218,7 +219,7 @@ export default function AdminSettings() {
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
-            <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <View style={[row, styles.chipRow, { flexDirection: 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
               <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
               <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
@@ -280,7 +281,7 @@ export default function AdminSettings() {
           </Card>
           <Card>
             <SectionHead icon="map-outline" title={t('admin.catalogTitle')} />
-            <Text style={[styles.hint, rtlText]}>{t('admin.catalogHint')}</Text>
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
             <Button title={t('admin.openCatalog')} onPress={() => router.push('/(admin)/(tabs)/catalog')} pill />
           </Card>
         </>
@@ -290,7 +291,7 @@ export default function AdminSettings() {
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.text, fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
-  hint: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
+  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
 });

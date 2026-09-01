@@ -1,23 +1,29 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationList } from '@/components/ConversationList';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function OwnerChat() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
+  const colors = useColors();
 
   return (
     <Screen>
-      <Text style={[styles.title, rtlText]}>{t('chat.title')}</Text>
+      <View style={styles.top}>
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
+        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('chat.title')}</Text>
+      </View>
       <ConversationList roleHref="/(owner)/conversation/[id]" />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
+  top: { gap: 2 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -4 },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
 });

@@ -1,11 +1,12 @@
-import { type ComponentProps, useMemo, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { type ComponentProps, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Option = { label: string; value: string };
 
@@ -24,6 +25,7 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
   const [query, setQuery] = useState('');
   const { t } = useTranslation();
   const { rtlText, textAlign, writingDirection, alignStart, isRtl } = useLayout();
+  const colors = useColors();
   const selected = options.find((option) => option.value === value);
   const active = Boolean(value);
   const filtered = useMemo(() => {
@@ -34,12 +36,15 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
 
   return (
     <View style={styles.wrap}>
-      {compact ? null : <Text style={[styles.label, rtlText]}>{label}</Text>}
+      {compact ? null : <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>}
       <Pressable
         accessibilityLabel={label}
         style={[
           compact ? styles.compact : styles.field,
-          compact && active ? styles.compactOn : null,
+          {
+            backgroundColor: compact && active ? colors.primarySoft : colors.surface,
+            borderColor: compact && active ? colors.primary : colors.border,
+          },
           compact ? { flexDirection: isRtl ? 'row-reverse' : 'row' } : null,
         ]}
         onPress={() => {
@@ -54,9 +59,7 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
           numberOfLines={1}
           style={[
             compact ? styles.compactValue : styles.value,
-            { textAlign, writingDirection },
-            !selected && styles.placeholder,
-            compact && active ? styles.compactValueOn : null,
+            { textAlign, writingDirection, color: selected ? (compact && active ? colors.primary : colors.text) : colors.textMuted },
           ]}
         >
           {selected?.label ?? placeholder}
@@ -66,9 +69,9 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
         ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.overlay}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />
             </View>
@@ -78,21 +81,22 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
               placeholder={t('common.search')}
               placeholderTextColor={colors.textMuted}
               autoCorrect={false}
-              style={[styles.search, { textAlign }]}
+              style={[styles.search, { textAlign, color: colors.text, borderColor: colors.border }]}
             />
             <ScrollView keyboardShouldPersistTaps="handled">
               {filtered.length === 0 ? (
-                <Text style={[styles.empty, rtlText]}>{t('common.noResults')}</Text>
+                <Text style={[styles.empty, rtlText, { color: colors.textMuted }]}>{t('common.noResults')}</Text>
               ) : null}
               {filtered.map((option) => (
                 <Pressable
                   key={option.value || 'empty'}
-                  style={styles.option}
+                  style={[styles.option, { borderBottomColor: colors.border }]}
                   onPress={() => {
                     onChange(option.value);
                     setOpen(false);
-                  }}>
-                  <Text style={[styles.optionLabel, rtlText]}>{option.label}</Text>
+                  }}
+                >
+                  <Text style={[styles.optionLabel, rtlText, { color: colors.text }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -105,10 +109,8 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  label: { fontWeight: '700', fontSize: 14 },
   field: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
     minHeight: 52,
@@ -116,8 +118,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   compact: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.full,
     minHeight: 44,
@@ -125,30 +125,21 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
   },
-  compactOn: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
   compactValue: {
     flex: 1,
     minWidth: 0,
     fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
-    color: colors.text,
   },
-  compactValueOn: { color: colors.primary },
-  value: { fontSize: 16, color: colors.text },
-  placeholder: { color: colors.textMuted },
+  value: { fontSize: 16 },
   overlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: spacing.lg,
   },
   sheet: {
     maxHeight: '75%',
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
@@ -156,18 +147,15 @@ const styles = StyleSheet.create({
   search: {
     margin: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: radius.md,
     minHeight: 48,
     paddingHorizontal: spacing.md,
     fontSize: 16,
-    color: colors.text,
   },
   option: {
     padding: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
-  optionLabel: { fontSize: 16, color: colors.text },
-  empty: { padding: spacing.lg, color: colors.textMuted },
+  optionLabel: { fontSize: 16 },
+  empty: { padding: spacing.lg },
 });

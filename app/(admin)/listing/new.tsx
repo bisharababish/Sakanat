@@ -11,12 +11,13 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { useLayout } from '@/src/hooks/useLayout';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Profile } from '@/src/types/database';
 
 export default function AdminNewListing() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
+  const colors = useColors();
   const [owners, setOwners] = useState<Profile[]>([]);
   const [ownerId, setOwnerId] = useState('');
   const [ready, setReady] = useState(false);
@@ -44,8 +45,8 @@ export default function AdminNewListing() {
   if (!ready) {
     return (
       <Screen back>
-        <Text style={[styles.title, rtlText]}>{t('owner.addListing')}</Text>
-        <Text style={[styles.sub, rtlText]}>{t('admin.pickOwner')}</Text>
+        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('owner.addListing')}</Text>
+        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('admin.pickOwner')}</Text>
         <Card>
           <SearchSelect
             label={t('admin.ownerName')}
@@ -75,6 +76,6 @@ export default function AdminNewListing() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  sub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
 });

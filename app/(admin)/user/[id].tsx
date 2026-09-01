@@ -25,13 +25,14 @@ import { deleteUserAccount, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { OwnerStatus, PersonGender, Profile, UserRole } from '@/src/types/database';
 
 export default function AdminUserEdit() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
   const { rtlText, isRtl } = useLayout();
+  const colors = useColors();
   const { profile: me } = useAuth();
   const { cities, universities } = useCatalog();
   const [user, setUser] = useState<Profile | null>(null);
@@ -88,30 +89,24 @@ export default function AdminUserEdit() {
       });
   }, [id]);
 
-  const cityUniversities = useMemo(
-    () => universities.filter((item) => !cityId || item.city_id === cityId),
-    [cityId, universities],
-  );
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
     [cities, i18n.language],
   );
   const universityOptions = useMemo(
-    () => cityUniversities.map((item) => ({ value: item.id, label: localizedName(item, i18n.language) })),
-    [cityUniversities, i18n.language],
+    () =>
+      universities.map((item) => ({
+        value: item.id,
+        label: item.cities
+          ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
+          : localizedName(item, i18n.language),
+      })),
+    [universities, i18n.language],
   );
   const majorOptions = useMemo(
     () => MAJORS.map((item) => ({ value: item.value, label: majorLabel(item.value, i18n.language) })),
     [i18n.language],
   );
-
-  const setCity = (next: string) => {
-    setCityId(next);
-    if (next && universityId) {
-      const stillValid = universities.some((item) => item.id === universityId && item.city_id === next);
-      if (!stillValid) setUniversityId('');
-    }
-  };
 
   const save = async () => {
     if (!user || !fullName.trim()) {
@@ -209,7 +204,7 @@ export default function AdminUserEdit() {
         <ChromeBar back />
         <View style={{ flex: 1, justifyContent: 'center' }}>
           {loaded ? (
-            <Text style={[styles.muted, rtlText]}>{t('admin.noUsers')}</Text>
+            <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('admin.noUsers')}</Text>
           ) : (
             <ActivityIndicator color={colors.primary} />
           )}
@@ -220,11 +215,11 @@ export default function AdminUserEdit() {
 
   return (
     <Screen back>
-      <Text style={[styles.title, rtlText]}>{t('admin.editUser')}</Text>
-      <Text style={[styles.sub, rtlText]}>{user.email}</Text>
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.editUser')}</Text>
+      <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{user.email}</Text>
       {accountStatus === 'suspended' ? <StatusBadge label={t('admin.accountSuspended')} tone="rejected" /> : null}
       {user.accepted_terms_at ? (
-        <Text style={[styles.sub, rtlText]}>
+        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>
           {t('admin.acceptedTerms')}: {user.accepted_terms_at.slice(0, 10)}
         </Text>
       ) : null}
@@ -232,7 +227,7 @@ export default function AdminUserEdit() {
       <Card>
         <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
         <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
-        <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
         <View style={[styles.chips, chipAlign]}>
           <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
           <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
@@ -243,7 +238,7 @@ export default function AdminUserEdit() {
           value={cityId}
           placeholder={t('common.select')}
           options={cityOptions}
-          onChange={setCity}
+          onChange={setCityId}
         />
         <SearchSelect
           label={t('common.university')}
@@ -282,7 +277,7 @@ export default function AdminUserEdit() {
           </View>
           {role === 'owner' ? (
             <>
-              <Text style={[styles.label, rtlText]}>{t('admin.ownerStatus')}</Text>
+              <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('admin.ownerStatus')}</Text>
               <View style={[styles.chips, chipAlign]}>
                 <Chip
                   label={t('admin.ownerWaiting')}
@@ -305,7 +300,7 @@ export default function AdminUserEdit() {
         </Card>
       ) : (
         <Card>
-          <Text style={[styles.label, rtlText]}>{t('roles.admin')}</Text>
+          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('roles.admin')}</Text>
         </Card>
       )}
 
@@ -320,7 +315,7 @@ export default function AdminUserEdit() {
             options={majorOptions}
             onChange={setMajor}
           />
-          <Text style={[styles.label, rtlText]}>{t('profile.degree')}</Text>
+          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.degree')}</Text>
           <View style={[styles.chips, chipAlign]}>
             {(['bachelor', 'master', 'doctorate', 'diploma', 'otherDegree'] as const).map((value) => (
               <Chip
@@ -331,7 +326,7 @@ export default function AdminUserEdit() {
               />
             ))}
           </View>
-          <Text style={[styles.label, rtlText]}>{t('profile.studyYear')}</Text>
+          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.studyYear')}</Text>
           <View style={[styles.chips, chipAlign]}>
             {(['1', '2', '3', '4', '5'] as const).map((value) => (
               <Chip
@@ -362,9 +357,9 @@ export default function AdminUserEdit() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  sub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4 },
-  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', color: colors.text, fontSize: 14 },
-  muted: { color: colors.textMuted, textAlign: 'center' },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4 },
+  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
+  muted: { textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
 });

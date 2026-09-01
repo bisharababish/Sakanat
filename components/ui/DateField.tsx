@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   label: string;
@@ -43,6 +44,7 @@ function monthGrid(year: number, month: number) {
 export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
   const { t, i18n } = useTranslation();
   const { rtlText, row, alignStart } = useLayout();
+  const colors = useColors();
   const [open, setOpen] = useState(false);
   const now = new Date();
   const minYear = kind === 'booking' ? now.getFullYear() : 1980;
@@ -83,61 +85,56 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, rtlText]}>{label}</Text>
-      <Pressable style={styles.field} onPress={openCalendar}>
-        <Text style={[styles.value, rtlText, !value && styles.placeholder]}>
+      <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>
+      <Pressable
+        style={[styles.field, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={openCalendar}
+      >
+        <Text style={[styles.value, rtlText, { color: value ? colors.text : colors.textMuted }]}>
           {value || t('profile.pickDate')}
         </Text>
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.sheet}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />
             </View>
             <View style={[styles.nav, row]}>
               <Pressable onPress={() => shiftMonth(-1)} hitSlop={12} style={styles.navBtn}>
-                <Text style={styles.navText}>‹</Text>
+                <Text style={[styles.navText, { color: colors.primary }]}>‹</Text>
               </Pressable>
-              <Text style={styles.month}>{title}</Text>
+              <Text style={[styles.month, { color: colors.text }]}>{title}</Text>
               <Pressable onPress={() => shiftMonth(1)} hitSlop={12} style={styles.navBtn}>
-                <Text style={styles.navText}>›</Text>
+                <Text style={[styles.navText, { color: colors.primary }]}>›</Text>
               </Pressable>
             </View>
             <View style={styles.week}>
               {WEEKDAYS.map((day) => (
-                <Text key={day} style={styles.weekday}>
+                <Text key={day} style={[styles.weekday, { color: colors.textMuted }]}>
                   {day}
                 </Text>
               ))}
             </View>
             <View style={styles.grid}>
-              {cells.map((day, index) => (
-                <Pressable
-                  key={`${cursor.getMonth()}-${index}`}
-                  style={[
-                    styles.day,
-                    day &&
-                    value === toIso(new Date(cursor.getFullYear(), cursor.getMonth(), day))
-                      ? styles.dayOn
-                      : null,
-                    day &&
-                    kind === 'booking' &&
-                    new Date(cursor.getFullYear(), cursor.getMonth(), day) < startOfToday
-                      ? styles.dayOff
-                      : null,
-                  ]}
-                  disabled={
-                    !day ||
-                    (kind === 'booking' &&
-                      new Date(cursor.getFullYear(), cursor.getMonth(), day) < startOfToday)
-                  }
-                  onPress={() => day && pickDay(day)}>
-                  <Text style={[styles.dayText, day && value === toIso(new Date(cursor.getFullYear(), cursor.getMonth(), day)) ? styles.dayOnText : null]}>
-                    {day ?? ''}
-                  </Text>
-                </Pressable>
-              ))}
+              {cells.map((day, index) => {
+                const iso = day ? toIso(new Date(cursor.getFullYear(), cursor.getMonth(), day)) : '';
+                const on = Boolean(day && value === iso);
+                const off =
+                  Boolean(day) &&
+                  kind === 'booking' &&
+                  new Date(cursor.getFullYear(), cursor.getMonth(), day) < startOfToday;
+                return (
+                  <Pressable
+                    key={`${cursor.getMonth()}-${index}`}
+                    style={[styles.day, on ? { backgroundColor: colors.primary } : null, off ? styles.dayOff : null]}
+                    disabled={!day || off}
+                    onPress={() => day && pickDay(day)}
+                  >
+                    <Text style={[styles.dayText, { color: on ? colors.white : colors.text }]}>{day ?? ''}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
             <Button title={t('common.cancel')} variant="ghost" onPress={() => setOpen(false)} />
           </View>
@@ -149,26 +146,21 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  label: { fontWeight: '700', fontSize: 14 },
   field: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
     minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
-  value: { fontSize: 16, color: colors.text },
-  placeholder: { color: colors.textMuted },
+  value: { fontSize: 16 },
   overlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: spacing.lg,
   },
   sheet: {
-    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.sm,
@@ -176,14 +168,12 @@ const styles = StyleSheet.create({
   sheetHead: { paddingBottom: 4 },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navBtn: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
-  navText: { fontSize: 28, color: colors.primary, fontWeight: '700' },
-  month: { fontWeight: '800', color: colors.text, fontSize: 16 },
+  navText: { fontSize: 28, fontWeight: '700' },
+  month: { fontWeight: '800', fontSize: 16 },
   week: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', color: colors.textMuted, fontWeight: '700', fontSize: 12 },
+  weekday: { flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   day: { width: '14.28%', minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
-  dayOn: { backgroundColor: colors.primary },
   dayOff: { opacity: 0.35 },
-  dayText: { color: colors.text, fontWeight: '700' },
-  dayOnText: { color: colors.white },
+  dayText: { fontWeight: '700' },
 });

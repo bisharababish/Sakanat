@@ -1,12 +1,10 @@
--- How many people share one booking, and commission scales per person.
--- Rent stays the listing monthly price. Run once in the Supabase SQL editor.
+-- Cash and bank check are settled with the owner. Visa is the in-app option.
+-- Run once in the Supabase SQL editor.
 
+alter table public.bookings drop constraint if exists bookings_payment_method_check;
 alter table public.bookings
-  add column if not exists occupants int not null default 1;
-
-alter table public.bookings drop constraint if exists bookings_occupants_check;
-alter table public.bookings
-  add constraint bookings_occupants_check check (occupants between 1 and 8);
+  add constraint bookings_payment_method_check
+  check (payment_method in ('pay_now', 'pay_later', 'visa', 'cash', 'check'));
 
 create or replace function public.fill_booking_money()
 returns trigger

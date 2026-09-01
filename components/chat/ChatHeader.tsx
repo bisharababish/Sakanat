@@ -1,8 +1,8 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { BackButton } from '@/components/ui/BackButton';
 import { MenuButton } from '@/components/menu/MenuButton';
@@ -50,13 +50,14 @@ export function ChatHeader({
     ? [personName(student) || t('roles.student'), personName(owner) || t('roles.owner')].join(' · ')
     : personName(person) || t('chat.unknownPerson');
   const listing = conversation?.apartments ? localizedTitle(conversation.apartments, i18n.language) : '';
-  const photo = (admin ? conversation?.apartments?.photos?.[0] : null) || person?.avatar_url;
+  const photo = person?.avatar_url;
+  const listingPhoto = conversation?.apartments?.photos?.[0];
 
   return (
     <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
       <BackButton compact />
       {photo ? (
-        <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
+        <Image source={{ uri: photo }} style={[styles.avatar, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
       ) : (
         <View style={[styles.avatar, styles.fallback, { backgroundColor: colors.primarySoft }]}>
           <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
@@ -67,11 +68,18 @@ export function ChatHeader({
           {name}
         </Text>
         {listing ? (
-          <Text style={[styles.sub, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.sub, rtlText, { color: colors.primary }]} numberOfLines={1}>
             {listing}
           </Text>
         ) : null}
       </View>
+      {listingPhoto ? (
+        <Image
+          source={{ uri: listingPhoto }}
+          style={[styles.listingPhoto, { backgroundColor: colors.surfaceMuted }]}
+          contentFit="cover"
+        />
+      ) : null}
       <MenuButton />
       {onDelete ? (
         <Pressable
@@ -99,14 +107,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   fallback: { alignItems: 'center', justifyContent: 'center' },
   initials: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
-  meta: { flex: 1, gap: 1 },
+  meta: { flex: 1, gap: 1, minWidth: 0 },
   name: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  sub: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  sub: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
+  listingPhoto: { width: 36, height: 36, borderRadius: 12 },
   trash: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

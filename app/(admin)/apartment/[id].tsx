@@ -16,7 +16,8 @@ import { formatIls, listingBadgeTone, localizedDescription, localizedName, local
 import { notifyListingApproved } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, ListingStatus } from '@/src/types/database';
 
 const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
@@ -25,6 +26,7 @@ export default function AdminApartmentReview() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
   const { rtlText, row, lang } = useLayout();
+  const colors = useColors();
   const { universities } = useCatalog();
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [busy, setBusy] = useState(false);
@@ -86,11 +88,11 @@ export default function AdminApartmentReview() {
 
   if (!apartment) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <ChromeBar back />
         <View style={styles.center}>
           {loaded ? (
-            <Text style={[styles.muted, rtlText]}>{t('admin.noListings')}</Text>
+            <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('admin.noListings')}</Text>
           ) : (
             <ActivityIndicator color={colors.primary} />
           )}
@@ -100,33 +102,33 @@ export default function AdminApartmentReview() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <ChromeBar back />
       <ScrollView contentContainerStyle={styles.content}>
         {photos.length > 0 ? (
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
             {photos.map((uri) => (
-              <Image key={uri} source={{ uri }} style={[styles.cover, { width: PHOTO_WIDTH }]} contentFit="cover" />
+              <Image key={uri} source={{ uri }} style={[styles.cover, { width: PHOTO_WIDTH, backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
             ))}
           </ScrollView>
         ) : (
-          <View style={styles.coverFallback} />
+          <View style={[styles.coverFallback, { backgroundColor: colors.primarySoft }]} />
         )}
         <StatusBadge label={t(`status.${apartment.status}`)} tone={listingBadgeTone(apartment.status)} />
-        <Text style={[styles.title, rtlText]}>{localizedTitle(apartment, i18n.language)}</Text>
-        <Text style={[styles.price, rtlText]}>
+        <Text style={[styles.title, rtlText, { color: colors.text }]}>{localizedTitle(apartment, i18n.language)}</Text>
+        <Text style={[styles.price, rtlText, { color: colors.primary }]}>
           {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
         </Text>
-        <Text style={[styles.muted, rtlText]}>
+        <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>
           {localizedName(apartment.cities, i18n.language)} · {t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms })}
           {apartment.area_m2 ? ` · ${t('listing.area', { area: apartment.area_m2 })}` : ''}
         </Text>
         <StatusBadge label={t(`gender.${apartment.gender_policy}`)} tone="info" />
         {localizedDescription(apartment, i18n.language) ? (
-          <Text style={[styles.body, rtlText]}>{localizedDescription(apartment, i18n.language)}</Text>
+          <Text style={[styles.body, rtlText, { color: colors.text }]}>{localizedDescription(apartment, i18n.language)}</Text>
         ) : null}
-        <Text style={[styles.section, rtlText]}>{t('listing.distance')}</Text>
-        <Text style={[styles.body, rtlText]}>
+        <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('listing.distance')}</Text>
+        <Text style={[styles.body, rtlText, { color: colors.text }]}>
           {university ? localizedName(university, i18n.language) : ''}
           {distance != null ? `\n${formatKm(distance, lang)}` : ''}
         </Text>
@@ -135,21 +137,21 @@ export default function AdminApartmentReview() {
           variant="ghost"
           onPress={() => Linking.openURL(mapsUrl(apartment.lat, apartment.lng, localizedTitle(apartment, i18n.language)))}
         />
-        <Text style={[styles.section, rtlText]}>{t('listing.amenities')}</Text>
+        <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('listing.amenities')}</Text>
         {apartment.amenities.length === 0 ? (
-          <Text style={[styles.muted, rtlText]}>{t('listing.noAmenities')}</Text>
+          <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('listing.noAmenities')}</Text>
         ) : (
           <View style={[styles.wrap, row]}>
             {apartment.amenities.map((item) => (
-              <View key={item} style={styles.amenity}>
-                <Text style={styles.amenityText}>{t(`amenities.${item}`)}</Text>
+              <View key={item} style={[styles.amenity, { backgroundColor: colors.primarySoft }]}>
+                <Text style={[styles.amenityText, { color: colors.primaryDark }]}>{t(`amenities.${item}`)}</Text>
               </View>
             ))}
           </View>
         )}
-        <Text style={[styles.section, rtlText]}>{t('listing.owner')}</Text>
-        <Text style={[styles.body, rtlText]}>{apartment.profiles?.full_name}</Text>
-        {apartment.profiles?.email ? <Text style={[styles.muted, rtlText]}>{apartment.profiles.email}</Text> : null}
+        <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('listing.owner')}</Text>
+        <Text style={[styles.body, rtlText, { color: colors.text }]}>{apartment.profiles?.full_name}</Text>
+        {apartment.profiles?.email ? <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{apartment.profiles.email}</Text> : null}
         {apartment.profiles?.phone ? (
           <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)} />
         ) : null}
@@ -185,21 +187,20 @@ export default function AdminApartmentReview() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', backgroundColor: colors.background },
+  safe: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center' },
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 40 },
   cover: {
     height: 220,
     borderRadius: radius.lg,
-    backgroundColor: colors.surfaceMuted,
   },
-  coverFallback: { width: '100%', height: 160, borderRadius: radius.lg, backgroundColor: colors.primarySoft },
-  title: { fontSize: 26, fontWeight: '800', color: colors.text },
-  price: { fontSize: 20, fontWeight: '800', color: colors.primary },
-  muted: { color: colors.textMuted },
-  body: { fontSize: 16, color: colors.text, lineHeight: 24 },
-  section: { marginTop: 8, fontWeight: '800', color: colors.text, fontSize: 16 },
+  coverFallback: { width: '100%', height: 160, borderRadius: radius.lg },
+  title: { fontSize: 26, fontWeight: '800' },
+  price: { fontSize: 20, fontWeight: '800' },
+  muted: {},
+  body: { fontSize: 16, lineHeight: 24 },
+  section: { marginTop: 8, fontWeight: '800', fontSize: 16 },
   wrap: { flexWrap: 'wrap', gap: 8 },
-  amenity: { backgroundColor: colors.primarySoft, borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 6 },
-  amenityText: { color: colors.primaryDark, fontWeight: '700' },
+  amenity: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 6 },
+  amenityText: { fontWeight: '700' },
 });

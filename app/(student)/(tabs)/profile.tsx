@@ -30,7 +30,8 @@ import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } 
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, PersonGender } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'saved' | 'security';
@@ -38,6 +39,7 @@ type ProfileTab = 'account' | 'saved' | 'security';
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
   const { rtlText, isRtl, row } = useLayout();
+  const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities, universities } = useCatalog();
   const [tab, setTab] = useState<ProfileTab>('account');
@@ -91,15 +93,13 @@ export default function StudentProfileScreen() {
   );
   const universityOptions = useMemo(
     () =>
-      universities
-        .filter((item) => !cityId || item.city_id === cityId)
-        .map((item) => ({
-          value: item.id,
-          label: item.cities
-            ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
-            : localizedName(item, i18n.language),
-        })),
-    [cityId, universities, i18n.language],
+      universities.map((item) => ({
+        value: item.id,
+        label: item.cities
+          ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
+          : localizedName(item, i18n.language),
+      })),
+    [universities, i18n.language],
   );
   const yearOptions = useMemo(
     () => [
@@ -310,7 +310,7 @@ export default function StudentProfileScreen() {
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
-            <Text style={[styles.label, rtlText]}>{t('profile.gender')}</Text>
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <View style={[row, styles.chipRow, { flexDirection: 'row', justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
               <Chip label={t('profile.male')} selected={gender === 'male'} onPress={() => setGender('male')} />
               <Chip label={t('profile.female')} selected={gender === 'female'} onPress={() => setGender('female')} />
@@ -321,13 +321,7 @@ export default function StudentProfileScreen() {
               value={cityId}
               placeholder={t('common.select')}
               options={cityOptions}
-              onChange={(next) => {
-                setCityId(next);
-                if (next && universityId) {
-                  const stillValid = universities.some((item) => item.id === universityId && item.city_id === next);
-                  if (!stillValid) setUniversityId('');
-                }
-              }}
+              onChange={setCityId}
             />
           </Card>
 
@@ -413,11 +407,11 @@ export default function StudentProfileScreen() {
         <Card>
           <SectionHead icon="heart-outline" title={t('profile.savedListings')} />
           {savedListings.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <View style={styles.emptyIcon}>
+            <View style={[styles.emptyBox, { backgroundColor: colors.surfaceMuted }]}>
+              <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
                 <Ionicons name="home-outline" size={28} color={colors.primary} />
               </View>
-              <Text style={[styles.emptyText, rtlText]}>{t('profile.savedEmpty')}</Text>
+              <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>{t('profile.savedEmpty')}</Text>
               <Button
                 title={t('profile.browseListings')}
                 onPress={() => router.push('/(student)/(tabs)/search')}
@@ -479,11 +473,10 @@ export default function StudentProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.text, fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   chipRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   savedBlock: { gap: 8 },
   emptyBox: {
-    backgroundColor: colors.surfaceMuted,
     borderRadius: radius.lg,
     padding: spacing.lg,
     alignItems: 'center',
@@ -493,10 +486,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 18,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: { color: colors.textMuted, fontSize: 14, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  emptyText: { fontSize: 14, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
 });
 

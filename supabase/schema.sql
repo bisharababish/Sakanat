@@ -95,7 +95,7 @@ create table if not exists public.bookings (
   owner_id uuid not null references public.profiles(id) on delete cascade,
   start_date date not null,
   months int not null default 1 check (months > 0),
-  payment_method text not null check (payment_method in ('pay_now', 'pay_later')),
+  payment_method text not null check (payment_method in ('pay_now', 'pay_later', 'visa', 'cash', 'check')),
   payment_status text not null default 'unpaid' check (payment_status in ('unpaid', 'paid')),
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'cancelled', 'completed')),
   occupants int not null default 1 check (occupants between 1 and 8),
@@ -263,7 +263,7 @@ begin
   new.rent_amount := apt.price_month * new.months;
   new.commission_percent := coalesce(percent, 10);
   new.commission_amount := round(new.rent_amount * new.commission_percent / 100 * new.occupants, 2);
-  if new.payment_method = 'pay_now' then
+  if new.payment_method in ('pay_now', 'visa') then
     new.payment_status := 'paid';
   end if;
   return new;

@@ -1,6 +1,7 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -12,13 +13,14 @@ import { DateField } from '@/components/ui/DateField';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { occupantChoices } from '@/src/lib/booking';
+import { occupantChoices, PAYMENT_CHOICES, paymentHintKey, paymentI18nKey } from '@/src/lib/booking';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
 import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
-import { colors, radius } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, PaymentMethod } from '@/src/types/database';
 
 const MONTHS = [1, 2, 3, 4, 6, 12];
@@ -36,10 +38,30 @@ function defaultStart() {
   return isoDate(date);
 }
 
+function SummaryRow({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  const { rtlText, row } = useLayout();
+  const colors = useColors();
+  return (
+    <View style={[styles.summaryRow, row]}>
+      <Text style={[styles.summaryLabel, rtlText, { color: strong ? colors.primary : colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.summaryValue, { color: strong ? colors.primary : colors.text }]}>{value}</Text>
+    </View>
+  );
+}
+
 export default function BookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl, lang } = useLayout();
+  const { rtlText, isRtl, lang, row } = useLayout();
+  const colors = useColors();
   const { profile } = useAuth();
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [missing, setMissing] = useState(false);
@@ -47,7 +69,7 @@ export default function BookScreen() {
   const [months, setMonths] = useState(1);
   const [occupants, setOccupants] = useState(1);
   const [percent, setPercent] = useState(10);
-  const [method, setMethod] = useState<PaymentMethod>('pay_now');
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -132,7 +154,7 @@ export default function BookScreen() {
     return (
       <Screen back>
         {missing ? (
-          <Text style={[styles.sub, rtlText]}>{t('listing.notFound')}</Text>
+          <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('listing.notFound')}</Text>
         ) : (
           <ActivityIndicator color={colors.primary} />
         )}
@@ -142,14 +164,38 @@ export default function BookScreen() {
 
   return (
     <Screen back>
-      <Text style={[styles.title, rtlText]}>{t('booking.title')}</Text>
+      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.title')}</Text>
+
+      <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+        {photo ? (
+          <Image source={{ uri: photo }} style={[styles.photo, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
+        ) : (
+          <View style={[styles.photo, styles.photoFallback, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="home" size={32} color={colors.primary} />
+          </View>
+        )}
+        <View style={[styles.pricePill, isRtl ? styles.pillStart : styles.pillEnd, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.pricePillText, { color: colors.white }]}>
+            {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
+          </Text>
+        </View>
+        <View style={styles.heroBody}>
+          <Text style={[styles.heroTitle, rtlText, { color: colors.text }]} numberOfLines={2}>
+            {localizedTitle(apartment, i18n.language)}
+          </Text>
+          {city ? (
+            <Text style={[styles.heroCity, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+              {city}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
       <Card>
-        {photo ? <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" /> : null}
-        <Text style={[styles.sub, rtlText]}>{localizedTitle(apartment, i18n.language)}</Text>
-        {city ? <Text style={[styles.body, rtlText]}>{city}</Text> : null}
         <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
-        <Text style={[styles.label, rtlText]}>{t('booking.occupants')}</Text>
-        <Text style={[styles.hint, rtlText]}>{t('booking.occupantsHint')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.occupants')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.occupantsHint')}</Text>
         <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
           {people.map((value) => (
             <Chip
@@ -160,7 +206,7 @@ export default function BookScreen() {
             />
           ))}
         </View>
-        <Text style={[styles.label, rtlText]}>{t('booking.duration')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
         <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
           {MONTHS.map((value) => (
             <Chip
@@ -171,27 +217,36 @@ export default function BookScreen() {
             />
           ))}
         </View>
-        <Text style={[styles.label, rtlText]}>{t('booking.method')}</Text>
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.method')}</Text>
         <View style={[styles.chips, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-          <Chip label={t('payment.pay_now')} selected={method === 'pay_now'} onPress={() => setMethod('pay_now')} />
-          <Chip label={t('payment.pay_later')} selected={method === 'pay_later'} onPress={() => setMethod('pay_later')} />
+          {PAYMENT_CHOICES.map((value) => (
+            <Chip
+              key={value}
+              label={t(paymentI18nKey(value))}
+              selected={method === value}
+              onPress={() => setMethod(value)}
+            />
+          ))}
         </View>
-        <Text style={[styles.note, rtlText]}>{t('payment.simulated')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
+        <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
       </Card>
+
       <Card>
         <SectionHead icon="receipt-outline" title={t('booking.summary')} />
-        <Text style={[styles.body, rtlText]}>
-          {t('booking.rent')}: {formatIls(apartment.price_month, lang)} × {months}
-        </Text>
-        <Text style={[styles.body, rtlText]}>
-          {t('booking.occupants')}: {headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
-        </Text>
-        <Text style={[styles.body, rtlText]}>
-          {t('booking.commission')}: {formatIls(commission, lang)} ({percent}% × {headcount})
-        </Text>
-        <Text style={[styles.total, rtlText]}>
-          {t('booking.total')}: {formatIls(total, lang)}
-        </Text>
+        <SummaryRow
+          label={t('booking.rent')}
+          value={`${formatIls(apartment.price_month, lang)} × ${months}`}
+        />
+        <SummaryRow
+          label={t('booking.occupants')}
+          value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
+        />
+        <SummaryRow label={t('booking.commission')} value={`${formatIls(commission, lang)} (${percent}% × ${headcount})`} />
+        <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
+          <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
+          <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+        </View>
       </Card>
       <Button title={t('booking.submit')} onPress={submit} loading={loading} pill />
     </Screen>
@@ -199,13 +254,48 @@ export default function BookScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  photo: { width: '100%', height: 160, borderRadius: radius.lg, backgroundColor: colors.surfaceMuted },
-  sub: { color: colors.text, fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', color: colors.text },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -8 },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  muted: { fontSize: 15, fontFamily: 'Cairo_400Regular' },
+  hero: {
+    borderRadius: 28,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  photo: { width: '100%', height: 168 },
+  photoFallback: { alignItems: 'center', justifyContent: 'center' },
+  pricePill: {
+    position: 'absolute',
+    top: 12,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  pillStart: { left: 12 },
+  pillEnd: { right: 12 },
+  heroBody: { padding: spacing.md, gap: 4 },
+  heroTitle: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', lineHeight: 26 },
+  heroCity: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  note: { color: colors.warning, fontSize: 13, fontFamily: 'Cairo_400Regular' },
-  hint: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20, marginTop: -4 },
-  body: { color: colors.text, fontSize: 16, fontFamily: 'Cairo_400Regular' },
-  total: { color: colors.primary, fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  note: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20, marginTop: -4 },
+  summaryRow: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  summaryLabel: { flex: 1, fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  summaryValue: { fontSize: 14, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  totalBar: {
+    marginTop: 4,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  totalLabel: { flex: 1, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  totalValue: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
 });

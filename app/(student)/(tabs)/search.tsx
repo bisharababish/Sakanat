@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { Button } from '@/components/ui/Button';
-import { Chip } from '@/components/ui/Chip';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
@@ -21,14 +21,16 @@ import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import { isStudentReady } from '@/src/lib/studentProfile';
 import { apartmentPath, requireAccount } from '@/src/lib/guest';
 import { supabase } from '@/src/lib/supabase';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, GenderPolicy, University } from '@/src/types/database';
 
 type GenderFilter = 'suitable' | 'all' | GenderPolicy;
 
 export default function SearchScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl, textAlign, writingDirection } = useLayout();
+  const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
+  const colors = useColors();
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
   const [apartments, setApartments] = useState<Apartment[]>([]);
@@ -71,23 +73,10 @@ export default function SearchScreen() {
     }, [load]),
   );
 
-  const cityUniversities = useMemo(
-    () => universities.filter((item) => !cityId || item.city_id === cityId),
-    [cityId, universities],
-  );
-
   const selectedUniversity = useMemo(
     () => universities.find((item) => item.id === universityId) ?? null,
     [universities, universityId],
   );
-
-  const setCity = (next: string) => {
-    setCityId(next);
-    if (next && universityId) {
-      const stillValid = universities.some((item) => item.id === universityId && item.city_id === next);
-      if (!stillValid) setUniversityId('');
-    }
-  };
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -154,12 +143,19 @@ export default function SearchScreen() {
   };
 
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
+  const genderItems = [
+    ...(profile?.gender ? [{ value: 'suitable' as const, label: t('search.suitable') }] : []),
+    { value: 'all' as const, label: t('common.all') },
+    { value: 'female' as const, label: t('gender.female') },
+    { value: 'male' as const, label: t('gender.male') },
+  ];
 
   return (
     <Screen>
       <View style={styles.head}>
-        <Text style={[styles.title, rtlText]}>{t('search.title')}</Text>
-        <Text style={[styles.sub, rtlText]}>{t('search.subtitle')}</Text>
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.search')}</Text>
+        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('search.title')}</Text>
+        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('search.subtitle')}</Text>
       </View>
 
       {!profile ? (
@@ -172,7 +168,17 @@ export default function SearchScreen() {
         />
       ) : null}
 
-      <View style={[styles.searchBar, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
+      <View
+        style={[
+          styles.searchBar,
+          row,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            shadowColor: colors.text,
+          },
+        ]}
+      >
         <Ionicons name="search" size={20} color={colors.primary} />
         <TextInput
           value={query}
@@ -181,7 +187,7 @@ export default function SearchScreen() {
           placeholderTextColor={colors.textMuted}
           autoCorrect={false}
           returnKeyType="search"
-          style={[styles.searchInput, { textAlign, writingDirection }]}
+          style={[styles.searchInput, { textAlign, writingDirection, color: colors.text }]}
         />
         {query ? (
           <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('search.clear')}>
@@ -190,104 +196,116 @@ export default function SearchScreen() {
         ) : null}
       </View>
 
-      <View style={[styles.filterGrid, chipAlign]}>
-        <View style={styles.filterCell}>
-          <Select
-            compact
-            icon="location-outline"
-            label={t('common.city')}
-            value={cityId}
-            placeholder={t('search.anyCity')}
-            options={[
-              { value: '', label: t('search.anyCity') },
-              ...cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
-            ]}
-            onChange={setCity}
-          />
+      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+        <View style={[styles.panelHead, row]}>
+          <Text style={[styles.panelTitle, { color: colors.text }]}>{t('search.filters')}</Text>
+          {filtersOn ? (
+            <Pressable onPress={clearFilters} hitSlop={8}>
+              <Text style={[styles.clear, { color: colors.primary }]}>{t('search.clear')}</Text>
+            </Pressable>
+          ) : null}
         </View>
-        <View style={styles.filterCell}>
-          <SearchSelect
-            compact
-            icon="school-outline"
-            label={t('common.university')}
-            value={universityId}
-            placeholder={t('search.anyUniversity')}
-            options={[
-              { value: '', label: t('search.anyUniversity') },
-              ...cityUniversities.map((item) => ({ value: item.id, label: localizedName(item, i18n.language) })),
-            ]}
-            onChange={setUniversityId}
-          />
+        <View style={[styles.filterGrid, chipAlign]}>
+          <View style={styles.filterCell}>
+            <Select
+              compact
+              icon="location-outline"
+              label={t('common.city')}
+              value={cityId}
+              placeholder={t('search.anyCity')}
+              options={[
+                { value: '', label: t('search.anyCity') },
+                ...cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
+              ]}
+              onChange={setCityId}
+            />
+          </View>
+          <View style={styles.filterCell}>
+            <SearchSelect
+              compact
+              icon="school-outline"
+              label={t('common.university')}
+              value={universityId}
+              placeholder={t('search.anyUniversity')}
+              options={[
+                { value: '', label: t('search.anyUniversity') },
+                ...universities.map((item) => ({
+                  value: item.id,
+                  label: item.cities
+                    ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
+                    : localizedName(item, i18n.language),
+                })),
+              ]}
+              onChange={setUniversityId}
+            />
+          </View>
+          <View style={styles.filterCell}>
+            <Select
+              compact
+              icon="cash-outline"
+              label={t('search.maxPrice')}
+              value={maxPrice}
+              placeholder={t('search.maxPrice')}
+              options={[
+                { value: '', label: t('common.all') },
+                { value: '500', label: '₪500' },
+                { value: '700', label: '₪700' },
+                { value: '900', label: '₪900' },
+                { value: '1200', label: '₪1200' },
+                { value: '1500', label: '₪1500' },
+                { value: '2000', label: '₪2000' },
+              ]}
+              onChange={setMaxPrice}
+            />
+          </View>
+          <View style={styles.filterCell}>
+            <Select
+              compact
+              icon="navigate-outline"
+              label={t('search.maxKm')}
+              value={maxKm}
+              placeholder={t('search.maxKm')}
+              options={[
+                { value: '', label: t('common.all') },
+                { value: String(UNDER_ONE_KM), label: t('common.under1km') },
+                { value: '1', label: `1 ${t('common.km')}` },
+                { value: '2', label: `2 ${t('common.km')}` },
+                { value: '3', label: `3 ${t('common.km')}` },
+                { value: '5', label: `5 ${t('common.km')}` },
+                { value: '8', label: `8 ${t('common.km')}` },
+                { value: '10', label: `10 ${t('common.km')}` },
+              ]}
+              onChange={setMaxKm}
+            />
+          </View>
         </View>
-        <View style={styles.filterCell}>
-          <Select
-            compact
-            icon="cash-outline"
-            label={t('search.maxPrice')}
-            value={maxPrice}
-            placeholder={t('search.maxPrice')}
-            options={[
-              { value: '', label: t('common.all') },
-              { value: '500', label: '₪500' },
-              { value: '700', label: '₪700' },
-              { value: '900', label: '₪900' },
-              { value: '1200', label: '₪1200' },
-              { value: '1500', label: '₪1500' },
-              { value: '2000', label: '₪2000' },
-            ]}
-            onChange={setMaxPrice}
-          />
-        </View>
-        <View style={styles.filterCell}>
-          <Select
-            compact
-            icon="navigate-outline"
-            label={t('search.maxKm')}
-            value={maxKm}
-            placeholder={t('search.maxKm')}
-            options={[
-              { value: '', label: t('common.all') },
-              { value: String(UNDER_ONE_KM), label: t('common.under1km') },
-              { value: '1', label: `1 ${t('common.km')}` },
-              { value: '2', label: `2 ${t('common.km')}` },
-              { value: '3', label: `3 ${t('common.km')}` },
-              { value: '5', label: `5 ${t('common.km')}` },
-              { value: '8', label: `8 ${t('common.km')}` },
-              { value: '10', label: `10 ${t('common.km')}` },
-            ]}
-            onChange={setMaxKm}
-          />
+        <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
+        <FilterPills value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+        <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
+        <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, row]}>
+          {(['price', 'distance'] as const).map((value) => {
+            const on = sort === value;
+            return (
+              <Pressable
+                key={value}
+                onPress={() => setSort(value)}
+                style={[styles.segmentBtn, on && { backgroundColor: colors.surface, shadowColor: colors.text }]}
+              >
+                <Text style={[styles.segmentLabel, { color: on ? colors.primary : colors.textMuted }]}>
+                  {value === 'price' ? t('search.sortPrice') : t('search.sortDistance')}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      <View style={[styles.chipRow, chipAlign]}>
-        {profile?.gender ? (
-          <Chip
-            label={t('search.suitable')}
-            selected={genderFilter === 'suitable'}
-            onPress={() => setGenderFilter('suitable')}
-          />
-        ) : null}
-        <Chip label={t('common.all')} selected={genderFilter === 'all'} onPress={() => setGenderFilter('all')} />
-        <Chip
-          label={t('gender.female')}
-          selected={genderFilter === 'female'}
-          onPress={() => setGenderFilter('female')}
-        />
-        <Chip label={t('gender.male')} selected={genderFilter === 'male'} onPress={() => setGenderFilter('male')} />
-      </View>
-      <View style={[styles.chipRow, chipAlign]}>
-        <Chip label={t('search.sortPrice')} selected={sort === 'price'} onPress={() => setSort('price')} />
-        <Chip label={t('search.sortDistance')} selected={sort === 'distance'} onPress={() => setSort('distance')} />
-      </View>
-
-      <View style={[styles.metaRow, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
-        <Text style={styles.count}>{loading ? t('common.loading') : t('search.results', { count: filtered.length })}</Text>
-        {filtersOn ? (
-          <Pressable onPress={clearFilters} hitSlop={8}>
-            <Text style={styles.clear}>{t('search.clear')}</Text>
-          </Pressable>
-        ) : null}
+      <View style={[styles.metaRow, row]}>
+        <View style={[styles.countPill, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
+          <Text style={[styles.count, { color: colors.primaryDark }]}>
+            {loading ? t('common.loading') : t('search.results', { count: filtered.length })}
+          </Text>
+        </View>
       </View>
 
       {loading ? <ActivityIndicator color={colors.primary} /> : null}
@@ -333,32 +351,69 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { gap: 4 },
-  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  sub: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  head: { gap: 2 },
+  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   searchBar: {
     alignItems: 'center',
     gap: 10,
     minHeight: 54,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
     fontSize: 16,
-    color: colors.text,
     fontFamily: 'Cairo_400Regular',
     paddingVertical: 12,
   },
+  panel: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  panelHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  panelTitle: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  panelLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   filterCell: { flexGrow: 1, flexBasis: '47%', minWidth: 148 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  segment: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    borderRadius: radius.full,
+    paddingVertical: 10,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  segmentLabel: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   metaRow: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  count: { color: colors.textMuted, fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
-  clear: { color: colors.primary, fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  countPill: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  count: { fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  clear: { fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
   empty: { gap: spacing.md },
 });

@@ -8,12 +8,13 @@ import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatThread } from '@/components/ChatThread';
 import { conversationParties, deleteConversation, loadConversation, personName } from '@/src/lib/chat';
 import { alert } from '@/src/lib/notice';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
 export default function AdminConversation() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
+  const colors = useColors();
   const [conversation, setConversation] = useState<Conversation | null>(null);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function AdminConversation() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       {id ? <ChatHeader conversationId={id} admin onDelete={remove} /> : null}
       {id ? (
         <ChatThread
@@ -63,5 +64,5 @@ export default function AdminConversation() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1 },
 });

@@ -16,7 +16,7 @@ import { notifyCatalogChanged, parseCoord, parseDomains, slugify } from '@/src/l
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { City, University } from '@/src/types/database';
 
 type Pane = 'cities' | 'universities';
@@ -41,6 +41,7 @@ async function uniqueSlug(table: 'cities' | 'universities', base: string, except
 export default function AdminCatalog() {
   const { t, i18n } = useTranslation();
   const { rtlText, alignStart } = useLayout();
+  const colors = useColors();
   const [pane, setPane] = useState<Pane>('cities');
   const [cities, setCities] = useState<City[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
@@ -239,8 +240,8 @@ export default function AdminCatalog() {
 
   return (
     <Screen>
-      <Text style={[styles.title, rtlText]}>{t('admin.catalogTitle')}</Text>
-      <Text style={[styles.hint, rtlText]}>{t('admin.catalogHint')}</Text>
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.catalogTitle')}</Text>
+      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
       <View style={[styles.chips, { justifyContent: alignStart }]}>
         <Chip label={t('admin.cities')} selected={pane === 'cities'} onPress={() => setPane('cities')} />
         <Chip label={t('admin.universities')} selected={pane === 'universities'} onPress={() => setPane('universities')} />
@@ -260,9 +261,9 @@ export default function AdminCatalog() {
           {cities.length === 0 ? <EmptyState title={t('admin.noCities')} /> : null}
           {cities.map((city) => (
             <Card key={city.id}>
-              <Text style={[styles.name, rtlText]}>{localizedName(city, i18n.language)}</Text>
-              <Text style={[styles.meta, rtlText]}>{city.name_en}</Text>
-              <Text style={[styles.meta, rtlText]}>
+              <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedName(city, i18n.language)}</Text>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{city.name_en}</Text>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
                 {city.lat}, {city.lng}
               </Text>
               <Button title={t('admin.editCity')} variant="secondary" onPress={() => editCity(city)} />
@@ -299,11 +300,11 @@ export default function AdminCatalog() {
           {universities.length === 0 ? <EmptyState title={t('admin.noUniversities')} /> : null}
           {universities.map((item) => (
             <Card key={item.id}>
-              <Text style={[styles.name, rtlText]}>{localizedName(item, i18n.language)}</Text>
-              <Text style={[styles.meta, rtlText]}>{item.name_en}</Text>
-              <Text style={[styles.meta, rtlText]}>{localizedName(item.cities, i18n.language)}</Text>
+              <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedName(item, i18n.language)}</Text>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{item.name_en}</Text>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{localizedName(item.cities, i18n.language)}</Text>
               {(item.email_domains ?? []).length ? (
-                <Text style={[styles.meta, rtlText]}>{item.email_domains.join(', ')}</Text>
+                <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{item.email_domains.join(', ')}</Text>
               ) : null}
               <Button title={t('admin.editUniversity')} variant="secondary" onPress={() => editUni(item)} />
               <Button title={t('admin.deleteUniversity')} variant="danger" onPress={() => removeUni(item)} />
@@ -316,9 +317,9 @@ export default function AdminCatalog() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  hint: { color: colors.textMuted, fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22, marginTop: -8 },
+  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22, marginTop: -8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  name: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', color: colors.text },
-  meta: { color: colors.textMuted, fontFamily: 'Cairo_400Regular' },
+  name: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontFamily: 'Cairo_400Regular' },
 });

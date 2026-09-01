@@ -1,9 +1,10 @@
-import { type ComponentProps } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { colors, radius, spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export type ProfileTabItem<T extends string> = {
   key: T;
@@ -20,6 +21,7 @@ type Props<T extends string> = {
 
 export function ProfileSegments<T extends string>({ tabs, value, onChange }: Props<T>) {
   const { row } = useLayout();
+  const colors = useColors();
 
   return (
     <View style={[styles.segments, row]}>
@@ -32,12 +34,18 @@ export function ProfileSegments<T extends string>({ tabs, value, onChange }: Pro
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             accessibilityLabel={item.label}
-            style={[styles.segment, active && styles.segmentActive]}
+            style={[
+              styles.segment,
+              {
+                backgroundColor: active ? colors.primary : colors.surface,
+                borderColor: active ? colors.primary : colors.border,
+              },
+            ]}
           >
             <Ionicons name={item.icon} size={22} color={active ? colors.white : colors.primary} />
             {item.badge ? (
-              <View style={styles.segBadge}>
-                <Text style={styles.segBadgeText}>{item.badge}</Text>
+              <View style={[styles.segBadge, { backgroundColor: colors.accent }]}>
+                <Text style={[styles.segBadgeText, { color: colors.primaryDark }]}>{item.badge}</Text>
               </View>
             ) : null}
           </Pressable>
@@ -53,15 +61,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 56,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  segmentActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   segBadge: {
     position: 'absolute',
@@ -71,9 +73,8 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     paddingHorizontal: 4,
-    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segBadgeText: { color: colors.primaryDark, fontSize: 10, fontWeight: '800' },
+  segBadgeText: { fontSize: 10, fontWeight: '800' },
 });
