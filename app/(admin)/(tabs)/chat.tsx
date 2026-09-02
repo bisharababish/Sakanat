@@ -7,8 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { ConversationCard } from '@/components/chat/ConversationCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import {
   conversationIdsMatchingMessage,
   conversationParties,
@@ -18,12 +20,11 @@ import {
 } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { ADMIN_CHAT_PAGE_SIZE } from '@/src/lib/page';
 import { seekerRoleLabel } from '@/src/lib/seeker';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
-
-const PAGE_SIZE = 3;
 
 function haystack(item: Conversation, lang: string) {
   const { student, owner } = conversationParties(item);
@@ -50,7 +51,6 @@ export default function AdminInbox() {
   const colors = useColors();
   const [items, setItems] = useState<Conversation[] | null>(null);
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
   const [messageHits, setMessageHits] = useState<string[]>([]);
 
   const load = useCallback(async () => {
@@ -66,10 +66,6 @@ export default function AdminInbox() {
       void load();
     }, [load]),
   );
-
-  useEffect(() => {
-    setPage(0);
-  }, [query]);
 
   useEffect(() => {
     const needle = query.trim();
@@ -98,11 +94,7 @@ export default function AdminInbox() {
     return list.filter((item) => haystack(item, i18n.language).includes(needle) || hits.has(item.id));
   }, [items, query, messageHits, i18n.language]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pages - 1);
-  const visible = filtered.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
-  const from = filtered.length === 0 ? 0 : current * PAGE_SIZE + 1;
-  const to = current * PAGE_SIZE + visible.length;
+  const paged = usePaged(filtered, ADMIN_CHAT_PAGE_SIZE, query);
 
   const remove = (id: string) => {
     alert(t('admin.deleteConversation'), t('admin.confirmDeleteConversation'), [
@@ -167,7 +159,7 @@ export default function AdminInbox() {
       ) : null}
 
       <View style={styles.list}>
-        {visible.map((item) => {
+        {paged.slice.map((item) => {
           const { student, owner } = conversationParties(item);
           const studentLabel = personName(student) || seekerRoleLabel(student?.role, t);
           const ownerLabel = personName(owner) || t('roles.owner');
@@ -192,32 +184,16 @@ export default function AdminInbox() {
         })}
       </View>
 
-      {filtered.length > PAGE_SIZE ? (
-        <View style={[styles.row, row]}>
-          <View style={styles.flex}>
-            <Button
-              title={t('common.previous')}
-              variant="secondary"
-              pill
-              disabled={current === 0}
-              onPress={() => setPage(current - 1)}
-            />
-          </View>
-          <View style={styles.flex}>
-            <Button
-              title={t('common.next')}
-              variant="secondary"
-              pill
-              disabled={current >= pages - 1}
-              onPress={() => setPage(current + 1)}
-            />
-          </View>
-        </View>
-      ) : null}
       {filtered.length > 0 ? (
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
-          {t('admin.inboxPage', { from, to, total: filtered.length })}
-        </Text>
+        <Pager
+          page={paged.page}
+          pages={paged.pages}
+          from={paged.from}
+          to={paged.to}
+          total={paged.total}
+          pageSize={paged.pageSize}
+          onPage={paged.setPage}
+        />
       ) : null}
     </Screen>
   );

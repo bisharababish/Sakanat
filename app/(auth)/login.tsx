@@ -23,11 +23,18 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [needsVerify, setNeedsVerify] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const cleanEmail = sanitizeEmail(email);
+
+  const goVerify = () => {
+    router.push({ pathname: '/(auth)/verify-email', params: { email: cleanEmail } });
+  };
 
   const onSubmit = async () => {
     setError('');
-    const cleanEmail = sanitizeEmail(email);
+    setNeedsVerify(false);
     if (!cleanEmail || !password) {
       setError(t('auth.missingEmailOrPhone'));
       return;
@@ -36,11 +43,15 @@ export default function LoginScreen() {
     try {
       await signIn(cleanEmail, password);
     } catch (err) {
+      const message = authErrorMessage(err, t);
       const raw = `${(err as { code?: string })?.code ?? ''} ${err instanceof Error ? err.message : ''}`;
-      if (/invalid login|invalid_credentials|invalid credentials/i.test(raw)) {
+      if (/email not confirmed|email_not_confirmed/i.test(raw) || message === t('auth.emailNotConfirmed')) {
+        setNeedsVerify(true);
+        setError(t('auth.emailNotConfirmed'));
+      } else if (/invalid login|invalid_credentials|invalid credentials/i.test(raw)) {
         setError(t('auth.invalidLogin'));
       } else {
-        setError(authErrorMessage(err, t));
+        setError(message);
       }
     } finally {
       setLoading(false);
@@ -48,7 +59,19 @@ export default function LoginScreen() {
   };
 
   return (
-    <AuthScreen back center={false}>
+    <AuthScreen
+      back
+      center={false}
+      footer={
+        <>
+          <Button title={t('auth.login')} onPress={() => void onSubmit()} loading={loading} pill />
+          {needsVerify ? (
+            <Button title={t('auth.enterCode')} variant="secondary" onPress={goVerify} pill />
+          ) : null}
+          <Button title={t('auth.forgotPassword')} variant="ghost" onPress={() => router.push('/(auth)/forgot-password')} pill />
+        </>
+      }
+    >
       <AuthCard>
         <AuthHeading title={t('auth.loginTitle')} hint={t('auth.loginHint')} />
         <Text style={[styles.who, rtlText, { color: colors.textMuted }]}>{t('auth.loginWho')}</Text>
@@ -59,6 +82,8 @@ export default function LoginScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
           ltr
           soft
         />
@@ -69,10 +94,6 @@ export default function LoginScreen() {
           <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
         </View>
       </AuthCard>
-      <Button title={t('auth.login')} onPress={onSubmit} loading={loading} pill />
-      <Pressable onPress={() => router.push('/(auth)/forgot-password')} style={styles.footer}>
-        <Text style={[styles.link, rtlText, { color: colors.primary }]}>{t('auth.forgotPassword')}</Text>
-      </Pressable>
       <Pressable onPress={() => router.push('/(auth)/register')} style={styles.footer}>
         <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
           {t('auth.noAccount')} <Text style={[styles.link, { color: colors.primary }]}>{t('auth.register')}</Text>

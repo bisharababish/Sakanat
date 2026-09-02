@@ -62,7 +62,7 @@ function StatTile({
 
 export default function AdminOverview() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row, lang } = useLayout();
+  const { rtlText, row, lang, textAlign, writingDirection } = useLayout();
   const colors = useColors();
   const [owners, setOwners] = useState<Profile[]>([]);
   const [students, setStudents] = useState(0);
@@ -118,10 +118,16 @@ export default function AdminOverview() {
   const liveListings = listings.filter((item) => item.status === 'approved').length;
   const activeOwners = owners.filter((item) => item.owner_status === 'approved').length;
 
-  const setOwnerStatus = async (id: string) => {
-    const { error } = await supabase.from('profiles').update({ owner_status: 'approved' }).eq('id', id);
-    if (error) alert(t('common.error'), error.message);
-    else void load();
+  const setOwnerStatus = async (id: string, owner_status: 'approved' | 'rejected' = 'approved') => {
+    const { error } = await supabase.from('profiles').update({ owner_status }).eq('id', id);
+    if (error) {
+      alert(t('common.error'), error.message);
+      return;
+    }
+    if (owner_status === 'rejected') {
+      await supabase.from('apartments').update({ status: 'rejected' }).eq('owner_id', id);
+    }
+    void load();
   };
 
   const setListingStatus = async (item: Apartment, status: 'approved' | 'rejected' = 'approved', reason?: string | null) => {
@@ -159,7 +165,10 @@ export default function AdminOverview() {
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.commissionSplit')}</Text>
         {(['cash', 'check', 'visa'] as const).map((method) => (
           <View key={method} style={[styles.splitRow, row]}>
-            <Text style={[styles.meta, rtlText, { color: colors.text }]}>
+            <Text
+              style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}
+              numberOfLines={1}
+            >
               {t(`payment.${method}`)} · {paySplit[method].count}
             </Text>
             <Text style={[styles.splitValue, { color: colors.primary }]}>{formatIls(paySplit[method].fee, lang)}</Text>
@@ -173,7 +182,9 @@ export default function AdminOverview() {
           label={t('admin.pendingOwners')}
           value={String(pendingOwners.length)}
           meta={`${t('admin.owners')}: ${activeOwners}`}
-          onPress={() => router.push('/(admin)/(tabs)/users')}
+          onPress={() =>
+            router.push({ pathname: '/(admin)/(tabs)/users', params: { role: 'owner', owner: 'pending' } })
+          }
         />
         <StatTile
           icon="home-outline"
@@ -194,7 +205,7 @@ export default function AdminOverview() {
           label={t('admin.students')}
           value={String(students)}
           meta={`${t('admin.renters')}: ${renters}`}
-          onPress={() => router.push('/(admin)/(tabs)/users')}
+          onPress={() => router.push({ pathname: '/(admin)/(tabs)/users', params: { role: 'student' } })}
         />
       </View>
 
@@ -216,9 +227,37 @@ export default function AdminOverview() {
         <Card key={owner.id}>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{owner.full_name || owner.email}</Text>
           <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{owner.email}</Text>
-          <Button title={t('admin.approveAlways')} onPress={() => void setOwnerStatus(owner.id)} />
+          <View style={[styles.row, row]}>
+            <View style={styles.flex}>
+              <Button title={t('admin.approveAlways')} onPress={() => void setOwnerStatus(owner.id, 'approved')} pill />
+            </View>
+            <View style={styles.flex}>
+              <Button
+                title={t('admin.reject')}
+                variant="danger"
+                onPress={() => void setOwnerStatus(owner.id, 'rejected')}
+                pill
+              />
+            </View>
+          </View>
+          <Button
+            title={t('admin.editUser')}
+            variant="ghost"
+            pill
+            onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: owner.id } })}
+          />
         </Card>
       ))}
+      {pendingOwners.length > 6 ? (
+        <Button
+          title={t('admin.seeAll')}
+          variant="secondary"
+          pill
+          onPress={() =>
+            router.push({ pathname: '/(admin)/(tabs)/users', params: { role: 'owner', owner: 'pending' } })
+          }
+        />
+      ) : null}
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingListings')}</Text>
       {pendingListings.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
@@ -243,6 +282,14 @@ export default function AdminOverview() {
           />
         </Card>
       ))}
+      {pendingListings.length > 6 ? (
+        <Button
+          title={t('admin.seeAll')}
+          variant="secondary"
+          pill
+          onPress={() => router.push('/(admin)/(tabs)/listings')}
+        />
+      ) : null}
       <NoteModal
         visible={Boolean(rejecting)}
         title={t('admin.rejectListing')}
@@ -306,6 +353,13 @@ const styles = StyleSheet.create({
   tileMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   row: { gap: 8 },
   flex: { flex: 1 },
-  splitRow: { alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 },
-  splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  splitRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    gap: 12,
+  },
+  splitLabel: { flex: 1, minWidth: 0, fontFamily: 'Cairo_400Regular' },
+  splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', flexShrink: 0 },
 });

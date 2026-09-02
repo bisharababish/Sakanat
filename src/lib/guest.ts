@@ -7,11 +7,19 @@ export function openWelcome() {
   router.push('/(auth)/welcome');
 }
 
+export function openLogin() {
+  router.push('/(auth)/login');
+}
+
+export function openRegister() {
+  router.push('/(auth)/register');
+}
+
 export function requireAccount() {
   alert(i18n.t('guest.needAccount'), i18n.t('guest.needAccountBody'), [
     { text: i18n.t('common.cancel'), style: 'cancel' },
-    { text: i18n.t('auth.login'), onPress: openWelcome },
-    { text: i18n.t('auth.register'), onPress: () => router.push('/(auth)/register') },
+    { text: i18n.t('auth.login'), onPress: openLogin },
+    { text: i18n.t('auth.register'), onPress: openRegister },
   ]);
 }
 

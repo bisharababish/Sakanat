@@ -5,11 +5,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { useAuth } from '@/src/lib/auth';
 import { paymentBucket, paymentI18nKey } from '@/src/lib/booking';
 import { formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
+import { EARNINGS_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -97,6 +100,7 @@ export default function OwnerEarnings() {
   const all = useMemo(() => money(bookings), [bookings]);
   const shown = period === 'month' ? month : all;
   const list = period === 'month' ? monthBookings : bookings;
+  const paged = usePaged(list, EARNINGS_PAGE_SIZE, period);
   const keepShare = shown.rent > 0 ? Math.round((shown.keep / shown.rent) * 100) : 0;
   const feeShare = 100 - keepShare;
   const paySplit = useMemo(() => {
@@ -257,7 +261,7 @@ export default function OwnerEarnings() {
         <EmptyState title={t('owner.noEarnings')} />
       ) : (
       <View style={[styles.ledger, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
-        {list.map((booking, index) => {
+        {paged.slice.map((booking, index) => {
           const rent = Number(booking.rent_amount);
           const fee = Number(booking.commission_amount);
           const keep = Math.max(0, rent - fee);
@@ -301,6 +305,17 @@ export default function OwnerEarnings() {
         })}
       </View>
       )}
+      {list.length > 0 ? (
+        <Pager
+          page={paged.page}
+          pages={paged.pages}
+          from={paged.from}
+          to={paged.to}
+          total={paged.total}
+          pageSize={paged.pageSize}
+          onPage={paged.setPage}
+        />
+      ) : null}
     </Screen>
   );
 }

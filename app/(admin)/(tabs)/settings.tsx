@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
@@ -27,6 +26,7 @@ import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/n
 import { isPasswordValid } from '@/src/lib/password';
 import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
+import { pickProfilePhoto } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -93,16 +93,11 @@ export default function AdminSettings() {
 
   const changePhoto = async () => {
     if (!profile) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !result.assets[0]) return;
+    const uri = await pickProfilePhoto();
+    if (!uri) return;
     setUploading(true);
     try {
-      const url = await uploadProfilePhoto(profile.id, result.assets[0].uri);
+      const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
@@ -180,14 +175,22 @@ export default function AdminSettings() {
   };
 
   const saveCommission = async () => {
+    const value = Number(percent);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      alert(t('common.error'), t('admin.invalidCommission'));
+      return;
+    }
     setSavingCommission(true);
     const { error } = await supabase
       .from('app_settings')
-      .update({ commission_percent: Number(percent), updated_at: new Date().toISOString() })
+      .update({ commission_percent: value, updated_at: new Date().toISOString() })
       .eq('id', 1);
     setSavingCommission(false);
     if (error) alert(t('common.error'), error.message);
-    else alert(t('common.done'));
+    else {
+      setPercent(String(value));
+      alert(t('common.done'));
+    }
   };
 
   return (

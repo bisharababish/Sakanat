@@ -6,14 +6,15 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
+import { StatusFilters } from '@/components/booking/StatusFilters';
 import { Button } from '@/components/ui/Button';
-import { FilterPills } from '@/components/ui/FilterPills';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
-import { bookingStatusLabel } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { whatsappLink } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
@@ -29,6 +30,7 @@ export default function StudentBookings() {
   const { profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
+  const [page, setPage] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -59,10 +61,16 @@ export default function StudentBookings() {
     return next;
   }, [bookings]);
 
-  const visible = useMemo(
+  const filtered = useMemo(
     () => (filter === 'all' ? bookings : bookings.filter((item) => item.status === filter)),
     [bookings, filter],
   );
+  const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
+
+  const pickFilter = (next: Filter) => {
+    setFilter(next);
+    setPage(0);
+  };
 
   const cancel = (id: string) => {
     alert(t('booking.cancelRequest'), t('booking.confirmCancel'), [
@@ -109,8 +117,6 @@ export default function StudentBookings() {
     ]);
   };
 
-  const filters: Filter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
-
   return (
     <Screen>
       <View style={[styles.top, row]}>
@@ -125,17 +131,9 @@ export default function StudentBookings() {
         ) : null}
       </View>
 
-      <FilterPills
-        value={filter}
-        onChange={setFilter}
-        items={filters.map((value) => ({
-          value,
-          label: value === 'all' ? t('common.all') : bookingStatusLabel(value, t),
-          count: counts[value],
-        }))}
-      />
+      <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
-      {visible.length === 0 ? (
+      {filtered.length === 0 ? (
         <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="calendar-outline" size={28} color={colors.primary} />
@@ -203,6 +201,15 @@ export default function StudentBookings() {
           </BookingCard>
         );
       })}
+      <Pager
+        page={current}
+        pages={pages}
+        from={from}
+        to={to}
+        total={total}
+        pageSize={BOOKING_PAGE_SIZE}
+        onPage={setPage}
+      />
     </Screen>
   );
 }

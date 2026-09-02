@@ -95,7 +95,11 @@ export default function ApartmentDetails() {
     if (!isStudentReady(profile)) {
       alert(t('booking.needProfile'), t('profile.completeToBook'), [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('profile.title'), onPress: () => router.push('/(student)/(tabs)/profile') },
+        {
+          text: t('profile.title'),
+          onPress: () =>
+            router.push({ pathname: '/(student)/(tabs)/profile', params: { resumeBook: apartment.id } }),
+        },
       ]);
       return;
     }

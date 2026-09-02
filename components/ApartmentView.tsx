@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { type ComponentProps, type ReactNode, useState } from 'react';
+import { type ComponentProps, type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -20,7 +20,9 @@ import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ChromeBar } from '@/components/ui/ChromeBar';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useLayout } from '@/src/hooks/useLayout';
+import { MAX_OCCUPANTS } from '@/src/lib/booking';
 import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { whatsappLink } from '@/src/lib/phone';
@@ -89,12 +91,27 @@ export function ApartmentView({
   const { textAlign, writingDirection, lang, isRtl } = useLayout();
   const colors = useColors();
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [viewer, setViewer] = useState(false);
+  const carouselRef = useRef<ScrollView>(null);
+  const wasViewer = useRef(false);
   const copy = { textAlign, writingDirection };
   const photos = apartment?.photos?.filter(Boolean) ?? [];
+
+  useEffect(() => {
+    if (wasViewer.current && !viewer) {
+      carouselRef.current?.scrollTo({ x: photoIndex * PHOTO_WIDTH, animated: false });
+    }
+    wasViewer.current = viewer;
+  }, [viewer, photoIndex]);
 
   const onPhotosScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(event.nativeEvent.contentOffset.x / PHOTO_WIDTH);
     if (next !== photoIndex) setPhotoIndex(next);
+  };
+
+  const openPhoto = (next: number) => {
+    setPhotoIndex(next);
+    setViewer(true);
   };
 
   if (!apartment) {
@@ -145,18 +162,26 @@ export function ApartmentView({
         <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
           {photos.length > 0 ? (
             <ScrollView
+              ref={carouselRef}
               horizontal
               pagingEnabled
+              style={styles.ltr}
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={onPhotosScroll}
             >
-              {photos.map((uri) => (
-                <Image
+              {photos.map((uri, index) => (
+                <Pressable
                   key={uri}
-                  source={{ uri }}
-                  style={[styles.cover, { width: PHOTO_WIDTH, backgroundColor: colors.surfaceMuted }]}
-                  contentFit="cover"
-                />
+                  onPress={() => openPhoto(index)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('listing.viewPhoto')}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={[styles.cover, { width: PHOTO_WIDTH, backgroundColor: colors.surfaceMuted }]}
+                    contentFit="cover"
+                  />
+                </Pressable>
               ))}
             </ScrollView>
           ) : (
@@ -169,6 +194,19 @@ export function ApartmentView({
               {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
             </Text>
           </View>
+          {photos.length > 0 ? (
+            <View
+              style={[
+                styles.countPill,
+                isRtl ? styles.pillEnd : styles.pillStart,
+                { backgroundColor: 'rgba(28, 36, 30, 0.72)' },
+              ]}
+            >
+              <Text style={[styles.pricePillText, { color: colors.white }]}>
+                {t('listing.photoIndex', { current: photoIndex + 1, total: photos.length })}
+              </Text>
+            </View>
+          ) : null}
           {photos.length > 1 ? (
             <View style={styles.dots}>
               {photos.map((uri, index) => (
@@ -196,6 +234,7 @@ export function ApartmentView({
         <View style={[styles.facts, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
           <Fact icon="bed-outline" text={t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms })} />
           {apartment.area_m2 ? <Fact icon="resize-outline" text={t('listing.area', { area: apartment.area_m2 })} /> : null}
+          <Fact icon="people-circle-outline" text={t('listing.fitsPeople', { count: MAX_OCCUPANTS })} />
           <Fact icon="people-outline" text={t(`gender.${apartment.gender_policy}`)} warn={mismatch} />
           {distance != null ? <Fact icon="navigate-outline" text={formatKm(distance, lang, distancePlace)} /> : null}
         </View>
@@ -275,14 +314,26 @@ export function ApartmentView({
         {children}
       </ScrollView>
 
+      <PhotoViewer
+        photos={photos}
+        index={photoIndex}
+        visible={viewer}
+        onIndexChange={setPhotoIndex}
+        onClose={() => setViewer(false)}
+      />
+
       {preview || children ? null : (
         <SafeAreaView edges={['bottom']} style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <View style={styles.footerPriceRow}>
+            <Text style={[styles.footerPrice, { color: colors.primary }]}>{formatIls(apartment.price_month, lang)}</Text>
+            <Text style={[styles.footerPer, { color: colors.textMuted }]}>/ {t('common.perMonth')}</Text>
+          </View>
           <View style={[styles.actions, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
             <View style={styles.action}>
               <Button title={t('listing.chat')} variant="secondary" onPress={onChat} loading={busy} pill />
             </View>
             <View style={styles.action}>
-              <Button title={t('listing.book')} onPress={onBook} pill />
+              <Button title={t('listing.book')} onPress={onBook} pill disabled={mismatch} />
             </View>
           </View>
         </SafeAreaView>
@@ -324,7 +375,15 @@ const styles = StyleSheet.create({
   },
   cover: { height: 240 },
   coverFallback: { width: '100%', alignItems: 'center', justifyContent: 'center' },
+  ltr: { direction: 'ltr' },
   pricePill: {
+    position: 'absolute',
+    top: 14,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  countPill: {
     position: 'absolute',
     top: 14,
     borderRadius: radius.full,
@@ -366,6 +425,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
   },
+  footerPriceRow: {
+    direction: 'ltr',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginBottom: 8,
+  },
+  footerPrice: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  footerPer: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   actions: { gap: 8 },
   action: { flex: 1 },
 });

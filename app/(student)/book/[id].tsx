@@ -107,13 +107,25 @@ export default function BookScreen() {
   const commission = Math.round(total * percent * headcount) / 100;
   const photo = apartment?.photos[0];
   const city = apartment ? localizedName(apartment.cities, i18n.language) : '';
+  const ready = isStudentReady(profile);
+  const mismatch = Boolean(
+    apartment && profile?.gender && !listingFitsStudent(apartment.gender_policy, profile.gender),
+  );
+  const canSubmit = ready && !mismatch;
+
+  const goProfile = () => {
+    router.push({
+      pathname: '/(student)/(tabs)/profile',
+      params: apartment ? { resumeBook: apartment.id } : undefined,
+    });
+  };
 
   const submit = async () => {
     if (!profile || !apartment) return;
     if (!isStudentReady(profile)) {
       alert(t('booking.needProfile'), t('profile.completeToBook'), [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('profile.title'), onPress: () => router.replace('/(student)/(tabs)/profile') },
+        { text: t('profile.title'), onPress: goProfile },
       ]);
       return;
     }
@@ -166,7 +178,11 @@ export default function BookScreen() {
     return (
       <Screen back>
         {missing ? (
-          <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('listing.notFound')}</Text>
+          <Card>
+            <SectionHead icon="home-outline" title={t('listing.notFound')} />
+            <Text style={[styles.muted, rtlText, { color: colors.textMuted }]}>{t('booking.empty')}</Text>
+            <Button title={t('booking.findPlace')} onPress={() => router.replace('/(student)/(tabs)/search')} pill />
+          </Card>
         ) : (
           <ActivityIndicator color={colors.primary} />
         )}
@@ -174,87 +190,120 @@ export default function BookScreen() {
     );
   }
 
+  const listingHero = (
+    <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+      {photo ? (
+        <Image source={{ uri: photo }} style={[styles.photo, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
+      ) : (
+        <View style={[styles.photo, styles.photoFallback, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name="home" size={32} color={colors.primary} />
+        </View>
+      )}
+      <View style={[styles.pricePill, isRtl ? styles.pillStart : styles.pillEnd, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.pricePillText, { color: colors.white }]}>
+          {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
+        </Text>
+      </View>
+      <View style={styles.heroBody}>
+        <Text style={[styles.heroTitle, rtlText, { color: colors.text }]} numberOfLines={2}>
+          {localizedTitle(apartment, i18n.language)}
+        </Text>
+        {city ? (
+          <Text style={[styles.heroCity, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+            {city}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+
   return (
-    <Screen back>
+    <Screen
+      back
+      footer={
+        canSubmit ? (
+          <Button title={t('booking.submit')} onPress={() => void submit()} loading={loading} pill />
+        ) : null
+      }
+    >
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.title')}</Text>
+      {listingHero}
 
-      <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
-        {photo ? (
-          <Image source={{ uri: photo }} style={[styles.photo, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
-        ) : (
-          <View style={[styles.photo, styles.photoFallback, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="home" size={32} color={colors.primary} />
-          </View>
-        )}
-        <View style={[styles.pricePill, isRtl ? styles.pillStart : styles.pillEnd, { backgroundColor: colors.primary }]}>
-          <Text style={[styles.pricePillText, { color: colors.white }]}>
-            {formatIls(apartment.price_month, lang)} / {t('common.perMonth')}
-          </Text>
-        </View>
-        <View style={styles.heroBody}>
-          <Text style={[styles.heroTitle, rtlText, { color: colors.text }]} numberOfLines={2}>
-            {localizedTitle(apartment, i18n.language)}
-          </Text>
-          {city ? (
-            <Text style={[styles.heroCity, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
-              {city}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+      {!ready ? (
+        <Card>
+          <SectionHead icon="person-outline" title={t('booking.needProfile')} />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.completeToBook')}</Text>
+          <Button title={t('profile.title')} onPress={goProfile} pill />
+        </Card>
+      ) : null}
 
-      <Card>
-        <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.occupants')}</Text>
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.occupantsHint')}</Text>
-        <FilterPills
-          value={String(headcount)}
-          onChange={(next) => setOccupants(Number(next))}
-          items={people.map((value) => ({
-            value: String(value),
-            label: value === 1 ? t('booking.onePerson') : t('booking.people', { count: value }),
-          }))}
-        />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
-        <FilterPills
-          value={String(months)}
-          onChange={(next) => setMonths(Number(next))}
-          items={MONTHS.map((value) => ({
-            value: String(value),
-            label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
-          }))}
-        />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.method')}</Text>
-        <FilterPills
-          value={method}
-          onChange={setMethod}
-          items={PAYMENT_CHOICES.map((value) => ({
-            value,
-            label: t(paymentI18nKey(value)),
-          }))}
-        />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
-        <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
-      </Card>
+      {mismatch ? (
+        <Card>
+          <SectionHead icon="warning-outline" title={t('listing.genderMismatch')} />
+          <Button
+            title={t('booking.findPlace')}
+            variant="secondary"
+            onPress={() => router.replace('/(student)/(tabs)/search')}
+            pill
+          />
+        </Card>
+      ) : null}
 
-      <Card>
-        <SectionHead icon="receipt-outline" title={t('booking.summary')} />
-        <SummaryRow
-          label={t('booking.rent')}
-          value={`${formatIls(apartment.price_month, lang)} × ${months}`}
-        />
-        <SummaryRow
-          label={t('booking.occupants')}
-          value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
-        />
-        <SummaryRow label={t('booking.commission')} value={`${formatIls(commission, lang)} (${percent}% × ${headcount})`} />
-        <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
-          <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
-          <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
-        </View>
-      </Card>
-      <Button title={t('booking.submit')} onPress={submit} loading={loading} pill />
+      {canSubmit ? (
+        <>
+          <Card>
+            <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.occupants')}</Text>
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.occupantsHint')}</Text>
+            <FilterPills
+              value={String(headcount)}
+              onChange={(next) => setOccupants(Number(next))}
+              items={people.map((value) => ({
+                value: String(value),
+                label: value === 1 ? t('booking.onePerson') : t('booking.people', { count: value }),
+              }))}
+            />
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
+            <FilterPills
+              value={String(months)}
+              onChange={(next) => setMonths(Number(next))}
+              items={MONTHS.map((value) => ({
+                value: String(value),
+                label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
+              }))}
+            />
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.method')}</Text>
+            <FilterPills
+              value={method}
+              onChange={setMethod}
+              items={PAYMENT_CHOICES.map((value) => ({
+                value,
+                label: t(paymentI18nKey(value)),
+              }))}
+            />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
+            <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
+          </Card>
+
+          <Card>
+            <SectionHead icon="receipt-outline" title={t('booking.summary')} />
+            <SummaryRow
+              label={t('booking.rent')}
+              value={`${formatIls(apartment.price_month, lang)} × ${months}`}
+            />
+            <SummaryRow
+              label={t('booking.occupants')}
+              value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
+            />
+            <SummaryRow label={t('booking.commission')} value={`${formatIls(commission, lang)} (${percent}% × ${headcount})`} />
+            <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
+              <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
+              <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+            </View>
+          </Card>
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -281,6 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  pricePillText: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_700Bold' },
   pillStart: { left: 12 },
   pillEnd: { right: 12 },
   heroBody: { padding: spacing.md, gap: 4 },

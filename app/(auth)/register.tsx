@@ -22,6 +22,7 @@ import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
+import { sanitizeEmail } from '@/src/lib/eduEmail';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, PublicSignupRole } from '@/src/types/database';
@@ -97,7 +98,7 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       const result = await signUp({
-        email,
+        email: sanitizeEmail(email),
         password,
         fullName: cleanName(fullName),
         phone: cleanPhone,
@@ -108,7 +109,7 @@ export default function RegisterScreen() {
         language: lang.startsWith('ar') ? 'ar' : 'en',
       });
       if (result === 'verify') {
-        router.replace({ pathname: '/(auth)/verify-email', params: { email } });
+        router.replace({ pathname: '/(auth)/verify-email', params: { email: sanitizeEmail(email) } });
       }
     } catch (err) {
       setError(authErrorMessage(err, t));
@@ -118,7 +119,20 @@ export default function RegisterScreen() {
   };
 
   return (
-    <AuthScreen back center={false}>
+    <AuthScreen
+      back
+      center={false}
+      footer={
+        <>
+          <Button title={t('auth.register')} onPress={() => void onSubmit()} loading={loading} pill />
+          <Pressable onPress={() => router.push('/(auth)/login')} style={styles.footer}>
+            <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
+              {t('auth.hasAccount')} <Text style={[styles.link, { color: colors.primary }]}>{t('auth.login')}</Text>
+            </Text>
+          </Pressable>
+        </>
+      }
+    >
       <AuthCard>
         <AuthHeading title={t('auth.registerTitle')} hint={t('auth.registerHint')} />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
@@ -201,12 +215,6 @@ export default function RegisterScreen() {
           <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
         </View>
       </AuthCard>
-      <Button title={t('auth.register')} onPress={onSubmit} loading={loading} pill />
-      <Pressable onPress={() => router.push('/(auth)/login')} style={styles.footer}>
-        <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
-          {t('auth.hasAccount')} <Text style={[styles.link, { color: colors.primary }]}>{t('auth.login')}</Text>
-        </Text>
-      </Pressable>
       <LegalDocModal kind={legal} onClose={() => setLegal(null)} />
     </AuthScreen>
   );

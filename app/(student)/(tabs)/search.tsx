@@ -9,17 +9,20 @@ import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { useAuth } from '@/src/lib/auth';
 import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import { isStudentReady } from '@/src/lib/studentProfile';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
+import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -37,19 +40,26 @@ export default function SearchScreen() {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [cityId, setCityId] = useState(profile?.city_id ?? '');
+  const [cityId, setCityId] = useState(isRenter ? (profile?.city_id ?? '') : '');
   const [universityId, setUniversityId] = useState(isRenter ? '' : (profile?.university_id ?? ''));
   const [maxPrice, setMaxPrice] = useState('');
   const [maxKm, setMaxKm] = useState('');
-  const [sort, setSort] = useState<'price' | 'distance'>('price');
+  const [sort, setSort] = useState<'price' | 'distance'>(
+    !isRenter && profile?.university_id ? 'distance' : 'price',
+  );
   const [genderFilter, setGenderFilter] = useState<GenderFilter>(profile?.gender ? 'suitable' : 'all');
   const [roomsFilter, setRoomsFilter] = useState('');
   const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
-    if (profile?.city_id) setCityId((current) => current || profile.city_id || '');
-    if (isRenter) setUniversityId('');
-    else if (profile?.university_id) setUniversityId((current) => current || profile.university_id || '');
+    if (isRenter) {
+      setUniversityId('');
+      if (profile?.city_id) setCityId((current) => current || profile.city_id || '');
+    } else if (profile?.university_id) {
+      setUniversityId((current) => current || profile.university_id || '');
+      setSort((current) => (current === 'price' ? 'distance' : current));
+    }
     if (profile?.gender) setGenderFilter((current) => (current === 'all' ? 'suitable' : current));
   }, [isRenter, profile?.city_id, profile?.gender, profile?.university_id]);
 
@@ -142,27 +152,67 @@ export default function SearchScreen() {
     sort,
   ]);
 
+  const paged = usePaged(
+    filtered,
+    LISTING_PAGE_SIZE,
+    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, genderFilter, sort].join('|'),
+  );
+
+  const defaultCityId = isRenter ? (profile?.city_id ?? '') : '';
+  const defaultUniversityId = isRenter ? '' : (profile?.university_id ?? '');
   const defaultGender: GenderFilter = profile?.gender ? 'suitable' : 'all';
+  const defaultSort: 'price' | 'distance' = !isRenter && defaultUniversityId ? 'distance' : 'price';
   const filtersOn = Boolean(
     query.trim() ||
-      cityId ||
-      (!isRenter && universityId) ||
+      cityId !== defaultCityId ||
+      universityId !== defaultUniversityId ||
       maxPrice ||
       maxKm ||
       roomsFilter ||
-      genderFilter !== defaultGender,
+      genderFilter !== defaultGender ||
+      sort !== defaultSort,
   );
 
   const clearFilters = () => {
     setQuery('');
-    setCityId('');
-    setUniversityId('');
+    setCityId(defaultCityId);
+    setUniversityId(defaultUniversityId);
     setMaxPrice('');
     setMaxKm('');
     setRoomsFilter('');
-    setGenderFilter(profile?.gender ? 'suitable' : 'all');
-    setSort('price');
+    setGenderFilter(defaultGender);
+    setSort(defaultSort);
   };
+
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    const city = cities.find((item) => item.id === cityId);
+    if (city) parts.push(localizedName(city, i18n.language));
+    if (!isRenter && universityId) {
+      const campus = universities.find((item) => item.id === universityId);
+      if (campus) parts.push(localizedName(campus, i18n.language));
+    }
+    if (maxPrice) parts.push(`₪${maxPrice}`);
+    if (maxKm) {
+      parts.push(maxKm === String(UNDER_ONE_KM) ? t('common.under1km') : `${maxKm} ${t('common.km')}`);
+    }
+    if (roomsFilter) parts.push(roomsFilter === '4' ? t('search.roomsPlus') : roomsFilter);
+    if (genderFilter === 'suitable') parts.push(t('search.suitable'));
+    else if (genderFilter === 'female' || genderFilter === 'male') parts.push(t(`gender.${genderFilter}`));
+    return parts.join(' · ');
+  }, [
+    cities,
+    cityId,
+    genderFilter,
+    i18n.language,
+    isRenter,
+    maxKm,
+    maxPrice,
+    roomsFilter,
+    t,
+    universities,
+    universityId,
+  ]);
 
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
   const genderItems = [
@@ -222,120 +272,150 @@ export default function SearchScreen() {
 
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
         <View style={[styles.panelHead, row]}>
-          <Text style={[styles.panelTitle, { color: colors.text }]}>{t('search.filters')}</Text>
-          {filtersOn ? (
-            <Pressable onPress={clearFilters} hitSlop={8}>
-              <Text style={[styles.clear, { color: colors.primary }]}>{t('search.clear')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        <View style={[styles.filterGrid, chipAlign]}>
-          <View style={styles.filterCell}>
-            <Select
-              compact
-              icon="location-outline"
-              label={t('common.city')}
-              value={cityId}
-              placeholder={t('search.anyCity')}
-              options={[
-                { value: '', label: t('search.anyCity') },
-                ...cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
-              ]}
-              onChange={setCityId}
-            />
-          </View>
-          {isRenter ? null : (
-            <View style={styles.filterCell}>
-              <SearchSelect
-                compact
-                icon="school-outline"
-                label={t('common.university')}
-                value={universityId}
-                placeholder={t('search.anyUniversity')}
-                options={[
-                  { value: '', label: t('search.anyUniversity') },
-                  ...universities.map((item) => ({
-                    value: item.id,
-                    label: item.cities
-                      ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
-                      : localizedName(item, i18n.language),
-                  })),
-                ]}
-                onChange={setUniversityId}
-              />
-            </View>
-          )}
-          <View style={styles.filterCell}>
-            <Select
-              compact
-              icon="cash-outline"
-              label={t('search.maxPrice')}
-              value={maxPrice}
-              placeholder={t('search.maxPrice')}
-              options={[
-                { value: '', label: t('common.all') },
-                { value: '500', label: '₪500' },
-                { value: '700', label: '₪700' },
-                { value: '900', label: '₪900' },
-                { value: '1200', label: '₪1200' },
-                { value: '1500', label: '₪1500' },
-                { value: '2000', label: '₪2000' },
-              ]}
-              onChange={setMaxPrice}
-            />
-          </View>
-          <View style={styles.filterCell}>
-            <Select
-              compact
-              icon="navigate-outline"
-              label={distancePlace === 'campus' ? t('search.maxKm') : t('search.maxKmCity')}
-              value={maxKm}
-              placeholder={distancePlace === 'campus' ? t('search.maxKm') : t('search.maxKmCity')}
-              options={[
-                { value: '', label: t('common.all') },
-                { value: String(UNDER_ONE_KM), label: t('common.under1km') },
-                { value: '1', label: `1 ${t('common.km')}` },
-                { value: '2', label: `2 ${t('common.km')}` },
-                { value: '3', label: `3 ${t('common.km')}` },
-                { value: '5', label: `5 ${t('common.km')}` },
-                { value: '8', label: `8 ${t('common.km')}` },
-                { value: '10', label: `10 ${t('common.km')}` },
-              ]}
-              onChange={setMaxKm}
-            />
-          </View>
-        </View>
-        <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.rooms')}</Text>
-        <FilterPills
-          value={roomsFilter}
-          onChange={setRoomsFilter}
-          items={[
-            { value: '', label: t('common.all') },
-            { value: '1', label: '1' },
-            { value: '2', label: '2' },
-            { value: '3', label: '3' },
-            { value: '4', label: t('search.roomsPlus') },
-          ]}
-        />
-        <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
-        <FilterPills value={genderFilter} onChange={setGenderFilter} items={genderItems} />
-        <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
-        <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, row]}>
-          {(['price', 'distance'] as const).map((value) => {
-            const on = sort === value;
-            return (
-              <Pressable
-                key={value}
-                onPress={() => setSort(value)}
-                style={[styles.segmentBtn, on && { backgroundColor: colors.surface, shadowColor: colors.text }]}
-              >
-                <Text style={[styles.segmentLabel, { color: on ? colors.primary : colors.textMuted }]}>
-                  {value === 'price' ? t('search.sortPrice') : t('search.sortDistance')}
-                </Text>
+          <Pressable
+            onPress={() => setFiltersOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={filtersOpen ? t('search.hideFilters') : t('search.showFilters')}
+            style={styles.panelHeadCopy}
+          >
+            <Text style={[styles.panelTitle, { color: colors.text }]}>{t('search.filters')}</Text>
+            {!filtersOpen && filterSummary ? (
+              <Text style={[styles.panelSummary, rtlText, { color: colors.textMuted }]} numberOfLines={2}>
+                {filterSummary}
+              </Text>
+            ) : null}
+          </Pressable>
+          <View style={[styles.panelHeadActions, row]}>
+            {filtersOn ? (
+              <Pressable onPress={clearFilters} hitSlop={8}>
+                <Text style={[styles.clear, { color: colors.primary }]}>{t('search.clear')}</Text>
               </Pressable>
-            );
-          })}
+            ) : null}
+            <Pressable
+              onPress={() => setFiltersOpen((open) => !open)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={filtersOpen ? t('search.hideFilters') : t('search.showFilters')}
+            >
+              <Ionicons
+                name={filtersOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          </View>
         </View>
+        {filtersOpen ? (
+          <>
+            <View style={[styles.filterGrid, chipAlign]}>
+              <View style={styles.filterCell}>
+                <Select
+                  compact
+                  icon="location-outline"
+                  label={t('common.city')}
+                  value={cityId}
+                  placeholder={t('search.anyCity')}
+                  options={[
+                    { value: '', label: t('search.anyCity') },
+                    ...cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
+                  ]}
+                  onChange={setCityId}
+                />
+              </View>
+              {isRenter ? null : (
+                <View style={styles.filterCell}>
+                  <SearchSelect
+                    compact
+                    icon="school-outline"
+                    label={t('common.university')}
+                    value={universityId}
+                    placeholder={t('search.anyUniversity')}
+                    options={[
+                      { value: '', label: t('search.anyUniversity') },
+                      ...universities.map((item) => ({
+                        value: item.id,
+                        label: item.cities
+                          ? `${localizedName(item, i18n.language)} — ${localizedName(item.cities, i18n.language)}`
+                          : localizedName(item, i18n.language),
+                      })),
+                    ]}
+                    onChange={setUniversityId}
+                  />
+                </View>
+              )}
+              <View style={styles.filterCell}>
+                <Select
+                  compact
+                  icon="cash-outline"
+                  label={t('search.maxPrice')}
+                  value={maxPrice}
+                  placeholder={t('search.maxPrice')}
+                  options={[
+                    { value: '', label: t('common.all') },
+                    { value: '500', label: '₪500' },
+                    { value: '700', label: '₪700' },
+                    { value: '900', label: '₪900' },
+                    { value: '1200', label: '₪1200' },
+                    { value: '1500', label: '₪1500' },
+                    { value: '2000', label: '₪2000' },
+                  ]}
+                  onChange={setMaxPrice}
+                />
+              </View>
+              <View style={styles.filterCell}>
+                <Select
+                  compact
+                  icon="navigate-outline"
+                  label={distancePlace === 'campus' ? t('search.maxKm') : t('search.maxKmCity')}
+                  value={maxKm}
+                  placeholder={distancePlace === 'campus' ? t('search.maxKm') : t('search.maxKmCity')}
+                  options={[
+                    { value: '', label: t('common.all') },
+                    { value: String(UNDER_ONE_KM), label: t('common.under1km') },
+                    { value: '1', label: `1 ${t('common.km')}` },
+                    { value: '2', label: `2 ${t('common.km')}` },
+                    { value: '3', label: `3 ${t('common.km')}` },
+                    { value: '5', label: `5 ${t('common.km')}` },
+                    { value: '8', label: `8 ${t('common.km')}` },
+                    { value: '10', label: `10 ${t('common.km')}` },
+                  ]}
+                  onChange={setMaxKm}
+                />
+              </View>
+            </View>
+            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.rooms')}</Text>
+            <FilterPills
+              value={roomsFilter}
+              onChange={setRoomsFilter}
+              items={[
+                { value: '', label: t('common.all') },
+                { value: '1', label: '1' },
+                { value: '2', label: '2' },
+                { value: '3', label: '3' },
+                { value: '4', label: t('search.roomsPlus') },
+              ]}
+            />
+            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
+            <FilterPills value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
+            <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, row]}>
+              {(['price', 'distance'] as const).map((value) => {
+                const on = sort === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setSort(value)}
+                    style={[styles.segmentBtn, on && { backgroundColor: colors.surface, shadowColor: colors.text }]}
+                  >
+                    <Text style={[styles.segmentLabel, { color: on ? colors.primary : colors.textMuted }]}>
+                      {value === 'price' ? t('search.sortPrice') : t('search.sortDistance')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
       </View>
 
       <View style={[styles.metaRow, row]}>
@@ -353,7 +433,7 @@ export default function SearchScreen() {
           {filtersOn ? <Button title={t('search.clear')} onPress={clearFilters} variant="secondary" pill /> : null}
         </View>
       ) : null}
-      {filtered.map(({ item, distance }) => (
+      {paged.slice.map(({ item, distance }) => (
         <ListingCard
           key={item.id}
           apartment={item}
@@ -391,6 +471,17 @@ export default function SearchScreen() {
           }
         />
       ))}
+      {!loading && filtered.length > 0 ? (
+        <Pager
+          page={paged.page}
+          pages={paged.pages}
+          from={paged.from}
+          to={paged.to}
+          total={paged.total}
+          pageSize={paged.pageSize}
+          onPage={paged.setPage}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -430,7 +521,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   panelHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  panelHeadCopy: { flex: 1, minWidth: 0, gap: 2 },
+  panelHeadActions: { alignItems: 'center', gap: 10, flexShrink: 0 },
   panelTitle: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  panelSummary: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
   panelLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   filterCell: { flexGrow: 1, flexBasis: '47%', minWidth: 148 },

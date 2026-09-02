@@ -5,14 +5,17 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
+import { StatusFilters } from '@/components/booking/StatusFilters';
 import { Button } from '@/components/ui/Button';
-import { FilterPills } from '@/components/ui/FilterPills';
+import { NoteModal } from '@/components/ui/NoteModal';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
-import { bookingStatusLabel, formatIls, localizedName } from '@/src/lib/format';
+import { formatIls, localizedName } from '@/src/lib/format';
 import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
+import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
@@ -28,6 +31,10 @@ export default function AdminBookings() {
   const { universities } = useCatalog();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
+  const [page, setPage] = useState(0);
+  const [rejecting, setRejecting] = useState<Booking | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -45,14 +52,21 @@ export default function AdminBookings() {
     }, [load]),
   );
 
-  const updateStatus = async (id: string, status: BookingStatus) => {
+  const updateStatus = async (id: string, status: BookingStatus, cancelReason?: string | null) => {
     const booking = bookings.find((item) => item.id === id);
-    const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
+    const patch: { status: BookingStatus; cancel_reason?: string | null } = { status };
+    if (status === 'cancelled') patch.cancel_reason = cancelReason?.trim() || null;
+    const { error } = await supabase.from('bookings').update(patch).eq('id', id);
     if (error) alert(t('common.error'), error.message);
     else {
       if (status === 'confirmed' && booking?.student_id) {
         void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
       }
+      if (status === 'cancelled' && booking?.student_id) {
+        void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'));
+      }
+      setRejecting(null);
+      setRejectNote('');
       void load();
     }
   };
@@ -90,12 +104,16 @@ export default function AdminBookings() {
     return next;
   }, [bookings]);
 
-  const visible = useMemo(
+  const filtered = useMemo(
     () => (filter === 'all' ? bookings : bookings.filter((item) => item.status === filter)),
     [bookings, filter],
   );
+  const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
 
-  const filters: Filter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
+  const pickFilter = (next: Filter) => {
+    setFilter(next);
+    setPage(0);
+  };
 
   return (
     <Screen>
@@ -110,16 +128,8 @@ export default function AdminBookings() {
           </View>
         ) : null}
       </View>
-      <FilterPills
-        value={filter}
-        onChange={setFilter}
-        items={filters.map((value) => ({
-          value,
-          label: value === 'all' ? t('common.all') : bookingStatusLabel(value, t),
-          count: counts[value],
-        }))}
-      />
-      {visible.length === 0 ? (
+      <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
+      {filtered.length === 0 ? (
         <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="calendar-outline" size={28} color={colors.primary} />
@@ -168,7 +178,10 @@ export default function AdminBookings() {
                     title={t('admin.reject')}
                     variant="danger"
                     pill
-                    onPress={() => void updateStatus(booking.id, 'cancelled')}
+                    onPress={() => {
+                      setRejectNote('');
+                      setRejecting(booking);
+                    }}
                   />
                 </View>
               </View>
@@ -228,6 +241,31 @@ export default function AdminBookings() {
           </BookingCard>
         );
       })}
+      <Pager
+        page={current}
+        pages={pages}
+        from={from}
+        to={to}
+        total={total}
+        pageSize={BOOKING_PAGE_SIZE}
+        onPage={setPage}
+      />
+      <NoteModal
+        visible={Boolean(rejecting)}
+        title={t('booking.rejectConfirm')}
+        label={t('booking.rejectNote')}
+        hint={t('booking.rejectNoteHint')}
+        value={rejectNote}
+        confirmTitle={t('admin.reject')}
+        loading={busy}
+        onChange={setRejectNote}
+        onConfirm={() => {
+          if (!rejecting) return;
+          setBusy(true);
+          void updateStatus(rejecting.id, 'cancelled', rejectNote).finally(() => setBusy(false));
+        }}
+        onClose={() => setRejecting(null)}
+      />
     </Screen>
   );
 }

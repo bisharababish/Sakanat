@@ -1,10 +1,9 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { Button } from '@/components/ui/Button';
@@ -13,11 +12,13 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { isPasswordValid } from '@/src/lib/password';
-import { colors } from '@/src/theme/colors';
+import { alert } from '@/src/lib/notice';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
+  const colors = useColors();
   const { updatePassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -37,6 +38,7 @@ export default function ResetPasswordScreen() {
     setLoading(true);
     try {
       await updatePassword(password);
+      alert(t('common.done'), t('profile.passwordChanged'));
     } catch (err) {
       setError(authErrorMessage(err, t));
     } finally {
@@ -45,35 +47,21 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <AuthScreen>
-      <AuthBrand compact />
+    <AuthScreen
+      center={false}
+      footer={<Button title={t('auth.savePassword')} onPress={() => void onSubmit()} loading={loading} pill />}
+    >
       <AuthCard>
-        <Text style={[styles.title, rtlText]}>{t('auth.resetTitle')}</Text>
-        <Text style={[styles.hint, rtlText]}>{t('auth.resetHint')}</Text>
+        <AuthHeading title={t('auth.resetTitle')} hint={t('auth.resetHint')} />
         <Input label={t('profile.newPassword')} value={password} onChangeText={setPassword} secureTextEntry soft />
         <Input label={t('profile.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry soft />
         <PasswordChecks password={password} confirm={confirm} />
-        {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
+        {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
       </AuthCard>
-      <Button title={t('auth.savePassword')} onPress={onSubmit} loading={loading} pill />
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 14,
-    color: colors.textMuted,
-    fontFamily: 'Cairo_400Regular',
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  error: { color: colors.danger, fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
+  error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
 });

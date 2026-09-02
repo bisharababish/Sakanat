@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +17,7 @@ import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
+import { Pager } from '@/components/ui/Pager';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
@@ -25,15 +25,18 @@ import { Select } from '@/components/ui/Select';
 import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { useAuth } from '@/src/lib/auth';
 import { deleteOwnAccount } from '@/src/lib/moderation';
 import { listingDistanceKm } from '@/src/lib/distance';
+import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
+import { pickProfilePhoto } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { radius, spacing } from '@/src/theme/colors';
@@ -47,6 +50,8 @@ export default function StudentProfileScreen() {
   const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
+  const { resumeBook } = useLocalSearchParams<{ resumeBook?: string }>();
+  const resumeId = typeof resumeBook === 'string' ? resumeBook : undefined;
   const { cities, universities } = useCatalog();
   const [tab, setTab] = useState<ProfileTab>('account');
   const [fullName, setFullName] = useState('');
@@ -93,6 +98,10 @@ export default function StudentProfileScreen() {
     setUniversityId(profile.university_id ?? '');
     setAvatarUrl(profile.avatar_url ?? null);
   }, [profile]);
+
+  useEffect(() => {
+    if (resumeId) setTab('account');
+  }, [resumeId]);
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -144,7 +153,10 @@ export default function StudentProfileScreen() {
   );
   const majorName = major ? majorLabel(major, i18n.language) : '';
   const isStudent = profile?.role !== 'renter';
-  const incomplete = !gender || !cityId || !phoneLocal.trim() || (isStudent && !universityId);
+  const incomplete =
+    !fullName.trim() || !gender || !cityId || !phoneLocal.trim() || (isStudent && !universityId);
+  const need = (ok: boolean, label: string) => (incomplete && !ok ? `${label} · ${t('common.required')}` : label);
+  const savedPaged = usePaged(savedListings, LISTING_PAGE_SIZE, String(savedListings.length));
 
   const reloadSaved = useCallback(async () => {
     if (!profile?.id) return;
@@ -163,16 +175,11 @@ export default function StudentProfileScreen() {
 
   const changePhoto = async () => {
     if (!profile) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !result.assets[0]) return;
+    const uri = await pickProfilePhoto();
+    if (!uri) return;
     setUploading(true);
     try {
-      const url = await uploadProfilePhoto(profile.id, result.assets[0].uri);
+      const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
@@ -227,7 +234,17 @@ export default function StudentProfileScreen() {
         .eq('id', profile.id);
       if (error) throw error;
       await refreshProfile();
-      alert(t('common.done'), t('profile.saved'));
+      if (resumeId) {
+        alert(t('common.done'), t('profile.saved'), [
+          { text: t('common.done') },
+          {
+            text: t('profile.continueBooking'),
+            onPress: () => router.replace({ pathname: '/(student)/book/[id]', params: { id: resumeId } }),
+          },
+        ]);
+      } else {
+        alert(t('common.done'), t('profile.saved'));
+      }
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
@@ -288,8 +305,19 @@ export default function StudentProfileScreen() {
     ]);
   };
 
-  const banner =
-    savedListings.length > 0
+  const banner = resumeId
+    ? incomplete
+      ? {
+          icon: 'sparkles' as const,
+          text: t('profile.completeHint'),
+          onPress: () => setTab('account'),
+        }
+      : {
+          icon: 'calendar' as const,
+          text: t('profile.continueBooking'),
+          onPress: () => router.replace({ pathname: '/(student)/book/[id]', params: { id: resumeId } }),
+        }
+    : savedListings.length > 0
       ? {
           icon: 'heart' as const,
           text: t('profile.savedCount', { count: savedListings.length }),
@@ -341,14 +369,14 @@ export default function StudentProfileScreen() {
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input
-              label={t('common.name')}
+              label={need(Boolean(fullName.trim()), t('common.name'))}
               value={fullName}
               onChangeText={(value) => setFullName(sanitizeNameInput(value))}
               hint={t('profile.nameHint')}
               autoCapitalize="words"
               maxLength={NAME_MAX}
             />
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{need(Boolean(gender), t('profile.gender'))}</Text>
             <FilterPills
               value={gender}
               onChange={setGender}
@@ -359,7 +387,7 @@ export default function StudentProfileScreen() {
             />
             <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
             <Select
-              label={t('auth.homeCity')}
+              label={need(Boolean(cityId), t('auth.homeCity'))}
               value={cityId}
               placeholder={t('common.select')}
               options={cityOptions}
@@ -370,7 +398,7 @@ export default function StudentProfileScreen() {
           <Card>
             <SectionHead icon="call-outline" title={t('profile.contactTitle')} />
             <PhoneField
-              label={t('common.phone')}
+              label={need(Boolean(phoneLocal.trim()), t('common.phone'))}
               region={phoneRegion}
               local={phoneLocal}
               onRegionChange={setPhoneRegion}
@@ -433,7 +461,7 @@ export default function StudentProfileScreen() {
                 onChange={setStudyYear}
               />
               <SearchSelect
-                label={t('auth.studyUniversity')}
+                label={need(Boolean(universityId), t('auth.studyUniversity'))}
                 value={universityId}
                 placeholder={t('common.select')}
                 options={universityOptions}
@@ -461,7 +489,7 @@ export default function StudentProfileScreen() {
               />
             </View>
           ) : (
-            savedListings.map((item) => (
+            savedPaged.slice.map((item) => (
               <View key={item.id} style={styles.savedBlock}>
                 <ListingCard
                   apartment={item}
@@ -490,6 +518,17 @@ export default function StudentProfileScreen() {
               </View>
             ))
           )}
+          {savedListings.length > 0 ? (
+            <Pager
+              page={savedPaged.page}
+              pages={savedPaged.pages}
+              from={savedPaged.from}
+              to={savedPaged.to}
+              total={savedPaged.total}
+              pageSize={savedPaged.pageSize}
+              onPage={savedPaged.setPage}
+            />
+          ) : null}
         </Card>
       ) : null}
 

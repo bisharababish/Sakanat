@@ -8,12 +8,15 @@ import { ListingCard } from '@/components/ListingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { NoteModal } from '@/components/ui/NoteModal';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { listingBadgeTone } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
+import { ADMIN_LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, ListingStatus } from '@/src/types/database';
@@ -90,6 +93,7 @@ export default function AdminListings() {
     () => (status === 'all' ? listings : listings.filter((item) => item.status === status)),
     [listings, status],
   );
+  const paged = usePaged(visible, ADMIN_LISTING_PAGE_SIZE, status);
 
   const openListing = (id: string) => {
     router.push({ pathname: '/(admin)/apartment/[id]', params: { id } });
@@ -114,7 +118,7 @@ export default function AdminListings() {
         }))}
       />
       {visible.length === 0 ? <EmptyState title={t('admin.noListings')} /> : null}
-      {visible.map((item) => (
+      {paged.slice.map((item) => (
         <View key={item.id} style={styles.block}>
           {item.profiles?.full_name ? (
             <Text style={[styles.owner, rtlText, { color: colors.text }]}>
@@ -172,6 +176,15 @@ export default function AdminListings() {
           <Button title={t('admin.deleteListing')} variant="ghost" onPress={() => removeListing(item)} />
         </View>
       ))}
+      <Pager
+        page={paged.page}
+        pages={paged.pages}
+        from={paged.from}
+        to={paged.to}
+        total={paged.total}
+        pageSize={paged.pageSize}
+        onPage={paged.setPage}
+      />
       <NoteModal
         visible={Boolean(rejecting)}
         title={t('admin.rejectListing')}

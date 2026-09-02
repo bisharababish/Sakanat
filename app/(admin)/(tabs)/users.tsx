@@ -1,7 +1,8 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
@@ -11,9 +12,11 @@ import { Card } from '@/components/ui/Card';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { useAuth } from '@/src/lib/auth';
 import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
@@ -21,6 +24,7 @@ import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
+import { USER_PAGE_SIZE } from '@/src/lib/page';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { AUTH_REDIRECT_URL, createDetachedClient, supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -31,13 +35,15 @@ type OwnerFilter = OwnerStatus | 'all';
 
 export default function AdminUsers() {
   const { t, i18n } = useTranslation();
-  const { rtlText, alignStart } = useLayout();
+  const { rtlText, alignStart, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
+  const params = useLocalSearchParams<{ role?: string; owner?: string }>();
   const [users, setUsers] = useState<Profile[]>([]);
   const [role, setRole] = useState<RoleFilter>('all');
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
   const [query, setQuery] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -59,6 +65,17 @@ export default function AdminUsers() {
       void load();
     }, [load]),
   );
+
+  useEffect(() => {
+    const nextRole = params.role;
+    if (nextRole === 'student' || nextRole === 'renter' || nextRole === 'owner' || nextRole === 'admin' || nextRole === 'all') {
+      setRole(nextRole);
+    }
+    const nextOwner = params.owner;
+    if (nextOwner === 'pending' || nextOwner === 'approved' || nextOwner === 'rejected' || nextOwner === 'all') {
+      setOwnerFilter(nextOwner);
+    }
+  }, [params.role, params.owner]);
 
   const setOwnerStatus = async (id: string, owner_status: OwnerStatus) => {
     const { error } = await supabase.from('profiles').update({ owner_status }).eq('id', id);
@@ -153,6 +170,9 @@ export default function AdminUsers() {
       setPhoneLocal('');
       setPassword('');
       setConfirmPassword('');
+      setCreateOpen(false);
+      setRole('owner');
+      setOwnerFilter('approved');
       void load();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -174,6 +194,23 @@ export default function AdminUsers() {
       return hay.includes(needle);
     });
   }, [users, role, ownerFilter, query]);
+  const paged = usePaged(visible, USER_PAGE_SIZE, `${role}|${ownerFilter}|${query}`);
+  const roleCounts = useMemo(() => {
+    const next = { all: users.length, student: 0, renter: 0, owner: 0, admin: 0 };
+    for (const user of users) next[user.role] += 1;
+    return next;
+  }, [users]);
+  const ownerCounts = useMemo(() => {
+    const owners = users.filter((user) => user.role === 'owner');
+    const next: Record<OwnerFilter, number> = {
+      all: owners.length,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    };
+    for (const user of owners) next[user.owner_status] += 1;
+    return next;
+  }, [users]);
 
   const ownerTone = (status: OwnerStatus) =>
     status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'pending';
@@ -186,51 +223,68 @@ export default function AdminUsers() {
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.users')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.users')}</Text>
       <Card>
-        <Text style={[styles.formTitle, rtlText, { color: colors.text }]}>{t('admin.createOwner')}</Text>
-        <Input
-          label={t('common.name')}
-          value={fullName}
-          onChangeText={(value) => setFullName(sanitizeNameInput(value))}
-          hint={t('profile.nameHint')}
-          autoCapitalize="words"
-          maxLength={NAME_MAX}
-        />
-        <Input
-          label={t('common.email')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          ltr
-        />
-        <PhoneField
-          label={t('common.phone')}
-          region={phoneRegion}
-          local={phoneLocal}
-          onRegionChange={setPhoneRegion}
-          onLocalChange={setPhoneLocal}
-        />
-        <Input label={t('admin.createOwnerPassword')} value={password} onChangeText={setPassword} secureTextEntry />
-        <Input
-          label={t('admin.confirmOwnerPassword')}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
-        <PasswordChecks password={password} confirm={confirmPassword} />
-        <Button title={t('admin.createOwner')} onPress={createOwner} loading={creating} pill />
+        <Pressable
+          onPress={() => setCreateOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityLabel={t('admin.createOwner')}
+          style={[styles.createHead, row]}
+        >
+          <View style={styles.createCopy}>
+            <Text style={[styles.formTitle, rtlText, { color: colors.text }]}>{t('admin.createOwner')}</Text>
+            {!createOpen ? (
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.createOwnerHint')}</Text>
+            ) : null}
+          </View>
+          <Ionicons name={createOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textMuted} />
+        </Pressable>
+        {createOpen ? (
+          <>
+            <Input
+              label={t('common.name')}
+              value={fullName}
+              onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+              hint={t('profile.nameHint')}
+              autoCapitalize="words"
+              maxLength={NAME_MAX}
+            />
+            <Input
+              label={t('common.email')}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              ltr
+            />
+            <PhoneField
+              label={t('common.phone')}
+              region={phoneRegion}
+              local={phoneLocal}
+              onRegionChange={setPhoneRegion}
+              onLocalChange={setPhoneLocal}
+            />
+            <Input label={t('admin.createOwnerPassword')} value={password} onChangeText={setPassword} secureTextEntry />
+            <Input
+              label={t('admin.confirmOwnerPassword')}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+            <PasswordChecks password={password} confirm={confirmPassword} />
+            <Button title={t('admin.createOwner')} onPress={createOwner} loading={creating} pill />
+          </>
+        ) : null}
       </Card>
       <Input label={t('admin.searchUsers')} value={query} onChangeText={setQuery} />
       <FilterPills
         value={role}
         onChange={setRole}
         items={[
-          { value: 'all', label: t('common.all') },
-          { value: 'student', label: t('roles.student') },
-          { value: 'renter', label: t('roles.renter') },
-          { value: 'owner', label: t('roles.owner') },
-          { value: 'admin', label: t('roles.admin') },
+          { value: 'all', label: t('common.all'), count: roleCounts.all },
+          { value: 'student', label: t('roles.student'), count: roleCounts.student },
+          { value: 'renter', label: t('roles.renter'), count: roleCounts.renter },
+          { value: 'owner', label: t('roles.owner'), count: roleCounts.owner },
+          { value: 'admin', label: t('roles.admin'), count: roleCounts.admin },
         ]}
       />
       {role === 'owner' ? (
@@ -238,15 +292,15 @@ export default function AdminUsers() {
           value={ownerFilter}
           onChange={setOwnerFilter}
           items={[
-            { value: 'all', label: t('common.all') },
-            { value: 'pending', label: t('admin.ownerWaiting') },
-            { value: 'approved', label: t('admin.ownerActive') },
-            { value: 'rejected', label: t('admin.ownerSuspended') },
+            { value: 'all', label: t('common.all'), count: ownerCounts.all },
+            { value: 'pending', label: t('admin.ownerWaiting'), count: ownerCounts.pending },
+            { value: 'approved', label: t('admin.ownerActive'), count: ownerCounts.approved },
+            { value: 'rejected', label: t('admin.ownerSuspended'), count: ownerCounts.rejected },
           ]}
         />
       ) : null}
       {visible.length === 0 ? <EmptyState title={t('admin.noUsers')} /> : null}
-      {visible.map((user) => {
+      {paged.slice.map((user) => {
         const phone = user.phone;
         const whatsapp = user.whatsapp || phone;
         const city = localizedName(user.cities, i18n.language);
@@ -299,6 +353,15 @@ export default function AdminUsers() {
           </Card>
         );
       })}
+      <Pager
+        page={paged.page}
+        pages={paged.pages}
+        from={paged.from}
+        to={paged.to}
+        total={paged.total}
+        pageSize={paged.pageSize}
+        onPage={paged.setPage}
+      />
     </Screen>
   );
 }
@@ -307,6 +370,8 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   formTitle: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  createHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  createCopy: { flex: 1, minWidth: 0, gap: 2 },
   row: { flexDirection: 'row', gap: 8 },
   name: { fontSize: 17, fontWeight: '800' },
   meta: {},

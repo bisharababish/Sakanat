@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
-import { openWelcome } from '@/src/lib/guest';
+import { openLogin, openRegister } from '@/src/lib/guest';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function GuestAccount() {
@@ -20,8 +19,8 @@ export default function GuestAccount() {
       <Card>
         <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('guest.accountBody')}</Text>
       </Card>
-      <Button title={t('auth.login')} onPress={openWelcome} pill />
-      <Button title={t('auth.register')} variant="secondary" onPress={() => router.push('/(auth)/register')} pill />
+      <Button title={t('auth.login')} onPress={openLogin} pill />
+      <Button title={t('auth.register')} variant="secondary" onPress={openRegister} pill />
     </Screen>
   );
 }

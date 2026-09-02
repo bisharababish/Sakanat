@@ -9,12 +9,15 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { notifyCatalogChanged, parseCoord, parseDomains, slugify } from '@/src/lib/catalog';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { CATALOG_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { City, University } from '@/src/types/database';
@@ -91,6 +94,8 @@ export default function AdminCatalog() {
       }),
     [universities, needle, i18n.language],
   );
+  const pagedCities = usePaged(visibleCities, CATALOG_PAGE_SIZE, `cities:${query}`);
+  const pagedUnis = usePaged(visibleUniversities, CATALOG_PAGE_SIZE, `unis:${query}`);
 
   const resetCity = () => {
     setCityId(null);
@@ -286,7 +291,7 @@ export default function AdminCatalog() {
             {cityId ? <Button title={t('admin.newInstead')} variant="ghost" onPress={resetCity} pill /> : null}
           </Card>
           {visibleCities.length === 0 ? <EmptyState title={t('admin.noCities')} /> : null}
-          {visibleCities.map((city) => (
+          {pagedCities.slice.map((city) => (
             <Card key={city.id}>
               <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedName(city, i18n.language)}</Text>
               <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{city.name_en}</Text>
@@ -297,6 +302,15 @@ export default function AdminCatalog() {
               <Button title={t('admin.deleteCity')} variant="danger" onPress={() => removeCity(city)} />
             </Card>
           ))}
+          <Pager
+            page={pagedCities.page}
+            pages={pagedCities.pages}
+            from={pagedCities.from}
+            to={pagedCities.to}
+            total={pagedCities.total}
+            pageSize={pagedCities.pageSize}
+            onPage={pagedCities.setPage}
+          />
         </>
       ) : (
         <>
@@ -325,7 +339,7 @@ export default function AdminCatalog() {
             {uniId ? <Button title={t('admin.newInstead')} variant="ghost" onPress={resetUni} pill /> : null}
           </Card>
           {visibleUniversities.length === 0 ? <EmptyState title={t('admin.noUniversities')} /> : null}
-          {visibleUniversities.map((item) => (
+          {pagedUnis.slice.map((item) => (
             <Card key={item.id}>
               <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedName(item, i18n.language)}</Text>
               <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{item.name_en}</Text>
@@ -337,6 +351,15 @@ export default function AdminCatalog() {
               <Button title={t('admin.deleteUniversity')} variant="danger" onPress={() => removeUni(item)} />
             </Card>
           ))}
+          <Pager
+            page={pagedUnis.page}
+            pages={pagedUnis.pages}
+            from={pagedUnis.from}
+            to={pagedUnis.to}
+            total={pagedUnis.total}
+            pageSize={pagedUnis.pageSize}
+            onPage={pagedUnis.setPage}
+          />
         </>
       )}
     </Screen>

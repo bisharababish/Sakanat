@@ -7,12 +7,15 @@ import { useTranslation } from 'react-i18next';
 import { ListingCard } from '@/components/ListingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePaged } from '@/src/hooks/usePaged';
 import { useAuth } from '@/src/lib/auth';
 import { listingBadgeTone } from '@/src/lib/format';
 import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
 import { alert } from '@/src/lib/notice';
+import { OWNER_LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -60,6 +63,7 @@ export default function OwnerListings() {
     () => (filter === 'all' ? listings : listings.filter((item) => item.status === filter)),
     [filter, listings],
   );
+  const paged = usePaged(visible, OWNER_LISTING_PAGE_SIZE, filter);
 
   const removeListing = (id: string) => {
     alert(t('owner.deleteListing'), t('owner.confirmDelete'), [
@@ -170,7 +174,7 @@ export default function OwnerListings() {
         </View>
       ) : null}
 
-      {visible.map((item) => (
+      {paged.slice.map((item) => (
         <View key={item.id} style={styles.block}>
           <ListingCard
             apartment={item}
@@ -237,6 +241,15 @@ export default function OwnerListings() {
           </View>
         </View>
       ))}
+      <Pager
+        page={paged.page}
+        pages={paged.pages}
+        from={paged.from}
+        to={paged.to}
+        total={paged.total}
+        pageSize={paged.pageSize}
+        onPage={paged.setPage}
+      />
     </Screen>
   );
 }

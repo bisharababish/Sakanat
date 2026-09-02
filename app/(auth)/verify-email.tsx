@@ -3,20 +3,23 @@ import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/ui/Button';
+import { CodeBoxes } from '@/components/ui/CodeBoxes';
 import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
+import { sanitizeEmail } from '@/src/lib/eduEmail';
 import { homeHref } from '@/src/lib/routes';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function VerifyEmailScreen() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
+  const colors = useColors();
   const { verifyEmail, resendConfirmation } = useAuth();
   const params = useLocalSearchParams<{ email?: string }>();
   const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
@@ -28,13 +31,14 @@ export default function VerifyEmailScreen() {
   const onConfirm = async () => {
     setError('');
     setInfo('');
-    if (!email.trim() || !code.trim()) {
+    const cleanEmail = sanitizeEmail(email);
+    if (!cleanEmail || code.replace(/\s/g, '').length < 6) {
       setError(t('auth.missingFields'));
       return;
     }
     setLoading(true);
     try {
-      const profile = await verifyEmail(email, code);
+      const profile = await verifyEmail(cleanEmail, code);
       if (profile) {
         router.replace(homeHref(profile.role));
         return;
@@ -50,13 +54,14 @@ export default function VerifyEmailScreen() {
   const onResend = async () => {
     setError('');
     setInfo('');
-    if (!email.trim()) {
+    const cleanEmail = sanitizeEmail(email);
+    if (!cleanEmail) {
       setError(t('auth.missingFields'));
       return;
     }
     setLoading(true);
     try {
-      await resendConfirmation(email);
+      await resendConfirmation(cleanEmail);
       setInfo(t('auth.codeSent'));
     } catch (err) {
       setError(authErrorMessage(err, t));
@@ -66,11 +71,18 @@ export default function VerifyEmailScreen() {
   };
 
   return (
-    <AuthScreen back>
-      <AuthBrand compact />
+    <AuthScreen
+      back
+      center={false}
+      footer={
+        <>
+          <Button title={t('auth.confirmCode')} onPress={() => void onConfirm()} loading={loading} pill />
+          <Button title={t('auth.resendCode')} variant="secondary" onPress={() => void onResend()} loading={loading} pill />
+        </>
+      }
+    >
       <AuthCard>
-        <Text style={[styles.title, rtlText]}>{t('auth.confirmTitle')}</Text>
-        <Text style={[styles.body, rtlText]}>{t('auth.confirmBody')}</Text>
+        <AuthHeading title={t('auth.confirmTitle')} hint={t('auth.confirmBody')} />
         <Input
           label={t('common.email')}
           value={email}
@@ -78,43 +90,20 @@ export default function VerifyEmailScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
+          autoComplete="email"
+          textContentType="emailAddress"
           ltr
           soft
         />
-        <Input
-          label={t('auth.emailCode')}
-          value={code}
-          onChangeText={setCode}
-          keyboardType="number-pad"
-          autoCapitalize="none"
-          autoCorrect={false}
-          ltr
-          soft
-        />
-        {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
-        {info ? <Text style={[styles.info, rtlText]}>{info}</Text> : null}
+        <CodeBoxes label={t('auth.emailCode')} value={code} onChangeText={setCode} />
+        {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
+        {info ? <Text style={[styles.info, rtlText, { color: colors.success }]}>{info}</Text> : null}
       </AuthCard>
-      <Button title={t('auth.confirmCode')} onPress={onConfirm} loading={loading} pill />
-      <Button title={t('auth.resendCode')} variant="secondary" onPress={onResend} loading={loading} pill />
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  body: {
-    fontSize: 15,
-    color: colors.textMuted,
-    fontFamily: 'Cairo_400Regular',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  error: { color: colors.danger, fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
-  info: { color: colors.success, fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
+  error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
+  info: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
 });

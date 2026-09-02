@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -27,6 +26,7 @@ import { alert } from '@/src/lib/notice';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
+import { pickProfilePhoto } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -119,16 +119,11 @@ export default function OwnerProfile() {
 
   const changePhoto = async () => {
     if (!profile) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !result.assets[0]) return;
+    const uri = await pickProfilePhoto();
+    if (!uri) return;
     setUploading(true);
     try {
-      const url = await uploadProfilePhoto(profile.id, result.assets[0].uri);
+      const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);

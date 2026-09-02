@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -21,6 +20,7 @@ import { CAMPUS_KM_VALUES, campusKmChipValue, UNDER_ONE_KM } from '@/src/lib/dis
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
+import { pickListingPhotos } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
 import { uploadApartmentPhoto } from '@/src/lib/upload';
 import { radius } from '@/src/theme/colors';
@@ -89,24 +89,13 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
 
   const addPhoto = async () => {
     if (!profile) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      alert(t('common.error'), t('owner.photoPermission'));
-      return;
-    }
-    const remaining = Math.max(1, 12 - photos.length);
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-    });
-    if (result.canceled || !result.assets.length) return;
+    const uris = await pickListingPhotos(Math.max(1, 12 - photos.length));
+    if (!uris.length) return;
     setLoading(true);
     try {
       const urls: string[] = [];
-      for (const asset of result.assets) {
-        urls.push(await uploadApartmentPhoto(profile.id, asset.uri));
+      for (const uri of uris) {
+        urls.push(await uploadApartmentPhoto(profile.id, uri));
       }
       setPhotos((current) => [...current, ...urls].slice(0, 12));
     } catch (err) {

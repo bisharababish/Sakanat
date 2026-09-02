@@ -6,18 +6,20 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
+import { StatusFilters } from '@/components/booking/StatusFilters';
 import { Button } from '@/components/ui/Button';
-import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
+import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation } from '@/src/lib/chat';
-import { bookingStatusLabel, localizedName } from '@/src/lib/format';
+import { localizedName } from '@/src/lib/format';
 import { seekerExtraIcon, seekerIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
+import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { whatsappLink } from '@/src/lib/phone';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
@@ -35,6 +37,7 @@ export default function OwnerBookings() {
   const { cities, universities } = useCatalog();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
+  const [page, setPage] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<Booking | null>(null);
   const [rejectNote, setRejectNote] = useState('');
@@ -70,10 +73,16 @@ export default function OwnerBookings() {
     return next;
   }, [bookings]);
 
-  const visible = useMemo(
+  const filtered = useMemo(
     () => (filter === 'all' ? bookings : bookings.filter((item) => item.status === filter)),
     [bookings, filter],
   );
+  const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
+
+  const pickFilter = (next: Filter) => {
+    setFilter(next);
+    setPage(0);
+  };
 
   const applyStatus = async (booking: Booking, status: BookingStatus, cancelReason?: string | null) => {
     const patch: { status: BookingStatus; cancel_reason?: string | null } = { status };
@@ -128,8 +137,6 @@ export default function OwnerBookings() {
     }
   };
 
-  const filters: Filter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
-
   return (
     <Screen>
       <View style={[styles.top, row]}>
@@ -144,17 +151,9 @@ export default function OwnerBookings() {
         ) : null}
       </View>
 
-      <FilterPills
-        value={filter}
-        onChange={setFilter}
-        items={filters.map((value) => ({
-          value,
-          label: value === 'all' ? t('common.all') : bookingStatusLabel(value, t),
-          count: counts[value],
-        }))}
-      />
+      <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
-      {visible.length === 0 ? (
+      {filtered.length === 0 ? (
         <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="calendar-outline" size={28} color={colors.primary} />
@@ -245,6 +244,16 @@ export default function OwnerBookings() {
           </BookingCard>
         );
       })}
+
+      <Pager
+        page={current}
+        pages={pages}
+        from={from}
+        to={to}
+        total={total}
+        pageSize={BOOKING_PAGE_SIZE}
+        onPage={setPage}
+      />
 
       <Modal
         visible={Boolean(rejecting)}

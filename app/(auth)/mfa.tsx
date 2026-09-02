@@ -3,8 +3,8 @@ import { StyleSheet, Text } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useTranslation } from 'react-i18next';
 
-import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/ui/Button';
 import { CodeBoxes } from '@/components/ui/CodeBoxes';
@@ -77,16 +77,14 @@ export default function MfaChallengeScreen() {
     <AuthScreen
       footer={
         <>
-          <Button title={t('mfa.confirm')} onPress={() => void onSubmit()} loading={loading} pill />
+          <Button title={t('common.continue')} onPress={() => void onSubmit()} loading={loading} pill />
           <Button title={t('mfa.lost')} variant="ghost" onPress={lostAuthenticator} pill />
           <Button title={t('auth.backToLogin')} variant="ghost" onPress={() => void signOut()} pill />
         </>
       }
     >
-      <AuthBrand compact />
       <AuthCard>
-        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('mfa.loginTitle')}</Text>
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('mfa.loginHint')}</Text>
+        <AuthHeading title={t('mfa.loginTitle')} hint={t('mfa.loginHint')} />
         <CodeBoxes label={t('mfa.code')} value={code} onChangeText={setCode} />
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
       </AuthCard>
@@ -95,18 +93,5 @@ export default function MfaChallengeScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 14,
-    fontFamily: 'Cairo_400Regular',
-    lineHeight: 22,
-    textAlign: 'center',
-    marginTop: -4,
-  },
   error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
 });
