@@ -19,7 +19,7 @@ import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import { isStudentReady } from '@/src/lib/studentProfile';
-import { apartmentPath, requireAccount } from '@/src/lib/guest';
+import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -183,7 +183,7 @@ export default function SearchScreen() {
       </View>
 
       {!profile ? (
-        <ProfileBanner icon="person-outline" text={t('guest.banner')} onPress={() => router.push('/(auth)/register')} />
+        <ProfileBanner icon="person-outline" text={t('guest.banner')} onPress={openWelcome} />
       ) : !isStudentReady(profile) ? (
         <ProfileBanner
           icon="sparkles"

@@ -26,6 +26,7 @@ import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { deleteOwnAccount } from '@/src/lib/moderation';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
@@ -45,7 +46,7 @@ export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const { cities, universities } = useCatalog();
   const [tab, setTab] = useState<ProfileTab>('account');
   const [fullName, setFullName] = useState('');
@@ -69,6 +70,7 @@ export default function StudentProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -260,6 +262,30 @@ export default function StudentProfileScreen() {
     } finally {
       setUpdatingPassword(false);
     }
+  };
+
+  const canDeleteAccount = profile?.role === 'student' || profile?.role === 'renter';
+
+  const removeAccount = () => {
+    if (!canDeleteAccount) return;
+    alert(t('profile.deleteAccountTitle'), t('profile.deleteAccountBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.deleteAccount'),
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteOwnAccount();
+            await signOut();
+          } catch {
+            alert(t('common.error'), t('profile.deleteAccountFailed'));
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
   };
 
   const banner =
@@ -493,6 +519,21 @@ export default function StudentProfileScreen() {
             <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
           </Card>
           <MfaSetup />
+          {canDeleteAccount ? (
+            <Card>
+              <SectionHead icon="trash-outline" title={t('profile.deleteAccount')} />
+              <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
+                {t('profile.deleteAccountHint')}
+              </Text>
+              <Button
+                title={t('profile.deleteAccount')}
+                variant="danger"
+                onPress={removeAccount}
+                loading={deleting}
+                pill
+              />
+            </Card>
+          ) : null}
         </>
       ) : null}
     </Screen>

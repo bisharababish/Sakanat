@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -13,11 +13,12 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { sanitizeEmail } from '@/src/lib/eduEmail';
-import { colors } from '@/src/theme/colors';
+import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
+  const colors = useColors();
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,11 +48,10 @@ export default function LoginScreen() {
   };
 
   return (
-    <AuthScreen back>
-      <AuthBrand />
+    <AuthScreen back center={false}>
       <AuthCard>
-        <Text style={[styles.title, rtlText]}>{t('auth.loginTitle')}</Text>
-        <Text style={[styles.hint, rtlText]}>{t('auth.loginHint')}</Text>
+        <AuthHeading title={t('auth.loginTitle')} hint={t('auth.loginHint')} />
+        <Text style={[styles.who, rtlText, { color: colors.textMuted }]}>{t('auth.loginWho')}</Text>
         <Input
           label={t('common.email')}
           value={email}
@@ -63,19 +63,19 @@ export default function LoginScreen() {
           soft
         />
         <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
-        {error ? <Text style={[styles.error, rtlText]}>{error}</Text> : null}
-        <View style={styles.lockRow}>
+        {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
+        <View style={[styles.lockRow, row]}>
           <Ionicons name="lock-closed" size={14} color={colors.primary} />
-          <Text style={styles.lock}>{t('auth.secureNote')}</Text>
+          <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
         </View>
       </AuthCard>
       <Button title={t('auth.login')} onPress={onSubmit} loading={loading} pill />
       <Pressable onPress={() => router.push('/(auth)/forgot-password')} style={styles.footer}>
-        <Text style={[styles.link, rtlText]}>{t('auth.forgotPassword')}</Text>
+        <Text style={[styles.link, rtlText, { color: colors.primary }]}>{t('auth.forgotPassword')}</Text>
       </Pressable>
       <Pressable onPress={() => router.push('/(auth)/register')} style={styles.footer}>
-        <Text style={[styles.footerText, rtlText]}>
-          {t('auth.noAccount')} <Text style={styles.link}>{t('auth.register')}</Text>
+        <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
+          {t('auth.noAccount')} <Text style={[styles.link, { color: colors.primary }]}>{t('auth.register')}</Text>
         </Text>
       </Pressable>
     </AuthScreen>
@@ -83,31 +83,22 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 14,
-    color: colors.textMuted,
+  who: {
+    fontSize: 13,
     fontFamily: 'Cairo_400Regular',
-    lineHeight: 22,
+    lineHeight: 20,
     textAlign: 'center',
     marginTop: -4,
   },
-  error: { color: colors.danger, fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
+  error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
   lockRow: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     marginTop: 4,
   },
-  lock: { color: colors.textMuted, fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  lock: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   footer: { alignItems: 'center', paddingVertical: 8 },
-  footerText: { color: colors.textMuted, fontSize: 15, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
-  link: { color: colors.primary, fontWeight: '800', fontFamily: 'Cairo_700Bold' },
+  footerText: { fontSize: 15, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
+  link: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
 });

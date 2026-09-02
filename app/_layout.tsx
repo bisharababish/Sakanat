@@ -48,16 +48,11 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (!fontsLoaded) return;
     const timeout = setTimeout(() => setHeld(true), MIN_BRAND_MS);
     return () => clearTimeout(timeout);
-  }, [fontsLoaded]);
+  }, []);
 
-  if (!fontsLoaded) {
-    return null;
-  }
-
-  if (!ready || !held) {
+  if (!fontsLoaded || !ready || !held) {
     return <BrandLoader />;
   }
 

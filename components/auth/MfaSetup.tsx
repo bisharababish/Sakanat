@@ -169,6 +169,7 @@ export function MfaSetup() {
       {loading ? null : enabled && !secret ? (
         <>
           <Text style={[styles.on, rtlText, { color: colors.primary }]}>{t('mfa.on')}</Text>
+          <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('mfa.recoverHint')}</Text>
           {waitMinutes > 0 ? (
             <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>
               {t('mfa.cooldown', { minutes: waitMinutes })}
@@ -179,6 +180,7 @@ export function MfaSetup() {
       ) : secret ? (
         <>
           <Text style={[styles.body, rtlText, { color: colors.text }]}>{t('mfa.scanHint')}</Text>
+          <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('mfa.keepKey')}</Text>
           <Text style={[styles.secretLabel, rtlText, { color: colors.text }]}>{t('mfa.secret')}</Text>
           <View style={[styles.secretBox, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
             <Text selectable style={[styles.secret, { color: colors.text }]}>

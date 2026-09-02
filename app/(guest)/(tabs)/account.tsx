@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { openWelcome } from '@/src/lib/guest';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function GuestAccount() {
@@ -19,7 +20,7 @@ export default function GuestAccount() {
       <Card>
         <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('guest.accountBody')}</Text>
       </Card>
-      <Button title={t('auth.login')} onPress={() => router.push('/(auth)/login')} pill />
+      <Button title={t('auth.login')} onPress={openWelcome} pill />
       <Button title={t('auth.register')} variant="secondary" onPress={() => router.push('/(auth)/register')} pill />
     </Screen>
   );

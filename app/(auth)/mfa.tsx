@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useTranslation } from 'react-i18next';
 
 import { AuthBrand } from '@/components/auth/AuthBrand';
@@ -11,13 +12,15 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { verifiedTotpFactor } from '@/src/lib/mfa';
+import { alert } from '@/src/lib/notice';
+import { mailTo, supportWhatsAppUrl } from '@/src/lib/support';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function MfaChallengeScreen() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { completeMfa, signOut } = useAuth();
+  const { completeMfa, session, signOut } = useAuth();
   const [code, setCode] = useState('');
   const [factorId, setFactorId] = useState('');
   const [error, setError] = useState('');
@@ -28,6 +31,8 @@ export default function MfaChallengeScreen() {
       .then((factor) => setFactorId(factor?.id ?? ''))
       .catch(() => setFactorId(''));
   }, []);
+
+  const email = session?.user?.email ?? '';
 
   const onSubmit = async () => {
     setError('');
@@ -45,8 +50,39 @@ export default function MfaChallengeScreen() {
     }
   };
 
+  const lostAuthenticator = () => {
+    alert(t('mfa.lostTitle'), t('mfa.lostExplain'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('menu.contact'),
+        onPress: () => {
+          void Linking.openURL(mailTo(t('mfa.lostSubject'), t('mfa.lostEmailBody', { email })));
+        },
+      },
+      {
+        text: t('menu.whatsapp'),
+        onPress: () => {
+          const url = supportWhatsAppUrl(t('mfa.lostWhatsApp', { email }));
+          if (url) {
+            void Linking.openURL(url);
+            return;
+          }
+          void Linking.openURL(mailTo(t('mfa.lostSubject'), t('mfa.lostEmailBody', { email })));
+        },
+      },
+    ]);
+  };
+
   return (
-    <AuthScreen>
+    <AuthScreen
+      footer={
+        <>
+          <Button title={t('mfa.confirm')} onPress={() => void onSubmit()} loading={loading} pill />
+          <Button title={t('mfa.lost')} variant="ghost" onPress={lostAuthenticator} pill />
+          <Button title={t('auth.backToLogin')} variant="ghost" onPress={() => void signOut()} pill />
+        </>
+      }
+    >
       <AuthBrand compact />
       <AuthCard>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('mfa.loginTitle')}</Text>
@@ -54,13 +90,6 @@ export default function MfaChallengeScreen() {
         <CodeBoxes label={t('mfa.code')} value={code} onChangeText={setCode} />
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
       </AuthCard>
-      <Button title={t('mfa.confirm')} onPress={() => void onSubmit()} loading={loading} pill />
-      <Button
-        title={t('auth.backToLogin')}
-        variant="ghost"
-        onPress={() => void signOut()}
-        pill
-      />
     </AuthScreen>
   );
 }

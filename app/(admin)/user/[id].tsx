@@ -21,7 +21,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
-import { deleteUserAccount, setSuspended } from '@/src/lib/moderation';
+import { deleteUserAccount, setSuspended, unenrollUserMfa } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
@@ -54,6 +54,7 @@ export default function AdminUserEdit() {
   const [degreeLevel, setDegreeLevel] = useState('');
   const [studyYear, setStudyYear] = useState('');
   const [saving, setSaving] = useState(false);
+  const [clearingMfa, setClearingMfa] = useState(false);
   const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
 
   useEffect(() => {
@@ -181,6 +182,28 @@ export default function AdminUserEdit() {
         },
       ],
     );
+  };
+
+  const clearMfa = () => {
+    if (!user || user.role === 'admin' || user.id === me?.id) return;
+    alert(t('admin.disableMfa'), t('admin.confirmDisableMfa'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.disableMfa'),
+        style: 'destructive',
+        onPress: async () => {
+          setClearingMfa(true);
+          try {
+            await unenrollUserMfa(user.id);
+            alert(t('common.done'), t('admin.mfaDisabled'));
+          } catch {
+            alert(t('common.error'), t('admin.mfaDisableFailed'));
+          } finally {
+            setClearingMfa(false);
+          }
+        },
+      },
+    ]);
   };
 
   const removeUser = () => {
@@ -353,6 +376,13 @@ export default function AdminUserEdit() {
       <Button title={t('common.save')} onPress={() => void save()} loading={saving} pill />
       {user.role !== 'admin' && user.id !== me?.id ? (
         <>
+          <Button
+            title={t('admin.disableMfa')}
+            variant="secondary"
+            onPress={clearMfa}
+            loading={clearingMfa}
+            pill
+          />
           <Button
             title={accountStatus === 'suspended' ? t('admin.restoreAccount') : t('admin.suspend')}
             variant={accountStatus === 'suspended' ? 'secondary' : 'danger'}

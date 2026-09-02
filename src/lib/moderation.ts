@@ -35,6 +35,16 @@ export async function deleteUserAccount(userId: string) {
   if (fallback.error) throw new Error(error.message || fallback.error.message);
 }
 
+export async function unenrollUserMfa(userId: string) {
+  const { error } = await supabase.rpc('admin_unenroll_mfa', { target: userId });
+  if (error) throw error;
+}
+
+export async function deleteOwnAccount() {
+  const { error } = await supabase.rpc('delete_own_account');
+  if (error) throw error;
+}
+
 export function notifyListingApproved(ownerId: string) {
   void notifyUser(ownerId, i18n.t('push.listingApprovedTitle'), i18n.t('push.listingApprovedBody'));
 }

@@ -1,9 +1,9 @@
+import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { BrandLogo } from '@/components/BrandLogo';
-import { colors } from '@/src/theme/colors';
+import { lightColors } from '@/src/theme/colors';
 
 export function BrandLoader() {
   useEffect(() => {
@@ -12,7 +12,13 @@ export function BrandLoader() {
 
   return (
     <View style={styles.wrap}>
-      <BrandLogo size={220} plate iconOnly />
+      <Image
+        source={require('@/assets/images/logo.png')}
+        style={styles.logo}
+        contentFit="contain"
+        accessibilityLabel="بدك سكن؟ اطلب منا"
+      />
+      <ActivityIndicator size="large" color={lightColors.primary} style={styles.spinner} />
     </View>
   );
 }
@@ -20,10 +26,16 @@ export function BrandLoader() {
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 32,
+    paddingHorizontal: 32,
+  },
+  logo: {
+    width: 240,
+    height: 240,
+  },
+  spinner: {
+    marginTop: 28,
   },
 });

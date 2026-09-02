@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AuthBrand } from '@/components/auth/AuthBrand';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { LegalAcceptRow, LegalDocModal } from '@/components/LegalDocModal';
@@ -119,10 +119,8 @@ export default function RegisterScreen() {
 
   return (
     <AuthScreen back center={false}>
-      <AuthBrand compact />
       <AuthCard>
-        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('auth.registerTitle')}</Text>
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('auth.registerHint')}</Text>
+        <AuthHeading title={t('auth.registerTitle')} hint={t('auth.registerHint')} />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
         <FilterPills
           value={kind}
@@ -215,19 +213,6 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    textAlign: 'center',
-  },
-  hint: {
-    fontSize: 14,
-    fontFamily: 'Cairo_400Regular',
-    lineHeight: 22,
-    textAlign: 'center',
-    marginTop: -4,
-  },
   label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 14 },
   roleHint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
