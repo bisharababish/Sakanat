@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
 import { alert } from '@/src/lib/notice';
@@ -43,11 +44,7 @@ export default function StudentBookings() {
     setBookings((data as Booking[]) ?? []);
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['bookings'], `student-bookings:${profile?.id ?? ''}`);
 
   const counts = useMemo(() => {
     const next: Record<Filter, number> = {
@@ -118,7 +115,7 @@ export default function StudentBookings() {
   };
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>

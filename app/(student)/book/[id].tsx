@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +12,7 @@ import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { occupantChoices, PAYMENT_CHOICES, paymentHintKey, paymentI18nKey } from '@/src/lib/booking';
 import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
@@ -73,32 +74,26 @@ export default function BookScreen() {
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    supabase
+  const load = useCallback(async () => {
+    const { data: settings } = await supabase
       .from('app_settings')
       .select('commission_percent')
       .eq('id', 1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.commission_percent != null) setPercent(Number(data.commission_percent));
-      });
-  }, []);
-
-  useEffect(() => {
+      .maybeSingle();
+    if (settings?.commission_percent != null) setPercent(Number(settings.commission_percent));
     if (!id) return;
-    supabase
-      .from('apartments')
-      .select('*, cities(*)')
-      .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          const next = data as Apartment;
-          setApartment(next);
-          setOccupants((current) => Math.min(current, occupantChoices(next.rooms).length));
-        } else setMissing(true);
-      });
+    const { data } = await supabase.from('apartments').select('*, cities(*)').eq('id', id).single();
+    if (data) {
+      const next = data as Apartment;
+      setApartment(next);
+      setMissing(false);
+      setOccupants((current) => Math.min(current, occupantChoices(next.rooms).length));
+    } else {
+      setMissing(true);
+    }
   }, [id]);
+
+  const { refreshing, refresh } = useLiveReload(load, ['apartments', 'app_settings'], `book:${id ?? ''}`);
 
   const today = isoDate(new Date());
   const people = occupantChoices(apartment?.rooms);
@@ -176,7 +171,7 @@ export default function BookScreen() {
 
   if (!apartment) {
     return (
-      <Screen back>
+      <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
         {missing ? (
           <Card>
             <SectionHead icon="home-outline" title={t('listing.notFound')} />
@@ -220,6 +215,8 @@ export default function BookScreen() {
   return (
     <Screen
       back
+      refreshing={refreshing}
+      onRefresh={() => void refresh()}
       footer={
         canSubmit ? (
           <Button title={t('booking.submit')} onPress={() => void submit()} loading={loading} pill />

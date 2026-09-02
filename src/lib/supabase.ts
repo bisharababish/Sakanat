@@ -1,7 +1,8 @@
 import 'react-native-url-polyfill/auto';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, type SupportedStorage } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+
+import { authStorage } from '@/src/lib/sessionStorage';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -12,29 +13,7 @@ export const isSupabaseConfigured = Boolean(url && key);
 export const AUTH_REDIRECT_URL = 'https://bisharababish.github.io/Sakanat/confirmed.html';
 export const AUTH_RESET_URL = 'https://bisharababish.github.io/Sakanat/reset.html';
 
-const memory = new Map<string, string>();
 const canUseNativeStorage = typeof window !== 'undefined';
-
-const authStorage: SupportedStorage = {
-  getItem: async (storageKey) => {
-    if (!canUseNativeStorage) return memory.get(storageKey) ?? null;
-    return AsyncStorage.getItem(storageKey);
-  },
-  setItem: async (storageKey, value) => {
-    if (!canUseNativeStorage) {
-      memory.set(storageKey, value);
-      return;
-    }
-    await AsyncStorage.setItem(storageKey, value);
-  },
-  removeItem: async (storageKey) => {
-    if (!canUseNativeStorage) {
-      memory.delete(storageKey);
-      return;
-    }
-    await AsyncStorage.removeItem(storageKey);
-  },
-};
 
 export function createDetachedClient() {
   const isolated = new Map<string, string>();

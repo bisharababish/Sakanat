@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { subscribeCatalog } from '@/src/lib/catalog';
 import { supabase } from '@/src/lib/supabase';
@@ -11,6 +11,21 @@ export function useCatalog() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => subscribeCatalog(() => setTick((value) => value + 1)), []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('catalog-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cities' }, () =>
+        setTick((value) => value + 1),
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'universities' }, () =>
+        setTick((value) => value + 1),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -29,5 +44,7 @@ export function useCatalog() {
     };
   }, [tick]);
 
-  return { cities, universities, loading };
+  const reload = useCallback(() => setTick((value) => value + 1), []);
+
+  return { cities, universities, loading, reload };
 }

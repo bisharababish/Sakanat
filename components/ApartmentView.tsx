@@ -8,7 +8,9 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Pressable,
+  RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -69,6 +71,8 @@ export function ApartmentView({
   onBook,
   onRequireAccount,
   children,
+  refreshing = false,
+  onRefresh,
 }: {
   apartment: Apartment | null;
   missing?: boolean;
@@ -86,6 +90,8 @@ export function ApartmentView({
   onBook?: () => void;
   onRequireAccount?: () => void;
   children?: ReactNode;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, lang, isRtl } = useLayout();
@@ -130,6 +136,20 @@ export function ApartmentView({
   }
 
   const city = localizedName(apartment.cities, i18n.language);
+  const shareListing = async () => {
+    try {
+      await Share.share({
+        message: t('listing.shareMessage', {
+          title: localizedTitle(apartment, i18n.language),
+          city: city || t('listing.location'),
+          price: formatIls(apartment.price_month, lang),
+          name: t('appName'),
+        }),
+      });
+    } catch {
+      // user dismissed the sheet
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
@@ -137,21 +157,49 @@ export function ApartmentView({
         back
         compactBack
         extra={
-          preview || !onToggleSave ? undefined : (
+          <>
             <Pressable
-              onPress={onToggleSave}
-              disabled={saving}
+              onPress={() => void shareListing()}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={saved ? t('listing.saved') : t('listing.save')}
+              accessibilityLabel={t('listing.share')}
               style={[styles.heartBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
-              <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? colors.danger : colors.primary} />
+              <Ionicons name="share-outline" size={20} color={colors.primary} />
             </Pressable>
-          )
+            {preview || !onToggleSave ? null : (
+              <Pressable
+                onPress={onToggleSave}
+                disabled={saving}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={saved ? t('listing.saved') : t('listing.save')}
+                style={[styles.heartBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? colors.danger : colors.primary} />
+              </Pressable>
+            )}
+          </>
         }
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        bounces
+        alwaysBounceVertical={Boolean(onRefresh)}
+        overScrollMode={onRefresh ? 'always' : 'auto'}
+        nestedScrollEnabled
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surface}
+            />
+          ) : undefined
+        }
+      >
         {preview ? (
           <View style={[styles.previewBanner, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
             <Ionicons name="eye-outline" size={18} color={colors.primaryDark} />
@@ -287,18 +335,18 @@ export function ApartmentView({
 
         <Card>
           <SectionHead icon="person-outline" title={t('listing.owner')} />
-          <Text style={[styles.body, copy, { color: colors.text }]}>{apartment.profiles?.full_name}</Text>
-          {preview && !signedIn ? null : signedIn && apartment.profiles?.phone ? (
+          <Text style={[styles.body, copy, { color: colors.text }]}>
+            {apartment.profiles?.full_name || t('listing.owner')}
+          </Text>
+          {preview && signedIn && apartment.profiles?.phone ? (
             <Button
               title={t('common.call')}
               variant="ghost"
               pill
               onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
             />
-          ) : !preview && onRequireAccount ? (
-            <Button title={t('common.call')} variant="ghost" pill onPress={onRequireAccount} />
           ) : null}
-          {preview && !signedIn ? null : signedIn && (apartment.profiles?.whatsapp || apartment.profiles?.phone) ? (
+          {preview && signedIn && (apartment.profiles?.whatsapp || apartment.profiles?.phone) ? (
             <Button
               title={t('profile.openWhatsapp')}
               variant="ghost"
@@ -307,8 +355,6 @@ export function ApartmentView({
                 Linking.openURL(whatsappLink(apartment.profiles?.whatsapp || apartment.profiles?.phone || ''))
               }
             />
-          ) : !preview && onRequireAccount ? (
-            <Button title={t('profile.openWhatsapp')} variant="ghost" pill onPress={onRequireAccount} />
           ) : null}
         </Card>
         {children}

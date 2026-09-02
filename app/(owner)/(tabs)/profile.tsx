@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { MfaSetup } from '@/components/auth/MfaSetup';
+import { SessionSecurity } from '@/components/auth/SessionSecurity';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -20,6 +21,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
@@ -73,16 +75,20 @@ export default function OwnerProfile() {
     setAvatarUrl(profile.avatar_url ?? null);
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!profile?.id) return;
-      void supabase
-        .from('apartments')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', profile.id)
-        .then(({ count }) => setListingCount(count ?? 0));
-    }, [profile?.id]),
-  );
+  const loadListings = useCallback(async () => {
+    if (!profile?.id) return;
+    const { count } = await supabase
+      .from('apartments')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', profile.id);
+    setListingCount(count ?? 0);
+  }, [profile?.id]);
+
+  const reloadAll = useCallback(async () => {
+    await Promise.all([loadListings(), refreshProfile()]);
+  }, [loadListings, refreshProfile]);
+
+  const { refreshing, refresh } = useLiveReload(reloadAll, ['apartments', 'profiles'], `owner-profile:${profile?.id ?? ''}`);
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -211,7 +217,7 @@ export default function OwnerProfile() {
   };
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <ProfileHero
         name={fullName || profile?.full_name || t('profile.title')}
         avatarUrl={avatarUrl}
@@ -318,6 +324,7 @@ export default function OwnerProfile() {
             <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
           </Card>
           <MfaSetup />
+          <SessionSecurity />
         </>
       ) : null}
     </Screen>

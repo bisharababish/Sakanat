@@ -1,4 +1,3 @@
-import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -22,16 +22,16 @@ export default function AdminNewListing() {
   const [ownerId, setOwnerId] = useState('');
   const [ready, setReady] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      supabase
-        .from('profiles')
-        .select('id, full_name, email, role, owner_status')
-        .eq('role', 'owner')
-        .order('full_name')
-        .then(({ data }) => setOwners((data as Profile[]) ?? []));
-    }, []),
-  );
+  const loadOwners = useCallback(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role, owner_status')
+      .eq('role', 'owner')
+      .order('full_name');
+    setOwners((data as Profile[]) ?? []);
+  }, []);
+
+  const { refreshing, refresh } = useLiveReload(loadOwners, ['profiles'], 'admin-new-listing-owners');
 
   const ownerOptions = useMemo(
     () =>
@@ -44,7 +44,7 @@ export default function AdminNewListing() {
 
   if (!ready) {
     return (
-      <Screen back>
+      <Screen back refreshing={refreshing} onRefresh={() => void refresh()}>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('owner.addListing')}</Text>
         <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('admin.pickOwner')}</Text>
         <Card>

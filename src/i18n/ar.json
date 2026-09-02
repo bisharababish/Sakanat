@@ -198,6 +198,11 @@
     "invalidEmail": "البريد غير صالح",
     "invalidName": "استخدم من حرفين إلى 40 حرفاً فقط. عربي أو إنجليزي، بلا أرقام.",
     "studentEmailRequired": "يحتاج حساب الطالب إلى بريد جامعي ينتهي بـ .edu أو .edu.ps",
+    "universityEmailHint": "استخدم بريد جامعتك ({{domains}})",
+    "universityEmailMismatch": "هذا البريد لا ينتمي لهذه الجامعة. استخدم أحد النطاقات: {{domains}}",
+    "universityEmailMismatchGeneric": "هذا البريد لا ينتمي للجامعة المختارة.",
+    "idleTitle": "تم تسجيل الخروج",
+    "idleSignedOut": "تم تسجيل خروجك بعد فترة من عدم الاستخدام. سجّل الدخول مرة أخرى للمتابعة.",
     "missingFields": "أكمل جميع الحقول المطلوبة",
     "weakPassword": "استخدم 8 إلى 12 حرفاً مع حرف كبير وحرف صغير ورقم",
     "passwordLength": "8 إلى 12 حرفاً",
@@ -241,7 +246,9 @@
     "unavailable": "تعذر بدء المصادقة. من Supabase: Authentication → MFA وفعّل TOTP.",
     "loginTitle": "رمز المصادقة",
     "loginHint": "افتح Google Authenticator وأدخل الرمز المكوّن من 6 أرقام.",
-    "cooldown": "انتظر {{minutes}} دقائق قبل تفعيل أو إيقاف Google Authenticator مرة أخرى."
+    "cooldown": "انتظر {{minutes}} دقائق قبل تفعيل أو إيقاف Google Authenticator مرة أخرى.",
+    "adminTitle": "احمِ حساب المشرف",
+    "adminRequired": "حسابات المشرفين يجب أن تستخدم Google Authenticator. ولا يمكن إيقافها."
   },
   "tabs": {
     "search": "البحث",
@@ -305,7 +312,9 @@
     "photoIndex": "{{current}} / {{total}}",
     "viewPhoto": "عرض الصورة",
     "fitsPeople": "حتى {{count}} أشخاص",
-    "genderMismatch": "هذا السكن غير مناسب لجنسك."
+    "genderMismatch": "هذا السكن غير مناسب لجنسك.",
+    "share": "مشاركة السكن",
+    "shareMessage": "{{title}} في {{city}} · {{price}} شهرياً\n{{name}}"
   },
   "booking": {
     "title": "تأكيد الحجز",
@@ -389,6 +398,7 @@
     "coverPhoto": "الغلاف",
     "addMorePhotos": "أضف المزيد",
     "photoPermission": "اسمح بالوصول إلى الصور حتى تتمكن من إضافة صور الشقة.",
+    "photoTooLarge": "كل صورة يجب أن تكون أصغر من 5 ميغابايت.",
     "confirmPhoto": "إضافة هذه الصورة؟",
     "confirmPhotos": "إضافة هذه الصور؟",
     "confirmPhotoBody": "إضافة هذه الصورة إلى الشقة.",
@@ -627,6 +637,14 @@
     "deleteAccountHint": "يُحذف تسجيل دخولك وحجوزاتك ومحادثاتك والشقق المحفوظة. ولا يمكن التراجع.",
     "deleteAccountTitle": "حذف هذا الحساب؟",
     "deleteAccountBody": "يُحذف تسجيل دخولك وحجوزاتك ومحادثاتك والشقق المحفوظة. ولا يمكن التراجع.",
-    "deleteAccountFailed": "تعذر حذف الحساب. حاول مرة أخرى، أو راسلنا."
+    "deleteAccountFailed": "تعذر حذف الحساب. حاول مرة أخرى، أو راسلنا.",
+    "photoTooLarge": "استخدم صورة أصغر من 5 ميغابايت.",
+    "devicesTitle": "الأجهزة",
+    "signOutOthers": "تسجيل خروج الأجهزة الأخرى",
+    "signOutOthersHint": "تبقى مسجّلاً على هذا الهاتف، ونُخرج كل الجلسات الأخرى.",
+    "signOutOthersTitle": "تسجيل خروج الأجهزة الأخرى؟",
+    "signOutOthersBody": "تبقى مسجّلاً هنا. الهواتف والمتصفحات الأخرى تحتاج تسجيل الدخول من جديد.",
+    "signOutOthersDone": "تم تسجيل خروج الأجهزة الأخرى.",
+    "signOutOthersFailed": "تعذر تسجيل خروج الأجهزة الأخرى. حاول مرة أخرى."
   }
 }

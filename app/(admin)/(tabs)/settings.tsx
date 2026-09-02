@@ -1,10 +1,11 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { MfaSetup } from '@/components/auth/MfaSetup';
+import { SessionSecurity } from '@/components/auth/SessionSecurity';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
@@ -19,6 +20,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
@@ -69,18 +71,20 @@ export default function AdminSettings() {
     setAvatarUrl(profile.avatar_url ?? null);
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      supabase
-        .from('app_settings')
-        .select('commission_percent')
-        .eq('id', 1)
-        .single()
-        .then(({ data }) => {
-          if (data?.commission_percent != null) setPercent(String(data.commission_percent));
-        });
-    }, []),
-  );
+  const loadSettings = useCallback(async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('commission_percent')
+      .eq('id', 1)
+      .maybeSingle();
+    if (data?.commission_percent != null) setPercent(String(data.commission_percent));
+  }, []);
+
+  const reloadAll = useCallback(async () => {
+    await Promise.all([loadSettings(), refreshProfile()]);
+  }, [loadSettings, refreshProfile]);
+
+  const { refreshing, refresh } = useLiveReload(reloadAll, ['app_settings', 'profiles'], 'admin-settings');
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -194,7 +198,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <ProfileHero
         name={fullName || profile?.full_name || t('profile.title')}
         avatarUrl={avatarUrl}
@@ -286,7 +290,8 @@ export default function AdminSettings() {
             <PasswordChecks password={newPassword} confirm={confirmPassword} />
             <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
           </Card>
-          <MfaSetup />
+          <MfaSetup required />
+          <SessionSecurity />
         </>
       ) : null}
 

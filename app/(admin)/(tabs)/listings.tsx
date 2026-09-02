@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { listingBadgeTone } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
@@ -41,11 +42,7 @@ export default function AdminListings() {
     setListings((data as Apartment[]) ?? []);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['apartments'], 'admin-listings');
 
   const counts = useMemo(() => {
     const next: Record<Filter, number> = {
@@ -102,7 +99,7 @@ export default function AdminListings() {
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.listings')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.listings')}</Text>

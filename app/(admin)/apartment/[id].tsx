@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { ApartmentView } from '@/components/ApartmentView';
 import { Button } from '@/components/ui/Button';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { updateListingStatus } from '@/src/lib/listing';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
@@ -35,11 +36,7 @@ export default function AdminApartmentReview() {
     else setMissing(true);
   }, [id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['apartments'], `admin-apartment:${id ?? ''}`);
 
   const university = useMemo(
     () => universities.find((item) => item.id === apartment?.nearest_university_id) ?? apartment?.universities,
@@ -87,6 +84,8 @@ export default function AdminApartmentReview() {
         distance={apartment ? listingDistanceKm(apartment, university) : null}
         preview
         signedIn
+        refreshing={refreshing}
+        onRefresh={() => void refresh()}
       >
         {apartment ? (
           <View style={styles.actions}>

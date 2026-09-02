@@ -198,6 +198,11 @@
     "invalidEmail": "That email is not valid",
     "invalidName": "Use 2–40 letters only. Arabic or English, no numbers.",
     "studentEmailRequired": "Student accounts need a university email ending in .edu or .edu.ps",
+    "universityEmailHint": "Use your campus email for this university ({{domains}})",
+    "universityEmailMismatch": "That email does not belong to this university. Use one of: {{domains}}",
+    "universityEmailMismatchGeneric": "That email does not belong to the selected university.",
+    "idleTitle": "Signed out",
+    "idleSignedOut": "You were signed out after a period of inactivity. Log in again to continue.",
     "missingFields": "Please fill in the required fields",
     "weakPassword": "Use 8–12 characters with uppercase, lowercase, and a number",
     "passwordLength": "8–12 characters",
@@ -241,7 +246,9 @@
     "unavailable": "Could not start authenticator. In Supabase go to Authentication → MFA and turn on TOTP.",
     "loginTitle": "Authenticator code",
     "loginHint": "Open Google Authenticator and enter the 6-digit code.",
-    "cooldown": "Wait {{minutes}} minutes before turning Google Authenticator on or off again."
+    "cooldown": "Wait {{minutes}} minutes before turning Google Authenticator on or off again.",
+    "adminTitle": "Protect this admin account",
+    "adminRequired": "Admin accounts must use Google Authenticator. You cannot turn it off."
   },
   "tabs": {
     "search": "Search",
@@ -305,7 +312,9 @@
     "photoIndex": "{{current}} / {{total}}",
     "viewPhoto": "View photo",
     "fitsPeople": "Up to {{count}} people",
-    "genderMismatch": "This listing is not for your gender."
+    "genderMismatch": "This listing is not for your gender.",
+    "share": "Share listing",
+    "shareMessage": "{{title}} in {{city}} · {{price}} / month\n{{name}}"
   },
   "booking": {
     "title": "Confirm booking",
@@ -389,6 +398,7 @@
     "coverPhoto": "Cover",
     "addMorePhotos": "Add more",
     "photoPermission": "Allow photo access so you can add apartment pictures.",
+    "photoTooLarge": "Each photo must be under 5 MB.",
     "confirmPhoto": "Add this photo?",
     "confirmPhotos": "Add these photos?",
     "confirmPhotoBody": "Add this photo to the listing.",
@@ -627,6 +637,14 @@
     "deleteAccountHint": "Removes your login, bookings, chats, and saved apartments. You cannot undo this.",
     "deleteAccountTitle": "Delete this account?",
     "deleteAccountBody": "Your login, bookings, chats, and saved apartments are removed. You cannot undo this.",
-    "deleteAccountFailed": "Could not delete the account. Try again, or email us."
+    "deleteAccountFailed": "Could not delete the account. Try again, or email us.",
+    "photoTooLarge": "Use a photo under 5 MB.",
+    "devicesTitle": "Devices",
+    "signOutOthers": "Sign out other devices",
+    "signOutOthersHint": "Keeps this phone signed in and signs out every other session.",
+    "signOutOthersTitle": "Sign out other devices?",
+    "signOutOthersBody": "You stay signed in here. Other phones and browsers will need to log in again.",
+    "signOutOthersDone": "Other devices were signed out.",
+    "signOutOthersFailed": "Could not sign out other devices. Try again."
   }
 }

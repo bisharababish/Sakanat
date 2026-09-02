@@ -1,4 +1,5 @@
 import i18n from '@/src/i18n';
+import { MESSAGE_MAX } from '@/src/lib/limits';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment, Conversation, Profile } from '@/src/types/database';
@@ -176,7 +177,7 @@ export async function markInboxDelivered(items: Conversation[], asOwner: boolean
 }
 
 export async function sendMessage(conversationId: string, senderId: string, body: string) {
-  const trimmed = body.trim();
+  const trimmed = body.trim().slice(0, MESSAGE_MAX);
   if (!trimmed) return;
   const { error } = await supabase.from('messages').insert({
     conversation_id: conversationId,

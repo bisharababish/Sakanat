@@ -1,21 +1,25 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
   View,
+  AppState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { useAuth } from '@/src/lib/auth';
+import { MESSAGE_MAX } from '@/src/lib/limits';
 import {
   loadConversation,
   markConversationDelivered,
@@ -69,6 +73,8 @@ function ReceiptTick({
   return <Ionicons name="checkmark-done" size={13} color={read} />;
 }
 
+type ThreadItem = Message & { showDay: boolean; grouped: boolean; lastInGroup: boolean };
+
 export function ChatThread({
   conversationId,
   readOnly = false,
@@ -93,8 +99,26 @@ export function ChatThread({
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const listRef = useRef<FlatList<Message>>(null);
+  const listRef = useRef<FlatList<ThreadItem>>(null);
   const asOwner = profile?.role === 'owner';
+
+  const loadMessages = useCallback(async () => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+    setMessages((data as Message[]) ?? []);
+  }, [conversationId]);
+
+  const { refreshing, refresh } = usePullRefresh(loadMessages);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void loadMessages();
+    });
+    return () => sub.remove();
+  }, [loadMessages]);
 
   useEffect(() => {
     let mounted = true;
@@ -105,14 +129,7 @@ export function ChatThread({
       .catch(() => {
         if (mounted) setConversation(null);
       });
-    supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        if (mounted) setMessages((data as Message[]) ?? []);
-      });
+    void loadMessages();
 
     const channel = supabase
       .channel(`thread:${conversationId}`)
@@ -145,9 +162,9 @@ export function ChatThread({
       mounted = false;
       void supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, loadMessages]);
 
-  const items = useMemo(() => {
+  const items: ThreadItem[] = useMemo(() => {
     return messages.map((item, index) => {
       const prev = messages[index - 1];
       const next = messages[index + 1];
@@ -172,7 +189,7 @@ export function ChatThread({
 
   const onSend = async () => {
     if (readOnly || !profile || !draft.trim() || sending) return;
-    const body = draft.trim();
+    const body = draft.trim().slice(0, MESSAGE_MAX);
     const temp: Message = {
       id: `temp-${Date.now()}`,
       conversation_id: conversationId,
@@ -207,7 +224,22 @@ export function ChatThread({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => {
+          if (!refreshing) listRef.current?.scrollToEnd({ animated: true });
+        }}
+        bounces
+        alwaysBounceVertical
+        overScrollMode="always"
+        nestedScrollEnabled
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surface}
+          />
+        }
         ListEmptyComponent={
           <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
@@ -300,10 +332,11 @@ export function ChatThread({
         >
           <TextInput
             value={draft}
-            onChangeText={setDraft}
+            onChangeText={(value) => setDraft(value.slice(0, MESSAGE_MAX))}
             placeholder={t('chat.placeholder')}
             placeholderTextColor={colors.textMuted}
             multiline
+            maxLength={MESSAGE_MAX}
             style={[
               styles.input,
               {

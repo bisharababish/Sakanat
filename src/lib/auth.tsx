@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { changeAppLanguage } from '@/src/i18n';
 import { isValidEmail, studentEmailError } from '@/src/lib/eduEmail';
 import { isSuspended } from '@/src/lib/moderation';
-import { mfaNeedsChallenge, verifyTotpCode } from '@/src/lib/mfa';
+import { mfaNeedsChallenge, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
 import type { PersonGender, Profile, PublicSignupRole } from '@/src/types/database';
 
@@ -42,6 +42,7 @@ type SignUpInput = {
   role: PublicSignupRole;
   cityId?: string;
   universityId?: string;
+  universityDomains?: string[];
   gender?: PersonGender;
   language: 'ar' | 'en';
 };
@@ -60,8 +61,10 @@ type AuthContextValue = {
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   completeMfa: (factorId: string, code: string) => Promise<void>;
+  completeMfaEnroll: () => Promise<void>;
   passwordRecovery: boolean;
   mfaPending: boolean;
+  mfaEnrollRequired: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,12 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [mfaPending, setMfaPending] = useState(false);
+  const [mfaEnrollRequired, setMfaEnrollRequired] = useState(false);
   const loadGen = useRef(0);
 
   const clearLocalAuth = () => {
     setSession(null);
     setProfile(null);
     setMfaPending(false);
+    setMfaEnrollRequired(false);
   };
 
   const loadForSession = async (next: Session | null) => {
@@ -135,10 +140,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       nextProfile.gender = metaGender;
     }
     const needsMfa = await mfaNeedsChallenge();
+    const totp = needsMfa ? true : Boolean(await verifiedTotpFactor());
     if (mine !== loadGen.current) return;
     setSession(next);
     setProfile(nextProfile);
     setMfaPending(needsMfa);
+    setMfaEnrollRequired(nextProfile.role === 'admin' && !needsMfa && !totp);
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
@@ -216,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured: isSupabaseConfigured,
       passwordRecovery,
       mfaPending,
+      mfaEnrollRequired,
       signIn: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -231,7 +239,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp: async (input) => {
         const role: PublicSignupRole = input.role === 'renter' ? 'renter' : 'student';
         if (role === 'student') {
-          const emailIssue = studentEmailError(input.email);
+          let domains = input.universityDomains ?? [];
+          if (input.universityId) {
+            const { data } = await supabase
+              .from('universities')
+              .select('email_domains')
+              .eq('id', input.universityId)
+              .maybeSingle();
+            if (data?.email_domains?.length) domains = data.email_domains as string[];
+          }
+          const emailIssue = studentEmailError(input.email, domains);
           if (emailIssue) throw new Error(emailIssue);
         } else if (!isValidEmail(input.email)) {
           throw new Error('invalidEmail');
@@ -319,8 +336,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data } = await supabase.auth.getSession();
         await loadForSession(data.session);
       },
+      completeMfaEnroll: async () => {
+        setMfaEnrollRequired(false);
+        const { data } = await supabase.auth.getSession();
+        await loadForSession(data.session);
+      },
     }),
-    [session, profile, loading, passwordRecovery, mfaPending],
+    [session, profile, loading, passwordRecovery, mfaPending, mfaEnrollRequired],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

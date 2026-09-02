@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +19,7 @@ import { Select } from '@/components/ui/Select';
 import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
+import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { deleteUserAccount, setSuspended, unenrollUserMfa } from '@/src/lib/moderation';
@@ -57,38 +58,45 @@ export default function AdminUserEdit() {
   const [clearingMfa, setClearingMfa] = useState(false);
   const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
 
-  useEffect(() => {
+  const applyUser = useCallback((next: Profile | null) => {
+    setUser(next);
+    setLoaded(true);
+    if (!next) return;
+    setFullName(next.full_name ?? '');
+    const phone = splitPhone(next.phone);
+    setPhoneRegion(phone.region);
+    setPhoneLocal(phone.local);
+    const whats = splitPhone(next.whatsapp);
+    setWhatsRegion(whats.region);
+    setWhatsLocal(whats.local);
+    setGender(next.gender ?? '');
+    setBirthDate(next.date_of_birth ? next.date_of_birth.slice(0, 10) : '');
+    setCityId(next.city_id ?? '');
+    setUniversityId(next.university_id ?? '');
+    setRole(next.role);
+    setOwnerStatus(next.owner_status);
+    setAccountStatus(next.account_status === 'suspended' ? 'suspended' : 'active');
+    setStudentId(next.student_id_number ?? '');
+    setMajor(next.major ?? '');
+    setDegreeLevel(next.degree_level ?? '');
+    setStudyYear(next.study_year && next.study_year !== 'graduate' ? next.study_year : '');
+  }, []);
+
+  const load = useCallback(async () => {
     if (!id) return;
-    supabase
+    const { data } = await supabase
       .from('profiles')
       .select('*, cities(*), universities(*)')
       .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        const next = (data as Profile) ?? null;
-        setUser(next);
-        setLoaded(true);
-        if (!next) return;
-        setFullName(next.full_name ?? '');
-        const phone = splitPhone(next.phone);
-        setPhoneRegion(phone.region);
-        setPhoneLocal(phone.local);
-        const whats = splitPhone(next.whatsapp);
-        setWhatsRegion(whats.region);
-        setWhatsLocal(whats.local);
-        setGender(next.gender ?? '');
-        setBirthDate(next.date_of_birth ? next.date_of_birth.slice(0, 10) : '');
-        setCityId(next.city_id ?? '');
-        setUniversityId(next.university_id ?? '');
-        setRole(next.role);
-        setOwnerStatus(next.owner_status);
-        setAccountStatus(next.account_status === 'suspended' ? 'suspended' : 'active');
-        setStudentId(next.student_id_number ?? '');
-        setMajor(next.major ?? '');
-        setDegreeLevel(next.degree_level ?? '');
-        setStudyYear(next.study_year && next.study_year !== 'graduate' ? next.study_year : '');
-      });
-  }, [id]);
+      .single();
+    applyUser((data as Profile) ?? null);
+  }, [id, applyUser]);
+
+  const { refreshing, refresh } = usePullRefresh(load);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -241,7 +249,7 @@ export default function AdminUserEdit() {
   }
 
   return (
-    <Screen back>
+    <Screen back refreshing={refreshing} onRefresh={() => void refresh()}>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.editUser')}</Text>
       <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{user.email}</Text>
       {accountStatus === 'suspended' ? <StatusBadge label={t('admin.accountSuspended')} tone="rejected" /> : null}

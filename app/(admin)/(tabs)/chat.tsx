@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import {
   conversationIdsMatchingMessage,
   conversationParties,
@@ -61,11 +62,7 @@ export default function AdminInbox() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['conversations', 'messages'], 'admin-inbox');
 
   useEffect(() => {
     const needle = query.trim();
@@ -119,7 +116,7 @@ export default function AdminInbox() {
   };
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.inboxTitle')}</Text>

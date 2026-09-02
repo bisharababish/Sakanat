@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChromeBar } from '@/components/ui/ChromeBar';
@@ -12,9 +12,19 @@ type Props = {
   showMenu?: boolean;
   back?: boolean;
   footer?: ReactNode;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
-export function Screen({ children, scroll = true, showMenu = true, back = false, footer }: Props) {
+export function Screen({
+  children,
+  scroll = true,
+  showMenu = true,
+  back = false,
+  footer,
+  refreshing = false,
+  onRefresh,
+}: Props) {
   const colors = useColors();
   const bar = <ChromeBar back={back} showMenu={showMenu} />;
   const bottom = footer ? (
@@ -22,6 +32,33 @@ export function Screen({ children, scroll = true, showMenu = true, back = false,
       {footer}
     </SafeAreaView>
   ) : null;
+  const refreshControl = onRefresh ? (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor={colors.primary}
+      colors={[colors.primary]}
+      progressBackgroundColor={colors.surface}
+    />
+  ) : undefined;
+
+  const body = (
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={[styles.pad, footer ? styles.padWithFooter : null]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
+      showsVerticalScrollIndicator={false}
+      bounces
+      alwaysBounceVertical={Boolean(onRefresh)}
+      overScrollMode={onRefresh ? 'always' : 'auto'}
+      nestedScrollEnabled
+      refreshControl={refreshControl}
+    >
+      {children}
+    </ScrollView>
+  );
 
   if (!scroll) {
     return (
@@ -36,18 +73,17 @@ export function Screen({ children, scroll = true, showMenu = true, back = false,
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {bar}
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[styles.pad, footer ? styles.padWithFooter : null]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          automaticallyAdjustKeyboardInsets
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </ScrollView>
-        {bottom}
-      </KeyboardAvoidingView>
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView style={styles.flex} behavior="padding">
+          {body}
+          {bottom}
+        </KeyboardAvoidingView>
+      ) : (
+        <>
+          {body}
+          {bottom}
+        </>
+      )}
     </SafeAreaView>
   );
 }

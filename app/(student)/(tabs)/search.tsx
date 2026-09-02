@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
@@ -35,7 +36,7 @@ export default function SearchScreen() {
   const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
-  const { cities, universities } = useCatalog();
+  const { cities, universities, reload: reloadCatalog } = useCatalog();
   const isRenter = profile?.role === 'renter';
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,7 @@ export default function SearchScreen() {
   }, [isRenter, profile?.city_id, profile?.gender, profile?.university_id]);
 
   const load = useCallback(async () => {
+    reloadCatalog();
     const { data } = await supabase
       .from('apartments')
       .select('*, cities(*), universities(*)')
@@ -78,13 +80,9 @@ export default function SearchScreen() {
         setSavedIds([]);
       }
     }
-  }, [profile?.id]);
+  }, [profile?.id, reloadCatalog]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], 'search');
 
   const selectedUniversity = useMemo(
     () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
@@ -223,7 +221,7 @@ export default function SearchScreen() {
   ];
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.search')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('search.title')}</Text>

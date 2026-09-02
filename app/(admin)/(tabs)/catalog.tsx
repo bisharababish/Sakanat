@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -14,6 +13,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Select } from '@/components/ui/Select';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { notifyCatalogChanged, parseCoord, parseDomains, slugify } from '@/src/lib/catalog';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
@@ -64,11 +64,7 @@ export default function AdminCatalog() {
     setUniversities((uniRes.data as University[]) ?? []);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['cities', 'universities'], 'admin-catalog');
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -265,7 +261,7 @@ export default function AdminCatalog() {
   };
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.catalog')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.catalogTitle')}</Text>
       <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>

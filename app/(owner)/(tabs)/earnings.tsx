@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useFocusEffect } from 'expo-router';
 import { type ComponentProps, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +8,7 @@ import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { paymentBucket, paymentI18nKey } from '@/src/lib/booking';
 import { formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
@@ -74,26 +74,22 @@ export default function OwnerEarnings() {
   const [period, setPeriod] = useState<Period>('month');
   const [percent, setPercent] = useState<number | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!profile) return;
-      void supabase
+  const load = useCallback(async () => {
+    if (!profile) return;
+    const [bookingRes, settingsRes] = await Promise.all([
+      supabase
         .from('bookings')
         .select('*, apartments(title_ar, title_en), student:profiles!student_id(id, full_name)')
         .eq('owner_id', profile.id)
         .in('status', ['confirmed', 'completed'])
-        .order('created_at', { ascending: false })
-        .then(({ data }) => setBookings((data as Booking[]) ?? []));
-      void supabase
-        .from('app_settings')
-        .select('commission_percent')
-        .eq('id', 1)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.commission_percent != null) setPercent(Number(data.commission_percent));
-        });
-    }, [profile]),
-  );
+        .order('created_at', { ascending: false }),
+      supabase.from('app_settings').select('commission_percent').eq('id', 1).maybeSingle(),
+    ]);
+    setBookings((bookingRes.data as Booking[]) ?? []);
+    if (settingsRes.data?.commission_percent != null) setPercent(Number(settingsRes.data.commission_percent));
+  }, [profile]);
+
+  const { refreshing, refresh } = useLiveReload(load, ['bookings', 'app_settings'], `earnings:${profile?.id ?? ''}`);
 
   const monthBookings = useMemo(() => bookings.filter((item) => isThisMonth(item.created_at)), [bookings]);
   const month = useMemo(() => money(monthBookings), [monthBookings]);
@@ -127,7 +123,7 @@ export default function OwnerEarnings() {
   }, [bookings, months]);
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.earnings')}</Text>

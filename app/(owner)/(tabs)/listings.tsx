@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { listingBadgeTone } from '@/src/lib/format';
 import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
@@ -41,11 +42,7 @@ export default function OwnerListings() {
     setListings((data as Apartment[]) ?? []);
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['apartments'], `owner-listings:${profile?.id ?? ''}`);
 
   const counts = useMemo(() => {
     const next: Record<Filter, number> = {
@@ -122,7 +119,7 @@ export default function OwnerListings() {
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.listings')}</Text>

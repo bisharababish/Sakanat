@@ -13,7 +13,7 @@ import { enrollTotp, formatTotpSecret, isMfaCooldown, listTotpFactors, mfaCooldo
 import { alert } from '@/src/lib/notice';
 import { useColors } from '@/src/theme/ThemeProvider';
 
-export function MfaSetup() {
+export function MfaSetup({ required = false, onEnabled }: { required?: boolean; onEnabled?: () => void }) {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
@@ -53,6 +53,10 @@ export function MfaSetup() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (required && enabled && !secret) onEnabled?.();
+  }, [required, enabled, secret, onEnabled]);
 
   useEffect(() => {
     if (waitMinutes <= 0) return;
@@ -96,6 +100,7 @@ export function MfaSetup() {
       await markMfaChanged();
       alert(t('common.done'), t('mfa.enabled'));
       await refresh();
+      onEnabled?.();
     } catch {
       alert(t('common.error'), t('mfa.invalidCode'));
     } finally {
@@ -165,7 +170,9 @@ export function MfaSetup() {
   return (
     <Card>
       <SectionHead icon="shield-checkmark-outline" title={t('mfa.title')} />
-      <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('mfa.hint')}</Text>
+      <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>
+        {t(required ? 'mfa.adminRequired' : 'mfa.hint')}
+      </Text>
       {loading ? null : enabled && !secret ? (
         <>
           <Text style={[styles.on, rtlText, { color: colors.primary }]}>{t('mfa.on')}</Text>
@@ -175,7 +182,9 @@ export function MfaSetup() {
               {t('mfa.cooldown', { minutes: waitMinutes })}
             </Text>
           ) : null}
-          <Button title={t('mfa.disable')} variant="danger" onPress={disable} loading={busy} disabled={waitMinutes > 0} pill />
+          {required ? null : (
+            <Button title={t('mfa.disable')} variant="danger" onPress={disable} loading={busy} disabled={waitMinutes > 0} pill />
+          )}
         </>
       ) : secret ? (
         <>

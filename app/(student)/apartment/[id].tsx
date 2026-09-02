@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ApartmentView } from '@/components/ApartmentView';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
@@ -29,25 +30,30 @@ export default function ApartmentDetails() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    supabase
+    const { data } = await supabase
       .from('apartments')
-      .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, phone, email, whatsapp)')
+      .select('*, cities(*), universities(*), profiles!owner_id(id, full_name)')
       .eq('id', id)
-      .single()
-      .then(({ data }) => {
-        if (data) setApartment(data as Apartment);
-        else setMissing(true);
-      });
-  }, [id]);
-
-  useEffect(() => {
-    if (!id || !profile?.id) return;
-    void loadSavedApartmentIds(profile.id)
-      .then((ids) => setSaved(ids.includes(id)))
-      .catch(() => undefined);
+      .single();
+    if (data) {
+      setApartment(data as Apartment);
+      setMissing(false);
+    } else {
+      setMissing(true);
+    }
+    if (profile?.id) {
+      try {
+        const ids = await loadSavedApartmentIds(profile.id);
+        setSaved(ids.includes(id));
+      } catch {
+        setSaved(false);
+      }
+    }
   }, [id, profile?.id]);
+
+  const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], `apartment:${id ?? ''}`);
 
   const isRenter = profile?.role === 'renter';
   const useCity =
@@ -122,6 +128,8 @@ export default function ApartmentDetails() {
       saving={saving}
       busy={busy}
       signedIn={Boolean(profile)}
+      refreshing={refreshing}
+      onRefresh={() => void refresh()}
       onRequireAccount={requireAccount}
       onToggleSave={() => {
         if (!profile) {

@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
@@ -17,6 +17,7 @@ import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
@@ -60,11 +61,7 @@ export default function AdminUsers() {
     setUsers((data as Profile[]) ?? []);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['profiles'], 'admin-users');
 
   useEffect(() => {
     const nextRole = params.role;
@@ -219,7 +216,7 @@ export default function AdminUsers() {
     status === 'approved' ? t('admin.ownerActive') : status === 'rejected' ? t('admin.ownerSuspended') : t('admin.ownerWaiting');
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.users')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.users')}</Text>
       <Card>

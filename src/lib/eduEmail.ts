@@ -22,9 +22,25 @@ export function isStudentEmail(email: string) {
   return domain.endsWith('.edu') || domain.endsWith('.edu.ps');
 }
 
-export function studentEmailError(email: string) {
+export function normalizeEmailDomain(raw: string) {
+  return raw.trim().toLowerCase().replace(/^@/, '');
+}
+
+export function formatEmailDomains(domains: string[] | null | undefined) {
+  return [...new Set((domains ?? []).map(normalizeEmailDomain).filter(Boolean))];
+}
+
+export function emailMatchesDomains(email: string, domains: string[] | null | undefined) {
+  const domain = emailDomain(email);
+  const list = formatEmailDomains(domains);
+  if (!domain || list.length === 0) return true;
+  return list.some((item) => domain === item || domain.endsWith(`.${item}`));
+}
+
+export function studentEmailError(email: string, domains?: string[] | null) {
   const clean = sanitizeEmail(email);
   if (!clean.includes('@') || !isValidEmail(clean)) return 'invalidEmail';
   if (!isStudentEmail(clean)) return 'studentEmailRequired';
+  if (!emailMatchesDomains(clean, domains)) return 'universityEmailMismatch';
   return null;
 }

@@ -22,7 +22,7 @@ import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
-import { sanitizeEmail } from '@/src/lib/eduEmail';
+import { sanitizeEmail, studentEmailError, formatEmailDomains } from '@/src/lib/eduEmail';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, PublicSignupRole } from '@/src/types/database';
@@ -64,6 +64,14 @@ export default function RegisterScreen() {
       })),
     [universities, lang],
   );
+  const universityDomains = useMemo(
+    () => formatEmailDomains(universities.find((item) => item.id === universityId)?.email_domains),
+    [universities, universityId],
+  );
+  const studentEmailHint =
+    universityDomains.length > 0
+      ? t('auth.universityEmailHint', { domains: universityDomains.join(', ') })
+      : t('auth.studentEmailHint');
 
   const pickKind = (next: PublicSignupRole) => {
     setKind(next);
@@ -81,6 +89,17 @@ export default function RegisterScreen() {
     if (!isValidName(fullName)) {
       setError(t('auth.invalidName'));
       return;
+    }
+    if (isStudent) {
+      const emailIssue = studentEmailError(email, universityDomains);
+      if (emailIssue === 'universityEmailMismatch') {
+        setError(t('auth.universityEmailMismatch', { domains: universityDomains.join(', ') }));
+        return;
+      }
+      if (emailIssue) {
+        setError(t(`auth.${emailIssue}`));
+        return;
+      }
     }
     if (!isPasswordValid(password, confirmPassword)) {
       setError(t('auth.weakPassword'));
@@ -105,6 +124,7 @@ export default function RegisterScreen() {
         role: kind,
         cityId,
         universityId: isStudent ? universityId : undefined,
+        universityDomains: isStudent ? universityDomains : undefined,
         gender,
         language: lang.startsWith('ar') ? 'ar' : 'en',
       });
@@ -171,26 +191,6 @@ export default function RegisterScreen() {
           onLocalChange={setPhoneLocal}
           soft
         />
-        <Input
-          label={isStudent ? t('auth.studentEmail') : t('common.email')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          ltr
-          hint={isStudent ? t('auth.studentEmailHint') : t('auth.renterEmailHint')}
-          soft
-        />
-        <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
-        <Input
-          label={t('profile.confirmPassword')}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          soft
-        />
-        <PasswordChecks password={password} confirm={confirmPassword} />
         <Select
           label={t('auth.homeCity')}
           value={cityId}
@@ -208,6 +208,26 @@ export default function RegisterScreen() {
             onChange={setUniversityId}
           />
         ) : null}
+        <Input
+          label={isStudent ? t('auth.studentEmail') : t('common.email')}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          ltr
+          hint={isStudent ? studentEmailHint : t('auth.renterEmailHint')}
+          soft
+        />
+        <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
+        <Input
+          label={t('profile.confirmPassword')}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          soft
+        />
+        <PasswordChecks password={password} confirm={confirmPassword} />
         <LegalAcceptRow accepted={accepted} onToggle={() => setAccepted((value) => !value)} onOpen={setLegal} />
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
         <View style={styles.lockRow}>

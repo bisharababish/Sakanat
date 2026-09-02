@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { type ComponentProps, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { paymentBucket } from '@/src/lib/booking';
 import { formatIls, localizedTitle } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
@@ -90,10 +91,10 @@ export default function AdminOverview() {
     setChats(chatRes.count ?? 0);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
+  const { refreshing, refresh } = useLiveReload(
+    load,
+    ['profiles', 'apartments', 'bookings', 'conversations'],
+    'admin-overview',
   );
 
   const earned = useMemo(() => bookings.filter((item) => item.status === 'confirmed' || item.status === 'completed'), [bookings]);
@@ -146,7 +147,7 @@ export default function AdminOverview() {
   };
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.overview')}</Text>
 

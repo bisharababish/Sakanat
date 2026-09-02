@@ -10,9 +10,10 @@ import { AuthProvider, useAuth } from '@/src/lib/auth';
 import i18n, { applyRtl, loadSavedLanguage } from '@/src/i18n';
 import { NoticeProvider } from '@/src/lib/notice';
 import { PushPrompt } from '@/components/PushPrompt';
+import { IdleGuard } from '@/src/hooks/useIdleLogout';
 import { isSuspended } from '@/src/lib/moderation';
 import { syncPushToken } from '@/src/lib/push';
-import { homeHref } from '@/src/lib/routes';
+import { allowedAppGroup, homeHref } from '@/src/lib/routes';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 
 export { ErrorBoundary } from 'expo-router';
@@ -90,10 +91,8 @@ function AppStack() {
   );
 }
 
-const AUTH_HOLD = new Set(['forgot-password']);
-
 function SessionGuard({ children }: { children: ReactNode }) {
-  const { session, profile, loading, passwordRecovery, mfaPending, signOut } = useAuth();
+  const { session, profile, loading, passwordRecovery, mfaPending, mfaEnrollRequired, signOut } = useAuth();
   const segments = useSegments();
   const lastDest = useRef<string | null>(null);
 
@@ -119,19 +118,26 @@ function SessionGuard({ children }: { children: ReactNode }) {
       dest = screen === 'reset-password' ? null : '/(auth)/reset-password';
     } else if (mfaPending) {
       dest = screen === 'mfa' ? null : '/(auth)/mfa';
+    } else if (mfaEnrollRequired) {
+      dest = screen === 'mfa-enroll' ? null : '/(auth)/mfa-enroll';
     } else if (session && profile) {
-      if (inAuth && AUTH_HOLD.has(screen)) dest = null;
-      else if (inApp) dest = null;
+      if (inApp && allowedAppGroup(profile.role, group)) dest = null;
+      else if (inAuth && screen === 'forgot-password') dest = null;
       else dest = homeHref(profile.role);
     } else if (!session && !inAuth && !inGuest) {
       dest = '/(auth)/welcome';
     }
 
-    if (!dest || lastDest.current === dest) return;
-    lastDest.current = dest;
+    if (!dest) {
+      lastDest.current = null;
+      return;
+    }
+    const token = `${dest}|${group}|${screen}`;
+    if (lastDest.current === token) return;
+    lastDest.current = token;
     router.replace(dest as never);
-  }, [session, profile, loading, segments, passwordRecovery, mfaPending]);
+  }, [session, profile, loading, segments, passwordRecovery, mfaPending, mfaEnrollRequired]);
 
   if (loading) return <BrandLoader />;
-  return children;
+  return <IdleGuard>{children}</IdleGuard>;
 }

@@ -39,6 +39,7 @@ function authBits(err: unknown) {
 export function authErrorMessage(err: unknown, t: TFunction) {
   if (err instanceof Error) {
     if (err.message === 'studentEmailRequired') return t('auth.studentEmailRequired');
+    if (err.message === 'universityEmailMismatch') return t('auth.universityEmailMismatchGeneric');
     if (err.message === 'invalidEmail') return t('auth.invalidEmail');
     if (err.message === 'accountSuspended') return t('auth.accountSuspended');
   }

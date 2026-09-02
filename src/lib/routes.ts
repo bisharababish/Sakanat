@@ -11,3 +11,10 @@ export function profileHref(role: UserRole) {
   if (role === 'owner') return '/(owner)/(tabs)/profile';
   return '/(student)/(tabs)/profile';
 }
+
+export function allowedAppGroup(role: UserRole, group: string) {
+  if (group === '(admin)') return role === 'admin';
+  if (group === '(owner)') return role === 'owner';
+  if (group === '(student)') return role === 'student' || role === 'renter';
+  return false;
+}

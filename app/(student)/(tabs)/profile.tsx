@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { MfaSetup } from '@/components/auth/MfaSetup';
+import { SessionSecurity } from '@/components/auth/SessionSecurity';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -26,6 +27,7 @@ import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { deleteOwnAccount } from '@/src/lib/moderation';
 import { listingDistanceKm } from '@/src/lib/distance';
@@ -34,6 +36,7 @@ import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
+import { formatEmailDomains, studentEmailError } from '@/src/lib/eduEmail';
 import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
@@ -151,6 +154,10 @@ export default function StudentProfileScreen() {
     () => localizedName(universities.find((item) => item.id === universityId), i18n.language),
     [universities, universityId, i18n.language],
   );
+  const universityDomains = useMemo(
+    () => formatEmailDomains(universities.find((item) => item.id === universityId)?.email_domains),
+    [universities, universityId],
+  );
   const majorName = major ? majorLabel(major, i18n.language) : '';
   const isStudent = profile?.role !== 'renter';
   const incomplete =
@@ -167,10 +174,14 @@ export default function StudentProfileScreen() {
     }
   }, [profile?.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void reloadSaved();
-    }, [reloadSaved]),
+  const reloadAll = useCallback(async () => {
+    await Promise.all([reloadSaved(), refreshProfile()]);
+  }, [reloadSaved, refreshProfile]);
+
+  const { refreshing, refresh } = useLiveReload(
+    reloadAll,
+    ['saved_apartments', 'apartments', 'profiles'],
+    `saved:${profile?.id ?? ''}`,
   );
 
   const changePhoto = async () => {
@@ -213,6 +224,17 @@ export default function StudentProfileScreen() {
     if (!isValidName(fullName)) {
       alert(t('common.error'), t('auth.invalidName'));
       return;
+    }
+    if (isStudent && universityId !== (profile.university_id ?? '')) {
+      const emailIssue = studentEmailError(profile.email, universityDomains);
+      if (emailIssue === 'universityEmailMismatch') {
+        alert(t('common.error'), t('auth.universityEmailMismatch', { domains: universityDomains.join(', ') }));
+        return;
+      }
+      if (emailIssue) {
+        alert(t('common.error'), t(`auth.${emailIssue}`));
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -343,7 +365,7 @@ export default function StudentProfileScreen() {
   ];
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <ProfileHero
         name={fullName || profile?.full_name || t('profile.title')}
         avatarUrl={avatarUrl}
@@ -467,6 +489,13 @@ export default function StudentProfileScreen() {
                 options={universityOptions}
                 onChange={setUniversityId}
               />
+              {isStudent && universityId ? (
+                <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+                  {universityDomains.length
+                    ? t('auth.universityEmailHint', { domains: universityDomains.join(', ') })
+                    : t('auth.studentEmailHint')}
+                </Text>
+              ) : null}
             </Card>
           ) : null}
           <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
@@ -558,6 +587,7 @@ export default function StudentProfileScreen() {
             <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
           </Card>
           <MfaSetup />
+          <SessionSecurity />
           {canDeleteAccount ? (
             <Card>
               <SectionHead icon="trash-outline" title={t('profile.deleteAccount')} />
@@ -596,5 +626,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 14, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
 });
 

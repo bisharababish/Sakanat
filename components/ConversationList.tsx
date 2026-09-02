@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { ConversationCard } from '@/components/chat/ConversationCard';
 import { Pager } from '@/components/ui/Pager';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
+import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { loadConversations, otherPerson, personName, isConversationUnread, markInboxDelivered } from '@/src/lib/chat';
 import { CHAT_PAGE_SIZE } from '@/src/lib/page';
@@ -15,11 +16,7 @@ import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
-export function ConversationList({
-  roleHref,
-}: {
-  roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
-}) {
+export function useInbox() {
   const { profile } = useAuth();
   const [items, setItems] = useState<Conversation[] | null>(null);
 
@@ -35,15 +32,24 @@ export function ConversationList({
     }
   }, [profile]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const { refreshing, refresh } = useLiveReload(load, ['conversations', 'messages'], `inbox:${profile?.id ?? ''}`);
 
+  return { items, refreshing, refresh, profile };
+}
+
+export function ConversationList({
+  roleHref,
+  items,
+  profileId,
+  isOwner,
+}: {
+  roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
+  items: Conversation[] | null;
+  profileId?: string;
+  isOwner?: boolean;
+}) {
   if (!items) return null;
-
-  return <ConversationPages items={items} roleHref={roleHref} profileId={profile?.id} isOwner={profile?.role === 'owner'} />;
+  return <ConversationPages items={items} roleHref={roleHref} profileId={profileId} isOwner={isOwner} />;
 }
 
 function ConversationPages({
