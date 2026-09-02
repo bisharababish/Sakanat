@@ -51,7 +51,9 @@
     "perMonth": "per month",
     "select": "Select",
     "noResults": "No results",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "menu": {
     "title": "Menu",
@@ -184,6 +186,7 @@
     "emailConfirmedBody": "You can go back to the app and log in with the same email and password.",
     "backToLogin": "Back to login",
     "invalidEmail": "That email is not valid",
+    "invalidName": "Use 2–40 letters only. Arabic or English, no numbers.",
     "studentEmailRequired": "Student accounts need a university email ending in .edu or .edu.ps",
     "missingFields": "Please fill in the required fields",
     "weakPassword": "Use 8–12 characters with uppercase, lowercase, and a number",
@@ -198,6 +201,29 @@
     "setupTitle": "Connect Supabase",
     "setupBody": "Add your project URL and anon key to the .env file, then restart the app. See the README.",
     "ownerPending": "Your owner account is waiting for admin approval. You can add listings, but they will not appear in search until they are approved."
+  },
+  "mfa": {
+    "title": "Google Authenticator",
+    "hint": "Optional. If you turn this on, you enter a 6-digit code from Google Authenticator after your password.",
+    "enable": "Turn on authenticator",
+    "on": "Authenticator is on for this account.",
+    "disable": "Turn off",
+    "disableTitle": "Turn off authenticator?",
+    "disableBody": "The next login will only need email and password.",
+    "disabled": "Authenticator is off.",
+    "disableFailed": "Could not turn it off from here. Log in with a code, then try again.",
+    "scanHint": "Copy this key into Google Authenticator, then type the 6-digit code you see there.",
+    "secret": "Authenticator key",
+    "openApp": "Open Google Authenticator",
+    "code": "6-digit code",
+    "codeHint": "Enter the 6-digit code from Google Authenticator.",
+    "confirm": "Confirm and turn on",
+    "enabled": "Authenticator is on. You will need a code the next time you log in.",
+    "invalidCode": "That code is not valid. Use the current one in the app.",
+    "unavailable": "Could not start authenticator. In Supabase go to Authentication → MFA and turn on TOTP.",
+    "loginTitle": "Authenticator code",
+    "loginHint": "Open Google Authenticator and enter the 6-digit code.",
+    "cooldown": "Wait {{minutes}} minutes before turning Google Authenticator on or off again."
   },
   "tabs": {
     "search": "Search",
@@ -514,6 +540,7 @@
     "birthDate": "Date of birth",
     "pickDate": "Pick from the calendar",
     "saveProfile": "Save profile",
+    "nameHint": "2–40 letters. Arabic or English.",
     "saved": "Profile saved",
     "passwordTitle": "Change password",
     "currentPassword": "Current password",

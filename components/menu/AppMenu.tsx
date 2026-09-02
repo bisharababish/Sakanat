@@ -349,9 +349,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
                 {profile ? (
                   <View style={[styles.aboutCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
-                    <View style={styles.menuLogo}>
-                      <BrandLogo size={120} plate />
-                    </View>
                     <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
                     <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.version', { version: VERSION })}</Text>
                   </View>

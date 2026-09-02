@@ -98,7 +98,7 @@ function AppStack() {
 const AUTH_HOLD = new Set(['reset-password', 'forgot-password']);
 
 function SessionGuard({ children }: { children: ReactNode }) {
-  const { session, profile, loading, passwordRecovery, signOut } = useAuth();
+  const { session, profile, loading, passwordRecovery, mfaPending, signOut } = useAuth();
   const segments = useSegments();
   const lastDest = useRef<string | null>(null);
 
@@ -122,6 +122,8 @@ function SessionGuard({ children }: { children: ReactNode }) {
     let dest: string | null = null;
     if (passwordRecovery) {
       dest = screen === 'reset-password' ? null : '/(auth)/reset-password';
+    } else if (mfaPending) {
+      dest = screen === 'mfa' ? null : '/(auth)/mfa';
     } else if (session && profile) {
       if (inAuth && AUTH_HOLD.has(screen)) dest = null;
       else if (inApp) dest = null;
@@ -133,7 +135,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
     if (!dest || lastDest.current === dest) return;
     lastDest.current = dest;
     router.replace(dest as never);
-  }, [session, profile, loading, segments, passwordRecovery]);
+  }, [session, profile, loading, segments, passwordRecovery, mfaPending]);
 
   if (loading) return <BrandLoader />;
   return children;

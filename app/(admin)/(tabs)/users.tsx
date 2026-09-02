@@ -19,6 +19,7 @@ import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
 import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
+import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { AUTH_REDIRECT_URL, createDetachedClient, supabase } from '@/src/lib/supabase';
@@ -100,6 +101,10 @@ export default function AdminUsers() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
+    if (!isValidName(fullName)) {
+      alert(t('common.error'), t('auth.invalidName'));
+      return;
+    }
     if (!isValidEmail(cleanEmail)) {
       alert(t('common.error'), t('auth.invalidEmail'));
       return;
@@ -122,7 +127,7 @@ export default function AdminUsers() {
         options: {
           emailRedirectTo: AUTH_REDIRECT_URL,
           data: {
-            full_name: fullName.trim(),
+            full_name: cleanName(fullName),
             phone: cleanPhone,
             role: 'owner',
             language: 'ar',
@@ -136,7 +141,7 @@ export default function AdminUsers() {
           .update({
             role: 'owner',
             owner_status: 'approved',
-            full_name: fullName.trim(),
+            full_name: cleanName(fullName),
             phone: cleanPhone,
             email: cleanEmail,
           })
@@ -182,7 +187,14 @@ export default function AdminUsers() {
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.users')}</Text>
       <Card>
         <Text style={[styles.formTitle, rtlText, { color: colors.text }]}>{t('admin.createOwner')}</Text>
-        <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
+        <Input
+          label={t('common.name')}
+          value={fullName}
+          onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+          hint={t('profile.nameHint')}
+          autoCapitalize="words"
+          maxLength={NAME_MAX}
+        />
         <Input
           label={t('common.email')}
           value={email}

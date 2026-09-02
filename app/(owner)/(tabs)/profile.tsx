@@ -10,6 +10,7 @@ import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
+import { MfaSetup } from '@/components/auth/MfaSetup';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -23,6 +24,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
@@ -143,6 +145,10 @@ export default function OwnerProfile() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
+    if (!isValidName(fullName)) {
+      alert(t('common.error'), t('auth.invalidName'));
+      return;
+    }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     if (phoneLocal.trim() && !cleanPhone) {
       alert(t('common.error'), t('phone.invalid'));
@@ -158,7 +164,7 @@ export default function OwnerProfile() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName.trim(),
+          full_name: cleanName(fullName),
           phone: cleanPhone,
           whatsapp: cleanWhatsapp,
           gender: gender || null,
@@ -237,7 +243,14 @@ export default function OwnerProfile() {
         <>
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-            <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
+            <Input
+              label={t('common.name')}
+              value={fullName}
+              onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+              hint={t('profile.nameHint')}
+              autoCapitalize="words"
+              maxLength={NAME_MAX}
+            />
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <FilterPills
               value={gender}
@@ -290,24 +303,27 @@ export default function OwnerProfile() {
       ) : null}
 
       {tab === 'security' ? (
-        <Card>
-          <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
-          <Input
-            label={t('profile.currentPassword')}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-          />
-          <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
-          <Input
-            label={t('profile.confirmPassword')}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-          <PasswordChecks password={newPassword} confirm={confirmPassword} />
-          <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
-        </Card>
+        <>
+          <Card>
+            <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
+            <Input
+              label={t('profile.currentPassword')}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+            />
+            <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
+            <Input
+              label={t('profile.confirmPassword')}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+            <PasswordChecks password={newPassword} confirm={confirmPassword} />
+            <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
+          </Card>
+          <MfaSetup />
+        </>
       ) : null}
     </Screen>
   );

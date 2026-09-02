@@ -20,6 +20,14 @@ function localDigits(raw: string) {
   return digits;
 }
 
+/** Local digits only: 9 numbers, or 10 if the user types a leading 0. */
+export function sanitizePhoneLocal(raw: string) {
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('970') || digits.startsWith('972')) digits = digits.slice(3);
+  if (digits.startsWith('0')) return digits.slice(0, 10);
+  return digits.slice(0, 9);
+}
+
 export function toE164(region: PhoneRegion, raw: string) {
   const local = localDigits(raw);
   if (region === 'ps') {

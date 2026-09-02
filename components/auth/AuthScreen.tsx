@@ -20,6 +20,8 @@ export function AuthScreen({ children, back = false, center = true }: Props) {
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={[styles.content, center ? styles.center : styles.start]}
           showsVerticalScrollIndicator={false}>
           {children}

@@ -10,6 +10,7 @@ const BY_CODE: Record<string, string> = {
   validation_failed: 'auth.missingEmailOrPhone',
   weak_password: 'auth.weakPassword',
   same_password: 'auth.samePassword',
+  mfa_verification_failed: 'mfa.invalidCode',
 };
 
 const BY_TEXT: { test: RegExp; key: string }[] = [
@@ -21,6 +22,7 @@ const BY_TEXT: { test: RegExp; key: string }[] = [
   { test: /password should be at least|weak password|valid password/i, key: 'auth.weakPassword' },
   { test: /rate limit|only request this once/i, key: 'auth.rateLimit' },
   { test: /new password should be different|same_password/i, key: 'auth.samePassword' },
+  { test: /mfa_verification_failed|invalid.*totp|invalid.*factor/i, key: 'mfa.invalidCode' },
 ];
 
 function authBits(err: unknown) {

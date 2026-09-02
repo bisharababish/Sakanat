@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "ps.sakanat.app",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/logo.png"

@@ -1,6 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type KeyboardTypeOptions,
+  type TextInputProps,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
@@ -20,6 +28,11 @@ type Props = {
   autoCorrect?: boolean;
   ltr?: boolean;
   soft?: boolean;
+  maxLength?: number;
+  editable?: boolean;
+  selectTextOnFocus?: boolean;
+  autoComplete?: TextInputProps['autoComplete'];
+  textContentType?: TextInputProps['textContentType'];
 };
 
 export function Input({
@@ -35,6 +48,11 @@ export function Input({
   autoCorrect,
   ltr,
   soft,
+  maxLength,
+  editable,
+  selectTextOnFocus,
+  autoComplete,
+  textContentType,
 }: Props) {
   const { t } = useTranslation();
   const layout = useLayout();
@@ -48,7 +66,7 @@ export function Input({
   return (
     <View style={styles.wrap}>
       <Text style={[styles.label, layout.rtlText, { color: colors.text }]}>{label}</Text>
-      <View>
+      <View style={ltr ? styles.ltr : undefined}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -58,9 +76,12 @@ export function Input({
           keyboardType={keyboardType}
           autoCapitalize={secureTextEntry ? 'none' : autoCapitalize}
           autoCorrect={secureTextEntry ? false : autoCorrect}
-          autoComplete={secureTextEntry ? 'password' : undefined}
-          textContentType={secureTextEntry ? 'password' : undefined}
+          autoComplete={secureTextEntry ? 'password' : autoComplete}
+          textContentType={secureTextEntry ? 'password' : textContentType}
           multiline={multiline}
+          maxLength={maxLength}
+          editable={editable}
+          selectTextOnFocus={selectTextOnFocus}
           textAlign={inputAlign}
           style={[
             styles.input,
@@ -94,6 +115,7 @@ export function Input({
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
+  ltr: { direction: 'ltr' },
   label: { fontWeight: '700', fontSize: 14 },
   input: {
     borderWidth: 1,

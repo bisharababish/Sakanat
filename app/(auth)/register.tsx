@@ -20,6 +20,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
+import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -76,6 +77,10 @@ export default function RegisterScreen() {
       setError(t('auth.missingFields'));
       return;
     }
+    if (!isValidName(fullName)) {
+      setError(t('auth.invalidName'));
+      return;
+    }
     if (!isPasswordValid(password, confirmPassword)) {
       setError(t('auth.weakPassword'));
       return;
@@ -94,7 +99,7 @@ export default function RegisterScreen() {
       const result = await signUp({
         email,
         password,
-        fullName,
+        fullName: cleanName(fullName),
         phone: cleanPhone,
         role: kind,
         cityId,
@@ -137,7 +142,15 @@ export default function RegisterScreen() {
             { value: 'female', label: t('profile.female') },
           ]}
         />
-        <Input label={t('common.name')} value={fullName} onChangeText={setFullName} soft />
+        <Input
+          label={t('common.name')}
+          value={fullName}
+          onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+          hint={t('profile.nameHint')}
+          autoCapitalize="words"
+          maxLength={NAME_MAX}
+          soft
+        />
         <PhoneField
           label={t('common.phone')}
           region={phoneRegion}

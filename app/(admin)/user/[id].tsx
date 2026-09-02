@@ -23,6 +23,7 @@ import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { deleteUserAccount, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
+import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -112,6 +113,10 @@ export default function AdminUserEdit() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
+    if (!isValidName(fullName)) {
+      alert(t('common.error'), t('auth.invalidName'));
+      return;
+    }
     const phone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     const whatsapp = whatsLocal.trim() ? toE164(whatsRegion, whatsLocal) : null;
     if (phoneLocal.trim() && !phone) {
@@ -124,7 +129,7 @@ export default function AdminUserEdit() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName.trim(),
+          full_name: cleanName(fullName),
           phone,
           whatsapp,
           gender: gender || null,
@@ -225,7 +230,14 @@ export default function AdminUserEdit() {
 
       <Card>
         <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-        <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
+        <Input
+          label={t('common.name')}
+          value={fullName}
+          onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+          hint={t('profile.nameHint')}
+          autoCapitalize="words"
+          maxLength={NAME_MAX}
+        />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
         <FilterPills
           value={gender}

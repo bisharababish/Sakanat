@@ -12,6 +12,7 @@ import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
+import { MfaSetup } from '@/components/auth/MfaSetup';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
@@ -28,6 +29,7 @@ import { useAuth } from '@/src/lib/auth';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { isValidStudentId, splitPhone, toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
@@ -199,12 +201,16 @@ export default function StudentProfileScreen() {
       alert(t('common.error'), t('profile.studentIdHint'));
       return;
     }
+    if (!isValidName(fullName)) {
+      alert(t('common.error'), t('auth.invalidName'));
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName.trim(),
+          full_name: cleanName(fullName),
           phone: cleanPhone,
           student_id_number: isStudent ? studentId.trim() || null : null,
           whatsapp: cleanWhatsapp,
@@ -308,7 +314,14 @@ export default function StudentProfileScreen() {
         <>
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-            <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
+            <Input
+              label={t('common.name')}
+              value={fullName}
+              onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+              hint={t('profile.nameHint')}
+              autoCapitalize="words"
+              maxLength={NAME_MAX}
+            />
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <FilterPills
               value={gender}
@@ -455,29 +468,32 @@ export default function StudentProfileScreen() {
       ) : null}
 
       {tab === 'security' ? (
-        <Card>
-          <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
-          <Input
-            label={t('profile.currentPassword')}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-          />
-          <Input
-            label={t('profile.newPassword')}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry
-          />
-          <Input
-            label={t('profile.confirmPassword')}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-          <PasswordChecks password={newPassword} confirm={confirmPassword} />
-          <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
-        </Card>
+        <>
+          <Card>
+            <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
+            <Input
+              label={t('profile.currentPassword')}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+            />
+            <Input
+              label={t('profile.newPassword')}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+            />
+            <Input
+              label={t('profile.confirmPassword')}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+            <PasswordChecks password={newPassword} confirm={confirmPassword} />
+            <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
+          </Card>
+          <MfaSetup />
+        </>
       ) : null}
     </Screen>
   );

@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { changeAppLanguage } from '@/src/i18n';
 import { isValidEmail, studentEmailError } from '@/src/lib/eduEmail';
 import { isSuspended } from '@/src/lib/moderation';
+import { mfaNeedsChallenge, verifyTotpCode } from '@/src/lib/mfa';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
 import type { PersonGender, Profile, PublicSignupRole } from '@/src/types/database';
 
@@ -58,7 +59,9 @@ type AuthContextValue = {
   refreshProfile: () => Promise<Profile | null>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  completeMfa: (factorId: string, code: string) => Promise<void>;
   passwordRecovery: boolean;
+  mfaPending: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -87,11 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [mfaPending, setMfaPending] = useState(false);
   const loadGen = useRef(0);
 
   const clearLocalAuth = () => {
     setSession(null);
     setProfile(null);
+    setMfaPending(false);
   };
 
   const loadForSession = async (next: Session | null) => {
@@ -129,8 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.from('profiles').update({ gender: metaGender }).eq('id', nextProfile.id);
       nextProfile.gender = metaGender;
     }
+    const needsMfa = await mfaNeedsChallenge();
+    if (mine !== loadGen.current) return;
     setSession(next);
     setProfile(nextProfile);
+    setMfaPending(needsMfa);
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
@@ -207,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: isSupabaseConfigured,
       passwordRecovery,
+      mfaPending,
       signIn: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -304,8 +313,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
         setPasswordRecovery(false);
       },
+      completeMfa: async (factorId, code) => {
+        await verifyTotpCode(factorId, code);
+        setMfaPending(false);
+        const { data } = await supabase.auth.getSession();
+        await loadForSession(data.session);
+      },
     }),
-    [session, profile, loading, passwordRecovery],
+    [session, profile, loading, passwordRecovery, mfaPending],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

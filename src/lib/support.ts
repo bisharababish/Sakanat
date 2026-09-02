@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 
 import { whatsappLink } from '@/src/lib/phone';
 
-export const SUPPORT_EMAIL = 'bishara.babish@gmail.com';
+export const SUPPORT_EMAIL = 'sakanatappatinfo@gmail.com';
+export const SUPPORT_PHONE = '+972594295100';
 export const ANDROID_PACKAGE = 'ps.sakanat.app';
 
 export function appVersion() {
@@ -20,7 +21,8 @@ function digits(raw: string) {
 }
 
 export function supportWhatsApp() {
-  return digits(process.env.EXPO_PUBLIC_SUPPORT_WHATSAPP ?? '');
+  const fromEnv = digits(process.env.EXPO_PUBLIC_SUPPORT_WHATSAPP ?? '');
+  return fromEnv || digits(SUPPORT_PHONE);
 }
 
 export function supportWhatsAppUrl(text: string) {

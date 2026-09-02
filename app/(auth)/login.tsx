@@ -41,6 +41,7 @@ export default function LoginScreen() {
       } else {
         setError(authErrorMessage(err, t));
       }
+    } finally {
       setLoading(false);
     }
   };

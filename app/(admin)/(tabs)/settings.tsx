@@ -5,6 +5,7 @@ import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
+import { MfaSetup } from '@/components/auth/MfaSetup';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
@@ -22,6 +23,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
+import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
@@ -117,6 +119,10 @@ export default function AdminSettings() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
+    if (!isValidName(fullName)) {
+      alert(t('common.error'), t('auth.invalidName'));
+      return;
+    }
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     if (phoneLocal.trim() && !cleanPhone) {
       alert(t('common.error'), t('phone.invalid'));
@@ -127,7 +133,7 @@ export default function AdminSettings() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName.trim(),
+          full_name: cleanName(fullName),
           phone: cleanPhone,
           gender: gender || null,
           date_of_birth: birthDate || null,
@@ -217,7 +223,14 @@ export default function AdminSettings() {
         <>
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-            <Input label={t('common.name')} value={fullName} onChangeText={setFullName} />
+            <Input
+              label={t('common.name')}
+              value={fullName}
+              onChangeText={(value) => setFullName(sanitizeNameInput(value))}
+              hint={t('profile.nameHint')}
+              autoCapitalize="words"
+              maxLength={NAME_MAX}
+            />
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <FilterPills
               value={gender}
@@ -251,24 +264,27 @@ export default function AdminSettings() {
       ) : null}
 
       {tab === 'security' ? (
-        <Card>
-          <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
-          <Input
-            label={t('profile.currentPassword')}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            secureTextEntry
-          />
-          <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
-          <Input
-            label={t('profile.confirmPassword')}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-          <PasswordChecks password={newPassword} confirm={confirmPassword} />
-          <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
-        </Card>
+        <>
+          <Card>
+            <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
+            <Input
+              label={t('profile.currentPassword')}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+            />
+            <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
+            <Input
+              label={t('profile.confirmPassword')}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+            <PasswordChecks password={newPassword} confirm={confirmPassword} />
+            <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
+          </Card>
+          <MfaSetup />
+        </>
       ) : null}
 
       {tab === 'settings' ? (

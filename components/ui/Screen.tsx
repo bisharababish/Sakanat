@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChromeBar } from '@/components/ui/ChromeBar';
@@ -29,14 +29,23 @@ export function Screen({ children, scroll = true, showMenu = true, back = false 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {bar}
-      <ScrollView contentContainerStyle={styles.pad} keyboardShouldPersistTaps="handled">
-        {children}
-      </ScrollView>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={styles.pad}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  pad: { flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingTop: spacing.md },
+  flex: { flex: 1 },
+  pad: { flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xxl },
 });

@@ -2,7 +2,7 @@ import { I18nManager, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Chip } from '@/components/ui/Chip';
 import { useLayout } from '@/src/hooks/useLayout';
-import { regionPrefix, type PhoneRegion } from '@/src/lib/phone';
+import { regionPrefix, sanitizePhoneLocal, type PhoneRegion } from '@/src/lib/phone';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -42,12 +42,13 @@ export function PhoneField({ label, region, local, onRegionChange, onLocalChange
         <Text style={[styles.prefix, { color: colors.primary }]}>{regionPrefix(region)}</Text>
         <TextInput
           value={local}
-          onChangeText={onLocalChange}
+          onChangeText={(value) => onLocalChange(sanitizePhoneLocal(value))}
           keyboardType="phone-pad"
           placeholder={region === 'ps' ? '59xxxxxxx' : '5xxxxxxxx'}
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
+          maxLength={10}
           textAlign="left"
           style={[styles.input, { color: colors.text }]}
         />

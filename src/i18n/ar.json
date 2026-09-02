@@ -51,7 +51,9 @@
     "perMonth": "شهرياً",
     "select": "اختر",
     "noResults": "لا توجد نتائج",
-    "comingSoon": "قريباً"
+    "comingSoon": "قريباً",
+    "copy": "نسخ",
+    "copied": "تم النسخ"
   },
   "menu": {
     "title": "القائمة",
@@ -184,6 +186,7 @@
     "emailConfirmedBody": "يمكنك العودة إلى التطبيق وتسجيل الدخول بالبريد الإلكتروني وكلمة المرور نفسيهما.",
     "backToLogin": "العودة إلى تسجيل الدخول",
     "invalidEmail": "البريد غير صالح",
+    "invalidName": "استخدم من حرفين إلى 40 حرفاً فقط. عربي أو إنجليزي، بلا أرقام.",
     "studentEmailRequired": "يحتاج حساب الطالب إلى بريد جامعي ينتهي بـ .edu أو .edu.ps",
     "missingFields": "أكمل جميع الحقول المطلوبة",
     "weakPassword": "استخدم 8 إلى 12 حرفاً مع حرف كبير وحرف صغير ورقم",
@@ -198,6 +201,29 @@
     "setupTitle": "اربط المشروع بـ Supabase",
     "setupBody": "ضع رابط المشروع والمفتاح في ملف .env ثم أعد تشغيل التطبيق. التعليمات في README.",
     "ownerPending": "حسابك كمالك بانتظار موافقة الإدارة. يمكنك إضافة شققك، ولن تظهر في البحث إلا بعد الموافقة."
+  },
+  "mfa": {
+    "title": "Google Authenticator",
+    "hint": "اختياري. إذا فعّلته، تدخل رمزاً من 6 أرقام من Google Authenticator بعد كلمة المرور.",
+    "enable": "تفعيل المصادقة",
+    "on": "المصادقة مفعّلة لهذا الحساب.",
+    "disable": "إيقاف",
+    "disableTitle": "إيقاف المصادقة؟",
+    "disableBody": "تسجيل الدخول التالي سيكون بالبريد وكلمة المرور فقط.",
+    "disabled": "تم إيقاف المصادقة.",
+    "disableFailed": "تعذر الإيقاف من هنا. سجّل الدخول بالرمز ثم حاول مرة أخرى.",
+    "scanHint": "انسخ هذا المفتاح إلى Google Authenticator، ثم اكتب الرمز المكوّن من 6 أرقام.",
+    "secret": "مفتاح المصادقة",
+    "openApp": "فتح Google Authenticator",
+    "code": "رمز من 6 أرقام",
+    "codeHint": "أدخل الرمز من Google Authenticator.",
+    "confirm": "تأكيد وتفعيل",
+    "enabled": "المصادقة مفعّلة. ستحتاج الرمز في تسجيل الدخول التالي.",
+    "invalidCode": "الرمز غير صحيح. استخدم الرمز الظاهر الآن في التطبيق.",
+    "unavailable": "تعذر بدء المصادقة. من Supabase: Authentication → MFA وفعّل TOTP.",
+    "loginTitle": "رمز المصادقة",
+    "loginHint": "افتح Google Authenticator وأدخل الرمز المكوّن من 6 أرقام.",
+    "cooldown": "انتظر {{minutes}} دقائق قبل تفعيل أو إيقاف Google Authenticator مرة أخرى."
   },
   "tabs": {
     "search": "البحث",
@@ -514,6 +540,7 @@
     "birthDate": "تاريخ الميلاد",
     "pickDate": "اختر من التقويم",
     "saveProfile": "حفظ الحساب",
+    "nameHint": "من حرفين إلى 40 حرفاً. عربي أو إنجليزي.",
     "saved": "تم حفظ الحساب",
     "passwordTitle": "تغيير كلمة المرور",
     "currentPassword": "كلمة المرور الحالية",
