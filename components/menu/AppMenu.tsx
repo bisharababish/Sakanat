@@ -56,6 +56,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const [pane, setPane] = useState<Pane>('root');
   const [askLogout, setAskLogout] = useState(false);
   const pendingSignOut = useRef(false);
+  const rootScroll = useRef<ScrollView>(null);
+  const rootY = useRef(0);
   const progress = useSharedValue(0);
   const copy = { textAlign, writingDirection };
   const sheetWidth = Math.min(340, Math.round(width * 0.84));
@@ -88,6 +90,15 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     pendingSignOut.current = false;
     void signOut();
   }, [open, signOut]);
+
+  useEffect(() => {
+    if (pane !== 'root') return;
+    const y = rootY.current;
+    if (y <= 0) return;
+    requestAnimationFrame(() => {
+      rootScroll.current?.scrollTo({ y, animated: false });
+    });
+  }, [pane]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
@@ -206,16 +217,18 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               </Pressable>
             </View>
 
-            {pane !== 'root' ? (
-              <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
-              </ScrollView>
-            ) : (
+            <View style={styles.flex}>
               <ScrollView
-                style={styles.flex}
+                ref={rootScroll}
+                style={[styles.flex, pane !== 'root' ? styles.paneHidden : null]}
                 contentContainerStyle={styles.body}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
+                pointerEvents={pane === 'root' ? 'auto' : 'none'}
+                scrollEventThrottle={16}
+                onScroll={(event) => {
+                  rootY.current = event.nativeEvent.contentOffset.y;
+                }}
               >
                 {profile ? (
                   <Pressable onPress={goProfile} style={[styles.hero, row, { backgroundColor: colors.primary }]}>
@@ -346,7 +359,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <MenuLink icon="star-outline" label={t('menu.rate')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void rateApp()} />
                 </View>
               </ScrollView>
-            )}
+              {pane !== 'root' ? (
+                <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+                  <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
+                </ScrollView>
+              ) : null}
+            </View>
             {pane === 'root' && profile ? (
               <View style={[styles.logoutBar, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
                 {askLogout ? (
@@ -433,6 +451,7 @@ const styles = StyleSheet.create({
   },
   sheetInner: { flex: 1 },
   flex: { flex: 1 },
+  paneHidden: { display: 'none' },
   head: {
     flexDirection: 'row',
     direction: 'ltr',

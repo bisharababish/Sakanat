@@ -66,7 +66,7 @@ export function Input({
   return (
     <View style={styles.wrap}>
       <Text style={[styles.label, layout.rtlText, { color: colors.text }]}>{label}</Text>
-      <View style={ltr ? styles.ltr : undefined}>
+      <View style={[styles.field, ltr ? styles.ltr : null]}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -78,7 +78,8 @@ export function Input({
           autoCorrect={secureTextEntry ? false : autoCorrect}
           autoComplete={secureTextEntry ? 'password' : autoComplete}
           textContentType={secureTextEntry ? 'password' : textContentType}
-          multiline={multiline}
+          multiline={Boolean(multiline)}
+          numberOfLines={multiline ? 4 : 1}
           maxLength={maxLength}
           editable={editable}
           selectTextOnFocus={selectTextOnFocus}
@@ -115,23 +116,28 @@ export function Input({
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
+  field: { overflow: 'hidden' },
   ltr: { direction: 'ltr' },
-  label: { fontWeight: '700', fontSize: 14 },
+  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    minHeight: 52,
+    height: 52,
+    paddingVertical: 0,
     fontSize: 16,
+    fontFamily: 'Cairo_400Regular',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   soft: {
     borderRadius: radius.full,
-    minHeight: 54,
+    height: 54,
   },
   padEnd: { paddingEnd: 48 },
   padStart: { paddingStart: 48 },
-  multiline: { minHeight: 110, textAlignVertical: 'top', paddingTop: 12, borderRadius: radius.lg },
-  hint: { fontSize: 12 },
+  multiline: { height: undefined, minHeight: 110, textAlignVertical: 'top', paddingTop: 12, borderRadius: radius.lg },
+  hint: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   eye: {
     position: 'absolute',
     top: 0,
