@@ -2,7 +2,7 @@ import { I18nManager, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Chip } from '@/components/ui/Chip';
 import { useLayout } from '@/src/hooks/useLayout';
-import { regionPrefix, sanitizePhoneLocal, type PhoneRegion } from '@/src/lib/phone';
+import { phoneLocalMax, regionPrefix, sanitizePhoneLocal, type PhoneRegion } from '@/src/lib/phone';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -19,6 +19,7 @@ type Props = {
 export function PhoneField({ label, region, local, onRegionChange, onLocalChange, hint, soft }: Props) {
   const { rtlText, alignStart } = useLayout();
   const colors = useColors();
+  const maxLength = phoneLocalMax(local);
 
   return (
     <View style={styles.wrap}>
@@ -48,7 +49,7 @@ export function PhoneField({ label, region, local, onRegionChange, onLocalChange
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
-          maxLength={10}
+          maxLength={maxLength}
           textAlign="left"
           style={[styles.input, { color: colors.text }]}
         />

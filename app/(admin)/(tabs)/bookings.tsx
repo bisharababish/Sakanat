@@ -13,6 +13,7 @@ import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
+import { majorLabel } from '@/src/data/majors';
 import { formatIls, localizedName } from '@/src/lib/format';
 import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
@@ -41,7 +42,7 @@ export default function AdminBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, phone, email, whatsapp, gender, university_id, city_id, role), owner:profiles!owner_id(id, full_name, phone, email)',
+        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number), owner:profiles!owner_id(id, full_name, phone, email)',
       )
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -152,13 +153,22 @@ export default function AdminBookings() {
           university,
           `${t('admin.commission')}: ${formatIls(Number(booking.commission_amount), lang)}`,
         ].filter(Boolean);
+        const yearKey = student?.study_year;
+        const yearLabel = yearKey && /^[1-6]$/.test(yearKey) ? t(`profile.year${yearKey}` as 'profile.year1') : '';
+        const details = [
+          student?.major ? majorLabel(student.major, i18n.language) : '',
+          yearLabel,
+          student?.student_id_number ? `${t('profile.studentId')} ${student.student_id_number}` : '',
+        ].filter(Boolean);
         return (
           <BookingCard
             key={booking.id}
             booking={booking}
             personIcon={seekerIcon(student?.role)}
             personLabel={personBits.join(' · ') || undefined}
+            personAvatar={student?.avatar_url}
             extra={extraBits.join(' · ')}
+            details={details}
             note={
               booking.status === 'cancelled' && booking.cancel_reason
                 ? t('booking.cancelledNote', { note: booking.cancel_reason })

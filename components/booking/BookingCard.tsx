@@ -16,8 +16,10 @@ type Props = {
   booking: Booking;
   personIcon?: ComponentProps<typeof Ionicons>['name'];
   personLabel?: string;
+  personAvatar?: string | null;
   extra?: string;
   extraIcon?: ComponentProps<typeof Ionicons>['name'];
+  details?: string[];
   warning?: string;
   note?: string;
   children?: ReactNode;
@@ -45,8 +47,10 @@ export function BookingCard({
   booking,
   personIcon = 'person',
   personLabel,
+  personAvatar,
   extra,
   extraIcon = 'pricetag-outline',
+  details = [],
   warning,
   note,
   children,
@@ -96,8 +100,33 @@ export function BookingCard({
           </View>
         </View>
 
+        {personLabel ? (
+          <View style={[styles.person, row, { backgroundColor: colors.surfaceMuted }]}>
+            {personAvatar ? (
+              <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
+            ) : (
+              <View style={[styles.personAvatar, styles.personFallback, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name={personIcon} size={18} color={colors.primary} />
+              </View>
+            )}
+            <View style={styles.personCopy}>
+              <Text style={[styles.personName, { textAlign, writingDirection, color: colors.text }]} numberOfLines={2}>
+                {personLabel}
+              </Text>
+              {details.map((item) => (
+                <Text
+                  key={item}
+                  style={[styles.personMeta, { textAlign, writingDirection, color: colors.textMuted }]}
+                  numberOfLines={1}
+                >
+                  {item}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.facts}>
-          {personLabel ? <Fact icon={personIcon} text={personLabel} /> : null}
           <Fact
             icon="people-outline"
             text={people === 1 ? t('booking.onePerson') : t('booking.people', { count: people })}
@@ -149,6 +178,17 @@ const styles = StyleSheet.create({
   payValue: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   payPill: { borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 6, maxWidth: '52%' },
   payPillText: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  person: {
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: radius.lg,
+    padding: 10,
+  },
+  personAvatar: { width: 44, height: 44, borderRadius: 22 },
+  personFallback: { alignItems: 'center', justifyContent: 'center' },
+  personCopy: { flex: 1, minWidth: 0, gap: 2 },
+  personName: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  personMeta: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   fact: {
     flexDirection: 'row',

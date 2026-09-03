@@ -13,19 +13,30 @@ export function splitPhone(value?: string | null): { region: PhoneRegion; local:
   return { region: 'ps', local: raw.replace(/\D/g, '') };
 }
 
-function localDigits(raw: string) {
+export const PHONE_LOCAL_LEN = 9;
+const PHONE_SLACK = 1;
+
+function stripCountry(raw: string) {
   let digits = raw.replace(/\D/g, '');
   if (digits.startsWith('970') || digits.startsWith('972')) digits = digits.slice(3);
-  if (digits.startsWith('0')) digits = digits.slice(1);
   return digits;
 }
 
-/** Local digits only: 9 numbers, or 10 if the user types a leading 0. */
+function localDigits(raw: string) {
+  let digits = stripCountry(raw);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  return digits.slice(0, PHONE_LOCAL_LEN);
+}
+
+export function phoneLocalMax(raw: string) {
+  const digits = stripCountry(raw);
+  return (digits.startsWith('0') ? PHONE_LOCAL_LEN + 1 : PHONE_LOCAL_LEN) + PHONE_SLACK;
+}
+
+/** Official length, plus one extra digit while typing. */
 export function sanitizePhoneLocal(raw: string) {
-  let digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('970') || digits.startsWith('972')) digits = digits.slice(3);
-  if (digits.startsWith('0')) return digits.slice(0, 10);
-  return digits.slice(0, 9);
+  const digits = stripCountry(raw);
+  return digits.slice(0, phoneLocalMax(digits));
 }
 
 export function toE164(region: PhoneRegion, raw: string) {
@@ -40,6 +51,19 @@ export function toE164(region: PhoneRegion, raw: string) {
 
 export function isValidMobile(region: PhoneRegion, raw: string) {
   return Boolean(toE164(region, raw));
+}
+
+export function sameMobile(
+  aRegion: PhoneRegion,
+  aLocal: string,
+  bRegion: PhoneRegion,
+  bLocal: string,
+) {
+  if (!aLocal.trim() || !bLocal.trim()) return false;
+  const a = toE164(aRegion, aLocal);
+  const b = toE164(bRegion, bLocal);
+  if (a && b) return a === b;
+  return aRegion === bRegion && aLocal.replace(/\D/g, '') === bLocal.replace(/\D/g, '');
 }
 
 export function isValidStudentId(raw: string) {

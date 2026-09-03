@@ -1,6 +1,6 @@
 # Sakanat — chat handoff (25 Aug 2026)
 
-Use this file to continue in a **new chat**. Product is **بدك سكن؟ اطلب منا** (do not rename). Expo SDK **54** / Expo Go. Docs: https://docs.expo.dev/versions/v54.0.0/
+Use this file to continue in a **new chat**. Product is **بدك سكن؟ اطلب منا** (do not rename). Expo SDK **57** / Expo Go. Docs: https://docs.expo.dev/versions/v57.0.0/
 
 Workspace: `c:\Users\2026\Desktop\sakanat`  
 Git: https://github.com/bisharababish/Sakanat.git  

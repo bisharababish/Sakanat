@@ -17,9 +17,12 @@ export function MenuButton() {
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={t('menu.title')}
-      style={({ pressed }) => [styles.btn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.82 : 1 }]}
+      style={({ pressed }) => [
+        styles.btn,
+        { backgroundColor: colors.primarySoft, opacity: pressed ? 0.82 : 1 },
+      ]}
     >
-      <Ionicons name="menu" size={22} color={colors.primary} />
+      <Ionicons name="menu-outline" size={22} color={colors.primary} />
     </Pressable>
   );
 }
@@ -28,8 +31,7 @@ const styles = StyleSheet.create({
   btn: {
     width: 44,
     height: 44,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },

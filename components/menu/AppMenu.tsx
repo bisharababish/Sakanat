@@ -104,8 +104,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
   }));
 
+  const startX = isRtl ? -sheetWidth : sheetWidth;
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: interpolate(progress.value, [0, 1], [sheetWidth, 0]) }],
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [startX, 0]) }],
   }));
 
   const togglePush = async (next: boolean) => {
@@ -185,43 +186,51 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
             sheetStyle,
             {
               width: sheetWidth,
-              backgroundColor: colors.background,
+              backgroundColor: colors.surface,
               shadowColor: colors.text,
+              left: isRtl ? 0 : undefined,
+              right: isRtl ? undefined : 0,
+              borderTopLeftRadius: isRtl ? 0 : radius.xl,
+              borderBottomLeftRadius: isRtl ? 0 : radius.xl,
+              borderTopRightRadius: isRtl ? radius.xl : 0,
+              borderBottomRightRadius: isRtl ? radius.xl : 0,
             },
           ]}
         >
           <SafeAreaView edges={['bottom']} style={styles.sheetInner}>
-            <View style={[styles.head, { borderBottomColor: colors.border, paddingTop: topInset + spacing.md }]}>
+            <View style={[styles.head, { backgroundColor: colors.primary, paddingTop: topInset + spacing.sm }]}>
               {pane !== 'root' ? (
                 <Pressable
                   onPress={() => setPane('root')}
                   hitSlop={12}
                   accessibilityRole="button"
                   accessibilityLabel={t('common.back')}
-                  style={[styles.closeBtn, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+                  style={styles.headBtn}
                 >
-                  <Ionicons name="chevron-back" size={20} color={colors.text} />
+                  <Ionicons name={isRtl ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.white} />
                 </Pressable>
-              ) : null}
-              <Text style={[styles.title, copy, { color: colors.primaryDark }]}>
-                {pane === 'root' ? t('menu.title') : paneTitle}
+              ) : (
+                <View style={styles.headBtn} />
+              )}
+              <Text style={[styles.title, copy]}>
+                {pane === 'root' ? t('appNameLead') : paneTitle}
               </Text>
               <Pressable
                 onPress={onClose}
                 hitSlop={12}
                 accessibilityRole="button"
                 accessibilityLabel={t('common.close')}
-                style={[styles.closeBtn, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+                style={styles.headBtn}
               >
-                <Ionicons name="close" size={20} color={colors.text} />
+                <Ionicons name="close" size={20} color={colors.white} />
               </Pressable>
             </View>
 
             <View style={styles.flex}>
               <ScrollView
                 ref={rootScroll}
-                style={[styles.flex, pane !== 'root' ? styles.paneHidden : null]}
-                contentContainerStyle={styles.body}
+                style={[styles.flex, pane !== 'root' ? styles.paneHidden : null, { backgroundColor: colors.background }]}
+                contentContainerStyle={[styles.body, { backgroundColor: colors.background }]}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 pointerEvents={pane === 'root' ? 'auto' : 'none'}
@@ -231,42 +240,54 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 }}
               >
                 {profile ? (
-                  <Pressable onPress={goProfile} style={[styles.hero, row, { backgroundColor: colors.primary }]}>
+                  <Pressable
+                    onPress={goProfile}
+                    style={({ pressed }) => [
+                      styles.hero,
+                      row,
+                      { backgroundColor: colors.primarySoft, opacity: pressed ? 0.9 : 1 },
+                    ]}
+                  >
                     {profile.avatar_url ? (
                       <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
                     ) : (
-                      <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
-                        <Text style={[styles.initials, { color: colors.primary }]}>{initials(profile.full_name)}</Text>
+                      <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primary }]}>
+                        <Text style={[styles.initials, { color: colors.white }]}>{initials(profile.full_name)}</Text>
                       </View>
                     )}
                     <View style={styles.heroCopy}>
-                      <Text style={[styles.heroName, copy]} numberOfLines={1}>
+                      <Text style={[styles.heroName, copy, { color: colors.primaryDark }]} numberOfLines={2}>
                         {profile.full_name}
                       </Text>
-                      <View style={[styles.roleChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
-                        <Text style={styles.roleChipText}>{t(`roles.${profile.role}`)}</Text>
-                      </View>
+                      <Text style={[styles.heroRole, copy, { color: colors.primary }]}>{t(`roles.${profile.role}`)}</Text>
                       {profile.email ? (
-                        <Text style={[styles.heroMeta, copy]} numberOfLines={1}>
-                          {profile.email}
-                        </Text>
+                        <Text style={[styles.heroMeta, copy, { color: colors.text }]}>{profile.email}</Text>
                       ) : null}
                       {profile.role === 'student' && university ? (
-                        <Text style={[styles.heroMeta, copy]} numberOfLines={1}>
+                        <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
                           {university}
                         </Text>
-                      ) : null}
-                      {city ? (
-                        <Text style={[styles.heroMeta, copy]} numberOfLines={1}>
+                      ) : city ? (
+                        <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
                           {city}
                         </Text>
                       ) : null}
+                      <Text style={[styles.heroLink, copy, { color: colors.primary }]}>{t('menu.profile')}</Text>
                     </View>
-                    <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color="rgba(255,255,255,0.8)" />
+                    <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
                   </Pressable>
                 ) : (
-                  <View style={[styles.aboutCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+                  <View style={[styles.guestCard, { backgroundColor: colors.primarySoft }]}>
                     <Text style={[styles.guestName, copy, { color: colors.primaryDark }]}>{t('appName')}</Text>
+                    <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
+                    <Button
+                      title={t('auth.login')}
+                      pill
+                      onPress={() => {
+                        onClose();
+                        router.push('/(auth)/login');
+                      }}
+                    />
                   </View>
                 )}
 
@@ -310,10 +331,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       <View style={[styles.divider, { backgroundColor: colors.border }]} />
                       <View style={[styles.row, row]}>
                         <RowIcon name="notifications-outline" colors={colors} />
-                        <View style={styles.rowCopy}>
-                          <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.notifications')}</Text>
-                          <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.notificationsHint')}</Text>
-                        </View>
+                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.notifications')}</Text>
                         <Switch
                           value={pushOn}
                           onValueChange={(next) => void togglePush(next)}
@@ -345,10 +363,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 </View>
 
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
-                <View style={[styles.aboutCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
-                  <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
-                  <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.version', { version: VERSION })}</Text>
-                </View>
                 <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <MenuLink icon="shield-checkmark-outline" label={t('menu.privacy')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('privacy')} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -358,6 +372,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="star-outline" label={t('menu.rate')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void rateApp()} />
                 </View>
+                <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                  {t('menu.version', { version: VERSION })}
+                </Text>
               </ScrollView>
               {pane !== 'root' ? (
                 <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -372,23 +389,15 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                     <Text style={[styles.confirmText, copy, { color: colors.text }]}>{t('common.confirmLogout')}</Text>
                     <View style={styles.confirmActions}>
                       <View style={styles.confirmBtn}>
-                        <Button title={t('common.no')} variant="ghost" onPress={() => setAskLogout(false)} />
+                        <Button title={t('common.no')} variant="ghost" pill onPress={() => setAskLogout(false)} />
                       </View>
                       <View style={styles.confirmBtn}>
-                        <Button title={t('common.yes')} onPress={confirmLogout} />
+                        <Button title={t('common.yes')} variant="danger" pill onPress={confirmLogout} />
                       </View>
                     </View>
                   </View>
                 ) : (
-                  <Pressable
-                    onPress={() => setAskLogout(true)}
-                    style={[styles.row, row]}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('common.logout')}
-                  >
-                    <RowIcon name="log-out-outline" colors={colors} />
-                    <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('common.logout')}</Text>
-                  </Pressable>
+                  <Button title={t('common.logout')} variant="danger" pill onPress={() => setAskLogout(true)} />
                 )}
               </View>
             ) : null}
@@ -425,7 +434,7 @@ function MenuLink({
   isRtl: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.row, row]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, row, pressed && styles.rowPressed]}>
       <RowIcon name={icon} colors={colors} />
       <Text style={[styles.rowLabel, copy, { color: colors.text, flex: 1 }]}>{label}</Text>
       <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
@@ -440,9 +449,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    right: 0,
-    borderTopLeftRadius: radius.xl,
-    borderBottomLeftRadius: radius.xl,
     overflow: 'hidden',
     shadowOffset: { width: -8, height: 0 },
     shadowOpacity: 0.18,
@@ -457,18 +463,24 @@ const styles = StyleSheet.create({
     direction: 'ltr',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
-  title: { flex: 1, minWidth: 0, fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  closeBtn: {
+  title: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: 'Cairo_800ExtraBold',
+    color: '#fff',
+  },
+  headBtn: {
     width: 36,
     height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   body: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
   hero: {
@@ -478,19 +490,19 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
   },
-  avatar: { width: 48, height: 48, borderRadius: 16 },
+  avatar: { width: 58, height: 58, borderRadius: 20 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  heroCopy: { flex: 1, minWidth: 0, gap: 4 },
-  heroName: { color: '#fff', fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  heroMeta: { color: 'rgba(255,255,255,0.78)', fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  roleChip: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  initials: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroCopy: { flex: 1, minWidth: 0, gap: 3 },
+  heroName: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroRole: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  heroMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  heroLink: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginTop: 2 },
+  guestCard: {
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: 8,
   },
-  roleChipText: { color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
   aboutCard: {
     borderRadius: radius.lg,
     padding: spacing.md,
@@ -504,7 +516,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.md,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  rowPressed: { opacity: 0.7 },
   appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowCopy: { flex: 1, minWidth: 0, gap: 2 },
   rowLabel: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '700', fontFamily: 'Cairo_700Bold' },

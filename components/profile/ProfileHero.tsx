@@ -50,10 +50,15 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
           </View>
         </Pressable>
         <View style={styles.heroInfo}>
+          {chip ? (
+            <View style={[styles.heroChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
+              <Text style={styles.heroChipText}>{chip}</Text>
+            </View>
+          ) : null}
           <Text style={[styles.heroName, rtlText]} numberOfLines={2}>
             {name}
           </Text>
-          {metas.map((item) => (
+          {metas.slice(0, 2).map((item) => (
             <View key={`${item.icon}-${item.text}`} style={styles.heroMeta}>
               <Ionicons name={item.icon} size={14} color={colors.accent} />
               <Text
@@ -64,16 +69,6 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
               </Text>
             </View>
           ))}
-          {chip ? (
-            <View style={[styles.heroChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
-              <Text style={styles.heroChipText}>{chip}</Text>
-            </View>
-          ) : null}
-          {email ? (
-            <Text style={[styles.heroEmail, rtlText]} numberOfLines={1}>
-              {email}
-            </Text>
-          ) : null}
         </View>
       </View>
     </View>
@@ -83,10 +78,10 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
 const styles = StyleSheet.create({
   hero: {
     borderRadius: radius.xl,
-    padding: spacing.md,
+    padding: spacing.lg,
     overflow: 'hidden',
     gap: spacing.md,
-    minHeight: 148,
+    minHeight: 156,
   },
   blob: {
     position: 'absolute',
@@ -164,10 +159,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
-  },
-  heroEmail: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    fontFamily: 'Cairo_400Regular',
   },
 });

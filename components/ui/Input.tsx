@@ -30,6 +30,7 @@ type Props = {
   soft?: boolean;
   maxLength?: number;
   editable?: boolean;
+  wrap?: boolean;
   selectTextOnFocus?: boolean;
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
@@ -50,6 +51,7 @@ export function Input({
   soft,
   maxLength,
   editable,
+  wrap,
   selectTextOnFocus,
   autoComplete,
   textContentType,
@@ -78,8 +80,9 @@ export function Input({
           autoCorrect={secureTextEntry ? false : autoCorrect}
           autoComplete={secureTextEntry ? 'password' : autoComplete}
           textContentType={secureTextEntry ? 'password' : textContentType}
-          multiline={Boolean(multiline)}
-          numberOfLines={multiline ? 4 : 1}
+          multiline={Boolean(multiline || wrap)}
+          numberOfLines={wrap ? 3 : multiline ? 4 : 1}
+          scrollEnabled={Boolean(wrap || multiline)}
           maxLength={maxLength}
           editable={editable}
           selectTextOnFocus={selectTextOnFocus}
@@ -93,6 +96,7 @@ export function Input({
               borderColor: soft ? 'transparent' : colors.border,
               color: colors.text,
             },
+            wrap ? styles.wrapValue : null,
             multiline ? styles.multiline : null,
             secureTextEntry ? (iconOnStart ? styles.padStart : styles.padEnd) : null,
           ]}
@@ -116,7 +120,8 @@ export function Input({
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  field: { overflow: 'hidden' },
+  field: {},
+  wrapValue: { height: undefined, minHeight: 52, paddingVertical: 10, fontSize: 14, textAlignVertical: 'center' },
   ltr: { direction: 'ltr' },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   input: {

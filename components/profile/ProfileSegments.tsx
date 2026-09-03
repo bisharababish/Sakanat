@@ -3,7 +3,7 @@ import { type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { radius, spacing } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export type ProfileTabItem<T extends string> = {
@@ -25,7 +25,7 @@ export function ProfileSegments<T extends string>({ tabs, value, onChange }: Pro
   const colors = useColors();
 
   return (
-    <View style={[styles.segments, row]}>
+    <View style={[styles.track, row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {tabs.map((item) => {
         const active = value === item.key;
         return (
@@ -37,13 +37,10 @@ export function ProfileSegments<T extends string>({ tabs, value, onChange }: Pro
             accessibilityLabel={item.label}
             style={[
               styles.segment,
-              {
-                backgroundColor: active ? colors.primary : colors.surface,
-                borderColor: active ? colors.primary : colors.border,
-              },
+              active ? { backgroundColor: colors.primary } : null,
             ]}
           >
-            <Ionicons name={item.icon} size={20} color={active ? colors.white : colors.primary} />
+            <Ionicons name={item.icon} size={16} color={active ? colors.white : colors.primary} />
             <Text
               style={[styles.segLabel, { color: active ? colors.white : colors.text }]}
               numberOfLines={1}
@@ -51,9 +48,14 @@ export function ProfileSegments<T extends string>({ tabs, value, onChange }: Pro
               {item.label}
             </Text>
             {item.dot ? (
-              <View style={[styles.segDot, { backgroundColor: colors.danger, borderColor: active ? colors.primary : colors.surface }]} />
+              <View
+                style={[
+                  styles.segDot,
+                  { backgroundColor: colors.danger, borderColor: active ? colors.primary : colors.surface },
+                ]}
+              />
             ) : item.badge ? (
-              <View style={[styles.segBadge, { backgroundColor: colors.accent }]}>
+              <View style={[styles.segBadge, { backgroundColor: active ? colors.accent : colors.primarySoft }]}>
                 <Text style={[styles.segBadgeText, { color: colors.primaryDark }]}>{item.badge}</Text>
               </View>
             ) : null}
@@ -65,15 +67,19 @@ export function ProfileSegments<T extends string>({ tabs, value, onChange }: Pro
 }
 
 const styles = StyleSheet.create({
-  segments: { gap: spacing.sm },
+  track: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: 4,
+    gap: 4,
+  },
   segment: {
     flex: 1,
-    minHeight: 62,
+    minHeight: 48,
     borderRadius: radius.md,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 2,
     paddingHorizontal: 4,
   },
   segLabel: {
@@ -83,8 +89,8 @@ const styles = StyleSheet.create({
   },
   segBadge: {
     position: 'absolute',
-    top: 6,
-    end: 10,
+    top: 4,
+    end: 6,
     minWidth: 16,
     height: 16,
     borderRadius: 8,
@@ -95,8 +101,8 @@ const styles = StyleSheet.create({
   segBadgeText: { fontSize: 10, fontWeight: '800' },
   segDot: {
     position: 'absolute',
-    top: 8,
-    end: 10,
+    top: 6,
+    end: 8,
     width: 8,
     height: 8,
     borderRadius: 4,

@@ -19,7 +19,10 @@ export function ProfileBanner({ icon, text, onPress }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.banner, { backgroundColor: colors.surface, borderColor: colors.accent }]}
+      style={({ pressed }) => [
+        styles.banner,
+        { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft, opacity: pressed ? 0.88 : 1 },
+      ]}
     >
       <View style={[styles.bannerIcon, { backgroundColor: colors.primarySoft }]}>
         <Ionicons name={icon} size={18} color={colors.primary} />

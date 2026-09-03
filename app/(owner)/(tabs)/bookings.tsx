@@ -17,6 +17,7 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation } from '@/src/lib/chat';
+import { majorLabel } from '@/src/data/majors';
 import { localizedName } from '@/src/lib/format';
 import { seekerExtraIcon, seekerIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
@@ -49,7 +50,7 @@ export default function OwnerBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, phone, whatsapp, gender, university_id, city_id, role)',
+        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, avatar_url, phone, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number)',
       )
       .eq('owner_id', profile.id)
       .order('created_at', { ascending: false });
@@ -175,6 +176,15 @@ export default function OwnerBookings() {
           gender === 'male' ? t('profile.male') : gender === 'female' ? t('profile.female') : '',
           seekerRoleLabel(role, t),
         ].filter(Boolean);
+        const yearKey = booking.profiles?.study_year;
+        const yearLabel = yearKey && /^[1-6]$/.test(yearKey) ? t(`profile.year${yearKey}` as 'profile.year1') : '';
+        const details = [
+          booking.profiles?.major ? majorLabel(booking.profiles.major, i18n.language) : '',
+          yearLabel,
+          booking.profiles?.student_id_number
+            ? `${t('profile.studentId')} ${booking.profiles.student_id_number}`
+            : '',
+        ].filter(Boolean);
         const overlapConfirmed = hasConfirmedOverlap(booking, bookings);
         const overlapPending =
           booking.status === 'pending' && overlappingBookings(booking, bookings, ['pending']).length > 0;
@@ -184,7 +194,9 @@ export default function OwnerBookings() {
             booking={booking}
             personIcon={seekerIcon(role)}
             personLabel={personBits.join(' · ') || undefined}
+            personAvatar={booking.profiles?.avatar_url}
             extra={extraName || undefined}
+            details={details}
             extraIcon={seekerExtraIcon(role)}
             warning={
               booking.status === 'pending' && overlapConfirmed

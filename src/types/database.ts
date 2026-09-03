@@ -101,11 +101,35 @@ export type Booking = {
   apartments?: Apartment;
   profiles?: Pick<
     Profile,
-    'id' | 'full_name' | 'phone' | 'email' | 'whatsapp' | 'gender' | 'university_id' | 'city_id' | 'role'
+    | 'id'
+    | 'full_name'
+    | 'avatar_url'
+    | 'phone'
+    | 'email'
+    | 'whatsapp'
+    | 'gender'
+    | 'university_id'
+    | 'city_id'
+    | 'role'
+    | 'major'
+    | 'study_year'
+    | 'student_id_number'
   > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
   student?: Pick<
     Profile,
-    'id' | 'full_name' | 'phone' | 'email' | 'whatsapp' | 'gender' | 'university_id' | 'city_id' | 'role'
+    | 'id'
+    | 'full_name'
+    | 'avatar_url'
+    | 'phone'
+    | 'email'
+    | 'whatsapp'
+    | 'gender'
+    | 'university_id'
+    | 'city_id'
+    | 'role'
+    | 'major'
+    | 'study_year'
+    | 'student_id_number'
   > | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'> | null;
 };
