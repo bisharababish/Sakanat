@@ -121,7 +121,7 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
                 const iso = day ? toIso(new Date(cursor.getFullYear(), cursor.getMonth(), day)) : '';
                 const on = Boolean(day && value === iso);
                 const off =
-                  Boolean(day) &&
+                  day != null &&
                   kind === 'booking' &&
                   new Date(cursor.getFullYear(), cursor.getMonth(), day) < startOfToday;
                 return (

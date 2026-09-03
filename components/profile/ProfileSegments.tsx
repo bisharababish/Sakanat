@@ -11,6 +11,7 @@ export type ProfileTabItem<T extends string> = {
   icon: ComponentProps<typeof Ionicons>['name'];
   label: string;
   badge?: number;
+  dot?: boolean;
 };
 
 type Props<T extends string> = {
@@ -42,8 +43,16 @@ export function ProfileSegments<T extends string>({ tabs, value, onChange }: Pro
               },
             ]}
           >
-            <Ionicons name={item.icon} size={22} color={active ? colors.white : colors.primary} />
-            {item.badge ? (
+            <Ionicons name={item.icon} size={20} color={active ? colors.white : colors.primary} />
+            <Text
+              style={[styles.segLabel, { color: active ? colors.white : colors.text }]}
+              numberOfLines={1}
+            >
+              {item.label}
+            </Text>
+            {item.dot ? (
+              <View style={[styles.segDot, { backgroundColor: colors.danger, borderColor: active ? colors.primary : colors.surface }]} />
+            ) : item.badge ? (
               <View style={[styles.segBadge, { backgroundColor: colors.accent }]}>
                 <Text style={[styles.segBadgeText, { color: colors.primaryDark }]}>{item.badge}</Text>
               </View>
@@ -59,16 +68,23 @@ const styles = StyleSheet.create({
   segments: { gap: spacing.sm },
   segment: {
     flex: 1,
-    height: 56,
+    minHeight: 62,
     borderRadius: radius.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
+  },
+  segLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Cairo_700Bold',
   },
   segBadge: {
     position: 'absolute',
-    top: 8,
-    end: 18,
+    top: 6,
+    end: 10,
     minWidth: 16,
     height: 16,
     borderRadius: 8,
@@ -77,4 +93,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segBadgeText: { fontSize: 10, fontWeight: '800' },
+  segDot: {
+    position: 'absolute',
+    top: 8,
+    end: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
 });

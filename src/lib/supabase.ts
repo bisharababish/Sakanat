@@ -47,3 +47,7 @@ export const supabase = createClient(
     },
   },
 );
+
+export function uniqueChannel(name: string) {
+  return supabase.channel(`${name}:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+}

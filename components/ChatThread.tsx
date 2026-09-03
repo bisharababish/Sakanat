@@ -28,7 +28,7 @@ import {
   sendMessage,
   type MessageReceipt,
 } from '@/src/lib/chat';
-import { supabase } from '@/src/lib/supabase';
+import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation, Message } from '@/src/types/database';
@@ -131,8 +131,7 @@ export function ChatThread({
       });
     void loadMessages();
 
-    const channel = supabase
-      .channel(`thread:${conversationId}`)
+    const channel = uniqueChannel(`thread:${conversationId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },

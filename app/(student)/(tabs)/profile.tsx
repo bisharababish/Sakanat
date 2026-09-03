@@ -50,7 +50,7 @@ type ProfileTab = 'account' | 'saved' | 'security';
 
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { resumeBook } = useLocalSearchParams<{ resumeBook?: string }>();
@@ -162,7 +162,15 @@ export default function StudentProfileScreen() {
   const isStudent = profile?.role !== 'renter';
   const incomplete =
     !fullName.trim() || !gender || !cityId || !phoneLocal.trim() || (isStudent && !universityId);
+  const missingFields = [
+    !fullName.trim() ? t('common.name') : null,
+    !gender ? t('profile.gender') : null,
+    !cityId ? t('auth.homeCity') : null,
+    !phoneLocal.trim() ? t('common.phone') : null,
+    isStudent && !universityId ? t('auth.studyUniversity') : null,
+  ].filter((item): item is string => Boolean(item));
   const need = (ok: boolean, label: string) => (incomplete && !ok ? `${label} · ${t('common.required')}` : label);
+  const whatsappDiffers = Boolean(phoneLocal.trim()) && (waRegion !== phoneRegion || waLocal !== phoneLocal);
   const savedPaged = usePaged(savedListings, LISTING_PAGE_SIZE, String(savedListings.length));
 
   const reloadSaved = useCallback(async () => {
@@ -359,10 +367,13 @@ export default function StudentProfileScreen() {
 
   const heroMetas = [
     ...(isStudent && majorName ? [{ icon: 'school' as const, text: majorName }] : []),
+    ...(isStudent && studyYear
+      ? [{ icon: 'book-outline' as const, text: yearOptions.find((item) => item.value === studyYear)?.label ?? '' }]
+      : []),
     ...((cityName || (isStudent && universityName))
       ? [{ icon: 'location' as const, text: [isStudent ? universityName : '', cityName].filter(Boolean).join(' · ') }]
       : []),
-  ];
+  ].filter((item) => item.text);
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
@@ -380,7 +391,7 @@ export default function StudentProfileScreen() {
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: 'account', icon: 'person', label: t('profile.tabAccount') },
+          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: incomplete },
           { key: 'saved', icon: 'heart', label: t('profile.tabSaved'), badge: savedListings.length },
           { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
         ]}
@@ -388,6 +399,18 @@ export default function StudentProfileScreen() {
 
       {tab === 'account' ? (
         <>
+          {missingFields.length > 0 ? (
+            <Card>
+              <SectionHead icon="alert-circle-outline" title={t('profile.stillNeeded')} />
+              {missingFields.map((item) => (
+                <View key={item} style={[styles.needRow, row]}>
+                  <Ionicons name="ellipse-outline" size={10} color={colors.danger} />
+                  <Text style={[styles.needText, rtlText, { color: colors.text }]}>{item}</Text>
+                </View>
+              ))}
+            </Card>
+          ) : null}
+
           <Card>
             <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
             <Input
@@ -419,6 +442,14 @@ export default function StudentProfileScreen() {
 
           <Card>
             <SectionHead icon="call-outline" title={t('profile.contactTitle')} />
+            <Input
+              label={t('common.email')}
+              value={profile?.email ?? ''}
+              onChangeText={() => undefined}
+              editable={false}
+              ltr
+              hint={t('profile.emailLocked')}
+            />
             <PhoneField
               label={need(Boolean(phoneLocal.trim()), t('common.phone'))}
               region={phoneRegion}
@@ -433,6 +464,16 @@ export default function StudentProfileScreen() {
               onRegionChange={setWaRegion}
               onLocalChange={setWaLocal}
             />
+            {whatsappDiffers ? (
+              <Button
+                title={t('profile.sameAsPhone')}
+                variant="secondary"
+                onPress={() => {
+                  setWaRegion(phoneRegion);
+                  setWaLocal(phoneLocal);
+                }}
+              />
+            ) : null}
             <Button
               title={t('profile.openWhatsapp')}
               variant="secondary"
@@ -445,7 +486,26 @@ export default function StudentProfileScreen() {
                 void Linking.openURL(whatsappLink(number));
               }}
             />
-            {isStudent ? (
+          </Card>
+
+          {isStudent ? (
+            <Card>
+              <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
+              <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.studiesHint')}</Text>
+              <SearchSelect
+                label={need(Boolean(universityId), t('auth.studyUniversity'))}
+                value={universityId}
+                placeholder={t('common.select')}
+                options={universityOptions}
+                onChange={setUniversityId}
+              />
+              {universityId ? (
+                <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+                  {universityDomains.length
+                    ? t('auth.universityEmailHint', { domains: universityDomains.join(', ') })
+                    : t('auth.studentEmailHint')}
+                </Text>
+              ) : null}
               <Input
                 label={t('profile.studentId')}
                 value={studentId}
@@ -455,12 +515,6 @@ export default function StudentProfileScreen() {
                 autoCapitalize="none"
                 ltr
               />
-            ) : null}
-          </Card>
-
-          {isStudent ? (
-            <Card>
-              <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
               <SearchSelect
                 label={t('profile.major')}
                 value={major}
@@ -482,20 +536,6 @@ export default function StudentProfileScreen() {
                 options={yearOptions}
                 onChange={setStudyYear}
               />
-              <SearchSelect
-                label={need(Boolean(universityId), t('auth.studyUniversity'))}
-                value={universityId}
-                placeholder={t('common.select')}
-                options={universityOptions}
-                onChange={setUniversityId}
-              />
-              {isStudent && universityId ? (
-                <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-                  {universityDomains.length
-                    ? t('auth.universityEmailHint', { domains: universityDomains.join(', ') })
-                    : t('auth.studentEmailHint')}
-                </Text>
-              ) : null}
             </Card>
           ) : null}
           <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
@@ -504,7 +544,14 @@ export default function StudentProfileScreen() {
 
       {tab === 'saved' ? (
         <Card>
-          <SectionHead icon="heart-outline" title={t('profile.savedListings')} />
+          <SectionHead
+            icon="heart-outline"
+            title={
+              savedListings.length > 0
+                ? t('profile.savedCount', { count: savedListings.length })
+                : t('profile.savedListings')
+            }
+          />
           {savedListings.length === 0 ? (
             <View style={[styles.emptyBox, { backgroundColor: colors.surfaceMuted }]}>
               <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
@@ -627,5 +674,7 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 14, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
   hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
+  needRow: { alignItems: 'center', gap: 8 },
+  needText: { flex: 1, fontSize: 14, fontFamily: 'Cairo_600SemiBold' },
 });
 

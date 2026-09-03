@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { CodeBoxes } from '@/components/ui/CodeBoxes';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { useLayout } from '@/src/hooks/useLayout';
-import { enrollTotp, formatTotpSecret, isMfaCooldown, listTotpFactors, mfaCooldownMinutes, mfaCooldownRemainingMs, markMfaChanged, unenrollTotp, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
+import { enrollTotp, formatTotpSecret, isMfaCooldown, listAllFactors, mfaCooldownMinutes, mfaCooldownRemainingMs, markMfaChanged, unenrollTotp, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { alert } from '@/src/lib/notice';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -143,9 +143,9 @@ export function MfaSetup({ required = false, onEnabled }: { required?: boolean; 
             }
             const verified = await verifiedTotpFactor();
             if (verified) await unenrollTotp(verified.id);
-            const leftover = await listTotpFactors();
+            const leftover = await listAllFactors();
             for (const factor of leftover) {
-              if (factor.status === 'unverified') await unenrollTotp(factor.id);
+              if (factor.factor_type === 'totp' && factor.status !== 'verified') await unenrollTotp(factor.id);
             }
             await markMfaChanged();
             alert(t('common.done'), t('mfa.disabled'));

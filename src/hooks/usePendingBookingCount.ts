@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useAuth } from '@/src/lib/auth';
-import { supabase } from '@/src/lib/supabase';
+import { supabase, uniqueChannel } from '@/src/lib/supabase';
 
 export function usePendingBookingCount() {
   const { profile } = useAuth();
@@ -23,8 +23,7 @@ export function usePendingBookingCount() {
   useEffect(() => {
     void refresh();
     if (!profile?.id || profile.role !== 'owner') return;
-    const channel = supabase
-      .channel(`pending-bookings:${profile.id}`)
+    const channel = uniqueChannel(`pending-bookings:${profile.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => {
         void refresh();
       })

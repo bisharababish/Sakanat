@@ -183,10 +183,11 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
             : payload;
         const { error } = await supabase.from('apartments').update(update).eq('id', apartment.id);
         if (error) throw error;
+      } else if (asAdmin) {
+        const { error } = await supabase.from('apartments').insert({ ...payload, status: listingStatus });
+        if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('apartments')
-          .insert(asAdmin ? { ...payload, status: listingStatus } : payload);
+        const { error } = await supabase.from('apartments').insert(payload);
         if (error) throw error;
       }
       if (resubmit) {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useAuth } from '@/src/lib/auth';
 import { isConversationUnread, markInboxDelivered } from '@/src/lib/chat';
-import { supabase } from '@/src/lib/supabase';
+import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import type { Conversation } from '@/src/types/database';
 
 export function useUnreadChatCount() {
@@ -33,8 +33,7 @@ export function useUnreadChatCount() {
   useEffect(() => {
     void refresh();
     if (!profile?.id) return;
-    const channel = supabase
-      .channel(`unread-chats:${profile.id}`)
+    const channel = uniqueChannel(`unread-chats:${profile.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
         void refresh();
       })

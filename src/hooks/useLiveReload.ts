@@ -3,7 +3,7 @@ import { useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
-import { supabase } from '@/src/lib/supabase';
+import { supabase, uniqueChannel } from '@/src/lib/supabase';
 
 type LiveTable =
   | 'apartments'
@@ -43,7 +43,7 @@ export function useLiveReload(load: () => Promise<void>, tables: readonly LiveTa
       const channel = tablesKey.split('+').reduce(
         (next, table) =>
           next.on('postgres_changes', { event: '*', schema: 'public', table }, bump),
-        supabase.channel(`live:${key}:${tablesKey}`),
+        uniqueChannel(`live:${key}:${tablesKey}`),
       );
       channel.subscribe();
 

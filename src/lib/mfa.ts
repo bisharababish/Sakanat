@@ -56,6 +56,12 @@ export async function listTotpFactors() {
   return data?.totp ?? [];
 }
 
+export async function listAllFactors() {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) throw error;
+  return data?.all ?? [];
+}
+
 export async function verifiedTotpFactor() {
   const factors = await listTotpFactors();
   return factors.find((item) => item.status === 'verified') ?? null;
@@ -63,9 +69,9 @@ export async function verifiedTotpFactor() {
 
 export async function enrollTotp() {
   await assertMfaCooldown();
-  const factors = await listTotpFactors();
-  for (const factor of factors) {
-    if (factor.status === 'unverified') {
+  const pending = await listAllFactors();
+  for (const factor of pending) {
+    if (factor.factor_type === 'totp' && factor.status !== 'verified') {
       await supabase.auth.mfa.unenroll({ factorId: factor.id });
     }
   }

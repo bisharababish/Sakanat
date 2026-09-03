@@ -58,9 +58,12 @@ export function IdleGuard({ children }: { children: ReactNode }) {
   }, [locked, signOut, t]);
 
   return (
-    <View style={{ flex: 1 }} onTouchStart={() => {
-      lastTouch.current = Date.now();
-    }}>
+    <View
+      style={{ flex: 1 }}
+      onTouchStart={() => {
+        lastTouch.current = Date.now();
+      }}
+    >
       {children}
     </View>
   );

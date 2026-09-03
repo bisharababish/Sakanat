@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { subscribeCatalog } from '@/src/lib/catalog';
+import { subscribeCatalog, watchCatalogLive } from '@/src/lib/catalog';
 import { supabase } from '@/src/lib/supabase';
 import type { City, University } from '@/src/types/database';
 
@@ -11,21 +11,7 @@ export function useCatalog() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => subscribeCatalog(() => setTick((value) => value + 1)), []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('catalog-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cities' }, () =>
-        setTick((value) => value + 1),
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'universities' }, () =>
-        setTick((value) => value + 1),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, []);
+  useEffect(() => watchCatalogLive(), []);
 
   useEffect(() => {
     let mounted = true;

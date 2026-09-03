@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useAuth } from '@/src/lib/auth';
-import { supabase } from '@/src/lib/supabase';
+import { supabase, uniqueChannel } from '@/src/lib/supabase';
 
 export function useAdminPendingCounts() {
   const { profile } = useAuth();
@@ -33,8 +33,7 @@ export function useAdminPendingCounts() {
   useEffect(() => {
     void refresh();
     if (profile?.role !== 'admin') return;
-    const channel = supabase
-      .channel('admin-pending-counts')
+    const channel = uniqueChannel('admin-pending-counts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'apartments' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => void refresh())
