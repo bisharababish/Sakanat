@@ -63,7 +63,7 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
         }
         if (toastTimer.current) clearTimeout(toastTimer.current);
         setToast({ title, message: body, tone: inferTone(title) });
-        toastTimer.current = setTimeout(() => setToast(null), 2800);
+        toastTimer.current = setTimeout(() => setToast(null), 3600);
         const followUp = actions[0]?.onPress;
         if (followUp) queueMicrotask(followUp);
       },
@@ -133,7 +133,7 @@ function NoticeHost({
           <Animated.View
             style={[
               styles.toastWrap,
-              { top: insets.top + 8, opacity: slide, transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }] },
+              { top: insets.top + 56, opacity: slide, transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }] },
             ]}
           >
             <Pressable onPress={onHideToast} style={[styles.toast, { backgroundColor: palette.bg, borderColor: palette.tint, shadowColor: colors.text }]}>
@@ -183,7 +183,11 @@ function NoticeHost({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   host: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 50,
     elevation: 50,
   },

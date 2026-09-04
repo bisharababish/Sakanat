@@ -33,6 +33,27 @@ export function formatIls(amount: number, lang: string) {
   return lang.startsWith('ar') ? `${value} ₪` : `₪${value}`;
 }
 
+export function ageFromDob(dob?: string | null, now = new Date()) {
+  if (!dob) return null;
+  const match = dob.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  let age = now.getFullYear() - year;
+  const reachedBirthday = now.getMonth() + 1 > month || (now.getMonth() + 1 === month && now.getDate() >= day);
+  if (!reachedBirthday) age -= 1;
+  if (age < 0 || age > 120) return null;
+  return age;
+}
+
+export function ageLabel(dob: string | null | undefined, t: TFunction, now?: Date) {
+  const age = ageFromDob(dob, now);
+  if (age == null) return '';
+  return t('profile.yearsOld', { count: age });
+}
+
 export function listingStatusLabel(status: ListingStatus, t: TFunction) {
   return t(`status.${status}`);
 }

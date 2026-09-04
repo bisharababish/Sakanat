@@ -14,11 +14,12 @@ import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
+import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
 import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation } from '@/src/lib/chat';
 import { majorLabel } from '@/src/data/majors';
-import { localizedName } from '@/src/lib/format';
+import { ageLabel, localizedName } from '@/src/lib/format';
 import { seekerExtraIcon, seekerIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
@@ -37,6 +38,7 @@ export default function OwnerBookings() {
   const colors = useColors();
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
+  const today = useToday();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [page, setPage] = useState(0);
@@ -50,7 +52,7 @@ export default function OwnerBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, avatar_url, phone, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number)',
+        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, avatar_url, phone, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number, date_of_birth)',
       )
       .eq('owner_id', profile.id)
       .order('created_at', { ascending: false });
@@ -174,6 +176,7 @@ export default function OwnerBookings() {
         const personBits = [
           booking.profiles?.full_name,
           gender === 'male' ? t('profile.male') : gender === 'female' ? t('profile.female') : '',
+          ageLabel(booking.profiles?.date_of_birth, t, today),
           seekerRoleLabel(role, t),
         ].filter(Boolean);
         const yearKey = booking.profiles?.study_year;

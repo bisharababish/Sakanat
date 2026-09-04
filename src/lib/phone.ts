@@ -66,8 +66,12 @@ export function sameMobile(
   return aRegion === bRegion && aLocal.replace(/\D/g, '') === bLocal.replace(/\D/g, '');
 }
 
+export function sanitizeStudentId(raw: string) {
+  return raw.replace(/[^A-Za-z0-9]/g, '').slice(0, 10);
+}
+
 export function isValidStudentId(raw: string) {
-  return /^\d{8,10}$/.test(raw.trim());
+  return /^[A-Za-z0-9]{1,10}$/.test(raw.trim());
 }
 
 export function whatsappLink(e164: string) {

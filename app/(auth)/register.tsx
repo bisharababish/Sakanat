@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { NameField } from '@/components/profile/NameField';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { LegalAcceptRow, LegalDocModal } from '@/components/LegalDocModal';
 import { Button } from '@/components/ui/Button';
@@ -20,7 +21,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
-import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
+import { cleanName, isValidArabicName, isValidEnglishName } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { sanitizeEmail, studentEmailError, formatEmailDomains } from '@/src/lib/eduEmail';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
@@ -34,7 +35,8 @@ export default function RegisterScreen() {
   const { signUp } = useAuth();
   const { cities, universities } = useCatalog();
   const [kind, setKind] = useState<PublicSignupRole>('student');
-  const [fullName, setFullName] = useState('');
+  const [fullNameEn, setFullNameEn] = useState('');
+  const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
@@ -82,12 +84,16 @@ export default function RegisterScreen() {
   const onSubmit = async () => {
     setError('');
     const missingUniversity = isStudent && !universityId;
-    if (!fullName || !email || !password || !confirmPassword || !gender || !phoneLocal.trim() || !cityId || missingUniversity) {
+    if (!fullNameEn || !fullNameAr || !email || !password || !confirmPassword || !gender || !phoneLocal.trim() || !cityId || missingUniversity) {
       setError(t('auth.missingFields'));
       return;
     }
-    if (!isValidName(fullName)) {
-      setError(t('auth.invalidName'));
+    if (!isValidEnglishName(fullNameEn)) {
+      setError(t('auth.invalidNameEn'));
+      return;
+    }
+    if (!isValidArabicName(fullNameAr)) {
+      setError(t('auth.invalidNameAr'));
       return;
     }
     if (isStudent) {
@@ -119,7 +125,8 @@ export default function RegisterScreen() {
       const result = await signUp({
         email: sanitizeEmail(email),
         password,
-        fullName: cleanName(fullName),
+        fullName: cleanName(fullNameAr),
+        fullNameEn: cleanName(fullNameEn),
         phone: cleanPhone,
         role: kind,
         cityId,
@@ -174,13 +181,18 @@ export default function RegisterScreen() {
             { value: 'female', label: t('profile.female') },
           ]}
         />
-        <Input
-          label={t('common.name')}
-          value={fullName}
-          onChangeText={(value) => setFullName(sanitizeNameInput(value))}
-          hint={t('profile.nameHint')}
-          autoCapitalize="words"
-          maxLength={NAME_MAX}
+        <NameField
+          label={t('common.nameEn')}
+          value={fullNameEn}
+          onChangeText={setFullNameEn}
+          script="en"
+          soft
+        />
+        <NameField
+          label={t('common.nameAr')}
+          value={fullNameAr}
+          onChangeText={setFullNameAr}
+          script="ar"
           soft
         />
         <PhoneField

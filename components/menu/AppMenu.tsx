@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
+import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
 import { profileHref } from '@/src/lib/routes';
@@ -61,6 +62,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const progress = useSharedValue(0);
   const copy = { textAlign, writingDirection };
   const sheetWidth = Math.min(340, Math.round(width * 0.84));
+  const shownName = displayName(profile, i18n.language);
   const university = localizedName(profile?.universities, i18n.language);
   const city = localizedName(profile?.cities, i18n.language);
 
@@ -104,7 +106,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
   }));
 
-  const startX = isRtl ? -sheetWidth : sheetWidth;
+  const startX = sheetWidth;
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: interpolate(progress.value, [0, 1], [startX, 0]) }],
   }));
@@ -188,12 +190,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               width: sheetWidth,
               backgroundColor: colors.surface,
               shadowColor: colors.text,
-              left: isRtl ? 0 : undefined,
-              right: isRtl ? undefined : 0,
-              borderTopLeftRadius: isRtl ? 0 : radius.xl,
-              borderBottomLeftRadius: isRtl ? 0 : radius.xl,
-              borderTopRightRadius: isRtl ? radius.xl : 0,
-              borderBottomRightRadius: isRtl ? radius.xl : 0,
+              right: 0,
+              borderTopLeftRadius: radius.xl,
+              borderBottomLeftRadius: radius.xl,
             },
           ]}
         >
@@ -210,7 +209,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <Ionicons name={isRtl ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.white} />
                 </Pressable>
               ) : (
-                <View style={styles.headBtn} />
+                <View style={styles.logoWrap} accessibilityRole="image" accessibilityLabel={t('appName')}>
+                  <Image source={require('@/assets/images/logo.png')} style={styles.logo} contentFit="contain" />
+                </View>
               )}
               <Text style={[styles.title, copy]}>
                 {pane === 'root' ? t('appNameLead') : paneTitle}
@@ -252,12 +253,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
                     ) : (
                       <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primary }]}>
-                        <Text style={[styles.initials, { color: colors.white }]}>{initials(profile.full_name)}</Text>
+                        <Text style={[styles.initials, { color: colors.white }]}>{initials(shownName)}</Text>
                       </View>
                     )}
                     <View style={styles.heroCopy}>
                       <Text style={[styles.heroName, copy, { color: colors.primaryDark }]} numberOfLines={2}>
-                        {profile.full_name}
+                        {shownName}
                       </Text>
                       <Text style={[styles.heroRole, copy, { color: colors.primary }]}>{t(`roles.${profile.role}`)}</Text>
                       {profile.email ? (
@@ -444,7 +445,13 @@ function MenuLink({
 
 const styles = StyleSheet.create({
   frame: { flex: 1 },
-  dim: { ...StyleSheet.absoluteFillObject },
+  dim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   sheet: {
     position: 'absolute',
     top: 0,
@@ -482,6 +489,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
+  logoWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: { width: 30, height: 30 },
   body: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
   hero: {
     flexDirection: 'row',

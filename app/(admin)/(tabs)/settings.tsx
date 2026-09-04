@@ -1,38 +1,35 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { MfaSetup } from '@/components/auth/MfaSetup';
 import { SessionSecurity } from '@/components/auth/SessionSecurity';
+import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { DateField } from '@/components/ui/DateField';
-import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
-import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
-import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
-import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
+import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
-import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
+import { sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { PersonGender } from '@/src/types/database';
+import type { PersonGender, Profile } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'security' | 'settings';
 
@@ -43,9 +40,13 @@ export default function AdminSettings() {
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
   const [tab, setTab] = useState<ProfileTab>('account');
-  const [fullName, setFullName] = useState('');
+  const [fullNameEn, setFullNameEn] = useState('');
+  const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
+  const [waRegion, setWaRegion] = useState<PhoneRegion>('ps');
+  const [waLocal, setWaLocal] = useState('');
+  const [waLinked, setWaLinked] = useState(true);
   const [gender, setGender] = useState<PersonGender | ''>('');
   const [birthDate, setBirthDate] = useState('');
   const [cityId, setCityId] = useState('');
@@ -58,18 +59,32 @@ export default function AdminSettings() {
   const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingCommission, setSavingCommission] = useState(false);
+  const hydratedId = useRef<string | null>(null);
+
+  const applyForm = useCallback((next: Profile) => {
+    const names = namesFromProfile(next.full_name, next.full_name_en);
+    setFullNameEn(names.en);
+    setFullNameAr(names.ar);
+    const phoneParts = splitPhone(next.phone);
+    setPhoneRegion(phoneParts.region);
+    setPhoneLocal(phoneParts.local);
+    const waParts = splitPhone(next.whatsapp);
+    const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
+    setWaLinked(sameNumber);
+    setWaRegion(sameNumber ? phoneParts.region : waParts.region);
+    setWaLocal(sameNumber ? phoneParts.local : waParts.local);
+    setGender(next.gender ?? '');
+    setBirthDate(next.date_of_birth ? next.date_of_birth.slice(0, 10) : '');
+    setCityId(next.city_id ?? '');
+    setAvatarUrl(next.avatar_url ?? null);
+  }, []);
 
   useEffect(() => {
     if (!profile) return;
-    setFullName(profile.full_name ?? '');
-    const phoneParts = splitPhone(profile.phone);
-    setPhoneRegion(phoneParts.region);
-    setPhoneLocal(phoneParts.local);
-    setGender(profile.gender ?? '');
-    setBirthDate(profile.date_of_birth ? profile.date_of_birth.slice(0, 10) : '');
-    setCityId(profile.city_id ?? '');
-    setAvatarUrl(profile.avatar_url ?? null);
-  }, [profile]);
+    if (hydratedId.current === profile.id) return;
+    hydratedId.current = profile.id;
+    applyForm(profile);
+  }, [profile, applyForm]);
 
   const loadSettings = useCallback(async () => {
     const { data } = await supabase
@@ -84,7 +99,12 @@ export default function AdminSettings() {
     await Promise.all([loadSettings(), refreshProfile()]);
   }, [loadSettings, refreshProfile]);
 
-  const { refreshing, refresh } = useLiveReload(reloadAll, ['app_settings', 'profiles'], 'admin-settings');
+  const reloadPull = useCallback(async () => {
+    const [, next] = await Promise.all([loadSettings(), refreshProfile()]);
+    if (next) applyForm(next);
+  }, [loadSettings, refreshProfile, applyForm]);
+
+  const { refreshing, refresh } = useLiveReload(reloadAll, ['app_settings', 'profiles'], 'admin-settings', reloadPull);
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -94,6 +114,26 @@ export default function AdminSettings() {
     () => localizedName(cities.find((item) => item.id === cityId), i18n.language),
     [cities, cityId, i18n.language],
   );
+  const applyPhone = (region: PhoneRegion, local: string) => {
+    setPhoneRegion(region);
+    setPhoneLocal(local);
+    if (waLinked) {
+      setWaRegion(region);
+      setWaLocal(local);
+    } else if (sameMobile(region, local, waRegion, waLocal)) {
+      setWaLinked(true);
+    }
+  };
+  const applyWhatsapp = (region: PhoneRegion, local: string) => {
+    setWaRegion(region);
+    setWaLocal(local);
+    if (waLinked) {
+      setPhoneRegion(region);
+      setPhoneLocal(local);
+    } else if (sameMobile(phoneRegion, phoneLocal, region, local)) {
+      setWaLinked(true);
+    }
+  };
 
   const changePhoto = async () => {
     if (!profile) return;
@@ -114,16 +154,25 @@ export default function AdminSettings() {
   };
 
   const saveProfile = async () => {
-    if (!profile || !fullName.trim()) {
-      alert(t('common.error'), t('auth.missingFields'));
+    if (!profile || !fullNameEn.trim() || !fullNameAr.trim() || !phoneLocal.trim() || !waLocal.trim() || !gender || !cityId || !birthDate || !avatarUrl) {
+      alert(t('common.error'), t('profile.completeRequiredRenter'));
       return;
     }
-    if (!isValidName(fullName)) {
-      alert(t('common.error'), t('auth.invalidName'));
+    if (!isValidEnglishName(fullNameEn)) {
+      alert(t('common.error'), t('auth.invalidNameEn'));
       return;
     }
-    const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
-    if (phoneLocal.trim() && !cleanPhone) {
+    if (!isValidArabicName(fullNameAr)) {
+      alert(t('common.error'), t('auth.invalidNameAr'));
+      return;
+    }
+    const cleanPhone = toE164(phoneRegion, phoneLocal);
+    if (!cleanPhone) {
+      alert(t('common.error'), t('phone.invalid'));
+      return;
+    }
+    const cleanWhatsapp = toE164(waRegion, waLocal);
+    if (!cleanWhatsapp) {
       alert(t('common.error'), t('phone.invalid'));
       return;
     }
@@ -132,14 +181,19 @@ export default function AdminSettings() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: cleanName(fullName),
+          full_name: cleanName(fullNameAr),
           phone: cleanPhone,
-          gender: gender || null,
-          date_of_birth: birthDate || null,
-          city_id: cityId || null,
+          whatsapp: cleanWhatsapp,
+          gender,
+          date_of_birth: birthDate,
+          city_id: cityId,
         })
         .eq('id', profile.id);
       if (error) throw error;
+      const { error: nameError } = await supabase.auth.updateUser({
+        data: { full_name_en: cleanName(fullNameEn) },
+      });
+      if (nameError) throw nameError;
       await refreshProfile();
       alert(t('common.done'), t('profile.saved'));
     } catch (err) {
@@ -152,6 +206,10 @@ export default function AdminSettings() {
   const changePassword = async () => {
     if (!profile?.email || !currentPassword || !newPassword) {
       alert(t('common.error'), t('auth.missingFields'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert(t('common.error'), t('profile.passwordMismatch'));
       return;
     }
     if (!isPasswordValid(newPassword, confirmPassword)) {
@@ -198,9 +256,17 @@ export default function AdminSettings() {
   };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      footer={
+        tab === 'account' ? (
+          <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
+        ) : null
+      }
+    >
       <ProfileHero
-        name={fullName || profile?.full_name || t('profile.title')}
+        name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
         avatarUrl={avatarUrl}
         uploading={uploading}
         onChangePhoto={() => void changePhoto()}
@@ -209,7 +275,6 @@ export default function AdminSettings() {
           ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
         ]}
         chip={t('roles.admin')}
-        email={profile?.email}
       />
       <ProfileBanner
         icon="cash"
@@ -227,47 +292,28 @@ export default function AdminSettings() {
       />
 
       {tab === 'account' ? (
-        <>
-          <Card>
-            <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-            <Input
-              label={t('common.name')}
-              value={fullName}
-              onChangeText={(value) => setFullName(sanitizeNameInput(value))}
-              hint={t('profile.nameHint')}
-              autoCapitalize="words"
-              maxLength={NAME_MAX}
-            />
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-            <FilterPills
-              value={gender}
-              onChange={setGender}
-              items={[
-                { value: 'male', label: t('profile.male') },
-                { value: 'female', label: t('profile.female') },
-              ]}
-            />
-            <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
-            <Select
-              label={t('common.city')}
-              value={cityId}
-              placeholder={t('common.select')}
-              options={cityOptions}
-              onChange={setCityId}
-            />
-          </Card>
-          <Card>
-            <SectionHead icon="call-outline" title={t('profile.contactTitle')} />
-            <PhoneField
-              label={t('common.phone')}
-              region={phoneRegion}
-              local={phoneLocal}
-              onRegionChange={setPhoneRegion}
-              onLocalChange={setPhoneLocal}
-            />
-            <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
-          </Card>
-        </>
+        <ProfileAccountFields
+          email={profile?.email ?? ''}
+          fullNameEn={fullNameEn}
+          onFullNameEn={setFullNameEn}
+          fullNameAr={fullNameAr}
+          onFullNameAr={setFullNameAr}
+          gender={gender}
+          onGender={setGender}
+          cityId={cityId}
+          onCityId={setCityId}
+          cityOptions={cityOptions}
+          birthDate={birthDate}
+          onBirthDate={setBirthDate}
+          phoneRegion={phoneRegion}
+          phoneLocal={phoneLocal}
+          onPhone={applyPhone}
+          waRegion={waRegion}
+          waLocal={waLocal}
+          onWhatsapp={applyWhatsapp}
+          waLinked={waLinked}
+          onWaLinked={setWaLinked}
+        />
       ) : null}
 
       {tab === 'security' ? (
@@ -319,6 +365,5 @@ export default function AdminSettings() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
 });

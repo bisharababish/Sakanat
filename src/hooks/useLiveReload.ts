@@ -16,8 +16,13 @@ type LiveTable =
   | 'saved_apartments'
   | 'app_settings';
 
-export function useLiveReload(load: () => Promise<void>, tables: readonly LiveTable[] = [], key = 'list') {
-  const { refreshing, refresh } = usePullRefresh(load);
+export function useLiveReload(
+  load: () => Promise<void>,
+  tables: readonly LiveTable[] = [],
+  key = 'list',
+  pull?: () => Promise<void>,
+) {
+  const { refreshing, refresh } = usePullRefresh(pull ?? load);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tablesKey = tables.join('+');
 

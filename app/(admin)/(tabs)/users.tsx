@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 
+import { NameField } from '@/components/profile/NameField';
 import { PasswordChecks } from '@/components/auth/PasswordChecks';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +24,7 @@ import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
 import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
-import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
+import { cleanName, isValidArabicName } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { USER_PAGE_SIZE } from '@/src/lib/page';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
@@ -115,8 +116,8 @@ export default function AdminUsers() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
-    if (!isValidName(fullName)) {
-      alert(t('common.error'), t('auth.invalidName'));
+    if (!isValidArabicName(fullName)) {
+      alert(t('common.error'), t('auth.invalidNameAr'));
       return;
     }
     if (!isValidEmail(cleanEmail)) {
@@ -236,13 +237,11 @@ export default function AdminUsers() {
         </Pressable>
         {createOpen ? (
           <>
-            <Input
-              label={t('common.name')}
+            <NameField
+              label={t('common.nameAr')}
               value={fullName}
-              onChangeText={(value) => setFullName(sanitizeNameInput(value))}
-              hint={t('profile.nameHint')}
-              autoCapitalize="words"
-              maxLength={NAME_MAX}
+              onChangeText={setFullName}
+              script="ar"
             />
             <Input
               label={t('common.email')}

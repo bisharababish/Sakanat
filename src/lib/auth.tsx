@@ -38,6 +38,7 @@ type SignUpInput = {
   email: string;
   password: string;
   fullName: string;
+  fullNameEn: string;
   phone: string;
   role: PublicSignupRole;
   cityId?: string;
@@ -68,6 +69,16 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function englishNameFromMeta(meta: unknown) {
+  if (!meta || typeof meta !== 'object') return '';
+  const value = (meta as { full_name_en?: unknown }).full_name_en;
+  return typeof value === 'string' ? value : '';
+}
+
+function withEnglishName(profile: Profile, meta?: unknown): Profile {
+  return { ...profile, full_name_en: englishNameFromMeta(meta) };
+}
 
 async function fetchProfile(userId: string) {
   const { data, error } = await supabase
@@ -115,7 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Fine if the function is not installed yet.
     }
-    const nextProfile = await fetchProfileWithRetry(next.user.id);
+    const row = await fetchProfileWithRetry(next.user.id);
+    const nextProfile = row ? withEnglishName(row, next.user.user_metadata) : null;
     if (mine !== loadGen.current) return;
     if (!nextProfile) {
       if (mine === loadGen.current) {
@@ -260,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             emailRedirectTo: AUTH_REDIRECT_URL,
             data: {
               full_name: input.fullName,
+              full_name_en: input.fullNameEn,
               phone: input.phone,
               role,
               city_id: input.cityId ?? '',
@@ -292,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadForSession(result.data.session);
         if (result.data.session?.user.id) {
           const row = await fetchProfileWithRetry(result.data.session.user.id);
-          if (row) return row;
+          if (row) return withEnglishName(row, result.data.session.user.user_metadata);
         }
         return (await fetchProfile(result.data.session?.user.id ?? '')) ?? null;
       },
@@ -316,8 +329,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshProfile: async () => {
         if (!session?.user) return null;
         const next = await fetchProfile(session.user.id);
-        setProfile(next);
-        return next;
+        if (!next) {
+          setProfile(null);
+          return null;
+        }
+        const { data } = await supabase.auth.getUser();
+        const merged = withEnglishName(next, data.user?.user_metadata);
+        setProfile(merged);
+        return merged;
       },
       requestPasswordReset: async (email) => {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {

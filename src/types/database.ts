@@ -33,6 +33,7 @@ export type Profile = {
   id: string;
   email: string;
   full_name: string;
+  full_name_en?: string | null;
   phone: string | null;
   role: UserRole;
   city_id: string | null;
@@ -114,6 +115,7 @@ export type Booking = {
     | 'major'
     | 'study_year'
     | 'student_id_number'
+    | 'date_of_birth'
   > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
   student?: Pick<
     Profile,
@@ -130,6 +132,7 @@ export type Booking = {
     | 'major'
     | 'study_year'
     | 'student_id_number'
+    | 'date_of_birth'
   > | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'> | null;
 };

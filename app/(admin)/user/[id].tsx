@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { NameField } from '@/components/profile/NameField';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -24,7 +25,7 @@ import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { deleteUserAccount, setSuspended, unenrollUserMfa } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
-import { NAME_MAX, cleanName, isValidName, sanitizeNameInput } from '@/src/lib/name';
+import { cleanName, isValidArabicName, namesFromProfile } from '@/src/lib/name';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -62,7 +63,7 @@ export default function AdminUserEdit() {
     setUser(next);
     setLoaded(true);
     if (!next) return;
-    setFullName(next.full_name ?? '');
+    setFullName(namesFromProfile(next.full_name).ar);
     const phone = splitPhone(next.phone);
     setPhoneRegion(phone.region);
     setPhoneLocal(phone.local);
@@ -122,8 +123,8 @@ export default function AdminUserEdit() {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
-    if (!isValidName(fullName)) {
-      alert(t('common.error'), t('auth.invalidName'));
+    if (!isValidArabicName(fullName)) {
+      alert(t('common.error'), t('auth.invalidNameAr'));
       return;
     }
     const phone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
@@ -261,13 +262,11 @@ export default function AdminUserEdit() {
 
       <Card>
         <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-        <Input
-          label={t('common.name')}
+        <NameField
+          label={t('common.nameAr')}
           value={fullName}
-          onChangeText={(value) => setFullName(sanitizeNameInput(value))}
-          hint={t('profile.nameHint')}
-          autoCapitalize="words"
-          maxLength={NAME_MAX}
+          onChangeText={setFullName}
+          script="ar"
         />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
         <FilterPills

@@ -1,3 +1,4 @@
+import { isValidArabicName, isValidEnglishName } from '@/src/lib/name';
 import type { GenderPolicy, PersonGender, Profile } from '@/src/types/database';
 
 export function isSeeker(profile: Profile | null | undefined) {
@@ -8,6 +9,8 @@ export function isStudentReady(profile: Profile | null | undefined) {
   if (!profile || !isSeeker(profile)) return false;
   const basics = Boolean(
     profile.full_name?.trim() &&
+      isValidArabicName(profile.full_name) &&
+      isValidEnglishName(profile.full_name_en ?? '') &&
       profile.phone?.trim() &&
       profile.whatsapp?.trim() &&
       profile.gender &&

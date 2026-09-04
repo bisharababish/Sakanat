@@ -13,8 +13,9 @@ import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
+import { useToday } from '@/src/hooks/useToday';
 import { majorLabel } from '@/src/data/majors';
-import { formatIls, localizedName } from '@/src/lib/format';
+import { ageLabel, formatIls, localizedName } from '@/src/lib/format';
 import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
@@ -31,6 +32,7 @@ export default function AdminBookings() {
   const { rtlText, row, lang } = useLayout();
   const colors = useColors();
   const { universities } = useCatalog();
+  const today = useToday();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [page, setPage] = useState(0);
@@ -42,7 +44,7 @@ export default function AdminBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number), owner:profiles!owner_id(id, full_name, phone, email)',
+        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number, date_of_birth), owner:profiles!owner_id(id, full_name, phone, email)',
       )
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -146,6 +148,7 @@ export default function AdminBookings() {
         const personBits = [
           student?.full_name,
           gender,
+          ageLabel(student?.date_of_birth, t, today),
           seekerRoleLabel(student?.role, t),
           booking.owner?.full_name,
         ].filter(Boolean);

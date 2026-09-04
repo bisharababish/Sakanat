@@ -84,7 +84,11 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   hidden: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     opacity: 0.02,
     color: 'transparent',
   },
