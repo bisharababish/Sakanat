@@ -3,6 +3,7 @@ import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { BrandLoader } from '@/components/BrandLoader';
 import { MenuProvider } from '@/components/menu/MenuProvider';
@@ -138,6 +139,31 @@ function SessionGuard({ children }: { children: ReactNode }) {
     router.replace(dest as never);
   }, [session, profile, loading, segments, passwordRecovery, mfaPending, mfaEnrollRequired]);
 
-  if (loading) return <BrandLoader />;
-  return <IdleGuard>{children}</IdleGuard>;
+  const group = String(segments[0] ?? '');
+  const inApp = group === '(student)' || group === '(owner)' || group === '(admin)';
+  const covering =
+    loading ||
+    (Boolean(session && profile) &&
+      !passwordRecovery &&
+      !mfaPending &&
+      !mfaEnrollRequired &&
+      !inApp);
+
+  return (
+    <IdleGuard>
+      {children}
+      {covering ? (
+        <View style={styles.cover} pointerEvents="auto">
+          <BrandLoader />
+        </View>
+      ) : null}
+    </IdleGuard>
+  );
 }
+
+const styles = StyleSheet.create({
+  cover: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+  },
+});

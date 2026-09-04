@@ -15,7 +15,6 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { occupantChoices, PAYMENT_CHOICES, paymentHintKey, paymentI18nKey } from '@/src/lib/booking';
-import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
@@ -70,17 +69,10 @@ export default function BookScreen() {
   const [startDate, setStartDate] = useState(defaultStart());
   const [months, setMonths] = useState(1);
   const [occupants, setOccupants] = useState(1);
-  const [percent, setPercent] = useState(DEFAULT_COMMISSION_PERCENT);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    const { data: settings } = await supabase
-      .from('app_settings')
-      .select('commission_percent')
-      .eq('id', 1)
-      .maybeSingle();
-    if (settings?.commission_percent != null) setPercent(Number(settings.commission_percent));
     if (!id) return;
     const { data } = await supabase.from('apartments').select('*, cities(*)').eq('id', id).single();
     if (data) {
@@ -93,13 +85,12 @@ export default function BookScreen() {
     }
   }, [id]);
 
-  const { refreshing, refresh } = useLiveReload(load, ['apartments', 'app_settings'], `book:${id ?? ''}`);
+  const { refreshing, refresh } = useLiveReload(load, ['apartments'], `book:${id ?? ''}`);
 
   const today = isoDate(new Date());
   const people = occupantChoices(apartment?.rooms);
   const headcount = Math.min(occupants, people.length || 1);
   const total = apartment ? apartment.price_month * months : 0;
-  const commission = Math.round(total * percent * headcount) / 100;
   const photo = apartment?.photos[0];
   const city = apartment ? localizedName(apartment.cities, i18n.language) : '';
   const ready = isStudentReady(profile);
@@ -293,7 +284,6 @@ export default function BookScreen() {
               label={t('booking.occupants')}
               value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
             />
-            <SummaryRow label={t('booking.commission')} value={`${formatIls(commission, lang)} (${percent}% × ${headcount})`} />
             <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
               <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
               <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>

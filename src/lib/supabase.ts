@@ -9,6 +9,9 @@ const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const isSupabaseConfigured = Boolean(url && key);
 
+/** Matches Supabase Auth email OTP length (Dashboard → Auth → Email). */
+export const EMAIL_OTP_LENGTH = 8;
+
 /** Public confirmation page after email verify. Also add this in Supabase Auth redirect URLs. */
 export const AUTH_REDIRECT_URL = 'https://bisharababish.github.io/Sakanat/confirmed.html';
 export const AUTH_RESET_URL = 'https://bisharababish.github.io/Sakanat/reset.html';

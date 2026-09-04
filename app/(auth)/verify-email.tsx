@@ -14,6 +14,7 @@ import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { sanitizeEmail } from '@/src/lib/eduEmail';
 import { homeHref } from '@/src/lib/routes';
+import { EMAIL_OTP_LENGTH } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function VerifyEmailScreen() {
@@ -32,7 +33,7 @@ export default function VerifyEmailScreen() {
     setError('');
     setInfo('');
     const cleanEmail = sanitizeEmail(email);
-    if (!cleanEmail || code.replace(/\s/g, '').length < 6) {
+    if (!cleanEmail || code.replace(/\s/g, '').length !== EMAIL_OTP_LENGTH) {
       setError(t('auth.missingFields'));
       return;
     }
@@ -95,7 +96,7 @@ export default function VerifyEmailScreen() {
           ltr
           soft
         />
-        <CodeBoxes label={t('auth.emailCode')} value={code} onChangeText={setCode} />
+        <CodeBoxes label={t('auth.emailCode')} value={code} onChangeText={setCode} length={EMAIL_OTP_LENGTH} />
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
         {info ? <Text style={[styles.info, rtlText, { color: colors.success }]}>{info}</Text> : null}
       </AuthCard>

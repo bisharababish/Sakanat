@@ -53,7 +53,7 @@ type AuthContextValue = {
   profile: Profile | null;
   loading: boolean;
   configured: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<Profile | null>;
   signUp: (input: SignUpInput) => Promise<'verify' | 'ready'>;
   verifyEmail: (email: string, token: string) => Promise<Profile | null>;
   resendConfirmation: (email: string) => Promise<void>;
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const mine = ++loadGen.current;
     if (!next?.user) {
       if (mine === loadGen.current) clearLocalAuth();
-      return;
+      return null;
     }
     try {
       await supabase.rpc('claim_admin');
@@ -128,13 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const row = await fetchProfileWithRetry(next.user.id);
     const nextProfile = row ? withEnglishName(row, next.user.user_metadata) : null;
-    if (mine !== loadGen.current) return;
+    if (mine !== loadGen.current) return nextProfile;
     if (!nextProfile) {
       if (mine === loadGen.current) {
         setSession(next);
         setProfile(null);
       }
-      return;
+      return null;
     }
     if (isSuspended(nextProfile)) {
       await supabase.auth.signOut({ scope: 'local' });
@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const needsMfa = await mfaNeedsChallenge();
     const totp = needsMfa ? true : Boolean(await verifiedTotpFactor());
-    if (mine !== loadGen.current) return;
+    if (mine !== loadGen.current) return nextProfile;
     setSession(next);
     setProfile(nextProfile);
     setMfaPending(needsMfa);
@@ -161,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
+    return nextProfile;
   };
 
   useEffect(() => {
@@ -246,7 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (wrapped as { code?: string }).code = error.code;
           throw wrapped;
         }
-        await loadForSession(data.session);
+        return loadForSession(data.session);
       },
       signUp: async (input) => {
         const role: PublicSignupRole = input.role === 'renter' ? 'renter' : 'student';
