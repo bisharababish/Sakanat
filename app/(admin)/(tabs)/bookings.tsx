@@ -44,7 +44,7 @@ export default function AdminBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number, date_of_birth), owner:profiles!owner_id(id, full_name, phone, email)',
+        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth), owner:profiles!owner_id(id, full_name, phone, email)',
       )
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -160,6 +160,17 @@ export default function AdminBookings() {
         const yearLabel = yearKey && /^[1-6]$/.test(yearKey) ? t(`profile.year${yearKey}` as 'profile.year1') : '';
         const details = [
           student?.major ? majorLabel(student.major, i18n.language) : '',
+          student?.degree_level === 'bachelor'
+            ? t('profile.bachelor')
+            : student?.degree_level === 'master'
+              ? t('profile.master')
+              : student?.degree_level === 'doctorate'
+                ? t('profile.doctorate')
+                : student?.degree_level === 'diploma'
+                  ? t('profile.diploma')
+                  : student?.degree_level
+                    ? t('profile.otherDegree')
+                    : '',
           yearLabel,
           student?.student_id_number ? `${t('profile.studentId')} ${student.student_id_number}` : '',
         ].filter(Boolean);

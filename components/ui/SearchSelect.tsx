@@ -17,22 +17,26 @@ type Props = {
   options: Option[];
   onChange: (value: string) => void;
   compact?: boolean;
+  clearable?: boolean;
   icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-export function SearchSelect({ label, value, placeholder, options, onChange, compact, icon }: Props) {
+export function SearchSelect({ label, value, placeholder, options, onChange, compact, clearable, icon }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const { t } = useTranslation();
   const { rtlText, textAlign, writingDirection, alignStart, isRtl } = useLayout();
   const colors = useColors();
-  const selected = options.find((option) => option.value === value);
+  const selected = value ? options.find((option) => option.value === value) : undefined;
   const active = Boolean(value);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return options;
-    return options.filter((option) => option.label.toLowerCase().includes(needle));
-  }, [options, query]);
+    const rest = needle
+      ? options.filter((option) => option.label.toLowerCase().includes(needle))
+      : options;
+    if (!clearable || options.some((option) => option.value === '')) return rest;
+    return [{ value: '', label: t('common.none') }, ...rest];
+  }, [clearable, options, query, t]);
 
   return (
     <View style={styles.wrap}>
@@ -96,7 +100,7 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
                     setOpen(false);
                   }}
                 >
-                  <Text style={[styles.optionLabel, rtlText, { color: colors.text }]}>{option.label}</Text>
+                  <Text style={[styles.optionLabel, rtlText, { color: option.value ? colors.text : colors.textMuted }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>

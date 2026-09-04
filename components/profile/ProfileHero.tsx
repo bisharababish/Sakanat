@@ -2,6 +2,7 @@ import { type ComponentProps } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius, spacing } from '@/src/theme/colors';
@@ -29,14 +30,15 @@ function initials(name?: string | null) {
 }
 
 export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas = [], chip, email }: Props) {
-  const { rtlText, isRtl, textAlign, writingDirection } = useLayout();
+  const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.hero, { backgroundColor: colors.primary }]}>
       <View style={[styles.blob, styles.blobGold]} />
       <View style={[styles.blob, styles.blobLight]} />
-      <View style={styles.heroBody}>
+      <View style={[styles.heroBody, row]}>
         <Pressable onPress={onChangePhoto} style={styles.avatarWrap}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatar} />
@@ -58,19 +60,30 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
           <Text style={[styles.heroName, rtlText]} numberOfLines={2}>
             {name}
           </Text>
-          {metas.slice(0, 2).map((item) => (
-            <View key={`${item.icon}-${item.text}`} style={styles.heroMeta}>
-              <Ionicons name={item.icon} size={14} color={colors.accent} />
-              <Text
-                style={[styles.heroMetaText, { textAlign, writingDirection }]}
-                numberOfLines={1}
-              >
+          {email ? (
+            <Text style={[styles.heroEmail, { textAlign, writingDirection }]} numberOfLines={1}>
+              {email}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      {metas.length ? (
+        <View style={[styles.metaWrap, row]}>
+          {metas.slice(0, 4).map((item) => (
+            <View key={`${item.icon}-${item.text}`} style={[styles.metaChip, row]}>
+              <Ionicons name={item.icon} size={13} color={colors.accent} />
+              <Text style={styles.metaChipText} numberOfLines={1}>
                 {item.text}
               </Text>
             </View>
           ))}
         </View>
-      </View>
+      ) : null}
+      {avatarUrl ? (
+        <Text style={[styles.photoHint, { textAlign, writingDirection }]}>{t('profile.changePhoto')}</Text>
+      ) : (
+        <Text style={[styles.photoHint, { textAlign, writingDirection }]}>{t('profile.tapPhoto')}</Text>
+      )}
     </View>
   );
 }
@@ -100,7 +113,6 @@ const styles = StyleSheet.create({
     start: -40,
   },
   heroBody: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
@@ -134,19 +146,31 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
   },
-  heroMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    width: '100%',
-    gap: 6,
+  heroEmail: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 12,
+    fontFamily: 'Cairo_400Regular',
   },
-  heroMetaText: {
-    flex: 1,
-    minWidth: 0,
+  metaWrap: { flexWrap: 'wrap', gap: 8 },
+  metaChip: {
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: '100%',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  metaChipText: {
     color: '#F4E9CF',
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Cairo_600SemiBold',
+    flexShrink: 1,
+  },
+  photoHint: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontFamily: 'Cairo_400Regular',
   },
   heroChip: {
     backgroundColor: 'rgba(255,255,255,0.16)',

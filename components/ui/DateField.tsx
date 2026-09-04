@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -5,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useToday } from '@/src/hooks/useToday';
+import { ageFromDob } from '@/src/lib/format';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -15,7 +18,8 @@ type Props = {
   kind?: 'birth' | 'booking';
 };
 
-const WEEKDAYS = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+const WEEKDAYS_AR = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+const WEEKDAYS_EN = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 function parseIso(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -41,13 +45,24 @@ function monthGrid(year: number, month: number) {
   return cells;
 }
 
+function formatDate(iso: string, lang: string) {
+  const date = parseIso(iso);
+  if (!date) return '';
+  return date.toLocaleDateString(lang.startsWith('ar') ? 'ar' : 'en', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
   const { t, i18n } = useTranslation();
   const { rtlText, row, alignStart } = useLayout();
   const colors = useColors();
+  const today = useToday();
   const [open, setOpen] = useState(false);
   const now = new Date();
-  const minYear = kind === 'booking' ? now.getFullYear() : 1980;
+  const minYear = kind === 'booking' ? now.getFullYear() : now.getFullYear() - 80;
   const maxYear = kind === 'booking' ? now.getFullYear() + 2 : now.getFullYear() - 16;
   const fallback =
     kind === 'booking'
@@ -56,10 +71,15 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
   const selected = parseIso(value) ?? fallback;
   const [cursor, setCursor] = useState(selected);
   const cells = useMemo(() => monthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor]);
-  const title = cursor.toLocaleDateString(i18n.language.startsWith('ar') ? 'ar' : 'en', {
+  const lang = i18n.language;
+  const arabic = lang.startsWith('ar');
+  const weekdays = arabic ? WEEKDAYS_AR : WEEKDAYS_EN;
+  const title = cursor.toLocaleDateString(arabic ? 'ar' : 'en', {
     month: 'long',
     year: 'numeric',
   });
+  const age = kind === 'birth' ? ageFromDob(value, today) : null;
+  const display = value ? formatDate(value, lang) : '';
 
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -87,12 +107,18 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
     <View style={styles.wrap}>
       <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>
       <Pressable
-        style={[styles.field, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        style={[styles.field, row, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={openCalendar}
       >
+        <Ionicons name="calendar-outline" size={20} color={colors.primary} />
         <Text style={[styles.value, rtlText, { color: value ? colors.text : colors.textMuted }]}>
-          {value || t('profile.pickDate')}
+          {display || t('profile.pickDate')}
         </Text>
+        {age != null ? (
+          <View style={[styles.ageChip, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[styles.ageNum, { color: colors.primary }]}>{age}</Text>
+          </View>
+        ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
@@ -110,8 +136,8 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
               </Pressable>
             </View>
             <View style={styles.week}>
-              {WEEKDAYS.map((day) => (
-                <Text key={day} style={[styles.weekday, { color: colors.textMuted }]}>
+              {weekdays.map((day, index) => (
+                <Text key={`${day}-${index}`} style={[styles.weekday, { color: colors.textMuted }]}>
                   {day}
                 </Text>
               ))}
@@ -136,6 +162,14 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
                 );
               })}
             </View>
+            {kind === 'birth' && value && age != null ? (
+              <View style={[styles.summary, row, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="hourglass-outline" size={16} color={colors.primary} />
+                <Text style={[styles.summaryText, rtlText, { color: colors.text }]}>
+                  {display} · {t('profile.yearsOld', { count: age })}
+                </Text>
+              </View>
+            ) : null}
             <Button title={t('common.cancel')} variant="ghost" onPress={() => setOpen(false)} />
           </View>
         </View>
@@ -146,15 +180,25 @@ export function DateField({ label, value, onChange, kind = 'birth' }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
-  label: { fontWeight: '700', fontSize: 14 },
+  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   field: {
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: radius.md,
     minHeight: 52,
-    justifyContent: 'center',
     paddingHorizontal: spacing.md,
+    gap: 10,
   },
-  value: { fontSize: 16 },
+  value: { flex: 1, fontSize: 16, fontFamily: 'Cairo_400Regular' },
+  ageChip: {
+    minWidth: 36,
+    height: 32,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  ageNum: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   overlay: {
     flex: 1,
     justifyContent: 'center',
@@ -166,14 +210,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sheetHead: { paddingBottom: 4 },
-  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  nav: { alignItems: 'center', justifyContent: 'space-between' },
   navBtn: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
   navText: { fontSize: 28, fontWeight: '700' },
-  month: { fontWeight: '800', fontSize: 16 },
+  month: { fontWeight: '800', fontSize: 16, fontFamily: 'Cairo_800ExtraBold' },
   week: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 12 },
+  weekday: { flex: 1, textAlign: 'center', fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   day: { width: '14.28%', minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full },
   dayOff: { opacity: 0.35 },
-  dayText: { fontWeight: '700' },
+  dayText: { fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  summary: {
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+  },
+  summaryText: { flex: 1, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
 });

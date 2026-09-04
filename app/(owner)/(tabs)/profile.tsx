@@ -2,18 +2,14 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PasswordChecks } from '@/components/auth/PasswordChecks';
-import { MfaSetup } from '@/components/auth/MfaSetup';
-import { SessionSecurity } from '@/components/auth/SessionSecurity';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
+import { ProfileProgress } from '@/components/profile/ProfileProgress';
+import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
-import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -22,7 +18,6 @@ import { useAuth } from '@/src/lib/auth';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
-import { isPasswordValid } from '@/src/lib/password';
 import { regionPrefix, sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
@@ -49,11 +44,7 @@ export default function OwnerProfile() {
   const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [listingCount, setListingCount] = useState(0);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
-  const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
   const hydratedId = useRef<string | null>(null);
 
@@ -222,38 +213,26 @@ export default function OwnerProfile() {
     }
   };
 
-  const changePassword = async () => {
-    if (!profile?.email || !currentPassword || !newPassword) {
-      alert(t('common.error'), t('auth.missingFields'));
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert(t('common.error'), t('profile.passwordMismatch'));
-      return;
-    }
-    if (!isPasswordValid(newPassword, confirmPassword)) {
-      alert(t('common.error'), t('auth.weakPassword'));
-      return;
-    }
-    setUpdatingPassword(true);
-    try {
-      const { error: checkError } = await supabase.auth.signInWithPassword({
-        email: profile.email,
-        password: currentPassword,
-      });
-      if (checkError) throw checkError;
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      alert(t('common.done'), t('profile.passwordChanged'));
-    } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
-    } finally {
-      setUpdatingPassword(false);
-    }
-  };
+  const incomplete = Boolean(
+    !fullNameEn.trim() ||
+      !fullNameAr.trim() ||
+      !gender ||
+      !cityId ||
+      !birthDate ||
+      !phoneLocal.trim() ||
+      !waLocal.trim() ||
+      !avatarUrl,
+  );
+  const progressItems = [
+    { label: t('profile.photo'), done: Boolean(avatarUrl) },
+    { label: t('common.nameEn'), done: Boolean(fullNameEn.trim()) },
+    { label: t('common.nameAr'), done: Boolean(fullNameAr.trim()) },
+    { label: t('profile.gender'), done: Boolean(gender) },
+    { label: t('auth.homeCity'), done: Boolean(cityId) },
+    { label: t('profile.birthDate'), done: Boolean(birthDate) },
+    { label: t('common.phone'), done: Boolean(phoneLocal.trim()) },
+    { label: t('profile.whatsapp'), done: Boolean(waLocal.trim()) },
+  ];
 
   return (
     <Screen
@@ -272,16 +251,20 @@ export default function OwnerProfile() {
         onChangePhoto={() => void changePhoto()}
         metas={[
           { icon: 'shield-checkmark', text: statusLabel },
+          ...(ageLabel(birthDate, t, today)
+            ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
+            : []),
           ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
         ]}
         chip={t('roles.owner')}
+        email={profile?.email}
       />
       <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
       <ProfileSegments
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: 'account', icon: 'person', label: t('profile.tabAccount') },
+          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: incomplete },
           { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
         ]}
       />
@@ -303,6 +286,7 @@ export default function OwnerProfile() {
                 : []),
             ].filter((item) => item.text)}
           />
+          <ProfileProgress items={progressItems} />
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -328,30 +312,7 @@ export default function OwnerProfile() {
         </>
       ) : null}
 
-      {tab === 'security' ? (
-        <>
-          <Card>
-            <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
-            <Input
-              label={t('profile.currentPassword')}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry
-            />
-            <Input label={t('profile.newPassword')} value={newPassword} onChangeText={setNewPassword} secureTextEntry />
-            <Input
-              label={t('profile.confirmPassword')}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
-            <PasswordChecks password={newPassword} confirm={confirmPassword} />
-            <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
-          </Card>
-          <MfaSetup />
-          <SessionSecurity />
-        </>
-      ) : null}
+      {tab === 'security' ? <ProfileSecurity /> : null}
     </Screen>
   );
 }

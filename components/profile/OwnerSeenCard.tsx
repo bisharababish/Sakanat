@@ -31,7 +31,9 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
 
   return (
     <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.kicker, rtlText, { color: colors.primary }]}>{title}</Text>
+      <Text style={[styles.kicker, rtlText, { color: colors.primary }]} numberOfLines={1}>
+        {title}
+      </Text>
       <View style={[styles.person, row]}>
         {avatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatar} />
@@ -40,7 +42,7 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
             <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
           </View>
         )}
-        <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={2}>
+        <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
           {name}
         </Text>
       </View>
@@ -48,7 +50,7 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
         <View style={[styles.chips, row]}>
           {lines.map((item) => (
             <View key={`${item.icon}-${item.text}`} style={[styles.chip, row, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons name={item.icon} size={13} color={colors.primary} />
+              <Ionicons name={item.icon} size={11} color={colors.primary} />
               <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
                 {item.text}
               </Text>
@@ -61,26 +63,32 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
 }
 
 const styles = StyleSheet.create({
-  box: { borderRadius: radius.lg, padding: spacing.md, gap: 12, borderWidth: 1 },
-  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  person: { alignItems: 'center', gap: 12 },
+  box: {
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    gap: 8,
+    borderWidth: 1,
+  },
+  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  person: { alignItems: 'center', gap: 8 },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initials: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  name: { flex: 1, fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  chips: { flexWrap: 'wrap', gap: 8 },
+  initials: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  name: { flex: 1, fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  chips: { flexWrap: 'wrap', gap: 6 },
   chip: {
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     maxWidth: '100%',
   },
-  chipText: { fontSize: 12, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
+  chipText: { fontSize: 11, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
 });

@@ -18,15 +18,20 @@ type Props = {
   onChange: (value: string) => void;
   soft?: boolean;
   compact?: boolean;
+  clearable?: boolean;
   icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-export function Select({ label, value, placeholder, options, onChange, soft, compact, icon }: Props) {
+export function Select({ label, value, placeholder, options, onChange, soft, compact, clearable, icon }: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { rtlText, alignStart, isRtl, textAlign, writingDirection } = useLayout();
   const colors = useColors();
-  const selected = options.find((option) => option.value === value);
+  const list =
+    clearable && !options.some((option) => option.value === '')
+      ? [{ value: '', label: t('common.none') }, ...options]
+      : options;
+  const selected = value ? list.find((option) => option.value === value) : undefined;
   const active = Boolean(value);
 
   return (
@@ -68,10 +73,10 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
               <BackButton onPress={() => setOpen(false)} />
             </View>
             <ScrollView keyboardShouldPersistTaps="handled">
-              {options.length === 0 ? (
+              {list.length === 0 ? (
                 <Text style={[styles.empty, rtlText, { color: colors.textMuted }]}>{t('common.noResults')}</Text>
               ) : null}
-              {options.map((option) => (
+              {list.map((option) => (
                 <Pressable
                   key={option.value || 'empty'}
                   style={[styles.option, { borderBottomColor: colors.border }]}
@@ -79,7 +84,7 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
                     onChange(option.value);
                     setOpen(false);
                   }}>
-                  <Text style={[styles.optionLabel, rtlText, { color: colors.text }]}>{option.label}</Text>
+                  <Text style={[styles.optionLabel, rtlText, { color: option.value ? colors.text : colors.textMuted }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>

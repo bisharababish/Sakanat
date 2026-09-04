@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,6 +14,7 @@ type Props = {
   footer?: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
+  scrollRef?: RefObject<ScrollView | null>;
 };
 
 export function Screen({
@@ -24,6 +25,7 @@ export function Screen({
   footer,
   refreshing = false,
   onRefresh,
+  scrollRef,
 }: Props) {
   const colors = useColors();
   const bar = <ChromeBar back={back} showMenu={showMenu} />;
@@ -44,6 +46,7 @@ export function Screen({
 
   const body = (
     <ScrollView
+      ref={scrollRef}
       style={styles.flex}
       contentContainerStyle={[styles.pad, footer ? styles.padWithFooter : null]}
       keyboardShouldPersistTaps="handled"

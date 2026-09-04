@@ -299,6 +299,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
           placeholder={t('common.select')}
           options={universityOptions}
           onChange={setUniversityId}
+          clearable
         />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('owner.campusKm')}</Text>
         <FilterPills

@@ -26,7 +26,7 @@ import { localizedName } from '@/src/lib/format';
 import { deleteUserAccount, setSuspended, unenrollUserMfa } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { cleanName, isValidArabicName, namesFromProfile } from '@/src/lib/name';
-import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
+import { isValidStudentId, sanitizeStudentId, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { OwnerStatus, PersonGender, Profile, UserRole } from '@/src/types/database';
@@ -131,6 +131,10 @@ export default function AdminUserEdit() {
     const whatsapp = whatsLocal.trim() ? toE164(whatsRegion, whatsLocal) : null;
     if (phoneLocal.trim() && !phone) {
       alert(t('common.error'), t('phone.invalid'));
+      return;
+    }
+    if (studentId.trim() && !isValidStudentId(studentId)) {
+      alert(t('common.error'), t('profile.studentIdHint'));
       return;
     }
     const nextRole = user.role === 'admin' ? 'admin' : role;
@@ -272,6 +276,7 @@ export default function AdminUserEdit() {
         <FilterPills
           value={gender}
           onChange={setGender}
+          allowDeselect
           items={[
             { value: 'male', label: t('profile.male') },
             { value: 'female', label: t('profile.female') },
@@ -284,6 +289,7 @@ export default function AdminUserEdit() {
           placeholder={t('common.select')}
           options={cityOptions}
           onChange={setCityId}
+          clearable
         />
         <SearchSelect
           label={t('common.university')}
@@ -291,6 +297,7 @@ export default function AdminUserEdit() {
           placeholder={t('common.select')}
           options={universityOptions}
           onChange={setUniversityId}
+          clearable
         />
       </Card>
 
@@ -348,18 +355,26 @@ export default function AdminUserEdit() {
       {role === 'student' ? (
         <Card>
           <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
-          <Input label={t('profile.studentId')} value={studentId} onChangeText={setStudentId} keyboardType="number-pad" />
+          <Input
+            label={t('profile.studentId')}
+            value={studentId}
+            onChangeText={(value) => setStudentId(sanitizeStudentId(value))}
+            keyboardType="number-pad"
+            hint={t('profile.studentIdHint')}
+          />
           <SearchSelect
             label={t('profile.major')}
             value={major}
             placeholder={t('profile.searchMajor')}
             options={majorOptions}
             onChange={setMajor}
+            clearable
           />
           <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.degree')}</Text>
           <FilterPills
             value={degreeLevel}
             onChange={setDegreeLevel}
+            allowDeselect
             items={[
               { value: 'bachelor', label: t('profile.bachelor') },
               { value: 'master', label: t('profile.master') },
@@ -372,6 +387,7 @@ export default function AdminUserEdit() {
           <FilterPills
             value={studyYear}
             onChange={setStudyYear}
+            allowDeselect
             items={(['1', '2', '3', '4', '5', '6'] as const).map((value) => ({
               value,
               label: t(`profile.year${value}`),

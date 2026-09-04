@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ListingCard } from '@/components/ListingCard';
@@ -9,11 +9,10 @@ import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
+import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
-import { PasswordChecks } from '@/components/auth/PasswordChecks';
-import { MfaSetup } from '@/components/auth/MfaSetup';
-import { SessionSecurity } from '@/components/auth/SessionSecurity';
+import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -34,11 +33,11 @@ import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
-import { isPasswordValid } from '@/src/lib/password';
 import { formatEmailDomains, studentEmailError } from '@/src/lib/eduEmail';
 import { isValidStudentId, regionPrefix, sameMobile, sanitizeStudentId, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
+import { SUPPORT_EMAIL } from '@/src/lib/support';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { radius, spacing } from '@/src/theme/colors';
@@ -46,10 +45,103 @@ import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, PersonGender, Profile } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'saved' | 'security';
+type SectionKey = 'hero' | 'names' | 'about' | 'contact' | 'studies';
+type FormSnap = {
+  fullNameEn: string;
+  fullNameAr: string;
+  phoneRegion: PhoneRegion;
+  phoneLocal: string;
+  studentId: string;
+  waRegion: PhoneRegion;
+  waLocal: string;
+  waLinked: boolean;
+  major: string;
+  degreeLevel: string;
+  studyYear: string;
+  gender: PersonGender | '';
+  birthDate: string;
+  cityId: string;
+  universityId: string;
+  avatarUrl: string | null;
+};
+
+function snapFromProfile(next: Profile): FormSnap {
+  const names = namesFromProfile(next.full_name, next.full_name_en);
+  const phoneParts = splitPhone(next.phone);
+  const waParts = splitPhone(next.whatsapp);
+  const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
+  return {
+    fullNameEn: names.en,
+    fullNameAr: names.ar,
+    phoneRegion: phoneParts.region,
+    phoneLocal: phoneParts.local,
+    studentId: next.student_id_number ?? '',
+    waLinked: sameNumber,
+    waRegion: sameNumber ? phoneParts.region : waParts.region,
+    waLocal: sameNumber ? phoneParts.local : waParts.local,
+    major: next.major ?? '',
+    degreeLevel:
+      next.degree_level ?? (next.study_year === 'graduate' ? 'master' : next.study_year ? 'bachelor' : ''),
+    studyYear: next.study_year && next.study_year !== 'graduate' ? next.study_year : '',
+    gender: next.gender ?? '',
+    birthDate: next.date_of_birth ? next.date_of_birth.slice(0, 10) : '',
+    cityId: next.city_id ?? '',
+    universityId: next.university_id ?? '',
+    avatarUrl: next.avatar_url ?? null,
+  };
+}
+
+function applySnap(
+  snap: FormSnap,
+  set: {
+    fullNameEn: (v: string) => void;
+    fullNameAr: (v: string) => void;
+    phoneRegion: (v: PhoneRegion) => void;
+    phoneLocal: (v: string) => void;
+    studentId: (v: string) => void;
+    waLinked: (v: boolean) => void;
+    waRegion: (v: PhoneRegion) => void;
+    waLocal: (v: string) => void;
+    major: (v: string) => void;
+    degreeLevel: (v: string) => void;
+    studyYear: (v: string) => void;
+    gender: (v: PersonGender | '') => void;
+    birthDate: (v: string) => void;
+    cityId: (v: string) => void;
+    universityId: (v: string) => void;
+    avatarUrl: (v: string | null) => void;
+  },
+) {
+  set.fullNameEn(snap.fullNameEn);
+  set.fullNameAr(snap.fullNameAr);
+  set.phoneRegion(snap.phoneRegion);
+  set.phoneLocal(snap.phoneLocal);
+  set.studentId(snap.studentId);
+  set.waLinked(snap.waLinked);
+  set.waRegion(snap.waRegion);
+  set.waLocal(snap.waLocal);
+  set.major(snap.major);
+  set.degreeLevel(snap.degreeLevel);
+  set.studyYear(snap.studyYear);
+  set.gender(snap.gender);
+  set.birthDate(snap.birthDate);
+  set.cityId(snap.cityId);
+  set.universityId(snap.universityId);
+  set.avatarUrl(snap.avatarUrl);
+}
+
+function degreeName(value: string, t: (key: string) => string) {
+  if (value === 'bachelor') return t('profile.bachelor');
+  if (value === 'master') return t('profile.master');
+  if (value === 'doctorate') return t('profile.doctorate');
+  if (value === 'diploma') return t('profile.diploma');
+  if (value === 'other') return t('profile.otherDegree');
+  return '';
+}
 
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { resumeBook } = useLocalSearchParams<{ resumeBook?: string }>();
@@ -73,39 +165,37 @@ export default function StudentProfileScreen() {
   const [universityId, setUniversityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [savedListings, setSavedListings] = useState<Apartment[]>([]);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
-  const [updatingPassword, setUpdatingPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [waLinked, setWaLinked] = useState(true);
   const hydratedId = useRef<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Partial<Record<SectionKey, number>>>({});
+  const baseline = useRef<FormSnap | null>(null);
+  const dirtyRef = useRef(false);
 
   const applyForm = useCallback((next: Profile) => {
-    const names = namesFromProfile(next.full_name, next.full_name_en);
-    setFullNameEn(names.en);
-    setFullNameAr(names.ar);
-    const phoneParts = splitPhone(next.phone);
-    setPhoneRegion(phoneParts.region);
-    setPhoneLocal(phoneParts.local);
-    setStudentId(next.student_id_number ?? '');
-    const waParts = splitPhone(next.whatsapp);
-    const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
-    setWaLinked(sameNumber);
-    setWaRegion(sameNumber ? phoneParts.region : waParts.region);
-    setWaLocal(sameNumber ? phoneParts.local : waParts.local);
-    setMajor(next.major ?? '');
-    setDegreeLevel(
-      next.degree_level ?? (next.study_year === 'graduate' ? 'master' : next.study_year ? 'bachelor' : ''),
-    );
-    setStudyYear(next.study_year && next.study_year !== 'graduate' ? next.study_year : '');
-    setGender(next.gender ?? '');
-    setBirthDate(next.date_of_birth ? next.date_of_birth.slice(0, 10) : '');
-    setCityId(next.city_id ?? '');
-    setUniversityId(next.university_id ?? '');
-    setAvatarUrl(next.avatar_url ?? null);
+    const snap = snapFromProfile(next);
+    applySnap(snap, {
+      fullNameEn: setFullNameEn,
+      fullNameAr: setFullNameAr,
+      phoneRegion: setPhoneRegion,
+      phoneLocal: setPhoneLocal,
+      studentId: setStudentId,
+      waLinked: setWaLinked,
+      waRegion: setWaRegion,
+      waLocal: setWaLocal,
+      major: setMajor,
+      degreeLevel: setDegreeLevel,
+      studyYear: setStudyYear,
+      gender: setGender,
+      birthDate: setBirthDate,
+      cityId: setCityId,
+      universityId: setUniversityId,
+      avatarUrl: setAvatarUrl,
+    });
+    baseline.current = snap;
   }, []);
 
   useEffect(() => {
@@ -172,19 +262,70 @@ export default function StudentProfileScreen() {
     [universities, universityId],
   );
   const majorName = major ? majorLabel(major, i18n.language) : '';
+  const degreeLabelText = degreeName(degreeLevel, t);
   const isStudent = profile?.role !== 'renter';
-  const incomplete = Boolean(
-    !fullNameEn.trim() ||
-      !fullNameAr.trim() ||
-      !gender ||
-      !cityId ||
-      !birthDate ||
-      !phoneLocal.trim() ||
-      !waLocal.trim() ||
-      !avatarUrl ||
-      (isStudent &&
-        (!universityId || !studentId.trim() || !major || !degreeLevel || !studyYear)),
-  );
+  const currentSnap: FormSnap = {
+    fullNameEn,
+    fullNameAr,
+    phoneRegion,
+    phoneLocal,
+    studentId,
+    waRegion,
+    waLocal,
+    waLinked,
+    major,
+    degreeLevel,
+    studyYear,
+    gender,
+    birthDate,
+    cityId,
+    universityId,
+    avatarUrl,
+  };
+  const dirty = baseline.current != null && JSON.stringify(currentSnap) !== JSON.stringify(baseline.current);
+  dirtyRef.current = dirty;
+  const progressItems = [
+    { id: 'photo', label: t('profile.photo'), done: Boolean(avatarUrl) },
+    { id: 'nameEn', label: t('common.nameEn'), done: isValidEnglishName(fullNameEn) },
+    { id: 'nameAr', label: t('common.nameAr'), done: isValidArabicName(fullNameAr) },
+    { id: 'gender', label: t('profile.gender'), done: Boolean(gender) },
+    { id: 'city', label: t('auth.homeCity'), done: Boolean(cityId) },
+    { id: 'birth', label: t('profile.birthDate'), done: Boolean(birthDate) },
+    { id: 'phone', label: t('common.phone'), done: Boolean(toE164(phoneRegion, phoneLocal)) },
+    { id: 'whatsapp', label: t('profile.whatsapp'), done: Boolean(toE164(waRegion, waLocal)) },
+    ...(isStudent
+      ? [
+          { id: 'university', label: t('auth.studyUniversity'), done: Boolean(universityId) },
+          { id: 'studentId', label: t('profile.studentId'), done: isValidStudentId(studentId) },
+          { id: 'major', label: t('profile.major'), done: Boolean(major) },
+          { id: 'degree', label: t('profile.degree'), done: Boolean(degreeLevel) },
+          { id: 'year', label: t('profile.studyYear'), done: Boolean(studyYear) },
+        ]
+      : []),
+  ];
+  const incomplete = progressItems.some((item) => !item.done);
+  const jumpTo = (id: string) => {
+    const section: SectionKey =
+      id === 'photo'
+        ? 'hero'
+        : id === 'nameEn' || id === 'nameAr'
+          ? 'names'
+          : id === 'gender' || id === 'city' || id === 'birth'
+            ? 'about'
+            : id === 'phone' || id === 'whatsapp'
+              ? 'contact'
+              : 'studies';
+    const go = () => {
+      const y = sectionY.current[section] ?? 0;
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    };
+    if (tab !== 'account') {
+      setTab('account');
+      setTimeout(go, 80);
+      return;
+    }
+    go();
+  };
   const applyPhone = (region: PhoneRegion, local: string) => {
     setPhoneRegion(region);
     setPhoneLocal(local);
@@ -222,8 +363,20 @@ export default function StudentProfileScreen() {
 
   const reloadPull = useCallback(async () => {
     const [, next] = await Promise.all([reloadSaved(), refreshProfile()]);
-    if (next) applyForm(next);
-  }, [reloadSaved, refreshProfile, applyForm]);
+    if (!next) return;
+    if (!dirtyRef.current) {
+      applyForm(next);
+      return;
+    }
+    alert(t('profile.discardEditsTitle'), t('profile.discardEditsBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.discardEdits'),
+        style: 'destructive',
+        onPress: () => applyForm(next),
+      },
+    ]);
+  }, [reloadSaved, refreshProfile, applyForm, t]);
 
   const { refreshing, refresh } = useLiveReload(
     reloadAll,
@@ -242,6 +395,7 @@ export default function StudentProfileScreen() {
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
+      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -251,19 +405,9 @@ export default function StudentProfileScreen() {
   };
 
   const saveProfile = async () => {
-    if (
-      !profile ||
-      !fullNameEn.trim() ||
-      !fullNameAr.trim() ||
-      !phoneLocal.trim() ||
-      !waLocal.trim() ||
-      !gender ||
-      !cityId ||
-      !birthDate ||
-      !avatarUrl ||
-      (isStudent && (!universityId || !studentId.trim() || !major || !degreeLevel || !studyYear))
-    ) {
-      alert(t('common.error'), t(isStudent ? 'profile.completeRequired' : 'profile.completeRequiredRenter'));
+    const missing = progressItems.filter((item) => !item.done).map((item) => item.label);
+    if (!profile || missing.length > 0) {
+      alert(t('profile.stillNeeded'), missing.join('\n') || t(isStudent ? 'profile.completeRequired' : 'profile.completeRequiredRenter'));
       return;
     }
     const cleanPhone = toE164(phoneRegion, phoneLocal);
@@ -323,6 +467,7 @@ export default function StudentProfileScreen() {
       });
       if (nameError) throw nameError;
       await refreshProfile();
+      baseline.current = currentSnap;
       if (resumeId) {
         alert(t('common.done'), t('profile.saved'), [
           { text: t('common.done') },
@@ -338,39 +483,6 @@ export default function StudentProfileScreen() {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const changePassword = async () => {
-    if (!profile?.email || !currentPassword || !newPassword) {
-      alert(t('common.error'), t('auth.missingFields'));
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert(t('common.error'), t('profile.passwordMismatch'));
-      return;
-    }
-    if (!isPasswordValid(newPassword, confirmPassword)) {
-      alert(t('common.error'), t('auth.weakPassword'));
-      return;
-    }
-    setUpdatingPassword(true);
-    try {
-      const { error: checkError } = await supabase.auth.signInWithPassword({
-        email: profile.email,
-        password: currentPassword,
-      });
-      if (checkError) throw checkError;
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      alert(t('common.done'), t('profile.passwordChanged'));
-    } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
-    } finally {
-      setUpdatingPassword(false);
     }
   };
 
@@ -398,7 +510,7 @@ export default function StudentProfileScreen() {
     ]);
   };
 
-  const banner = resumeId
+  const bookingBanner = resumeId
     ? incomplete
       ? {
           icon: 'sparkles' as const,
@@ -410,25 +522,10 @@ export default function StudentProfileScreen() {
           text: t('profile.continueBooking'),
           onPress: () => router.replace({ pathname: '/(student)/book/[id]', params: { id: resumeId } }),
         }
-    : savedListings.length > 0
-      ? {
-          icon: 'heart' as const,
-          text: t('profile.savedCount', { count: savedListings.length }),
-          onPress: () => setTab('saved'),
-        }
-      : incomplete
-        ? {
-            icon: 'sparkles' as const,
-            text: t('profile.completeHint'),
-            onPress: () => setTab('account'),
-          }
-        : {
-            icon: 'search' as const,
-            text: t('profile.browseListings'),
-            onPress: () => router.push('/(student)/(tabs)/search'),
-          };
+    : null;
 
   const heroMetas = [
+    ...(ageLabel(birthDate, t, today) ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }] : []),
     ...(isStudent && majorName ? [{ icon: 'school' as const, text: majorName }] : []),
     ...(isStudent && studyYear
       ? [{ icon: 'book-outline' as const, text: yearOptions.find((item) => item.value === studyYear)?.label ?? '' }]
@@ -444,19 +541,40 @@ export default function StudentProfileScreen() {
       refreshing={refreshing}
       footer={
         tab === 'account' ? (
-          <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
+          <Button
+            title={t('profile.saveProfile')}
+            onPress={saveProfile}
+            loading={saving}
+            disabled={!dirty}
+            pill
+          />
         ) : null
       }
+      scrollRef={scrollRef}
     >
-      <ProfileHero
-        name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
-        avatarUrl={avatarUrl}
-        uploading={uploading}
-        onChangePhoto={() => void changePhoto()}
-        metas={heroMetas}
-        chip={t(`roles.${profile?.role ?? 'student'}`)}
+      <View onLayout={(event) => { sectionY.current.hero = event.nativeEvent.layout.y; }}>
+        <ProfileHero
+          name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
+          avatarUrl={avatarUrl}
+          uploading={uploading}
+          onChangePhoto={() => void changePhoto()}
+          metas={heroMetas}
+          chip={t(`roles.${profile?.role ?? 'student'}`)}
+          email={profile?.email}
+        />
+      </View>
+      <ProfileBanner
+        icon="heart"
+        text={
+          savedListings.length > 0
+            ? t('profile.savedCount', { count: savedListings.length })
+            : t('profile.savedListings')
+        }
+        onPress={() => setTab('saved')}
       />
-      <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
+      {bookingBanner ? (
+        <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
+      ) : null}
       <ProfileSegments
         value={tab}
         onChange={setTab}
@@ -481,6 +599,7 @@ export default function StudentProfileScreen() {
               ...(isStudent && universityName ? [{ icon: 'school-outline' as const, text: universityName }] : []),
               ...(cityName ? [{ icon: 'location-outline' as const, text: cityName }] : []),
               ...(isStudent && majorName ? [{ icon: 'book-outline' as const, text: majorName }] : []),
+              ...(isStudent && degreeLabelText ? [{ icon: 'ribbon-outline' as const, text: degreeLabelText }] : []),
               ...(isStudent && studyYear
                 ? [
                     {
@@ -489,11 +608,18 @@ export default function StudentProfileScreen() {
                     },
                   ]
                 : []),
+              ...(isStudent && studentId.trim()
+                ? [{ icon: 'id-card-outline' as const, text: `${t('profile.studentId')} ${studentId}` }]
+                : []),
               ...(phoneLocal.trim()
                 ? [{ icon: 'call-outline' as const, text: `${regionPrefix(phoneRegion)} ${phoneLocal}` }]
                 : []),
+              ...(waLocal.trim()
+                ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
+                : []),
             ].filter((item) => item.text)}
           />
+          <ProfileProgress items={progressItems} onJump={jumpTo} />
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -515,23 +641,35 @@ export default function StudentProfileScreen() {
             onWhatsapp={applyWhatsapp}
             waLinked={waLinked}
             onWaLinked={setWaLinked}
+            onSectionLayout={(section, y) => {
+              sectionY.current[section] = y;
+            }}
           />
           {isStudent ? (
-            <Card>
+            <Card onLayout={(event) => { sectionY.current.studies = event.nativeEvent.layout.y; }}>
               <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
+              <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.studiesHint')}</Text>
               <SearchSelect
                 label={t('auth.studyUniversity')}
                 value={universityId}
                 placeholder={t('common.select')}
                 options={universityOptions}
                 onChange={setUniversityId}
+                clearable
               />
+              {universityId && universityId !== (profile?.university_id ?? '') ? (
+                <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+                  {t('profile.universityChangeHint', { email: SUPPORT_EMAIL })}
+                </Text>
+              ) : null}
               <Input
                 label={t('profile.studentId')}
                 value={studentId}
                 onChangeText={(value) => setStudentId(sanitizeStudentId(value))}
+                keyboardType="number-pad"
                 autoCapitalize="none"
                 ltr
+                hint={t('profile.studentIdHint')}
               />
               <SearchSelect
                 label={t('profile.major')}
@@ -539,6 +677,7 @@ export default function StudentProfileScreen() {
                 placeholder={t('profile.searchMajor')}
                 options={majorOptions}
                 onChange={setMajor}
+                clearable
               />
               <Select
                 label={t('profile.degree')}
@@ -546,6 +685,7 @@ export default function StudentProfileScreen() {
                 placeholder={t('common.select')}
                 options={degreeOptions}
                 onChange={setDegreeLevel}
+                clearable
               />
               <Select
                 label={t('profile.studyYear')}
@@ -553,6 +693,7 @@ export default function StudentProfileScreen() {
                 placeholder={t('common.select')}
                 options={yearOptions}
                 onChange={setStudyYear}
+                clearable
               />
             </Card>
           ) : null}
@@ -626,48 +767,10 @@ export default function StudentProfileScreen() {
       ) : null}
 
       {tab === 'security' ? (
-        <>
-          <Card>
-            <SectionHead icon="lock-closed-outline" title={t('profile.passwordTitle')} />
-            <Input
-              label={t('profile.currentPassword')}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry
-            />
-            <Input
-              label={t('profile.newPassword')}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry
-            />
-            <Input
-              label={t('profile.confirmPassword')}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-            />
-            <PasswordChecks password={newPassword} confirm={confirmPassword} />
-            <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
-          </Card>
-          <MfaSetup />
-          <SessionSecurity />
-          {canDeleteAccount ? (
-            <Card>
-              <SectionHead icon="trash-outline" title={t('profile.deleteAccount')} />
-              <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
-                {t('profile.deleteAccountHint')}
-              </Text>
-              <Button
-                title={t('profile.deleteAccount')}
-                variant="danger"
-                onPress={removeAccount}
-                loading={deleting}
-                pill
-              />
-            </Card>
-          ) : null}
-        </>
+        <ProfileSecurity
+          onDelete={canDeleteAccount ? removeAccount : undefined}
+          deleting={deleting}
+        />
       ) : null}
     </Screen>
   );
@@ -690,6 +793,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 14, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
   warn: {
     alignItems: 'flex-start',
     gap: 8,

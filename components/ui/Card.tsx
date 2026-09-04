@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -7,9 +7,10 @@ import { useColors } from '@/src/theme/ThemeProvider';
 type Props = {
   children: ReactNode;
   onPress?: () => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
 };
 
-export function Card({ children, onPress }: Props) {
+export function Card({ children, onPress, onLayout }: Props) {
   const colors = useColors();
   const style = [
     styles.card,
@@ -21,12 +22,16 @@ export function Card({ children, onPress }: Props) {
   ];
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [style, pressed && styles.pressed]}>
+      <Pressable onPress={onPress} onLayout={onLayout} style={({ pressed }) => [style, pressed && styles.pressed]}>
         {children}
       </Pressable>
     );
   }
-  return <View style={style}>{children}</View>;
+  return (
+    <View style={style} onLayout={onLayout}>
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

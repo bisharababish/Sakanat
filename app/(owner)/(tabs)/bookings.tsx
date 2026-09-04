@@ -52,7 +52,7 @@ export default function OwnerBookings() {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, avatar_url, phone, whatsapp, gender, university_id, city_id, role, major, study_year, student_id_number, date_of_birth)',
+        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, avatar_url, phone, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth)',
       )
       .eq('owner_id', profile.id)
       .order('created_at', { ascending: false });
@@ -183,6 +183,17 @@ export default function OwnerBookings() {
         const yearLabel = yearKey && /^[1-6]$/.test(yearKey) ? t(`profile.year${yearKey}` as 'profile.year1') : '';
         const details = [
           booking.profiles?.major ? majorLabel(booking.profiles.major, i18n.language) : '',
+          booking.profiles?.degree_level === 'bachelor'
+            ? t('profile.bachelor')
+            : booking.profiles?.degree_level === 'master'
+              ? t('profile.master')
+              : booking.profiles?.degree_level === 'doctorate'
+                ? t('profile.doctorate')
+                : booking.profiles?.degree_level === 'diploma'
+                  ? t('profile.diploma')
+                  : booking.profiles?.degree_level
+                    ? t('profile.otherDegree')
+                    : '',
           yearLabel,
           booking.profiles?.student_id_number
             ? `${t('profile.studentId')} ${booking.profiles.student_id_number}`

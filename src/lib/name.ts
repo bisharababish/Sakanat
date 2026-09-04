@@ -36,7 +36,7 @@ function lettersOnly(word: string) {
 
 export function isValidEnglishName(raw: string) {
   const words = nameWords(raw);
-  if (words.length < 1 || words.length > NAME_WORD_MAX) return false;
+  if (words.length < 2 || words.length > NAME_WORD_MAX) return false;
   return words.every((word) => {
     if (lettersOnly(word).length < NAME_MIN) return false;
     return /^[A-Za-z]+(?:['\-][A-Za-z]+)*$/.test(word);
@@ -45,7 +45,7 @@ export function isValidEnglishName(raw: string) {
 
 export function isValidArabicName(raw: string) {
   const words = nameWords(raw);
-  if (words.length < 1 || words.length > NAME_WORD_MAX) return false;
+  if (words.length < 2 || words.length > NAME_WORD_MAX) return false;
   return words.every((word) => {
     if (lettersOnly(word).length < NAME_MIN) return false;
     return /^[\p{Script=Arabic}\p{M}]+(?:['\-][\p{Script=Arabic}\p{M}]+)*$/u.test(word);

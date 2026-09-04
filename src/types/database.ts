@@ -114,6 +114,7 @@ export type Booking = {
     | 'role'
     | 'major'
     | 'study_year'
+    | 'degree_level'
     | 'student_id_number'
     | 'date_of_birth'
   > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
@@ -131,6 +132,7 @@ export type Booking = {
     | 'role'
     | 'major'
     | 'study_year'
+    | 'degree_level'
     | 'student_id_number'
     | 'date_of_birth'
   > | null;

@@ -19,6 +19,11 @@ function withinSize(size?: number | null) {
 }
 
 export async function pickProfilePhoto() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    alert(i18n.t('common.error'), i18n.t('profile.photoPermission'));
+    return null;
+  }
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: true,

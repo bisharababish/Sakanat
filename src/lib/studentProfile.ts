@@ -1,4 +1,5 @@
 import { isValidArabicName, isValidEnglishName } from '@/src/lib/name';
+import { isValidStudentId } from '@/src/lib/phone';
 import type { GenderPolicy, PersonGender, Profile } from '@/src/types/database';
 
 export function isSeeker(profile: Profile | null | undefined) {
@@ -23,7 +24,7 @@ export function isStudentReady(profile: Profile | null | undefined) {
     basics &&
     Boolean(
       profile.university_id &&
-        profile.student_id_number?.trim() &&
+        isValidStudentId(profile.student_id_number ?? '') &&
         profile.major &&
         profile.degree_level &&
         profile.study_year,
