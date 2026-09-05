@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NameField } from '@/components/profile/NameField';
+import { IdReviewCard } from '@/components/profile/IdReviewCard';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -319,6 +320,11 @@ export default function AdminUserEdit() {
         />
       </Card>
 
+      {(user.role === 'student' || user.role === 'renter') &&
+      (user.national_id_url || user.university_card_url) ? (
+        <IdReviewCard user={user} meId={me?.id} onChanged={() => void load()} />
+      ) : null}
+
       {user.role !== 'admin' ? (
         <Card>
           <SectionHead icon="shield-outline" title={t('profile.role')} />
@@ -359,8 +365,9 @@ export default function AdminUserEdit() {
             label={t('profile.studentId')}
             value={studentId}
             onChangeText={(value) => setStudentId(sanitizeStudentId(value))}
-            keyboardType="number-pad"
-            hint={t('profile.studentIdHint')}
+            autoCapitalize="none"
+            autoCorrect={false}
+            ltr
           />
           <SearchSelect
             label={t('profile.major')}

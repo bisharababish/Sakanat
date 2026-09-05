@@ -4,7 +4,9 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { useLayout } from '@/src/hooks/useLayout';
+import type { IdVerifyStatus } from '@/src/types/database';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -18,6 +20,7 @@ type Props = {
   metas?: Meta[];
   chip?: string;
   email?: string | null;
+  verifyStatus?: IdVerifyStatus | null;
 };
 
 function initials(name?: string | null) {
@@ -29,17 +32,21 @@ function initials(name?: string | null) {
     .join('');
 }
 
-export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas = [], chip, email }: Props) {
+export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas = [], chip, email, verifyStatus }: Props) {
   const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const { t } = useTranslation();
+  const shownMetas = metas.filter((item) => item.text).slice(0, 2);
 
   return (
     <View style={[styles.hero, { backgroundColor: colors.primary }]}>
       <View style={[styles.blob, styles.blobGold]} />
-      <View style={[styles.blob, styles.blobLight]} />
       <View style={[styles.heroBody, row]}>
-        <Pressable onPress={onChangePhoto} style={styles.avatarWrap}>
+        <Pressable
+          onPress={onChangePhoto}
+          accessibilityLabel={avatarUrl ? t('profile.changePhoto') : t('profile.tapPhoto')}
+          style={styles.avatarWrap}
+        >
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatar} />
           ) : (
@@ -47,17 +54,26 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
               <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
             </View>
           )}
-          <View style={[styles.cameraBadge, isRtl ? styles.badgeStart : styles.badgeEnd, { backgroundColor: colors.accent, borderColor: colors.primary }]}>
-            <Ionicons name={uploading ? 'hourglass' : 'camera'} size={13} color={colors.white} />
+          <View
+            style={[
+              styles.cameraBadge,
+              isRtl ? styles.badgeStart : styles.badgeEnd,
+              { backgroundColor: colors.accent, borderColor: colors.primary },
+            ]}
+          >
+            <Ionicons name={uploading ? 'hourglass' : 'camera'} size={11} color={colors.white} />
           </View>
         </Pressable>
         <View style={styles.heroInfo}>
-          {chip ? (
-            <View style={[styles.heroChip, { alignSelf: isRtl ? 'flex-end' : 'flex-start' }]}>
-              <Text style={styles.heroChipText}>{chip}</Text>
-            </View>
-          ) : null}
-          <Text style={[styles.heroName, rtlText]} numberOfLines={2}>
+          <View style={[styles.chipRow, row]}>
+            {chip ? (
+              <View style={styles.heroChip}>
+                <Text style={styles.heroChipText}>{chip}</Text>
+              </View>
+            ) : null}
+            {verifyStatus && verifyStatus !== 'none' ? <IdVerifyBadge status={verifyStatus} compact /> : null}
+          </View>
+          <Text style={[styles.heroName, rtlText]} numberOfLines={1}>
             {name}
           </Text>
           {email ? (
@@ -65,122 +81,90 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
               {email}
             </Text>
           ) : null}
+          {shownMetas.length ? (
+            <Text style={[styles.metaLine, { textAlign, writingDirection }]} numberOfLines={1}>
+              {shownMetas.map((item) => item.text).join(' · ')}
+            </Text>
+          ) : null}
         </View>
       </View>
-      {metas.length ? (
-        <View style={[styles.metaWrap, row]}>
-          {metas.slice(0, 4).map((item) => (
-            <View key={`${item.icon}-${item.text}`} style={[styles.metaChip, row]}>
-              <Ionicons name={item.icon} size={13} color={colors.accent} />
-              <Text style={styles.metaChipText} numberOfLines={1}>
-                {item.text}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {avatarUrl ? (
-        <Text style={[styles.photoHint, { textAlign, writingDirection }]}>{t('profile.changePhoto')}</Text>
-      ) : (
-        <Text style={[styles.photoHint, { textAlign, writingDirection }]}>{t('profile.tapPhoto')}</Text>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   hero: {
-    borderRadius: radius.xl,
-    padding: spacing.lg,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 4,
     overflow: 'hidden',
-    gap: spacing.md,
-    minHeight: 156,
   },
   blob: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
   },
   blobGold: {
-    backgroundColor: 'rgba(196, 163, 90, 0.22)',
-    top: -56,
-    end: -28,
-  },
-  blobLight: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    bottom: -70,
-    start: -40,
+    backgroundColor: 'rgba(196, 163, 90, 0.2)',
+    top: -40,
+    end: -24,
   },
   heroBody: {
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm + 2,
   },
-  avatarWrap: { width: 88, height: 88 },
+  avatarWrap: { width: 64, height: 64 },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#E4EFE7',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.85)',
   },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  initials: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   cameraBadge: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    bottom: 0,
+    bottom: -1,
   },
   badgeStart: { start: -2 },
   badgeEnd: { end: -2 },
-  heroInfo: { flex: 1, minWidth: 0, gap: 6, alignItems: 'stretch' },
+  heroInfo: { flex: 1, minWidth: 0, gap: 2, alignItems: 'stretch' },
+  chipRow: { flexWrap: 'wrap', gap: 4, alignItems: 'center' },
   heroName: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
   },
   heroEmail: {
     color: 'rgba(255,255,255,0.78)',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Cairo_400Regular',
   },
-  metaWrap: { flexWrap: 'wrap', gap: 8 },
-  metaChip: {
-    alignItems: 'center',
-    gap: 6,
-    maxWidth: '100%',
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  metaChipText: {
-    color: '#F4E9CF',
-    fontSize: 12,
+  metaLine: {
+    color: 'rgba(244, 233, 207, 0.95)',
+    fontSize: 11,
     fontFamily: 'Cairo_600SemiBold',
-    flexShrink: 1,
-  },
-  photoHint: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
-    fontFamily: 'Cairo_400Regular',
+    marginTop: 2,
   },
   heroChip: {
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderRadius: radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   heroChipText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
   },

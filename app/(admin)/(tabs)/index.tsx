@@ -66,6 +66,7 @@ export default function AdminOverview() {
   const { rtlText, row, lang, textAlign, writingDirection } = useLayout();
   const colors = useColors();
   const [owners, setOwners] = useState<Profile[]>([]);
+  const [pendingIds, setPendingIds] = useState<Profile[]>([]);
   const [students, setStudents] = useState(0);
   const [renters, setRenters] = useState(0);
   const [listings, setListings] = useState<Apartment[]>([]);
@@ -77,7 +78,7 @@ export default function AdminOverview() {
 
   const load = useCallback(async () => {
     const [profileRes, listingRes, bookingRes, chatRes] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, email, role, owner_status, phone'),
+      supabase.from('profiles').select('id, full_name, email, role, owner_status, phone, id_verify_status, national_id_url, university_card_url'),
       supabase.from('apartments').select('id, title_ar, title_en, status, owner_id, reject_reason'),
       supabase.from('bookings').select('id, status, commission_amount, payment_method, created_at'),
       supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -86,6 +87,14 @@ export default function AdminOverview() {
     setStudents(profiles.filter((item) => item.role === 'student').length);
     setRenters(profiles.filter((item) => item.role === 'renter').length);
     setOwners(profiles.filter((item) => item.role === 'owner'));
+    setPendingIds(
+      profiles.filter(
+        (item) =>
+          (item.role === 'student' || item.role === 'renter') &&
+          item.id_verify_status === 'pending' &&
+          Boolean(item.national_id_url),
+      ),
+    );
     setListings((listingRes.data as Apartment[]) ?? []);
     setBookings((bookingRes.data as Booking[]) ?? []);
     setChats(chatRes.count ?? 0);
@@ -179,6 +188,13 @@ export default function AdminOverview() {
 
       <View style={[styles.grid, row]}>
         <StatTile
+          icon="shield-checkmark-outline"
+          label={t('admin.pendingIds')}
+          value={String(pendingIds.length)}
+          meta={t('admin.pendingIdsMeta')}
+          onPress={() => router.push('/(admin)/(tabs)/verify')}
+        />
+        <StatTile
           icon="people-outline"
           label={t('admin.pendingOwners')}
           value={String(pendingOwners.length)}
@@ -221,6 +237,30 @@ export default function AdminOverview() {
         <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
         <Button title={t('admin.openCatalog')} variant="secondary" onPress={() => router.push('/(admin)/(tabs)/catalog')} />
       </Card>
+
+      <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingIds')}</Text>
+      {pendingIds.length === 0 ? <EmptyState title={t('admin.idReviewEmpty')} /> : null}
+      {pendingIds.slice(0, 6).map((user) => (
+        <Card key={user.id}>
+          <Text style={[styles.name, rtlText, { color: colors.text }]}>{user.full_name || user.email}</Text>
+          <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+            {t(`roles.${user.role}`)} · {user.email}
+          </Text>
+          <View style={[styles.row, row]}>
+            <View style={styles.flex}>
+              <Button title={t('admin.reviewId')} onPress={() => router.push('/(admin)/(tabs)/verify')} pill />
+            </View>
+            <View style={styles.flex}>
+              <Button
+                title={t('admin.editUser')}
+                variant="secondary"
+                pill
+                onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
+              />
+            </View>
+          </View>
+        </Card>
+      ))}
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingOwners')}</Text>
       {pendingOwners.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}

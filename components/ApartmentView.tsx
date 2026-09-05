@@ -19,6 +19,8 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectionHead } from '@/components/profile/SectionHead';
+import { ListingReviews } from '@/components/reviews/ListingReviews';
+import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ChromeBar } from '@/components/ui/ChromeBar';
@@ -28,9 +30,10 @@ import { MAX_OCCUPANTS } from '@/src/lib/booking';
 import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { whatsappLink } from '@/src/lib/phone';
+import { loadApartmentReviews } from '@/src/lib/reviews';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { Apartment, University } from '@/src/types/database';
+import type { Apartment, ApartmentReview, University } from '@/src/types/database';
 
 const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 
@@ -98,10 +101,29 @@ export function ApartmentView({
   const colors = useColors();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [viewer, setViewer] = useState(false);
+  const [reviews, setReviews] = useState<ApartmentReview[]>([]);
   const carouselRef = useRef<ScrollView>(null);
   const wasViewer = useRef(false);
   const copy = { textAlign, writingDirection };
   const photos = apartment?.photos?.filter(Boolean) ?? [];
+
+  useEffect(() => {
+    if (!apartment?.id) {
+      setReviews([]);
+      return;
+    }
+    let active = true;
+    void loadApartmentReviews(apartment.id)
+      .then((next) => {
+        if (active) setReviews(next);
+      })
+      .catch(() => {
+        if (active) setReviews([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apartment?.id]);
 
   useEffect(() => {
     if (wasViewer.current && !viewer) {
@@ -285,6 +307,14 @@ export function ApartmentView({
           <Fact icon="people-circle-outline" text={t('listing.fitsPeople', { count: MAX_OCCUPANTS })} />
           <Fact icon="people-outline" text={t(`gender.${apartment.gender_policy}`)} warn={mismatch} />
           {distance != null ? <Fact icon="navigate-outline" text={formatKm(distance, lang, distancePlace)} /> : null}
+          {(apartment.review_count ?? reviews.length) > 0 ? (
+            <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
+              <StarRow value={apartment.review_avg ?? 0} size={13} />
+              <Text style={[styles.factText, { color: colors.text }]}>
+                {(apartment.review_avg ?? 0).toFixed(1)}
+              </Text>
+            </View>
+          ) : null}
         </View>
         {mismatch && !preview ? (
           <Text style={[styles.warn, copy, { color: colors.danger }]}>{t('listing.genderMismatch')}</Text>
@@ -357,6 +387,11 @@ export function ApartmentView({
             />
           ) : null}
         </Card>
+        <ListingReviews
+          reviews={reviews}
+          average={apartment.review_avg}
+          count={apartment.review_count}
+        />
         {children}
       </ScrollView>
 

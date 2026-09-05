@@ -18,6 +18,7 @@ import { occupantChoices, PAYMENT_CHOICES, paymentHintKey, paymentI18nKey } from
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
+import { loadPendingReview } from '@/src/lib/reviews';
 import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -112,6 +113,17 @@ export default function BookScreen() {
       alert(t('booking.needProfile'), t('profile.completeToBook'), [
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('profile.title'), onPress: goProfile },
+      ]);
+      return;
+    }
+    const pendingReview = await loadPendingReview(profile.id);
+    if (pendingReview) {
+      alert(t('review.neededTitle'), t('review.neededBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('review.goWrite'),
+          onPress: () => router.replace('/(student)/(tabs)/bookings'),
+        },
       ]);
       return;
     }

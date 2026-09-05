@@ -13,6 +13,8 @@ type Props = {
   onJump?: (id: string) => void;
 };
 
+const CHIP_LIMIT = 4;
+
 export function ProfileProgress({ items, onJump }: Props) {
   const { t } = useTranslation();
   const { rtlText, row, isRtl } = useLayout();
@@ -22,14 +24,16 @@ export function ProfileProgress({ items, onJump }: Props) {
   const missing = items.filter((item) => !item.done);
   const ready = total > 0 && missing.length === 0;
   const percent = total ? Math.round((filled / total) * 100) : 0;
+  const shown = missing.slice(0, CHIP_LIMIT);
+  const extra = missing.length - shown.length;
 
   return (
-    <Card>
+    <Card compact>
       <View style={[styles.head, row]}>
         <View style={[styles.icon, { backgroundColor: ready ? colors.successSoft : colors.primarySoft }]}>
           <Ionicons
             name={ready ? 'checkmark-circle' : 'sparkles-outline'}
-            size={16}
+            size={14}
             color={ready ? colors.success : colors.primary}
           />
         </View>
@@ -54,51 +58,52 @@ export function ProfileProgress({ items, onJump }: Props) {
         />
       </View>
       {ready ? null : (
-        <>
-          <Text style={[styles.need, rtlText, { color: colors.textMuted }]}>{t('profile.stillNeeded')}</Text>
-          <View style={[styles.chips, row]}>
-            {missing.map((item) => (
-              <Pressable
-                key={item.id ?? item.label}
-                onPress={() => item.id && onJump?.(item.id)}
-                style={[styles.chip, row, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
-              >
-                <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </>
+        <View style={[styles.chips, row]}>
+          {shown.map((item) => (
+            <Pressable
+              key={item.id ?? item.label}
+              onPress={() => item.id && onJump?.(item.id)}
+              style={[styles.chip, row, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
+            >
+              <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+          {extra > 0 ? (
+            <View style={[styles.chip, row, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}>
+              <Text style={[styles.chipText, { color: colors.textMuted }]}>+{extra}</Text>
+            </View>
+          ) : null}
+        </View>
       )}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  head: { alignItems: 'center', gap: 10 },
+  head: { alignItems: 'center', gap: 8 },
   icon: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copy: { flex: 1, minWidth: 0, gap: 1 },
-  title: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  sub: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  percent: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  track: { height: 6, borderRadius: 4, overflow: 'hidden' },
-  fill: { height: 6, borderRadius: 4 },
-  need: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
-  chips: { flexWrap: 'wrap', gap: 6 },
+  copy: { flex: 1, minWidth: 0, gap: 0 },
+  title: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  percent: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  track: { height: 5, borderRadius: 3, overflow: 'hidden' },
+  fill: { height: 5, borderRadius: 3 },
+  chips: { flexWrap: 'wrap', gap: 4 },
   chip: {
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     maxWidth: '100%',
   },
-  chipText: { fontSize: 12, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
+  chipText: { fontSize: 11, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
 });

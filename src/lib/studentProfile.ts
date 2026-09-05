@@ -1,5 +1,6 @@
 import { isValidArabicName, isValidEnglishName } from '@/src/lib/name';
 import { isValidStudentId } from '@/src/lib/phone';
+import { trustReadyExtras } from '@/src/lib/trust';
 import type { GenderPolicy, PersonGender, Profile } from '@/src/types/database';
 
 export function isSeeker(profile: Profile | null | undefined) {
@@ -17,7 +18,8 @@ export function isStudentReady(profile: Profile | null | undefined) {
       profile.gender &&
       profile.city_id &&
       profile.date_of_birth &&
-      profile.avatar_url,
+      profile.avatar_url &&
+      trustReadyExtras(profile),
   );
   if (profile.role === 'renter') return basics;
   return (

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
+import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
@@ -20,6 +21,7 @@ import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { notifyUser } from '@/src/lib/push';
+import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -39,12 +41,13 @@ export default function AdminBookings() {
   const [rejecting, setRejecting] = useState<Booking | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [docsFor, setDocsFor] = useState<Booking | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), student:profiles!student_id(id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth), owner:profiles!owner_id(id, full_name, phone, email)',
+        `*, apartments(*, cities(*)), student:profiles!student_id(${SEEKER_BOOKING_PROFILE}), owner:profiles!owner_id(id, full_name, phone, email)`,
       )
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -173,6 +176,7 @@ export default function AdminBookings() {
                     : '',
           yearLabel,
           student?.student_id_number ? `${t('profile.studentId')} ${student.student_id_number}` : '',
+          ...seekerTrustDetails(student, t),
         ].filter(Boolean);
         return (
           <BookingCard
@@ -258,6 +262,9 @@ export default function AdminBookings() {
                 onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: booking.student_id } })}
               />
             ) : null}
+            {student?.national_id_url || student?.university_card_url ? (
+              <Button title={t('profile.viewIdCards')} variant="ghost" pill onPress={() => setDocsFor(booking)} />
+            ) : null}
             <Button title={t('admin.deleteBooking')} variant="danger" pill onPress={() => removeBooking(booking.id)} />
           </BookingCard>
         );
@@ -286,6 +293,12 @@ export default function AdminBookings() {
           void updateStatus(rejecting.id, 'cancelled', rejectNote).finally(() => setBusy(false));
         }}
         onClose={() => setRejecting(null)}
+      />
+      <IdDocsViewer
+        visible={Boolean(docsFor)}
+        nationalPath={docsFor?.student?.national_id_url}
+        universityPath={docsFor?.student?.university_card_url}
+        onClose={() => setDocsFor(null)}
       />
     </Screen>
   );

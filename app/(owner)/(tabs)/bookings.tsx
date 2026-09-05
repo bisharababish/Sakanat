@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
+import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
@@ -25,6 +26,7 @@ import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { whatsappLink } from '@/src/lib/phone';
 import { notifyUser } from '@/src/lib/push';
+import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -46,13 +48,14 @@ export default function OwnerBookings() {
   const [rejecting, setRejecting] = useState<Booking | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejectingBusy, setRejectingBusy] = useState(false);
+  const [docsFor, setDocsFor] = useState<Booking | null>(null);
 
   const load = useCallback(async () => {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
       .select(
-        '*, apartments(*, cities(*)), profiles!student_id(id, full_name, avatar_url, phone, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth)',
+        `*, apartments(*, cities(*)), profiles!student_id(${SEEKER_BOOKING_PROFILE})`,
       )
       .eq('owner_id', profile.id)
       .order('created_at', { ascending: false });
@@ -198,6 +201,7 @@ export default function OwnerBookings() {
           booking.profiles?.student_id_number
             ? `${t('profile.studentId')} ${booking.profiles.student_id_number}`
             : '',
+          ...seekerTrustDetails(booking.profiles, t),
         ].filter(Boolean);
         const overlapConfirmed = hasConfirmedOverlap(booking, bookings);
         const overlapPending =
@@ -264,6 +268,9 @@ export default function OwnerBookings() {
                 onPress={() => Linking.openURL(whatsappLink(whatsapp))}
               />
             ) : null}
+            {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
+              <Button title={t('profile.viewIdCards')} variant="ghost" pill onPress={() => setDocsFor(booking)} />
+            ) : null}
           </BookingCard>
         );
       })}
@@ -300,6 +307,12 @@ export default function OwnerBookings() {
           </View>
         </View>
       </Modal>
+      <IdDocsViewer
+        visible={Boolean(docsFor)}
+        nationalPath={docsFor?.profiles?.national_id_url}
+        universityPath={docsFor?.profiles?.university_card_url}
+        onClose={() => setDocsFor(null)}
+      />
     </Screen>
   );
 }

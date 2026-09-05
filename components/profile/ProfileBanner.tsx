@@ -25,7 +25,7 @@ export function ProfileBanner({ icon, text, onPress }: Props) {
       ]}
     >
       <View style={[styles.bannerIcon, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={icon} size={18} color={colors.primary} />
+        <Ionicons name={icon} size={16} color={colors.primary} />
       </View>
       <Text style={[styles.bannerText, { textAlign, writingDirection, color: colors.text }]}>{text}</Text>
       <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.accent} />
@@ -36,24 +36,24 @@ export function ProfileBanner({ icon, text, onPress }: Props) {
 const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 10,
     alignItems: 'center',
     gap: spacing.sm,
   },
   bannerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bannerText: {
     flex: 1,
     minWidth: 0,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
   },

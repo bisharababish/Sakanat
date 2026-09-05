@@ -43,6 +43,41 @@ export async function pickProfilePhoto() {
   return ok ? result.assets[0].uri : null;
 }
 
+export async function pickIdCardPhoto() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    alert(i18n.t('common.error'), i18n.t('profile.photoPermission'));
+    return null;
+  }
+  // Landscape crop so the student can frame the card (Android). iOS crop UI is square-only.
+  let result: ImagePicker.ImagePickerResult;
+  try {
+    result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [85, 54],
+      quality: 0.7,
+    });
+  } catch {
+    result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.7,
+    });
+  }
+  if (result.canceled || !result.assets[0]) return null;
+  if (!withinSize(result.assets[0].fileSize)) {
+    alert(i18n.t('common.error'), i18n.t('profile.photoTooLarge'));
+    return null;
+  }
+  const ok = await confirm(
+    i18n.t('profile.confirmPhoto'),
+    i18n.t('profile.confirmIdBody'),
+    i18n.t('profile.usePhoto'),
+  );
+  return ok ? result.assets[0].uri : null;
+}
+
 export async function pickListingPhotos(remaining: number) {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {

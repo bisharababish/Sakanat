@@ -40,6 +40,8 @@ type Props = {
   onWhatsapp: (region: PhoneRegion, local: string) => void;
   waLinked: boolean;
   onWaLinked: (linked: boolean) => void;
+  homeAddress?: string;
+  onHomeAddress?: (value: string) => void;
   onSectionLayout?: (section: Section, y: number) => void;
 };
 
@@ -64,6 +66,8 @@ export function ProfileAccountFields({
   onWhatsapp,
   waLinked,
   onWaLinked,
+  homeAddress,
+  onHomeAddress,
   onSectionLayout,
 }: Props) {
   const { t } = useTranslation();
@@ -74,37 +78,53 @@ export function ProfileAccountFields({
 
   return (
     <>
-      <Card onLayout={(event) => onSectionLayout?.('names', event.nativeEvent.layout.y)}>
-        <SectionHead icon="text-outline" title={t('profile.namesTitle')} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.nameHint')}</Text>
-        <NameField label={t('common.nameEn')} value={fullNameEn} onChangeText={onFullNameEn} script="en" />
-        <NameField label={t('common.nameAr')} value={fullNameAr} onChangeText={onFullNameAr} script="ar" />
+      <Card
+        compact
+        onLayout={(event) => {
+          const y = event.nativeEvent.layout.y;
+          onSectionLayout?.('names', y);
+          onSectionLayout?.('about', y);
+        }}
+      >
+        <View style={styles.block}>
+          <SectionHead compact icon="text-outline" title={t('profile.namesTitle')} />
+          <NameField label={t('common.nameEn')} value={fullNameEn} onChangeText={onFullNameEn} script="en" />
+          <NameField label={t('common.nameAr')} value={fullNameAr} onChangeText={onFullNameAr} script="ar" />
+        </View>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={styles.block}>
+          <SectionHead compact icon="id-card-outline" title={t('profile.aboutTitle')} />
+          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
+          <FilterPills<PersonGender | ''>
+            value={gender}
+            onChange={onGender}
+            allowDeselect
+            items={[
+              { value: 'male', label: t('profile.male') },
+              { value: 'female', label: t('profile.female') },
+            ]}
+          />
+          <Select
+            label={t('auth.homeCity')}
+            value={cityId}
+            placeholder={t('common.select')}
+            options={cityOptions}
+            onChange={onCityId}
+            clearable
+          />
+          {onHomeAddress ? (
+            <Input
+              label={t('profile.homeAddress')}
+              value={homeAddress ?? ''}
+              onChangeText={onHomeAddress}
+              multiline
+            />
+          ) : null}
+          <DateField label={t('profile.birthDate')} value={birthDate} onChange={onBirthDate} />
+        </View>
       </Card>
-      <Card onLayout={(event) => onSectionLayout?.('about', event.nativeEvent.layout.y)}>
-        <SectionHead icon="id-card-outline" title={t('profile.aboutTitle')} />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-        <FilterPills<PersonGender | ''>
-          value={gender}
-          onChange={onGender}
-          allowDeselect
-          items={[
-            { value: 'male', label: t('profile.male') },
-            { value: 'female', label: t('profile.female') },
-          ]}
-        />
-        <Select
-          label={t('auth.homeCity')}
-          value={cityId}
-          placeholder={t('common.select')}
-          options={cityOptions}
-          onChange={onCityId}
-          clearable
-        />
-        <DateField label={t('profile.birthDate')} value={birthDate} onChange={onBirthDate} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.birthHint')}</Text>
-      </Card>
-      <Card onLayout={(event) => onSectionLayout?.('contact', event.nativeEvent.layout.y)}>
-        <SectionHead icon="call-outline" title={t('profile.contactTitle')} />
+      <Card compact onLayout={(event) => onSectionLayout?.('contact', event.nativeEvent.layout.y)}>
+        <SectionHead compact icon="call-outline" title={t('profile.contactTitle')} />
         <Input
           label={t('common.email')}
           value={email}
@@ -148,7 +168,7 @@ export function ProfileAccountFields({
         )}
         {phoneLocal.trim() && waLocal.trim() && !numbersMatch ? (
           <View style={[styles.warn, row, { backgroundColor: colors.warningSoft }]}>
-            <Ionicons name="warning" size={18} color={colors.warning} />
+            <Ionicons name="warning" size={16} color={colors.warning} />
             <Text style={[styles.warnText, rtlText, { color: colors.text }]}>{t('profile.whatsappDifferentWarn')}</Text>
           </View>
         ) : null}
@@ -158,13 +178,14 @@ export function ProfileAccountFields({
 }
 
 const styles = StyleSheet.create({
-  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
-  hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
+  block: { gap: spacing.sm },
+  label: { fontWeight: '700', fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   warn: {
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 6,
     borderRadius: radius.md,
     padding: spacing.sm,
   },
-  warnText: { flex: 1, fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_600SemiBold' },
+  warnText: { flex: 1, fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_600SemiBold' },
 });

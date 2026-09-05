@@ -9,6 +9,7 @@ import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValu
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
@@ -16,13 +17,16 @@ import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
-import { profileHref } from '@/src/lib/routes';
-import { appVersion, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl } from '@/src/lib/support';
+import { homeHref, profileHref } from '@/src/lib/routes';
+import { loadPendingReview } from '@/src/lib/reviews';
+import { loadSavedApartmentIds } from '@/src/lib/saved';
+import { appVersion, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
+import { seekerVerification } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-type Pane = 'root' | 'how' | 'privacy' | 'terms';
+type Pane = 'root' | 'faq' | 'privacy' | 'terms' | 'report';
 
 const OPEN = { duration: 340, easing: Easing.bezier(0.22, 1, 0.36, 1) };
 const CLOSE = { duration: 240, easing: Easing.in(Easing.cubic) };
@@ -56,6 +60,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('root');
   const [askLogout, setAskLogout] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [needsReview, setNeedsReview] = useState(false);
   const pendingSignOut = useRef(false);
   const rootScroll = useRef<ScrollView>(null);
   const rootY = useRef(0);
@@ -65,11 +71,24 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const shownName = displayName(profile, i18n.language);
   const university = localizedName(profile?.universities, i18n.language);
   const city = localizedName(profile?.cities, i18n.language);
+  const verification = seekerVerification(profile);
+  const isSeeker = profile?.role === 'student' || profile?.role === 'renter';
 
   useEffect(() => {
     if (!visible) return;
     void getPushEnabled().then(setPushOn);
-  }, [visible]);
+    if (!profile || !isSeeker) {
+      setSavedCount(0);
+      setNeedsReview(false);
+      return;
+    }
+    void loadSavedApartmentIds(profile.id)
+      .then((ids) => setSavedCount(ids.length))
+      .catch(() => setSavedCount(0));
+    void loadPendingReview(profile.id)
+      .then((pending) => setNeedsReview(Boolean(pending)))
+      .catch(() => setNeedsReview(false));
+  }, [visible, profile, isSeeker]);
 
   useEffect(() => {
     if (visible) {
@@ -116,10 +135,20 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     await setPushEnabled(next, profile?.id);
   };
 
-  const goProfile = () => {
+  const goProfile = (tab?: 'account' | 'trust' | 'saved' | 'security') => {
     if (!profile) return;
     onClose();
-    router.push(profileHref(profile.role) as never);
+    router.push(profileHref(profile.role, tab) as never);
+  };
+
+  const goBookings = () => {
+    if (!profile) return;
+    onClose();
+    if (profile.role === 'student' || profile.role === 'renter') {
+      router.push('/(student)/(tabs)/bookings');
+      return;
+    }
+    router.push(homeHref(profile.role) as never);
   };
 
   const openUrl = (url: string) => {
@@ -136,9 +165,14 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     openUrl(mailTo(t('menu.supportSubject')));
   };
 
-  const report = () => {
+  const report = (kind: 'tech' | 'safety') => {
     const role = profile ? t(`roles.${profile.role}`) : t('menu.guest');
-    openUrl(mailTo(t('menu.reportSubject'), t('menu.reportBody', { role, version: VERSION })));
+    const vars = { role, version: VERSION };
+    if (kind === 'safety') {
+      openUrl(mailTo(t('menu.reportSafetySubject'), t('menu.reportSafetyBody', vars), TRUST_EMAIL));
+      return;
+    }
+    openUrl(mailTo(t('menu.reportTechSubject'), t('menu.reportTechBody', vars)));
   };
 
   const shareApp = async () => {
@@ -165,13 +199,18 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     onClose();
   };
 
-  const paneTitle = pane === 'how' ? t('menu.how') : pane === 'privacy' ? t('menu.privacy') : t('menu.terms');
+  const paneTitle =
+    pane === 'faq'
+      ? t('menu.faqTitle')
+      : pane === 'report'
+        ? t('menu.report')
+        : pane === 'privacy'
+          ? t('menu.privacy')
+          : t('menu.terms');
   const paneBody =
-    pane === 'how'
-      ? t('menu.howBody')
-      : pane === 'privacy'
-        ? t('menu.privacyBody', { email: SUPPORT_EMAIL })
-        : t('menu.termsBody', { email: SUPPORT_EMAIL });
+    pane === 'privacy'
+      ? t('menu.privacyBody', { email: SUPPORT_EMAIL })
+      : t('menu.termsBody', { email: SUPPORT_EMAIL });
 
   if (!open) return null;
 
@@ -241,44 +280,142 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 }}
               >
                 {profile ? (
-                  <Pressable
-                    onPress={goProfile}
-                    style={({ pressed }) => [
-                      styles.hero,
-                      row,
-                      { backgroundColor: colors.primarySoft, opacity: pressed ? 0.9 : 1 },
-                    ]}
-                  >
-                    {profile.avatar_url ? (
-                      <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
-                    ) : (
-                      <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primary }]}>
-                        <Text style={[styles.initials, { color: colors.white }]}>{initials(shownName)}</Text>
-                      </View>
-                    )}
-                    <View style={styles.heroCopy}>
-                      <Text style={[styles.heroName, copy, { color: colors.primaryDark }]} numberOfLines={2}>
-                        {shownName}
+                  <>
+                    {isSeeker ? (
+                      <Text style={[styles.section, copy, { color: colors.textMuted, marginTop: 0 }]}>
+                        {t('menu.you')}
                       </Text>
-                      <Text style={[styles.heroRole, copy, { color: colors.primary }]}>{t(`roles.${profile.role}`)}</Text>
-                      {profile.email ? (
-                        <Text style={[styles.heroMeta, copy, { color: colors.text }]}>{profile.email}</Text>
-                      ) : null}
-                      {profile.role === 'student' && university ? (
-                        <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
-                          {university}
+                    ) : null}
+                    <Pressable
+                      onPress={() => goProfile()}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('menu.profile')}
+                      style={({ pressed }) => [
+                        styles.hero,
+                        row,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                          opacity: pressed ? 0.9 : 1,
+                        },
+                      ]}
+                    >
+                      {profile.avatar_url ? (
+                        <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primary }]}>
+                          <Text style={[styles.initials, { color: colors.white }]}>{initials(shownName)}</Text>
+                        </View>
+                      )}
+                      <View style={styles.heroCopy}>
+                        <Text style={[styles.heroName, copy, { color: colors.text }]} numberOfLines={2}>
+                          {shownName}
                         </Text>
-                      ) : city ? (
-                        <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
-                          {city}
-                        </Text>
-                      ) : null}
-                      <Text style={[styles.heroLink, copy, { color: colors.primary }]}>{t('menu.profile')}</Text>
-                    </View>
-                    <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.primary} />
-                  </Pressable>
+                        <Text style={[styles.heroRole, copy, { color: colors.primary }]}>{t(`roles.${profile.role}`)}</Text>
+                        {profile.email ? (
+                          <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{profile.email}</Text>
+                        ) : null}
+                        {profile.role === 'student' && university ? (
+                          <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
+                            {university}
+                          </Text>
+                        ) : city ? (
+                          <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
+                            {city}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
+                    </Pressable>
+                    {verification ? (
+                      <Pressable
+                        onPress={() => goProfile('trust')}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('menu.verification')}
+                        style={({ pressed }) => [
+                          styles.verifyCard,
+                          { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.9 : 1 },
+                        ]}
+                      >
+                        <View style={[styles.row, row]}>
+                          <RowIcon
+                            name={
+                              verification.verified
+                                ? 'shield-checkmark'
+                                : verification.rejected
+                                  ? 'alert-circle'
+                                  : 'shield-outline'
+                            }
+                            colors={colors}
+                          />
+                          <View style={styles.rowCopy}>
+                            <Text style={[styles.rowLabel, copy, { color: colors.text }]}>
+                              {verification.verified
+                                ? t('menu.verified')
+                                : verification.pendingReview
+                                  ? t('menu.verifyReview')
+                                  : verification.rejected
+                                    ? t('menu.verifyRejected')
+                                    : t('menu.verification')}
+                            </Text>
+                            <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                              {verification.verified
+                                ? t('menu.verifiedHint')
+                                : verification.pendingReview
+                                  ? t('menu.verifyReviewHint')
+                                  : verification.rejected
+                                    ? t('menu.verifyRejectedHint')
+                                    : t('menu.verificationHint')}
+                            </Text>
+                          </View>
+                          <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
+                        </View>
+                        <View style={[styles.chips, row]}>
+                          {verification.items.map((item) => (
+                            <View
+                              key={item.id}
+                              style={[
+                                styles.chip,
+                                {
+                                  backgroundColor: item.done ? colors.successSoft : colors.surfaceMuted,
+                                  borderColor: item.done ? colors.success : colors.border,
+                                },
+                              ]}
+                            >
+                              <Text style={[styles.chipText, { color: item.done ? colors.success : colors.textMuted }]}>
+                                {item.done ? t(`menu.verifyDone.${item.id}`) : t(`menu.verifyPending.${item.id}`)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </Pressable>
+                    ) : null}
+                    {isSeeker ? (
+                      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <MenuLink
+                          icon="calendar-outline"
+                          label={needsReview ? t('menu.writeReview') : t('menu.bookings')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={goBookings}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                        <MenuLink
+                          icon="heart-outline"
+                          label={savedCount > 0 ? t('menu.savedCount', { count: savedCount }) : t('menu.saved')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={() => goProfile('saved')}
+                        />
+                      </View>
+                    ) : null}
+                  </>
                 ) : (
-                  <View style={[styles.guestCard, { backgroundColor: colors.primarySoft }]}>
+                  <View style={[styles.guestCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <Text style={[styles.guestName, copy, { color: colors.primaryDark }]}>{t('appName')}</Text>
                     <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
                     <Button
@@ -346,7 +483,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.help')}</Text>
                 <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <MenuLink icon="book-outline" label={t('menu.how')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('how')} />
+                  <MenuLink icon="help-circle-outline" label={t('menu.faqTitle')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('faq')} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="logo-whatsapp" label={t('menu.whatsapp')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={openWhatsApp} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -360,7 +497,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                     onPress={() => openUrl(mailTo(t('menu.contactSubject')))}
                   />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                  <MenuLink icon="flag-outline" label={t('menu.report')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={report} />
+                  <MenuLink icon="flag-outline" label={t('menu.report')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('report')} />
                 </View>
 
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
@@ -368,10 +505,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <MenuLink icon="shield-checkmark-outline" label={t('menu.privacy')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('privacy')} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="document-text-outline" label={t('menu.terms')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('terms')} />
-                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                  <MenuLink icon="share-social-outline" label={t('menu.share')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void shareApp()} />
-                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                  <MenuLink icon="star-outline" label={t('menu.rate')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => void rateApp()} />
                 </View>
                 <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
                   {t('menu.version', { version: VERSION })}
@@ -379,27 +512,67 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               </ScrollView>
               {pane !== 'root' ? (
                 <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-                  <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
+                  {pane === 'faq' ? (
+                    <FaqList />
+                  ) : pane === 'report' ? (
+                    <View style={styles.reportList}>
+                      <Pressable
+                        onPress={() => report('tech')}
+                        style={({ pressed }) => [
+                          styles.reportCard,
+                          { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.9 : 1 },
+                        ]}
+                      >
+                        <RowIcon name="construct-outline" colors={colors} />
+                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.reportTech')}</Text>
+                        <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.reportTechHint')}</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => report('safety')}
+                        style={({ pressed }) => [
+                          styles.reportCard,
+                          { backgroundColor: colors.warningSoft, borderColor: colors.warning, opacity: pressed ? 0.9 : 1 },
+                        ]}
+                      >
+                        <RowIcon name="warning-outline" colors={colors} />
+                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.reportSafety')}</Text>
+                        <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.reportSafetyHint')}</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
+                  )}
                 </ScrollView>
               ) : null}
             </View>
-            {pane === 'root' && profile ? (
+            {pane === 'root' ? (
               <View style={[styles.logoutBar, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-                {askLogout ? (
-                  <View style={styles.confirmBox}>
-                    <Text style={[styles.confirmText, copy, { color: colors.text }]}>{t('common.confirmLogout')}</Text>
-                    <View style={styles.confirmActions}>
-                      <View style={styles.confirmBtn}>
-                        <Button title={t('common.no')} variant="ghost" pill onPress={() => setAskLogout(false)} />
-                      </View>
-                      <View style={styles.confirmBtn}>
-                        <Button title={t('common.yes')} variant="danger" pill onPress={confirmLogout} />
+                {profile ? (
+                  askLogout ? (
+                    <View style={styles.confirmBox}>
+                      <Text style={[styles.confirmText, copy, { color: colors.text }]}>{t('common.confirmLogout')}</Text>
+                      <View style={styles.confirmActions}>
+                        <View style={styles.confirmBtn}>
+                          <Button title={t('common.no')} variant="ghost" pill onPress={() => setAskLogout(false)} />
+                        </View>
+                        <View style={styles.confirmBtn}>
+                          <Button title={t('common.yes')} variant="danger" pill onPress={confirmLogout} />
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ) : (
-                  <Button title={t('common.logout')} variant="danger" pill onPress={() => setAskLogout(true)} />
-                )}
+                  ) : (
+                    <Button title={t('common.logout')} variant="danger" pill onPress={() => setAskLogout(true)} />
+                  )
+                ) : null}
+                <View style={[styles.growth, row]}>
+                  <Pressable onPress={() => void shareApp()} hitSlop={8}>
+                    <Text style={[styles.growthText, { color: colors.textMuted }]}>{t('menu.share')}</Text>
+                  </Pressable>
+                  <Text style={[styles.growthDot, { color: colors.border }]}>·</Text>
+                  <Pressable onPress={() => void rateApp()} hitSlop={8}>
+                    <Text style={[styles.growthText, { color: colors.textMuted }]}>{t('menu.rate')}</Text>
+                  </Pressable>
+                </View>
               </View>
             ) : null}
           </SafeAreaView>
@@ -505,8 +678,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderRadius: radius.lg,
+    borderWidth: 1,
     padding: spacing.md,
   },
+  verifyCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  chips: { flexWrap: 'wrap', gap: 6 },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  chipText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  reportList: { gap: spacing.sm },
+  reportCard: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: 8,
+  },
+  growth: { justifyContent: 'center', alignItems: 'center', gap: 8, paddingTop: 4 },
+  growthText: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
+  growthDot: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   avatar: { width: 58, height: 58, borderRadius: 20 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   initials: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
@@ -517,6 +715,7 @@ const styles = StyleSheet.create({
   heroLink: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginTop: 2 },
   guestCard: {
     borderRadius: radius.lg,
+    borderWidth: 1,
     padding: spacing.md,
     gap: 8,
   },

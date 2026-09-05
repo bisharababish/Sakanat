@@ -1,7 +1,7 @@
-import { type ComponentProps } from 'react';
+import { type ComponentProps, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius, spacing } from '@/src/theme/colors';
@@ -26,14 +26,27 @@ function initials(name?: string) {
 }
 
 export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
-  const { rtlText, row } = useLayout();
+  const { rtlText, row, isRtl } = useLayout();
   const colors = useColors();
+  const [open, setOpen] = useState(false);
+  const preview = lines.slice(0, 3);
+  const shown = open ? lines : preview;
+  const canExpand = lines.length > 3;
 
   return (
     <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.kicker, rtlText, { color: colors.primary }]} numberOfLines={1}>
-        {title}
-      </Text>
+      <Pressable onPress={() => canExpand && setOpen((value) => !value)} style={[styles.head, row]}>
+        <Text style={[styles.kicker, rtlText, { color: colors.primary }]} numberOfLines={1}>
+          {title}
+        </Text>
+        {canExpand ? (
+          <Ionicons
+            name={open ? 'chevron-up' : isRtl ? 'chevron-back' : 'chevron-forward'}
+            size={16}
+            color={colors.textMuted}
+          />
+        ) : null}
+      </Pressable>
       <View style={[styles.person, row]}>
         {avatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatar} />
@@ -46,9 +59,9 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
           {name}
         </Text>
       </View>
-      {lines.length ? (
+      {shown.length ? (
         <View style={[styles.chips, row]}>
-          {lines.map((item) => (
+          {shown.map((item) => (
             <View key={`${item.icon}-${item.text}`} style={[styles.chip, row, { backgroundColor: colors.primarySoft }]}>
               <Ionicons name={item.icon} size={11} color={colors.primary} />
               <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>
@@ -56,6 +69,11 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
               </Text>
             </View>
           ))}
+          {!open && canExpand ? (
+            <Pressable onPress={() => setOpen(true)} style={[styles.chip, row, { backgroundColor: colors.surfaceMuted }]}>
+              <Text style={[styles.chipText, { color: colors.textMuted }]}>+{lines.length - preview.length}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -65,30 +83,31 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
 const styles = StyleSheet.create({
   box: {
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    gap: 8,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 8,
+    gap: 6,
     borderWidth: 1,
   },
-  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  head: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  kicker: { flex: 1, fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   person: { alignItems: 'center', gap: 8 },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initials: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  name: { flex: 1, fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  chips: { flexWrap: 'wrap', gap: 6 },
+  initials: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  name: { flex: 1, fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  chips: { flexWrap: 'wrap', gap: 4 },
   chip: {
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     borderRadius: radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     maxWidth: '100%',
   },
-  chipText: { fontSize: 11, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
+  chipText: { fontSize: 10, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
 });

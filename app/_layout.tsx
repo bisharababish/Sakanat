@@ -163,7 +163,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   cover: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 50,
   },
 });

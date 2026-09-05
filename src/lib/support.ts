@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { whatsappLink } from '@/src/lib/phone';
 
 export const SUPPORT_EMAIL = 'sakanatappatinfo@gmail.com';
+export const TRUST_EMAIL = (process.env.EXPO_PUBLIC_TRUST_EMAIL ?? '').trim() || SUPPORT_EMAIL;
 export const SUPPORT_PHONE = '+972594295100';
 export const ANDROID_PACKAGE = 'ps.sakanat.app';
 
@@ -11,9 +12,9 @@ export function appVersion() {
   return Constants.expoConfig?.version ?? '1.0.0';
 }
 
-export function mailTo(subject: string, body?: string) {
+export function mailTo(subject: string, body?: string, email = SUPPORT_EMAIL) {
   const query = new URLSearchParams({ subject, ...(body ? { body } : {}) }).toString();
-  return `mailto:${SUPPORT_EMAIL}?${query}`;
+  return `mailto:${email}?${query}`;
 }
 
 function digits(raw: string) {

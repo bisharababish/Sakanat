@@ -14,6 +14,7 @@ type LiveTable =
   | 'cities'
   | 'universities'
   | 'saved_apartments'
+  | 'apartment_reviews'
   | 'app_settings';
 
 export function useLiveReload(

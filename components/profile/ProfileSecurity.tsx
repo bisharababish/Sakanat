@@ -92,6 +92,13 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
       </Card>
       <MfaSetup required={mfaRequired} />
       <SessionSecurity />
+      {profile?.last_seen_ip ? (
+        <Card>
+          <SectionHead icon="globe-outline" title={t('profile.deviceIp')} />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.deviceIpHint')}</Text>
+          <Text style={[styles.hint, rtlText, { color: colors.text }]}>{profile.last_seen_ip}</Text>
+        </Card>
+      ) : null}
       {onDelete ? (
         <Card>
           <SectionHead icon="trash-outline" title={t('profile.deleteAccount')} />

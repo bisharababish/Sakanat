@@ -8,20 +8,28 @@ import { useColors } from '@/src/theme/ThemeProvider';
 type Props = {
   icon: ComponentProps<typeof Ionicons>['name'];
   title: string;
+  compact?: boolean;
 };
 
-export function SectionHead({ icon, title }: Props) {
-  const { isRtl, textAlign, writingDirection } = useLayout();
+export function SectionHead({ icon, title, compact }: Props) {
+  const { isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
 
   return (
-    <View style={styles.sectionHead}>
-      <View style={[styles.sectionIcon, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={icon} size={18} color={colors.primary} />
+    <View style={[styles.sectionHead, row, compact && styles.compact]}>
+      <View
+        style={[
+          styles.sectionIcon,
+          compact && styles.iconCompact,
+          { backgroundColor: colors.primarySoft },
+        ]}
+      >
+        <Ionicons name={icon} size={compact ? 14 : 18} color={colors.primary} />
       </View>
       <Text
         style={[
           styles.sectionTitle,
+          compact && styles.titleCompact,
           { textAlign, writingDirection, color: colors.primary },
           isRtl ? styles.titleRtl : null,
         ]}
@@ -34,11 +42,11 @@ export function SectionHead({ icon, title }: Props) {
 
 const styles = StyleSheet.create({
   sectionHead: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
+    gap: 8,
+    marginBottom: 0,
   },
+  compact: { gap: 6 },
   sectionIcon: {
     width: 34,
     height: 34,
@@ -46,11 +54,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconCompact: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+  },
   sectionTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
   },
+  titleCompact: { fontSize: 14 },
   titleRtl: { textAlign: 'right' },
 });

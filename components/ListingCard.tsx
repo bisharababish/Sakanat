@@ -4,6 +4,7 @@ import { type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { StarRow } from '@/components/reviews/StarRow';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { formatKm, type DistancePlace } from '@/src/lib/distance';
@@ -127,6 +128,14 @@ export function ListingCard({
           <Fact icon="water-outline" text={String(apartment.bathrooms)} />
           <Fact icon="people-outline" text={t(`gender.${apartment.gender_policy}`)} />
           {distanceKm != null ? <Fact icon="navigate-outline" text={formatKm(distanceKm, lang, distancePlace)} /> : null}
+          {(apartment.review_count ?? 0) > 0 ? (
+            <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
+              <StarRow value={apartment.review_avg ?? 0} size={13} />
+              <Text style={[styles.factText, { color: colors.text }]}>
+                {(apartment.review_avg ?? 0).toFixed(1)}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </Pressable>

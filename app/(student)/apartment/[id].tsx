@@ -11,6 +11,7 @@ import { listingDistanceKm } from '@/src/lib/distance';
 import { requireAccount } from '@/src/lib/guest';
 import { alert } from '@/src/lib/notice';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
+import { loadPendingReview } from '@/src/lib/reviews';
 import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment } from '@/src/types/database';
@@ -109,11 +110,20 @@ export default function ApartmentDetails() {
       ]);
       return;
     }
-    if (mismatch) {
-      alert(t('common.error'), t('listing.genderMismatch'));
-      return;
-    }
-    router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });
+    void loadPendingReview(profile.id).then((pendingReview) => {
+      if (pendingReview) {
+        alert(t('review.neededTitle'), t('review.neededBody'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('review.goWrite'), onPress: () => router.push('/(student)/(tabs)/bookings') },
+        ]);
+        return;
+      }
+      if (mismatch) {
+        alert(t('common.error'), t('listing.genderMismatch'));
+        return;
+      }
+      router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });
+    });
   };
 
   return (

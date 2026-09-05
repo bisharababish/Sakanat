@@ -8,12 +8,14 @@ type Props = {
   children: ReactNode;
   onPress?: () => void;
   onLayout?: (event: LayoutChangeEvent) => void;
+  compact?: boolean;
 };
 
-export function Card({ children, onPress, onLayout }: Props) {
+export function Card({ children, onPress, onLayout, compact }: Props) {
   const colors = useColors();
   const style = [
     styles.card,
+    compact ? styles.compact : null,
     {
       backgroundColor: colors.surface,
       borderColor: colors.border,
@@ -44,6 +46,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
+  },
+  compact: {
+    borderRadius: radius.lg,
+    padding: spacing.sm + 2,
+    gap: spacing.sm,
   },
   pressed: { opacity: 0.92 },
 });

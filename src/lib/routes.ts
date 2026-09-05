@@ -6,10 +6,12 @@ export function homeHref(role: UserRole) {
   return '/(student)/(tabs)/search';
 }
 
-export function profileHref(role: UserRole) {
+export type StudentProfileTab = 'account' | 'trust' | 'saved' | 'security';
+
+export function profileHref(role: UserRole, tab?: StudentProfileTab) {
   if (role === 'admin') return '/(admin)/(tabs)/settings';
   if (role === 'owner') return '/(owner)/(tabs)/profile';
-  return '/(student)/(tabs)/profile';
+  return tab ? { pathname: '/(student)/(tabs)/profile' as const, params: { tab } } : '/(student)/(tabs)/profile';
 }
 
 export function allowedAppGroup(role: UserRole, group: string) {

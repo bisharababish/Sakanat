@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
+import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { Button } from '@/components/ui/Button';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -14,25 +15,33 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
+import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
+import { displayName } from '@/src/lib/name';
 import { whatsappLink } from '@/src/lib/phone';
+import { canReviewStay, isValidReview, loadMyReviews, submitApartmentReview } from '@/src/lib/reviews';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { Apartment, Booking, BookingStatus } from '@/src/types/database';
+import type { Apartment, ApartmentReview, Booking, BookingStatus } from '@/src/types/database';
 
 type Filter = 'all' | BookingStatus;
 
 export default function StudentBookings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<ApartmentReview[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [page, setPage] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<Booking | null>(null);
+  const [reviewStars, setReviewStars] = useState(5);
+  const [reviewNote, setReviewNote] = useState('');
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -42,9 +51,24 @@ export default function StudentBookings() {
       .eq('student_id', profile.id)
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
+    if (profile) {
+      try {
+        setReviews(await loadMyReviews(profile.id));
+      } catch {
+        setReviews([]);
+      }
+    }
   }, [profile]);
 
-  const { refreshing, refresh } = useLiveReload(load, ['bookings'], `student-bookings:${profile?.id ?? ''}`);
+  const { refreshing, refresh } = useLiveReload(
+    load,
+    ['bookings', 'apartment_reviews'],
+    `student-bookings:${profile?.id ?? ''}`,
+  );
+  const reviewByBooking = useMemo(
+    () => Object.fromEntries(reviews.map((item) => [item.booking_id, item])),
+    [reviews],
+  );
 
   const counts = useMemo(() => {
     const next: Record<Filter, number> = {
@@ -97,6 +121,38 @@ export default function StudentBookings() {
     }
   };
 
+  const openReview = (booking: Booking) => {
+    const existing = reviewByBooking[booking.id];
+    setReviewing(booking);
+    setReviewStars(existing?.stars ?? 5);
+    setReviewNote(existing?.note ?? '');
+  };
+
+  const saveReview = async () => {
+    if (!profile || !reviewing) return;
+    if (!isValidReview(reviewStars, reviewNote)) {
+      alert(t('common.error'), t('review.invalid'));
+      return;
+    }
+    setReviewBusy(true);
+    try {
+      await submitApartmentReview({
+        booking: reviewing,
+        studentId: profile.id,
+        authorName: displayName(profile, i18n.language) || profile.full_name,
+        stars: reviewStars,
+        note: reviewNote,
+        existingId: reviewByBooking[reviewing.id]?.id,
+      });
+      setReviewing(null);
+      await load();
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('review.failed'));
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
   const payVisa = (id: string) => {
     alert(t('booking.payNow'), t('booking.confirmVisa'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -120,6 +176,7 @@ export default function StudentBookings() {
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.myBookings')}</Text>
+          <Text style={[styles.kicker, rtlText, { color: colors.textMuted }]}>{t('booking.reviewsHere')}</Text>
         </View>
         {counts.pending > 0 ? (
           <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
@@ -127,6 +184,12 @@ export default function StudentBookings() {
           </View>
         ) : null}
       </View>
+
+      {bookings.some((item) => canReviewStay(item) && !reviewByBooking[item.id]) ? (
+        <View style={[styles.warn, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+          <Text style={[styles.warnText, rtlText, { color: colors.text }]}>{t('review.neededBody')}</Text>
+        </View>
+      ) : null}
 
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
@@ -192,6 +255,13 @@ export default function StudentBookings() {
             booking.status !== 'cancelled' ? (
               <Button title={t('booking.payNow')} pill onPress={() => payVisa(booking.id)} />
             ) : null}
+            {canReviewStay(booking) ? (
+              <Button
+                title={reviewByBooking[booking.id] ? t('review.edit') : t('review.write')}
+                pill
+                onPress={() => openReview(booking)}
+              />
+            ) : null}
             {booking.status === 'pending' ? (
               <Button title={t('booking.cancelRequest')} variant="danger" pill onPress={() => cancel(booking.id)} />
             ) : null}
@@ -206,6 +276,21 @@ export default function StudentBookings() {
         total={total}
         pageSize={BOOKING_PAGE_SIZE}
         onPage={setPage}
+      />
+      <ReviewForm
+        visible={Boolean(reviewing)}
+        title={
+          reviewing?.apartments
+            ? t('review.formTitle', { title: localizedTitle(reviewing.apartments, i18n.language) })
+            : t('review.write')
+        }
+        stars={reviewStars}
+        note={reviewNote}
+        loading={reviewBusy}
+        onStars={setReviewStars}
+        onNote={setReviewNote}
+        onConfirm={() => void saveReview()}
+        onClose={() => setReviewing(null)}
       />
     </Screen>
   );
@@ -241,4 +326,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  warn: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
+  warnText: { fontSize: 14, lineHeight: 22, fontFamily: 'Cairo_600SemiBold' },
 });

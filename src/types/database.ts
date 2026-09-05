@@ -7,6 +7,7 @@ export type PaymentMethod = 'cash' | 'check' | 'visa' | 'pay_now' | 'pay_later';
 export type PaymentStatus = 'unpaid' | 'paid';
 export type GenderPolicy = 'any' | 'female' | 'male';
 export type PersonGender = 'female' | 'male';
+export type IdVerifyStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 export type City = {
   id: string;
@@ -48,6 +49,17 @@ export type Profile = {
   study_year: string | null;
   degree_level: string | null;
   major: string | null;
+  home_address?: string | null;
+  national_id_number?: string | null;
+  national_id_url?: string | null;
+  university_card_url?: string | null;
+  id_verify_status?: IdVerifyStatus;
+  id_verify_note?: string | null;
+  id_verified_at?: string | null;
+  id_verified_by?: string | null;
+  emergency_name?: string | null;
+  emergency_phone?: string | null;
+  last_seen_ip?: string | null;
   expo_push_token?: string | null;
   account_status?: 'active' | 'suspended';
   accepted_terms_at?: string | null;
@@ -77,6 +89,8 @@ export type Apartment = {
   campus_distance_km: number | null;
   status: ListingStatus;
   reject_reason?: string | null;
+  review_avg?: number | null;
+  review_count?: number | null;
   created_at: string;
   cities?: City;
   universities?: University | null;
@@ -117,6 +131,14 @@ export type Booking = {
     | 'degree_level'
     | 'student_id_number'
     | 'date_of_birth'
+    | 'home_address'
+    | 'national_id_number'
+    | 'national_id_url'
+    | 'university_card_url'
+    | 'id_verify_status'
+    | 'emergency_name'
+    | 'emergency_phone'
+    | 'last_seen_ip'
   > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
   student?: Pick<
     Profile,
@@ -135,6 +157,14 @@ export type Booking = {
     | 'degree_level'
     | 'student_id_number'
     | 'date_of_birth'
+    | 'home_address'
+    | 'national_id_number'
+    | 'national_id_url'
+    | 'university_card_url'
+    | 'id_verify_status'
+    | 'emergency_name'
+    | 'emergency_phone'
+    | 'last_seen_ip'
   > | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email'> | null;
 };
@@ -153,6 +183,17 @@ export type Conversation = {
   apartments?: Pick<Apartment, 'id' | 'title_ar' | 'title_en' | 'photos'>;
   student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
+};
+
+export type ApartmentReview = {
+  id: string;
+  booking_id: string;
+  apartment_id: string;
+  student_id: string;
+  stars: number;
+  note: string;
+  author_name: string;
+  created_at: string;
 };
 
 export type Message = {
