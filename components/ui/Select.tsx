@@ -18,11 +18,23 @@ type Props = {
   onChange: (value: string) => void;
   soft?: boolean;
   compact?: boolean;
+  dense?: boolean;
   clearable?: boolean;
   icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-export function Select({ label, value, placeholder, options, onChange, soft, compact, clearable, icon }: Props) {
+export function Select({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+  soft,
+  compact,
+  dense,
+  clearable,
+  icon,
+}: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { rtlText, alignStart, isRtl, textAlign, writingDirection } = useLayout();
@@ -35,12 +47,14 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
   const active = Boolean(value);
 
   return (
-    <View style={styles.wrap}>
-      {compact ? null : <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>}
+    <View style={[styles.wrap, dense && styles.wrapDense]}>
+      {compact ? null : (
+        <Text style={[styles.label, dense && styles.labelDense, rtlText, { color: colors.text }]}>{label}</Text>
+      )}
       <Pressable
         accessibilityLabel={label}
         style={[
-          compact ? styles.compact : styles.field,
+          compact ? styles.compact : dense ? styles.fieldDense : styles.field,
           {
             backgroundColor: compact && active ? colors.primarySoft : soft && !compact ? colors.surfaceMuted : colors.surface,
             borderColor: compact && active ? colors.primary : soft && !compact ? 'transparent' : colors.border,
@@ -55,7 +69,7 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
         <Text
           numberOfLines={1}
           style={[
-            compact ? styles.compactValue : styles.value,
+            compact ? styles.compactValue : dense ? styles.valueDense : styles.value,
             { color: !selected ? colors.textMuted : compact && active ? colors.primary : colors.text, textAlign, writingDirection },
           ]}
         >
@@ -97,13 +111,22 @@ export function Select({ label, value, placeholder, options, onChange, soft, com
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
+  wrapDense: { gap: 4 },
   label: { fontWeight: '700', fontSize: 14 },
+  labelDense: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   field: {
     borderWidth: 1,
     borderRadius: radius.md,
     minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
+  },
+  fieldDense: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
   },
   compact: {
     borderWidth: 1,
@@ -121,6 +144,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_700Bold',
   },
   value: { fontSize: 16 },
+  valueDense: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   overlay: {
     flex: 1,
     justifyContent: 'center',

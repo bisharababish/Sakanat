@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -5,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { localizedTitle } from '@/src/lib/format';
+import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
@@ -38,14 +40,20 @@ export function ConversationCard({
   title,
   photo,
   unread,
+  muted,
+  archived,
   onPress,
+  onLongPress,
   children,
 }: {
   conversation: Conversation;
   title: string;
   photo?: string | null;
   unread?: boolean;
+  muted?: boolean;
+  archived?: boolean;
   onPress: () => void;
+  onLongPress?: () => void;
   children?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
@@ -58,13 +66,14 @@ export function ConversationCard({
     <View>
       <Pressable
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={280}
         style={({ pressed }) => [
           styles.card,
           row,
           {
-            backgroundColor: colors.surface,
+            backgroundColor: unread ? colors.primarySoft : colors.surface,
             borderColor: colors.border,
-            shadowColor: colors.text,
           },
           pressed && styles.pressed,
         ]}
@@ -88,6 +97,8 @@ export function ConversationCard({
             >
               {title}
             </Text>
+            {muted ? <Ionicons name="notifications-off-outline" size={12} color={colors.textMuted} /> : null}
+            {archived ? <Ionicons name="archive-outline" size={12} color={colors.textMuted} /> : null}
             {unread ? <View style={[styles.dot, { backgroundColor: colors.primary }]} /> : null}
             <Text style={[styles.when, { color: unread ? colors.primary : colors.textMuted }]}>
               {formatWhen(conversation.last_message_at, i18n.language, t('chat.yesterday'))}
@@ -125,33 +136,30 @@ export function ConversationCard({
 const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 24,
-    padding: 12,
+    gap: 8,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
   },
   pressed: { opacity: 0.92 },
   photo: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initials: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 18 },
-  body: { flex: 1, minWidth: 0, gap: 2 },
-  top: { alignItems: 'center', gap: 8 },
-  title: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  initials: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
+  body: { flex: 1, minWidth: 0, gap: 1 },
+  top: { alignItems: 'center', gap: 4 },
+  title: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   titleUnread: { fontWeight: '800' },
-  when: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  listing: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
-  preview: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  when: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  listing: { fontSize: 11, fontFamily: 'Cairo_600SemiBold' },
+  preview: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   previewUnread: { fontFamily: 'Cairo_700Bold', fontWeight: '700' },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  listingPhoto: { width: 48, height: 48, borderRadius: 14 },
-  actions: { marginTop: 8, gap: 8 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  listingPhoto: { width: 40, height: 40, borderRadius: 10 },
+  actions: { marginTop: 6, gap: 6 },
 });

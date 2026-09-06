@@ -6,11 +6,15 @@ export function homeHref(role: UserRole) {
   return '/(student)/(tabs)/search';
 }
 
-export type StudentProfileTab = 'account' | 'trust' | 'saved' | 'security';
+export type ProfileTab = 'account' | 'trust' | 'settings' | 'saved' | 'security';
 
-export function profileHref(role: UserRole, tab?: StudentProfileTab) {
+export function profileHref(role: UserRole, tab?: ProfileTab) {
   if (role === 'admin') return '/(admin)/(tabs)/settings';
-  if (role === 'owner') return '/(owner)/(tabs)/profile';
+  if (role === 'owner') {
+    return tab && tab !== 'saved'
+      ? { pathname: '/(owner)/(tabs)/profile' as const, params: { tab } }
+      : '/(owner)/(tabs)/profile';
+  }
   return tab ? { pathname: '/(student)/(tabs)/profile' as const, params: { tab } } : '/(student)/(tabs)/profile';
 }
 

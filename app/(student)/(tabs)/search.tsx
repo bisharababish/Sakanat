@@ -27,9 +27,10 @@ import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { Apartment, GenderPolicy, University } from '@/src/types/database';
+import { AMENITIES, type Amenity, type Apartment, type GenderPolicy, type University } from '@/src/types/database';
 
 type GenderFilter = 'suitable' | 'all' | GenderPolicy;
+type SortMode = 'price' | 'distance' | 'rating';
 
 export default function SearchScreen() {
   const { t, i18n } = useTranslation();
@@ -45,11 +46,10 @@ export default function SearchScreen() {
   const [universityId, setUniversityId] = useState(isRenter ? '' : (profile?.university_id ?? ''));
   const [maxPrice, setMaxPrice] = useState('');
   const [maxKm, setMaxKm] = useState('');
-  const [sort, setSort] = useState<'price' | 'distance'>(
-    !isRenter && profile?.university_id ? 'distance' : 'price',
-  );
+  const [sort, setSort] = useState<SortMode>(!isRenter && profile?.university_id ? 'distance' : 'price');
   const [genderFilter, setGenderFilter] = useState<GenderFilter>(profile?.gender ? 'suitable' : 'all');
   const [roomsFilter, setRoomsFilter] = useState('');
+  const [amenityFilter, setAmenityFilter] = useState<Amenity[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -62,7 +62,22 @@ export default function SearchScreen() {
       setSort((current) => (current === 'price' ? 'distance' : current));
     }
     if (profile?.gender) setGenderFilter((current) => (current === 'all' ? 'suitable' : current));
-  }, [isRenter, profile?.city_id, profile?.gender, profile?.university_id]);
+    if (profile?.pref_budget_max != null) {
+      setMaxPrice((current) => current || String(Math.round(Number(profile.pref_budget_max))));
+    }
+    if (profile?.pref_gender_policy === 'female' || profile?.pref_gender_policy === 'male') {
+      setGenderFilter(profile.pref_gender_policy);
+    } else if (profile?.pref_gender_policy === 'any') {
+      setGenderFilter('all');
+    }
+  }, [
+    isRenter,
+    profile?.city_id,
+    profile?.gender,
+    profile?.university_id,
+    profile?.pref_budget_max,
+    profile?.pref_gender_policy,
+  ]);
 
   const load = useCallback(async () => {
     reloadCatalog();
@@ -114,6 +129,11 @@ export default function SearchScreen() {
           .toLowerCase();
         return haystack.includes(needle);
       })
+      .filter((item) => {
+        if (amenityFilter.length === 0) return true;
+        const list = item.amenities ?? [];
+        return amenityFilter.every((key) => list.includes(key));
+      })
       .map((item) => ({
         item,
         distance: listingDistanceKm(
@@ -132,10 +152,20 @@ export default function SearchScreen() {
 
     withDistance.sort((a, b) => {
       if (sort === 'distance') return (a.distance ?? 999) - (b.distance ?? 999);
+      if (sort === 'rating') {
+        const aAvg = a.item.review_avg ?? 0;
+        const bAvg = b.item.review_avg ?? 0;
+        if (bAvg !== aAvg) return bAvg - aAvg;
+        const aCount = a.item.review_count ?? 0;
+        const bCount = b.item.review_count ?? 0;
+        if (bCount !== aCount) return bCount - aCount;
+        return a.item.price_month - b.item.price_month;
+      }
       return a.item.price_month - b.item.price_month;
     });
     return withDistance;
   }, [
+    amenityFilter,
     apartments,
     cityId,
     genderFilter,
@@ -153,13 +183,13 @@ export default function SearchScreen() {
   const paged = usePaged(
     filtered,
     LISTING_PAGE_SIZE,
-    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, genderFilter, sort].join('|'),
+    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, genderFilter, sort, amenityFilter.join(',')].join('|'),
   );
 
   const defaultCityId = isRenter ? (profile?.city_id ?? '') : '';
   const defaultUniversityId = isRenter ? '' : (profile?.university_id ?? '');
   const defaultGender: GenderFilter = profile?.gender ? 'suitable' : 'all';
-  const defaultSort: 'price' | 'distance' = !isRenter && defaultUniversityId ? 'distance' : 'price';
+  const defaultSort: SortMode = !isRenter && defaultUniversityId ? 'distance' : 'price';
   const filtersOn = Boolean(
     query.trim() ||
       cityId !== defaultCityId ||
@@ -167,6 +197,7 @@ export default function SearchScreen() {
       maxPrice ||
       maxKm ||
       roomsFilter ||
+      amenityFilter.length > 0 ||
       genderFilter !== defaultGender ||
       sort !== defaultSort,
   );
@@ -178,8 +209,15 @@ export default function SearchScreen() {
     setMaxPrice('');
     setMaxKm('');
     setRoomsFilter('');
+    setAmenityFilter([]);
     setGenderFilter(defaultGender);
     setSort(defaultSort);
+  };
+
+  const toggleAmenity = (key: Amenity) => {
+    setAmenityFilter((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+    );
   };
 
   const filterSummary = useMemo(() => {
@@ -197,8 +235,12 @@ export default function SearchScreen() {
     if (roomsFilter) parts.push(roomsFilter === '4' ? t('search.roomsPlus') : roomsFilter);
     if (genderFilter === 'suitable') parts.push(t('search.suitable'));
     else if (genderFilter === 'female' || genderFilter === 'male') parts.push(t(`gender.${genderFilter}`));
+    if (amenityFilter.length === 1) parts.push(t(`amenities.${amenityFilter[0]}`));
+    else if (amenityFilter.length > 1) parts.push(t('search.amenitiesCount', { count: amenityFilter.length }));
+    if (sort === 'rating') parts.push(t('search.sortRating'));
     return parts.join(' · ');
   }, [
+    amenityFilter,
     cities,
     cityId,
     genderFilter,
@@ -207,6 +249,7 @@ export default function SearchScreen() {
     maxKm,
     maxPrice,
     roomsFilter,
+    sort,
     t,
     universities,
     universityId,
@@ -218,6 +261,12 @@ export default function SearchScreen() {
     { value: 'all' as const, label: t('common.all') },
     { value: 'female' as const, label: t('gender.female') },
     { value: 'male' as const, label: t('gender.male') },
+  ];
+  const amenityItems = AMENITIES.map((key) => ({ value: key, label: t(`amenities.${key}`) }));
+  const sortItems: { value: SortMode; label: string }[] = [
+    { value: 'price', label: t('search.sortPrice') },
+    { value: 'distance', label: t('search.sortDistance') },
+    { value: 'rating', label: t('search.sortRating') },
   ];
 
   return (
@@ -240,18 +289,8 @@ export default function SearchScreen() {
         />
       ) : null}
 
-      <View
-        style={[
-          styles.searchBar,
-          row,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            shadowColor: colors.text,
-          },
-        ]}
-      >
-        <Ionicons name="search" size={20} color={colors.primary} />
+      <View style={[styles.searchBar, row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Ionicons name="search" size={18} color={colors.primary} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -263,12 +302,12 @@ export default function SearchScreen() {
         />
         {query ? (
           <Pressable onPress={() => setQuery('')} hitSlop={8} accessibilityLabel={t('search.clear')}>
-            <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
 
-      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={[styles.panelHead, row]}>
           <Pressable
             onPress={() => setFiltersOpen((open) => !open)}
@@ -297,14 +336,14 @@ export default function SearchScreen() {
             >
               <Ionicons
                 name={filtersOpen ? 'chevron-up' : 'chevron-down'}
-                size={20}
+                size={18}
                 color={colors.textMuted}
               />
             </Pressable>
           </View>
         </View>
         {filtersOpen ? (
-          <>
+          <View style={styles.filtersBody}>
             <View style={[styles.filterGrid, chipAlign]}>
               <View style={styles.filterCell}>
                 <Select
@@ -381,8 +420,10 @@ export default function SearchScreen() {
                 />
               </View>
             </View>
+
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.rooms')}</Text>
             <FilterPills
+              compact
               value={roomsFilter}
               onChange={setRoomsFilter}
               items={[
@@ -393,26 +434,21 @@ export default function SearchScreen() {
                 { value: '4', label: t('search.roomsPlus') },
               ]}
             />
+
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
-            <FilterPills value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+            <FilterPills compact value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+
+            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('listing.amenities')}</Text>
+            <FilterPills
+              compact
+              values={amenityFilter}
+              onToggle={toggleAmenity}
+              items={amenityItems}
+            />
+
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
-            <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, row]}>
-              {(['price', 'distance'] as const).map((value) => {
-                const on = sort === value;
-                return (
-                  <Pressable
-                    key={value}
-                    onPress={() => setSort(value)}
-                    style={[styles.segmentBtn, on && { backgroundColor: colors.surface, shadowColor: colors.text }]}
-                  >
-                    <Text style={[styles.segmentLabel, { color: on ? colors.primary : colors.textMuted }]}>
-                      {value === 'price' ? t('search.sortPrice') : t('search.sortDistance')}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
+            <FilterPills compact value={sort} onChange={setSort} items={sortItems} />
+          </View>
         ) : null}
       </View>
 
@@ -435,7 +471,13 @@ export default function SearchScreen() {
         <ListingCard
           key={item.id}
           apartment={item}
-          university={isRenter ? null : distancePlace === 'campus' ? (selectedUniversity ?? item.universities) as University | null : null}
+          university={
+            isRenter
+              ? null
+              : distancePlace === 'campus'
+                ? ((selectedUniversity ?? item.universities) as University | null)
+                : null
+          }
           distanceKm={distance}
           distancePlace={distancePlace}
           saved={savedIds.includes(item.id)}
@@ -486,71 +528,47 @@ export default function SearchScreen() {
 
 const styles = StyleSheet.create({
   head: { gap: 2 },
-  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  sub: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  sub: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   searchBar: {
     alignItems: 'center',
-    gap: 10,
-    minHeight: 54,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
+    gap: 8,
+    minHeight: 40,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Cairo_400Regular',
-    paddingVertical: 12,
+    paddingVertical: 6,
   },
   panel: {
-    borderRadius: 24,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    padding: spacing.md,
-    gap: 12,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 2,
+    padding: spacing.sm,
+    gap: spacing.xs,
   },
   panelHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  panelHeadCopy: { flex: 1, minWidth: 0, gap: 2 },
-  panelHeadActions: { alignItems: 'center', gap: 10, flexShrink: 0 },
-  panelTitle: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  panelSummary: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
-  panelLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  filterCell: { flexGrow: 1, flexBasis: '47%', minWidth: 148 },
-  segment: {
-    borderRadius: radius.full,
-    borderWidth: 1,
-    padding: 4,
-    gap: 4,
-  },
-  segmentBtn: {
-    flex: 1,
-    borderRadius: radius.full,
-    paddingVertical: 10,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  segmentLabel: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  panelHeadCopy: { flex: 1, minWidth: 0, gap: 1 },
+  panelHeadActions: { alignItems: 'center', gap: 8, flexShrink: 0 },
+  panelTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  panelSummary: { fontSize: 11, lineHeight: 16, fontFamily: 'Cairo_400Regular' },
+  panelLabel: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  filtersBody: { gap: spacing.xs },
+  filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  filterCell: { flexGrow: 1, flexBasis: '47%', minWidth: 140 },
   metaRow: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   countPill: {
     borderRadius: radius.full,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  count: { fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
-  clear: { fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
-  empty: { gap: spacing.md },
+  count: { fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  clear: { fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  empty: { gap: spacing.sm },
 });

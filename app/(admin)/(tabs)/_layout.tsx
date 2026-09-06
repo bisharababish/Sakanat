@@ -77,6 +77,13 @@ export default function AdminTabs() {
         }}
       />
       <Tabs.Screen
+        name="reports"
+        options={{
+          href: null,
+          title: t('admin.reportsTitle'),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: t('tabs.settings'),

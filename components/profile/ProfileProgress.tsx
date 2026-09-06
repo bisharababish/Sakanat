@@ -11,11 +11,12 @@ export type ProfileCheck = { id?: string; label: string; done: boolean };
 type Props = {
   items: ProfileCheck[];
   onJump?: (id: string) => void;
+  readyLabel?: string;
 };
 
 const CHIP_LIMIT = 4;
 
-export function ProfileProgress({ items, onJump }: Props) {
+export function ProfileProgress({ items, onJump, readyLabel }: Props) {
   const { t } = useTranslation();
   const { rtlText, row, isRtl } = useLayout();
   const colors = useColors();
@@ -40,7 +41,7 @@ export function ProfileProgress({ items, onJump }: Props) {
         <View style={styles.copy}>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('profile.progressTitle')}</Text>
           <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>
-            {ready ? t('profile.readyToBook') : t('profile.progressOf', { filled, total })}
+            {ready ? readyLabel || t('profile.readyToBook') : t('profile.progressOf', { filled, total })}
           </Text>
         </View>
         <Text style={[styles.percent, { color: ready ? colors.success : colors.primary }]}>{percent}%</Text>

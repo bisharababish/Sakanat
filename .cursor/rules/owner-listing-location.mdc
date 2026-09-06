@@ -1,0 +1,17 @@
+---
+description: Future owner listing pin / campus distance for students
+globs: components/ListingEditor.tsx,app/(owner)/**/*,supabase/**/*
+alwaysApply: false
+---
+
+# Later: apartment map location (owner listings)
+
+Owners must be able to set the **real pin location** of each apartment (lat/lng), not only nearest university / city fallbacks.
+
+Students should then see:
+- the apartment on the map
+- **how far it is from their university** (computed distance), not only a manual campus-km chip
+
+Today `ListingEditor` still derives `lat`/`lng` from nearest university or city when saving. Replace that with an owner-picked map pin (and keep/recompute distance to the student’s university on search/detail).
+
+Do not treat this as done until pin pick + student-facing distance are shipped.

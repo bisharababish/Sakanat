@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NameField } from '@/components/profile/NameField';
 import { IdReviewCard } from '@/components/profile/IdReviewCard';
 import { SectionHead } from '@/components/profile/SectionHead';
+import { UserDataExport } from '@/components/profile/UserDataExport';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -324,6 +325,8 @@ export default function AdminUserEdit() {
       (user.national_id_url || user.university_card_url) ? (
         <IdReviewCard user={user} meId={me?.id} onChanged={() => void load()} />
       ) : null}
+
+      <UserDataExport userId={user.id} titleKey="admin.exportUserData" />
 
       {user.role !== 'admin' ? (
         <Card>

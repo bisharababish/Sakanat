@@ -19,6 +19,7 @@ type Props = {
   onChangeText: (value: string) => void;
   script: 'en' | 'ar';
   soft?: boolean;
+  compact?: boolean;
 };
 
 function sanitizePart(raw: string, script: 'en' | 'ar') {
@@ -43,7 +44,7 @@ function wrongScript(raw: string, script: 'en' | 'ar') {
   return script === 'en' ? ARABIC_CHAR.test(raw) : LATIN_CHAR.test(raw);
 }
 
-export function NameField({ label, value, onChangeText, script, soft }: Props) {
+export function NameField({ label, value, onChangeText, script, soft, compact }: Props) {
   const { t } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
@@ -156,6 +157,7 @@ export function NameField({ label, value, onChangeText, script, soft }: Props) {
           style={[
             styles.slot,
             soft ? styles.soft : null,
+            compact ? styles.slotCompact : null,
             {
               writingDirection: ltr ? 'ltr' : 'rtl',
               backgroundColor: scriptError && focused ? colors.dangerSoft : focused ? colors.primarySoft : soft ? colors.surfaceMuted : colors.surface,
@@ -175,20 +177,22 @@ export function NameField({ label, value, onChangeText, script, soft }: Props) {
   };
 
   return (
-    <View style={styles.wrap}>
-      <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+      <Text style={[styles.label, compact && styles.labelCompact, rtlText, { color: colors.text }]}>{label}</Text>
       {scriptError ? (
-        <View style={[styles.error, row, { backgroundColor: colors.dangerSoft }]}>
-          <Ionicons name="alert-circle" size={16} color={colors.danger} />
-          <Text style={[styles.errorText, rtlText, { color: colors.danger }]}>{errorText}</Text>
+        <View style={[styles.error, compact && styles.errorCompact, row, { backgroundColor: colors.dangerSoft }]}>
+          <Ionicons name="alert-circle" size={compact ? 14 : 16} color={colors.danger} />
+          <Text style={[styles.errorText, compact && styles.errorTextCompact, rtlText, { color: colors.danger }]}>
+            {errorText}
+          </Text>
         </View>
       ) : null}
-      <View style={[styles.grid, { direction: ltr ? 'ltr' : 'rtl' }]}>
-        <View style={styles.row}>
+      <View style={[styles.grid, compact && styles.gridCompact, { direction: ltr ? 'ltr' : 'rtl' }]}>
+        <View style={[styles.row, compact && styles.rowCompact]}>
           {renderSlot(0)}
           {renderSlot(1)}
         </View>
-        <View style={styles.row}>
+        <View style={[styles.row, compact && styles.rowCompact]}>
           {renderSlot(2)}
           {renderSlot(3)}
         </View>
@@ -199,9 +203,13 @@ export function NameField({ label, value, onChangeText, script, soft }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
+  wrapCompact: { gap: 5 },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  labelCompact: { fontSize: 12 },
   grid: { gap: 8 },
+  gridCompact: { gap: 6 },
   row: { flexDirection: 'row', gap: 8 },
+  rowCompact: { gap: 6 },
   slotWrap: { flex: 1, minWidth: 0 },
   slot: {
     width: '100%',
@@ -213,6 +221,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     textAlignVertical: 'center',
     includeFontPadding: false,
+  },
+  slotCompact: {
+    height: 40,
+    paddingHorizontal: 8,
+    fontSize: 13,
+    borderRadius: radius.sm,
   },
   soft: {
     borderRadius: radius.full,
@@ -226,5 +240,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 8,
   },
+  errorCompact: { gap: 6, paddingVertical: 6 },
   errorText: { flex: 1, fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_600SemiBold' },
+  errorTextCompact: { fontSize: 12, lineHeight: 16 },
 });

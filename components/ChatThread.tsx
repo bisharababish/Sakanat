@@ -20,6 +20,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { useAuth } from '@/src/lib/auth';
 import { MESSAGE_MAX } from '@/src/lib/limits';
+import { alert } from '@/src/lib/notice';
 import {
   loadConversation,
   markConversationDelivered,
@@ -201,9 +202,13 @@ export function ChatThread({
     setSending(true);
     try {
       await sendMessage(conversationId, profile.id, body);
-    } catch {
+    } catch (err) {
       setMessages((current) => current.filter((item) => item.id !== temp.id));
       setDraft(body);
+      alert(
+        t('common.error'),
+        err instanceof Error && err.message ? err.message : t('chat.sendFailed'),
+      );
     } finally {
       setSending(false);
     }

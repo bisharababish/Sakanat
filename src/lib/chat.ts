@@ -5,7 +5,7 @@ import { supabase } from '@/src/lib/supabase';
 import type { Apartment, Conversation, Profile } from '@/src/types/database';
 
 const CONVERSATION_SELECT =
-  '*, apartments(id, title_ar, title_en, photos), student:profiles!student_id(id, full_name, avatar_url, role), owner:profiles!owner_id(id, full_name, avatar_url)';
+  '*, apartments(id, title_ar, title_en, photos), student:profiles!student_id(id, full_name, avatar_url, role), owner:profiles!owner_id(id, full_name, avatar_url, role)';
 
 export function personName(person?: Pick<Profile, 'full_name'> | null) {
   const name = (person?.full_name ?? '').trim();
@@ -24,6 +24,10 @@ export function otherPerson(conversation: Conversation | null | undefined, myId?
 }
 
 export async function openConversation(apartment: Apartment, studentId: string) {
+  const { isBlockedEitherWay } = await import('@/src/lib/blocks');
+  if (await isBlockedEitherWay(studentId, apartment.owner_id)) {
+    throw new Error(i18n.t('chat.blockedOpen'));
+  }
   const { data: existing, error: existingError } = await supabase
     .from('conversations')
     .select('id')
@@ -95,6 +99,50 @@ export async function conversationIdsMatchingMessage(query: string) {
 export async function deleteConversation(id: string) {
   const { error } = await supabase.from('conversations').delete().eq('id', id);
   if (error) throw error;
+}
+
+export function isConversationMuted(conversation: Conversation, myId?: string | null) {
+  if (!myId) return false;
+  if (conversation.student_id === myId) return Boolean(conversation.student_muted);
+  if (conversation.owner_id === myId) return Boolean(conversation.owner_muted);
+  return false;
+}
+
+export function isConversationArchived(conversation: Conversation, myId?: string | null) {
+  if (!myId) return false;
+  if (conversation.student_id === myId) return Boolean(conversation.student_archived_at);
+  if (conversation.owner_id === myId) return Boolean(conversation.owner_archived_at);
+  return false;
+}
+
+export async function setConversationMuted(conversationId: string, asOwner: boolean, muted: boolean) {
+  const column = asOwner ? 'owner_muted' : 'student_muted';
+  const { error } = await supabase.from('conversations').update({ [column]: muted }).eq('id', conversationId);
+  if (error) throw error;
+}
+
+export async function setConversationArchived(conversationId: string, asOwner: boolean, archived: boolean) {
+  const column = asOwner ? 'owner_archived_at' : 'student_archived_at';
+  const { error } = await supabase
+    .from('conversations')
+    .update({ [column]: archived ? new Date().toISOString() : null })
+    .eq('id', conversationId);
+  if (error) throw error;
+}
+
+export function conversationSearchHaystack(item: Conversation, lang: string) {
+  const student = asPerson(item.student);
+  const owner = asPerson(item.owner);
+  return [
+    personName(student),
+    personName(owner),
+    item.apartments?.title_ar,
+    item.apartments?.title_en,
+    item.last_message,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
 }
 
 export function lastReadAt(conversation: Conversation, myId?: string | null) {
@@ -179,6 +227,18 @@ export async function markInboxDelivered(items: Conversation[], asOwner: boolean
 export async function sendMessage(conversationId: string, senderId: string, body: string) {
   const trimmed = body.trim().slice(0, MESSAGE_MAX);
   if (!trimmed) return;
+  const { data: convo } = await supabase
+    .from('conversations')
+    .select('student_id, owner_id')
+    .eq('id', conversationId)
+    .maybeSingle();
+  const otherId = convo?.student_id === senderId ? convo?.owner_id : convo?.student_id;
+  if (otherId) {
+    const { isBlockedEitherWay } = await import('@/src/lib/blocks');
+    if (await isBlockedEitherWay(senderId, otherId)) {
+      throw new Error(i18n.t('chat.blockedSend'));
+    }
+  }
   const { error } = await supabase.from('messages').insert({
     conversation_id: conversationId,
     sender_id: senderId,
@@ -186,11 +246,6 @@ export async function sendMessage(conversationId: string, senderId: string, body
   });
   if (error) throw error;
   const now = new Date().toISOString();
-  const { data: convo } = await supabase
-    .from('conversations')
-    .select('student_id, owner_id')
-    .eq('id', conversationId)
-    .maybeSingle();
   const asOwner = convo?.owner_id === senderId;
   await supabase
     .from('conversations')
@@ -202,8 +257,18 @@ export async function sendMessage(conversationId: string, senderId: string, body
         : { student_last_read_at: now, student_delivered_at: now }),
     })
     .eq('id', conversationId);
-  const otherId = convo?.student_id === senderId ? convo.owner_id : convo?.student_id;
   if (otherId) {
-    void notifyUser(otherId, i18n.t('push.newMessageTitle'), trimmed.slice(0, 90));
+    const { data: flags } = await supabase
+      .from('conversations')
+      .select('student_id, owner_id, student_muted, owner_muted')
+      .eq('id', conversationId)
+      .maybeSingle();
+    const mutedForOther =
+      flags &&
+      ((flags.student_id === otherId && flags.student_muted) ||
+        (flags.owner_id === otherId && flags.owner_muted));
+    if (!mutedForOther) {
+      void notifyUser(otherId, i18n.t('push.newMessageTitle'), trimmed.slice(0, 90), 'chat');
+    }
   }
 }

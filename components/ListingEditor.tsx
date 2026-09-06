@@ -21,7 +21,9 @@ import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
 import { pickListingPhotos } from '@/src/lib/pickImage';
+import { ownerListingGapTab } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
+import { listingGateMessage, ownerReadyForListing } from '@/src/lib/trust';
 import { uploadApartmentPhoto } from '@/src/lib/upload';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -121,8 +123,34 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
     ]);
   };
 
+  const gateOwnerWrite = () => {
+    if (asAdmin) return true;
+    if (ownerReadyForListing(profile)) return true;
+    if (profile?.owner_status === 'pending') {
+      alert(t('common.error'), t('owner.listingNeedApproval'));
+      return false;
+    }
+    if (profile?.owner_status === 'rejected') {
+      alert(t('common.error'), t('owner.listingSuspended'));
+      return false;
+    }
+    alert(t('common.error'), t('owner.listingNeedVerify'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.title'),
+        onPress: () =>
+          router.push({
+            pathname: '/(owner)/(tabs)/profile',
+            params: { tab: ownerListingGapTab(profile) },
+          }),
+      },
+    ]);
+    return false;
+  };
+
   const duplicateListing = async () => {
     if (!apartment || !profile) return;
+    if (!gateOwnerWrite()) return;
     setLoading(true);
     try {
       const payload = {
@@ -136,7 +164,8 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
       alert(t('common.done'), t('owner.duplicated'));
       if (data?.id) router.replace({ pathname: '/(owner)/listing/[id]', params: { id: data.id } });
     } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
+      const raw = err instanceof Error ? err.message : '';
+      alert(t('common.error'), listingGateMessage(raw, t) || raw);
     } finally {
       setLoading(false);
     }
@@ -148,6 +177,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
+    if (!apartment && !gateOwnerWrite()) return;
     const city = cities.find((item) => item.id === cityId);
     const university = universities.find((item) => item.id === universityId);
     const payload = {
@@ -198,7 +228,8 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
         router.back();
       }
     } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
+      const raw = err instanceof Error ? err.message : '';
+      alert(t('common.error'), listingGateMessage(raw, t) || raw);
     } finally {
       setLoading(false);
     }
@@ -206,9 +237,10 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
 
   const setVisibility = (next: 'hidden' | 'approved') => {
     if (!apartment) return;
+    if (next === 'approved' && !gateOwnerWrite()) return;
     const run = async () => {
       const { error } = await supabase.from('apartments').update({ status: next }).eq('id', apartment.id);
-      if (error) alert(t('common.error'), error.message);
+      if (error) alert(t('common.error'), listingGateMessage(error.message, t) || error.message);
       else router.back();
     };
     if (next === 'hidden') {

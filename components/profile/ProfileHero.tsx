@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { useLayout } from '@/src/hooks/useLayout';
-import type { IdVerifyStatus } from '@/src/types/database';
+import type { IdVerifyStatus, UserRole } from '@/src/types/database';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -21,6 +21,7 @@ type Props = {
   chip?: string;
   email?: string | null;
   verifyStatus?: IdVerifyStatus | null;
+  verifyRole?: UserRole | null;
 };
 
 function initials(name?: string | null) {
@@ -32,7 +33,17 @@ function initials(name?: string | null) {
     .join('');
 }
 
-export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas = [], chip, email, verifyStatus }: Props) {
+export function ProfileHero({
+  name,
+  avatarUrl,
+  uploading,
+  onChangePhoto,
+  metas = [],
+  chip,
+  email,
+  verifyStatus,
+  verifyRole,
+}: Props) {
   const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const { t } = useTranslation();
@@ -71,7 +82,9 @@ export function ProfileHero({ name, avatarUrl, uploading, onChangePhoto, metas =
                 <Text style={styles.heroChipText}>{chip}</Text>
               </View>
             ) : null}
-            {verifyStatus && verifyStatus !== 'none' ? <IdVerifyBadge status={verifyStatus} compact /> : null}
+            {verifyStatus && verifyStatus !== 'none' ? (
+              <IdVerifyBadge status={verifyStatus} compact role={verifyRole} />
+            ) : null}
           </View>
           <Text style={[styles.heroName, rtlText]} numberOfLines={1}>
             {name}

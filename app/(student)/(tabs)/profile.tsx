@@ -12,6 +12,7 @@ import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
+import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { Button } from '@/components/ui/Button';
@@ -37,22 +38,21 @@ import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFro
 import { formatEmailDomains, studentEmailError } from '@/src/lib/eduEmail';
 import { regionPrefix, sameMobile, sanitizeStudentId, isValidStudentId, splitPhone, toE164 } from '@/src/lib/phone';
 import type { PhoneRegion } from '@/src/lib/phone';
+import { canShowSeekerContact, shouldShareEmergency, shouldShowLastSeen, shouldShowSavedCount } from '@/src/lib/privacy';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { pickIdCardPhoto, pickProfilePhoto } from '@/src/lib/pickImage';
 import { SUPPORT_EMAIL } from '@/src/lib/support';
 import { supabase } from '@/src/lib/supabase';
+import { isValidNationalId, sanitizeNationalId, isValidBio, isValidEmergencyName, isValidHomeAddress, isValidNationalIdExpiry, nationalIdExpiryState } from '@/src/lib/trust';
 import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, PersonGender, Profile } from '@/src/types/database';
 
-type ProfileTab = 'account' | 'trust' | 'saved' | 'security';
-type SectionKey = 'hero' | 'names' | 'about' | 'contact' | 'studies' | 'docs' | 'emergency';
+type ProfileTab = 'account' | 'trust' | 'settings' | 'saved' | 'security';
 
-function cleanNationalId(raw: string) {
-  return String(raw ?? '').replace(/\D/g, '').slice(0, 9);
-}
+type SectionKey = 'hero' | 'names' | 'about' | 'contact' | 'studies' | 'docs' | 'emergency';
 
 function cleanStudentId(raw: string) {
   return sanitizeStudentId(String(raw ?? ''));
@@ -107,13 +107,53 @@ type FormSnap = {
   universityId: string;
   avatarUrl: string | null;
   homeAddress: string;
+  bio: string;
+  spokenLanguages: string[];
+  graduationTerm: string;
   nationalId: string;
+  nationalExpiresAt: string;
+  idDocsConsent: boolean;
   nationalIdUrl: string | null;
   universityCardUrl: string | null;
   emergencyName: string;
   emergencyRegion: PhoneRegion;
   emergencyLocal: string;
 };
+
+function snapsEqual(a: FormSnap | null, b: FormSnap | null) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.fullNameEn === b.fullNameEn &&
+    a.fullNameAr === b.fullNameAr &&
+    a.phoneRegion === b.phoneRegion &&
+    a.phoneLocal === b.phoneLocal &&
+    a.studentId === b.studentId &&
+    a.waLinked === b.waLinked &&
+    a.waRegion === b.waRegion &&
+    a.waLocal === b.waLocal &&
+    a.major === b.major &&
+    a.degreeLevel === b.degreeLevel &&
+    a.studyYear === b.studyYear &&
+    a.gender === b.gender &&
+    a.birthDate === b.birthDate &&
+    a.cityId === b.cityId &&
+    a.universityId === b.universityId &&
+    a.avatarUrl === b.avatarUrl &&
+    a.homeAddress === b.homeAddress &&
+    a.bio === b.bio &&
+    a.spokenLanguages.join(',') === b.spokenLanguages.join(',') &&
+    a.graduationTerm === b.graduationTerm &&
+    a.nationalId === b.nationalId &&
+    a.nationalExpiresAt === b.nationalExpiresAt &&
+    a.idDocsConsent === b.idDocsConsent &&
+    a.nationalIdUrl === b.nationalIdUrl &&
+    a.universityCardUrl === b.universityCardUrl &&
+    a.emergencyName === b.emergencyName &&
+    a.emergencyRegion === b.emergencyRegion &&
+    a.emergencyLocal === b.emergencyLocal
+  );
+}
 
 function snapFromProfile(next: Profile): FormSnap {
   const names = namesFromProfile(next.full_name, next.full_name_en);
@@ -139,7 +179,12 @@ function snapFromProfile(next: Profile): FormSnap {
     universityId: next.university_id ?? '',
     avatarUrl: next.avatar_url ?? null,
     homeAddress: next.home_address ?? '',
+    bio: next.bio ?? '',
+    spokenLanguages: next.spoken_languages ?? [],
+    graduationTerm: next.graduation_term ?? '',
     nationalId: next.national_id_number ?? '',
+    nationalExpiresAt: next.national_id_expires_at ? next.national_id_expires_at.slice(0, 10) : '',
+    idDocsConsent: Boolean(next.id_docs_consent_at),
     nationalIdUrl: next.national_id_url ?? null,
     universityCardUrl: next.university_card_url ?? null,
     emergencyName: next.emergency_name ?? '',
@@ -168,7 +213,12 @@ function applySnap(
     universityId: (v: string) => void;
     avatarUrl: (v: string | null) => void;
     homeAddress: (v: string) => void;
+    bio: (v: string) => void;
+    spokenLanguages: (v: string[]) => void;
+    graduationTerm: (v: string) => void;
     nationalId: (v: string) => void;
+    nationalExpiresAt: (v: string) => void;
+    idDocsConsent: (v: boolean) => void;
     nationalIdUrl: (v: string | null) => void;
     universityCardUrl: (v: string | null) => void;
     emergencyName: (v: string) => void;
@@ -193,7 +243,12 @@ function applySnap(
   set.universityId(snap.universityId);
   set.avatarUrl(snap.avatarUrl);
   set.homeAddress(snap.homeAddress);
+  set.bio(snap.bio);
+  set.spokenLanguages(snap.spokenLanguages);
+  set.graduationTerm(snap.graduationTerm);
   set.nationalId(snap.nationalId);
+  set.nationalExpiresAt(snap.nationalExpiresAt);
+  set.idDocsConsent(snap.idDocsConsent);
   set.nationalIdUrl(snap.nationalIdUrl);
   set.universityCardUrl(snap.universityCardUrl);
   set.emergencyName(snap.emergencyName);
@@ -236,7 +291,12 @@ export default function StudentProfileScreen() {
   const [universityId, setUniversityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [homeAddress, setHomeAddress] = useState('');
+  const [bio, setBio] = useState('');
+  const [spokenLanguages, setSpokenLanguages] = useState<string[]>([]);
+  const [graduationTerm, setGraduationTerm] = useState('');
   const [nationalId, setNationalId] = useState('');
+  const [nationalExpiresAt, setNationalExpiresAt] = useState('');
+  const [idDocsConsent, setIdDocsConsent] = useState(false);
   const [nationalIdUrl, setNationalIdUrl] = useState<string | null>(null);
   const [universityCardUrl, setUniversityCardUrl] = useState<string | null>(null);
   const [nationalPreview, setNationalPreview] = useState<string | null>(null);
@@ -277,7 +337,12 @@ export default function StudentProfileScreen() {
       universityId: setUniversityId,
       avatarUrl: setAvatarUrl,
       homeAddress: setHomeAddress,
+      bio: setBio,
+      spokenLanguages: setSpokenLanguages,
+      graduationTerm: setGraduationTerm,
       nationalId: setNationalId,
+      nationalExpiresAt: setNationalExpiresAt,
+      idDocsConsent: setIdDocsConsent,
       nationalIdUrl: setNationalIdUrl,
       universityCardUrl: setUniversityCardUrl,
       emergencyName: setEmergencyName,
@@ -295,13 +360,17 @@ export default function StudentProfileScreen() {
   }, [profile, applyForm]);
 
   useEffect(() => {
-    if (resumeId) {
-      setTab('account');
+    if (
+      tabParam === 'saved' ||
+      tabParam === 'security' ||
+      tabParam === 'account' ||
+      tabParam === 'trust' ||
+      tabParam === 'settings'
+    ) {
+      setTab(tabParam);
       return;
     }
-    if (tabParam === 'saved' || tabParam === 'security' || tabParam === 'account' || tabParam === 'trust') {
-      setTab(tabParam);
-    }
+    if (resumeId) setTab('account');
   }, [resumeId, tabParam]);
 
   useEffect(() => {
@@ -317,7 +386,13 @@ export default function StudentProfileScreen() {
   }, [nationalIdUrl, universityCardUrl]);
 
   const cityOptions = useMemo(
-    () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
+    () =>
+      cities.map((city) => ({
+        value: city.id,
+        label: localizedName(city, i18n.language),
+        lat: city.lat,
+        lng: city.lng,
+      })),
     [cities, i18n.language],
   );
   const universityOptions = useMemo(
@@ -377,9 +452,9 @@ export default function StudentProfileScreen() {
     phoneRegion,
     phoneLocal,
     studentId,
+    waLinked,
     waRegion,
     waLocal,
-    waLinked,
     major,
     degreeLevel,
     studyYear,
@@ -389,7 +464,12 @@ export default function StudentProfileScreen() {
     universityId,
     avatarUrl,
     homeAddress,
+    bio,
+    spokenLanguages,
+    graduationTerm,
     nationalId,
+    nationalExpiresAt,
+    idDocsConsent,
     nationalIdUrl,
     universityCardUrl,
     emergencyName,
@@ -402,7 +482,7 @@ export default function StudentProfileScreen() {
     typeof toE164 === 'function' ? toE164(phoneRegion, phoneLocal) : null;
   const cleanEmergency =
     typeof toE164 === 'function' ? toE164(emergencyRegion, emergencyLocal) : null;
-  const dirty = baseline.current != null && JSON.stringify(currentSnap) !== JSON.stringify(baseline.current);
+  const dirty = baseline.current != null && !snapsEqual(currentSnap, baseline.current);
   dirtyRef.current = dirty;
   // Keep these checks inline — named imports from trust/phone were crashing as undefined under Metro HMR.
   const progressItems = [
@@ -411,13 +491,18 @@ export default function StudentProfileScreen() {
     { id: 'nameAr', label: t('common.nameAr'), done: arabicNameOk(fullNameAr) },
     { id: 'gender', label: t('profile.gender'), done: Boolean(gender) },
     { id: 'city', label: t('auth.homeCity'), done: Boolean(cityId) },
-    { id: 'homeAddress', label: t('profile.homeAddress'), done: homeAddress.trim().length >= 8 },
+    { id: 'homeAddress', label: t('profile.homeAddress'), done: isValidHomeAddress(homeAddress) },
     { id: 'birth', label: t('profile.birthDate'), done: Boolean(birthDate) },
     { id: 'phone', label: t('common.phone'), done: Boolean(cleanPhoneNow) },
     { id: 'whatsapp', label: t('profile.whatsapp'), done: Boolean(cleanWhatsappNow) },
-    { id: 'nationalId', label: t('profile.nationalId'), done: /^\d{9}$/.test(nationalId.trim()) },
-    { id: 'nationalCard', label: t('profile.nationalCard'), done: Boolean(nationalIdUrl) },
-    { id: 'emergencyName', label: t('profile.emergencyName'), done: emergencyName.trim().length >= 2 },
+    { id: 'nationalId', label: t('profile.nationalId'), done: isValidNationalId(nationalId) },
+    {
+      id: 'nationalExpiry',
+      label: t('profile.nationalIdExpiry'),
+      done: isValidNationalIdExpiry(nationalExpiresAt),
+    },
+    { id: 'nationalCard', label: t('profile.nationalCard'), done: Boolean(nationalIdUrl) && idDocsConsent },
+    { id: 'emergencyName', label: t('profile.emergencyName'), done: isValidEmergencyName(emergencyName) },
     {
       id: 'emergencyPhone',
       label: t('profile.emergencyPhone'),
@@ -437,6 +522,7 @@ export default function StudentProfileScreen() {
   const incomplete = progressItems.some((item) => !item.done);
   const trustIds = new Set([
     'nationalId',
+    'nationalExpiry',
     'nationalCard',
     'universityCard',
     'emergencyName',
@@ -454,7 +540,7 @@ export default function StudentProfileScreen() {
             ? 'about'
             : id === 'phone' || id === 'whatsapp'
               ? 'contact'
-              : id === 'nationalId' || id === 'nationalCard' || id === 'universityCard'
+              : id === 'nationalId' || id === 'nationalExpiry' || id === 'nationalCard' || id === 'universityCard'
                 ? 'docs'
                 : id === 'emergencyName' || id === 'emergencyPhone'
                   ? 'emergency'
@@ -541,6 +627,10 @@ export default function StudentProfileScreen() {
 
   const uploadCard = async (kind: 'national' | 'university') => {
     if (!profile) return;
+    if (!idDocsConsent) {
+      alert(t('common.error'), t('profile.idConsentRequired'));
+      return;
+    }
     const uri = await pickIdCardPhoto();
     if (!uri) return;
     setUploadingDoc(true);
@@ -549,7 +639,11 @@ export default function StudentProfileScreen() {
       const column = kind === 'national' ? 'national_id_url' : 'university_card_url';
       const { error } = await supabase
         .from('profiles')
-        .update({ [column]: path, id_verify_status: 'pending' })
+        .update({
+          [column]: path,
+          id_verify_status: 'pending',
+          id_docs_consent_at: profile.id_docs_consent_at ?? new Date().toISOString(),
+        })
         .eq('id', profile.id);
       if (error) {
         if (/national_id_url|university_card_url|id_verify_status|column/i.test(error.message)) {
@@ -557,12 +651,13 @@ export default function StudentProfileScreen() {
         }
         throw error;
       }
+      if (!profile.id_docs_consent_at) setIdDocsConsent(true);
       if (kind === 'national') {
         setNationalIdUrl(path);
-        if (baseline.current) baseline.current = { ...baseline.current, nationalIdUrl: path };
+        if (baseline.current) baseline.current = { ...baseline.current, nationalIdUrl: path, idDocsConsent: true };
       } else {
         setUniversityCardUrl(path);
-        if (baseline.current) baseline.current = { ...baseline.current, universityCardUrl: path };
+        if (baseline.current) baseline.current = { ...baseline.current, universityCardUrl: path, idDocsConsent: true };
       }
       await refreshProfile();
     } catch (err) {
@@ -616,6 +711,35 @@ export default function StudentProfileScreen() {
       alert(t('common.error'), t('profile.studentIdHint'));
       return;
     }
+    if (nationalId.trim() && !isValidNationalId(nationalId)) {
+      alert(t('common.error'), t('profile.nationalIdInvalid'));
+      return;
+    }
+    if (!isValidNationalIdExpiry(nationalExpiresAt)) {
+      alert(
+        t('common.error'),
+        nationalIdExpiryState(nationalExpiresAt) === 'expired'
+          ? t('profile.idExpired')
+          : t('profile.idExpiryInvalid'),
+      );
+      return;
+    }
+    if (!isValidHomeAddress(homeAddress)) {
+      alert(t('common.error'), t('profile.homeAddressInvalid'));
+      return;
+    }
+    if (!isValidEmergencyName(emergencyName)) {
+      alert(t('common.error'), t('profile.emergencyNameInvalid'));
+      return;
+    }
+    if (!isValidBio(bio)) {
+      alert(t('common.error'), t('profile.bioInvalid'));
+      return;
+    }
+    if ((nationalIdUrl || universityCardUrl) && !idDocsConsent) {
+      alert(t('common.error'), t('profile.idConsentRequired'));
+      return;
+    }
     if (!englishNameOk(fullNameEn)) {
       alert(t('common.error'), t('auth.invalidNameEn'));
       return;
@@ -652,7 +776,14 @@ export default function StudentProfileScreen() {
           city_id: cityId || null,
           university_id: isStudent ? universityId || null : null,
           home_address: homeAddress.trim(),
+          bio: bio.trim() || null,
+          spoken_languages: spokenLanguages,
+          graduation_term: graduationTerm.trim() || null,
           national_id_number: nationalId.trim(),
+          national_id_expires_at: nationalExpiresAt || null,
+          id_docs_consent_at: idDocsConsent
+            ? profile.id_docs_consent_at ?? new Date().toISOString()
+            : null,
           emergency_name: emergencyName.trim(),
           emergency_phone: cleanEmergency,
           last_seen_ip: ip ?? profile.last_seen_ip ?? null,
@@ -712,7 +843,7 @@ export default function StudentProfileScreen() {
       ? {
           icon: 'sparkles' as const,
           text: t('profile.completeHint'),
-          onPress: () => setTab('account'),
+          onPress: () => setTab(accountIncomplete ? 'account' : 'trust'),
         }
       : {
           icon: 'calendar' as const,
@@ -759,6 +890,7 @@ export default function StudentProfileScreen() {
           chip={t(`roles.${profile?.role ?? 'student'}`)}
           email={profile?.email}
           verifyStatus={profile?.id_verify_status}
+          verifyRole={profile?.role}
         />
       </View>
       {needsReview ? (
@@ -778,7 +910,8 @@ export default function StudentProfileScreen() {
         tabs={[
           { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: accountIncomplete },
           { key: 'trust', icon: 'shield-checkmark', label: t('profile.tabTrust'), dot: trustIncomplete },
-          { key: 'saved', icon: 'heart', label: t('profile.tabSaved'), badge: savedListings.length },
+          { key: 'settings', icon: 'options', label: t('profile.tabSettings') },
+          { key: 'saved', icon: 'heart', label: t('profile.tabSaved'), badge: shouldShowSavedCount(profile) ? savedListings.length : undefined },
           { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
         ]}
       />
@@ -821,10 +954,20 @@ export default function StudentProfileScreen() {
               ...(isStudent && studentId.trim()
                 ? [{ icon: 'id-card-outline' as const, text: `${t('profile.studentId')} ${studentId}` }]
                 : []),
-              ...(phoneLocal.trim()
+              ...(phoneLocal.trim() &&
+              canShowSeekerContact(
+                { phone_visibility: profile?.phone_visibility ?? 'booking' },
+                'phone',
+                { bookingStatus: 'pending' },
+              )
                 ? [{ icon: 'call-outline' as const, text: `${regionPrefix(phoneRegion)} ${phoneLocal}` }]
                 : []),
-              ...(waLocal.trim()
+              ...(waLocal.trim() &&
+              canShowSeekerContact(
+                { whatsapp_visibility: profile?.whatsapp_visibility ?? 'booking' },
+                'whatsapp',
+                { bookingStatus: 'pending' },
+              )
                 ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
                 : []),
               ...(homeAddress.trim()
@@ -833,15 +976,22 @@ export default function StudentProfileScreen() {
               ...(nationalIdUrl
                 ? [{ icon: 'id-card-outline' as const, text: t('profile.idCardsReady') }]
                 : []),
-              ...(emergencyName.trim()
+              ...(shouldShareEmergency(profile) && emergencyName.trim()
                 ? [{ icon: 'alert-circle-outline' as const, text: emergencyName.trim() }]
+                : []),
+              ...(shouldShowLastSeen(profile) && profile?.last_seen_ip
+                ? [{ icon: 'globe-outline' as const, text: profile.last_seen_ip }]
                 : []),
             ].filter((item) => item.text)}
           />
           <ProfileSafetyFields
             isStudent={isStudent}
             nationalId={nationalId}
-            onNationalId={(value) => setNationalId(cleanNationalId(value))}
+            onNationalId={(value) => setNationalId(sanitizeNationalId(value))}
+            nationalExpiresAt={nationalExpiresAt}
+            onNationalExpiresAt={setNationalExpiresAt}
+            idDocsConsent={idDocsConsent}
+            onIdDocsConsent={setIdDocsConsent}
             nationalUri={nationalPreview}
             universityUri={universityPreview}
             uploadingDoc={uploadingDoc}
@@ -887,66 +1037,89 @@ export default function StudentProfileScreen() {
             onWaLinked={setWaLinked}
             homeAddress={homeAddress}
             onHomeAddress={setHomeAddress}
+            bio={bio}
+            onBio={setBio}
+            spokenLanguages={spokenLanguages}
+            onSpokenLanguages={setSpokenLanguages}
+            graduationTerm={graduationTerm}
+            onGraduationTerm={setGraduationTerm}
             onSectionLayout={(section, y) => {
               sectionY.current[section] = y;
             }}
           />
           {isStudent ? (
             <Card compact onLayout={(event) => { sectionY.current.studies = event.nativeEvent.layout.y; }}>
-              <SectionHead compact icon="school-outline" title={t('profile.studiesTitle')} />
-              <SearchSelect
-                label={t('auth.studyUniversity')}
-                value={universityId}
-                placeholder={t('common.select')}
-                options={universityOptions}
-                onChange={setUniversityId}
-                clearable
-              />
-              {universityId && universityId !== (profile?.university_id ?? '') ? (
-                <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-                  {t('profile.universityChangeHint', { email: SUPPORT_EMAIL })}
-                </Text>
-              ) : null}
-              <Input
-                label={t('profile.studentId')}
-                value={studentId}
-                onChangeText={(value) => setStudentId(cleanStudentId(value))}
-                autoCapitalize="none"
-                autoCorrect={false}
-                ltr
-              />
-              <SearchSelect
-                label={t('profile.major')}
-                value={major}
-                placeholder={t('profile.searchMajor')}
-                options={majorOptions}
-                onChange={setMajor}
-                clearable
-              />
-              <Select
-                label={t('profile.degree')}
-                value={degreeLevel}
-                placeholder={t('common.select')}
-                options={degreeOptions}
-                onChange={setDegreeLevel}
-                clearable
-              />
-              <Select
-                label={t('profile.studyYear')}
-                value={studyYear}
-                placeholder={t('common.select')}
-                options={yearOptions}
-                onChange={setStudyYear}
-                clearable
-              />
+              <View style={styles.denseBlock}>
+                <SectionHead compact icon="school-outline" title={t('profile.studiesTitle')} />
+                <SearchSelect
+                  dense
+                  label={t('auth.studyUniversity')}
+                  value={universityId}
+                  placeholder={t('common.select')}
+                  options={universityOptions}
+                  onChange={setUniversityId}
+                  clearable
+                />
+                {universityId && universityId !== (profile?.university_id ?? '') ? (
+                  <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+                    {t('profile.universityChangeHint', { email: SUPPORT_EMAIL })}
+                  </Text>
+                ) : null}
+                <Input
+                  compact
+                  label={t('profile.studentId')}
+                  value={studentId}
+                  onChangeText={(value) => setStudentId(cleanStudentId(value))}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  ltr
+                />
+                <SearchSelect
+                  dense
+                  label={t('profile.major')}
+                  value={major}
+                  placeholder={t('profile.searchMajor')}
+                  options={majorOptions}
+                  onChange={setMajor}
+                  clearable
+                />
+                <Select
+                  dense
+                  label={t('profile.degree')}
+                  value={degreeLevel}
+                  placeholder={t('common.select')}
+                  options={degreeOptions}
+                  onChange={setDegreeLevel}
+                  clearable
+                />
+                <Select
+                  dense
+                  label={t('profile.studyYear')}
+                  value={studyYear}
+                  placeholder={t('common.select')}
+                  options={yearOptions}
+                  onChange={setStudyYear}
+                  clearable
+                />
+              </View>
             </Card>
           ) : null}
         </>
       ) : null}
 
+      {tab === 'settings' && profile ? (
+        <ProfileSettingsFields
+          profile={profile}
+          onSaved={async () => {
+            await refreshProfile();
+          }}
+        />
+      ) : null}
+
       {tab === 'saved' ? (
-        <Card>
+        <Card compact>
           <SectionHead
+            compact
             icon="heart-outline"
             title={
               savedListings.length > 0
@@ -1022,6 +1195,7 @@ export default function StudentProfileScreen() {
 
 const styles = StyleSheet.create({
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  denseBlock: { gap: spacing.xs },
   savedBlock: { gap: 8 },
   emptyBox: {
     borderRadius: radius.lg,
@@ -1037,7 +1211,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 14, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
-  hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
+  hint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
   warn: {
     alignItems: 'flex-start',
     gap: 8,

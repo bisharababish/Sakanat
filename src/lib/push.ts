@@ -105,15 +105,38 @@ export async function registerPushToken(userId: string, requestPermission = fals
   }
 }
 
-export async function notifyUser(userId: string, title: string, body: string) {
+export async function notifyUser(
+  userId: string,
+  title: string,
+  body: string,
+  kind: 'booking' | 'chat' | 'listing' | 'review' = 'booking',
+) {
   try {
-    const { data } = await supabase.from('profiles').select('expo_push_token').eq('id', userId).maybeSingle();
-    const token = data?.expo_push_token;
-    if (!token) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('expo_push_token, notify_booking, notify_chat, notify_listing, notify_review')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!data?.expo_push_token) return;
+    const allowed =
+      kind === 'chat'
+        ? data.notify_chat !== false
+        : kind === 'listing'
+          ? data.notify_listing !== false
+          : kind === 'review'
+            ? data.notify_review !== false
+            : data.notify_booking !== false;
+    if (!allowed) return;
     await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ to: token, title, body, sound: 'default', channelId: 'default' }),
+      body: JSON.stringify({
+        to: data.expo_push_token,
+        title,
+        body,
+        sound: 'default',
+        channelId: 'default',
+      }),
     });
   } catch {
     // Push is optional.

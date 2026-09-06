@@ -17,11 +17,22 @@ type Props = {
   options: Option[];
   onChange: (value: string) => void;
   compact?: boolean;
+  dense?: boolean;
   clearable?: boolean;
   icon?: ComponentProps<typeof Ionicons>['name'];
 };
 
-export function SearchSelect({ label, value, placeholder, options, onChange, compact, clearable, icon }: Props) {
+export function SearchSelect({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+  compact,
+  dense,
+  clearable,
+  icon,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const { t } = useTranslation();
@@ -39,12 +50,14 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
   }, [clearable, options, query, t]);
 
   return (
-    <View style={styles.wrap}>
-      {compact ? null : <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>}
+    <View style={[styles.wrap, dense && styles.wrapDense]}>
+      {compact ? null : (
+        <Text style={[styles.label, dense && styles.labelDense, rtlText, { color: colors.text }]}>{label}</Text>
+      )}
       <Pressable
         accessibilityLabel={label}
         style={[
-          compact ? styles.compact : styles.field,
+          compact ? styles.compact : dense ? styles.fieldDense : styles.field,
           {
             backgroundColor: compact && active ? colors.primarySoft : colors.surface,
             borderColor: compact && active ? colors.primary : colors.border,
@@ -62,7 +75,7 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
         <Text
           numberOfLines={1}
           style={[
-            compact ? styles.compactValue : styles.value,
+            compact ? styles.compactValue : dense ? styles.valueDense : styles.value,
             { textAlign, writingDirection, color: selected ? (compact && active ? colors.primary : colors.text) : colors.textMuted },
           ]}
         >
@@ -113,13 +126,22 @@ export function SearchSelect({ label, value, placeholder, options, onChange, com
 
 const styles = StyleSheet.create({
   wrap: { gap: 6 },
+  wrapDense: { gap: 4 },
   label: { fontWeight: '700', fontSize: 14 },
+  labelDense: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   field: {
     borderWidth: 1,
     borderRadius: radius.md,
     minHeight: 52,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
+  },
+  fieldDense: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
   },
   compact: {
     borderWidth: 1,
@@ -137,6 +159,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_700Bold',
   },
   value: { fontSize: 16 },
+  valueDense: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   overlay: {
     flex: 1,
     justifyContent: 'center',

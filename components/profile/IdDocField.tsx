@@ -13,34 +13,47 @@ export function IdDocField({
   uri,
   busy,
   onPress,
+  compact,
 }: {
   label: string;
   hint?: string;
   uri?: string | null;
   busy?: boolean;
   onPress: () => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
 
   return (
-    <View style={styles.wrap}>
-      <Text style={[styles.label, rtlText, { color: colors.text }]}>{label}</Text>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+      <Text style={[styles.label, compact && styles.labelCompact, rtlText, { color: colors.text }]}>{label}</Text>
       <Pressable
         onPress={onPress}
         disabled={busy}
-        style={[styles.box, row, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+        style={[
+          styles.box,
+          compact && styles.boxCompact,
+          row,
+          { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+        ]}
       >
         {uri ? (
-          <Image source={{ uri }} style={styles.preview} contentFit="cover" />
+          <Image source={{ uri }} style={[styles.preview, compact && styles.previewCompact]} contentFit="cover" />
         ) : (
-          <View style={[styles.fallback, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="id-card-outline" size={18} color={colors.primary} />
+          <View
+            style={[
+              styles.fallback,
+              compact && styles.previewCompact,
+              { backgroundColor: colors.primarySoft },
+            ]}
+          >
+            <Ionicons name="id-card-outline" size={compact ? 16 : 18} color={colors.primary} />
           </View>
         )}
         <View style={styles.copy}>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>
+          <Text style={[styles.title, compact && styles.titleCompact, rtlText, { color: colors.text }]}>
             {uri ? t('profile.changePhoto') : t('profile.uploadCard')}
           </Text>
           {hint ? (
@@ -49,7 +62,7 @@ export function IdDocField({
             </Text>
           ) : null}
         </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        <Ionicons name="chevron-forward" size={compact ? 16 : 18} color={colors.textMuted} />
       </Pressable>
     </View>
   );
@@ -57,7 +70,9 @@ export function IdDocField({
 
 const styles = StyleSheet.create({
   wrap: { gap: 4 },
+  wrapCompact: { gap: 3 },
   label: { fontWeight: '700', fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  labelCompact: { fontSize: 12 },
   box: {
     alignItems: 'center',
     gap: 10,
@@ -65,7 +80,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.sm,
   },
+  boxCompact: {
+    gap: 8,
+    padding: 8,
+    borderRadius: radius.sm,
+  },
   preview: { width: 56, height: 40, borderRadius: 8 },
+  previewCompact: { width: 48, height: 34, borderRadius: 6 },
   fallback: {
     width: 56,
     height: 40,
@@ -75,5 +96,6 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1, minWidth: 0, gap: 1 },
   title: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  titleCompact: { fontSize: 12 },
   hint: { fontSize: 11, lineHeight: 16, fontFamily: 'Cairo_400Regular' },
 });

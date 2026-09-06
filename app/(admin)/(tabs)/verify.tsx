@@ -3,8 +3,11 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { IdApproveChecklist, idApproveReady, type IdApproveChecks } from '@/components/profile/IdApproveChecklist';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
+import { NationalIdChecksumBadge } from '@/components/profile/NationalIdChecksumBadge';
+import { NationalIdExpiryBadge } from '@/components/profile/NationalIdExpiryBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -21,6 +24,8 @@ import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Profile } from '@/src/types/database';
 
+const EMPTY_CHECKS: IdApproveChecks = { readable: false, correctCard: false, numberMatches: false };
+
 export default function AdminVerifyIds() {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
@@ -31,6 +36,7 @@ export default function AdminVerifyIds() {
   const [rejecting, setRejecting] = useState<Profile | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checksById, setChecksById] = useState<Record<string, IdApproveChecks>>({});
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -49,7 +55,16 @@ export default function AdminVerifyIds() {
 
   const { refreshing, refresh } = useLiveReload(load, ['profiles'], 'admin-verify-ids');
 
+  const checksFor = (userId: string) => checksById[userId] ?? EMPTY_CHECKS;
+
   const decide = async (user: Profile, status: 'approved' | 'rejected', note?: string) => {
+    if (status === 'approved') {
+      const requireNumberMatch = Boolean(user.national_id_number?.trim());
+      if (!idApproveReady(checksFor(user.id), requireNumberMatch)) {
+        alert(t('common.error'), t('admin.approveChecklistNeeded'));
+        return;
+      }
+    }
     setBusy(true);
     const error = await setIdVerifyStatus(user.id, status, note, me?.id);
     setBusy(false);
@@ -59,6 +74,11 @@ export default function AdminVerifyIds() {
     }
     setRejecting(null);
     setRejectNote('');
+    setChecksById((prev) => {
+      const next = { ...prev };
+      delete next[user.id];
+      return next;
+    });
     void load();
   };
 
@@ -69,40 +89,61 @@ export default function AdminVerifyIds() {
 
       {users.length === 0 ? <EmptyState title={t('admin.idReviewEmpty')} /> : null}
 
-      {users.map((user) => (
-        <Card key={user.id}>
-          <Pressable onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}>
-            <Text style={[styles.name, rtlText, { color: colors.text }]}>
-              {displayName(user, i18n.language) || user.email}
-            </Text>
-            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
-              {t(`roles.${user.role}`)} · {user.email}
-            </Text>
-          </Pressable>
-          <IdVerifyBadge status={user.id_verify_status ?? 'pending'} />
-          {user.national_id_number ? (
-            <Text style={[styles.meta, rtlText, { color: colors.text }]}>
-              {t('profile.nationalId')} {user.national_id_number}
-            </Text>
-          ) : null}
-          <View style={[styles.actions, row]}>
-            <Button title={t('profile.idCards')} variant="secondary" pill onPress={() => setDocsFor(user)} />
-            <Button
-              title={t('admin.approveId')}
-              pill
-              loading={busy}
-              onPress={() => void decide(user, 'approved')}
+      {users.map((user) => {
+        const requireNumberMatch = Boolean(user.national_id_number?.trim());
+        const canApprove = idApproveReady(checksFor(user.id), requireNumberMatch);
+        return (
+          <Card key={user.id}>
+            <Pressable onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}>
+              <Text style={[styles.name, rtlText, { color: colors.text }]}>
+                {displayName(user, i18n.language) || user.email}
+              </Text>
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+                {t(`roles.${user.role}`)} · {user.email}
+              </Text>
+            </Pressable>
+            <IdVerifyBadge status={user.id_verify_status ?? 'pending'} />
+            {user.national_id_number ? (
+              <View style={styles.idRow}>
+                <Text style={[styles.meta, rtlText, { color: colors.text }]}>
+                  {t('profile.nationalId')} {user.national_id_number}
+                </Text>
+                <NationalIdChecksumBadge number={user.national_id_number} />
+              </View>
+            ) : null}
+            {user.national_id_expires_at ? (
+              <View style={styles.idRow}>
+                <Text style={[styles.meta, rtlText, { color: colors.text }]}>
+                  {t('profile.nationalIdExpiry')} {String(user.national_id_expires_at).slice(0, 10)}
+                </Text>
+                <NationalIdExpiryBadge expiresAt={user.national_id_expires_at} />
+              </View>
+            ) : null}
+            <IdApproveChecklist
+              value={checksFor(user.id)}
+              onChange={(next) => setChecksById((prev) => ({ ...prev, [user.id]: next }))}
+              requireNumberMatch={requireNumberMatch}
             />
-            <Button
-              title={t('admin.rejectId')}
-              variant="danger"
-              pill
-              disabled={busy}
-              onPress={() => setRejecting(user)}
-            />
-          </View>
-        </Card>
-      ))}
+            <View style={[styles.actions, row]}>
+              <Button title={t('profile.idCards')} variant="secondary" pill onPress={() => setDocsFor(user)} />
+              <Button
+                title={t('admin.approveId')}
+                pill
+                loading={busy}
+                disabled={!canApprove}
+                onPress={() => void decide(user, 'approved')}
+              />
+              <Button
+                title={t('admin.rejectId')}
+                variant="danger"
+                pill
+                disabled={busy}
+                onPress={() => setRejecting(user)}
+              />
+            </View>
+          </Card>
+        );
+      })}
 
       <IdDocsViewer
         visible={Boolean(docsFor)}
@@ -142,5 +183,6 @@ const styles = StyleSheet.create({
   hint: { fontSize: 14, lineHeight: 22, fontFamily: 'Cairo_400Regular', marginBottom: spacing.sm },
   name: { fontSize: 16, fontFamily: 'Cairo_800ExtraBold' },
   meta: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  idRow: { gap: 6 },
   actions: { flexWrap: 'wrap', gap: 8, marginTop: 4 },
 });

@@ -63,10 +63,12 @@ export default function AdminBookings() {
     if (error) alert(t('common.error'), error.message);
     else {
       if (status === 'confirmed' && booking?.student_id) {
-        void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
+        void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'), 'booking');
+
       }
       if (status === 'cancelled' && booking?.student_id) {
-        void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'));
+        void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'), 'booking');
+
       }
       setRejecting(null);
       setRejectNote('');

@@ -8,6 +8,44 @@ export type PaymentStatus = 'unpaid' | 'paid';
 export type GenderPolicy = 'any' | 'female' | 'male';
 export type PersonGender = 'female' | 'male';
 export type IdVerifyStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type ContactVisibility = 'booking' | 'confirmed' | 'none';
+export type AppReportKind = 'tech' | 'safety';
+export type AppReportStatus = 'open' | 'reviewing' | 'closed';
+
+export type AppReport = {
+  id: string;
+  kind: AppReportKind;
+  subject: string;
+  body: string;
+  status: AppReportStatus;
+  admin_note?: string | null;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type UserBlock = {
+  blocker_id: string;
+  blocked_id: string;
+  created_at: string;
+  blocked?: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    email: string;
+    role: UserRole;
+  } | null;
+};
+
+export type DeviceSession = {
+  id: string;
+  user_id: string;
+  session_key: string;
+  device_label: string;
+  platform?: string | null;
+  last_ip?: string | null;
+  last_seen_at: string;
+  created_at: string;
+};
 
 export type City = {
   id: string;
@@ -60,6 +98,29 @@ export type Profile = {
   emergency_name?: string | null;
   emergency_phone?: string | null;
   last_seen_ip?: string | null;
+  bio?: string | null;
+  pref_lease_months?: number | null;
+  graduation_term?: string | null;
+  spoken_languages?: string[] | null;
+  national_id_expires_at?: string | null;
+  id_docs_consent_at?: string | null;
+  recovery_email?: string | null;
+  recovery_phone?: string | null;
+  pref_budget_max?: number | null;
+  pref_gender_policy?: GenderPolicy | null;
+  pref_allows_smoking?: boolean | null;
+  pref_allows_pets?: boolean | null;
+  pref_move_in?: string | null;
+  pref_occupants?: number | null;
+  notify_booking?: boolean;
+  notify_chat?: boolean;
+  notify_listing?: boolean;
+  notify_review?: boolean;
+  phone_visibility?: ContactVisibility;
+  whatsapp_visibility?: ContactVisibility;
+  hide_last_seen?: boolean;
+  hide_saved_count?: boolean;
+  share_emergency?: boolean;
   expo_push_token?: string | null;
   account_status?: 'active' | 'suspended';
   accepted_terms_at?: string | null;
@@ -139,6 +200,8 @@ export type Booking = {
     | 'emergency_name'
     | 'emergency_phone'
     | 'last_seen_ip'
+    | 'phone_visibility'
+    | 'whatsapp_visibility'
   > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
   student?: Pick<
     Profile,
@@ -180,6 +243,10 @@ export type Conversation = {
   owner_last_read_at?: string | null;
   student_delivered_at?: string | null;
   owner_delivered_at?: string | null;
+  student_muted?: boolean;
+  owner_muted?: boolean;
+  student_archived_at?: string | null;
+  owner_archived_at?: string | null;
   apartments?: Pick<Apartment, 'id' | 'title_ar' | 'title_en' | 'photos'>;
   student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;

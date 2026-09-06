@@ -8,9 +8,10 @@ type Props = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  compact?: boolean;
 };
 
-export function Chip({ label, selected, onPress }: Props) {
+export function Chip({ label, selected, onPress, compact }: Props) {
   const { writingDirection } = useLayout();
   const colors = useColors();
   return (
@@ -18,6 +19,7 @@ export function Chip({ label, selected, onPress }: Props) {
       onPress={onPress}
       style={[
         styles.chip,
+        compact && styles.chipCompact,
         {
           backgroundColor: selected ? colors.primary : colors.surface,
           borderColor: selected ? colors.primary : colors.border,
@@ -25,7 +27,11 @@ export function Chip({ label, selected, onPress }: Props) {
       ]}
     >
       <Text
-        style={[styles.label, { color: selected ? colors.white : colors.text, writingDirection }]}
+        style={[
+          styles.label,
+          compact && styles.labelCompact,
+          { color: selected ? colors.white : colors.text, writingDirection },
+        ]}
         numberOfLines={1}
       >
         {label}
@@ -42,5 +48,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexShrink: 0,
   },
+  chipCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
   label: { fontWeight: '600', fontSize: 13 },
+  labelCompact: { fontSize: 12 },
 });

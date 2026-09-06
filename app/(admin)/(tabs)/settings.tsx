@@ -326,6 +326,11 @@ export default function AdminSettings() {
             <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
             <Button title={t('admin.openCatalog')} onPress={() => router.push('/(admin)/(tabs)/catalog')} pill />
           </Card>
+          <Card>
+            <SectionHead icon="flag-outline" title={t('admin.reportsTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.reportsHint')}</Text>
+            <Button title={t('admin.openReports')} onPress={() => router.push('/(admin)/(tabs)/reports')} pill />
+          </Card>
         </>
       ) : null}
     </Screen>

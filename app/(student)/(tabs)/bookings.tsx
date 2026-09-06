@@ -20,6 +20,7 @@ import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { displayName } from '@/src/lib/name';
 import { whatsappLink } from '@/src/lib/phone';
+import { canShowOwnerContact } from '@/src/lib/privacy';
 import { canReviewStay, isValidReview, loadMyReviews, submitApartmentReview } from '@/src/lib/reviews';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
@@ -47,7 +48,7 @@ export default function StudentBookings() {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
-      .select('*, apartments(*, cities(*)), profiles!owner_id(id, full_name, phone, whatsapp)')
+      .select('*, apartments(*, cities(*)), profiles!owner_id(id, full_name, phone, whatsapp, phone_visibility, whatsapp_visibility)')
       .eq('student_id', profile.id)
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -208,8 +209,14 @@ export default function StudentBookings() {
       ) : null}
 
       {visible.map((booking) => {
-        const phone = booking.profiles?.phone;
-        const whatsapp = booking.profiles?.whatsapp || phone;
+        const showPhone = canShowOwnerContact(booking.profiles, 'phone', { bookingStatus: booking.status });
+        const showWhatsapp = canShowOwnerContact(booking.profiles, 'whatsapp', {
+          bookingStatus: booking.status,
+        });
+        const phone = showPhone ? booking.profiles?.phone : null;
+        const whatsapp = showWhatsapp
+          ? booking.profiles?.whatsapp || (showPhone ? booking.profiles?.phone : null)
+          : null;
         return (
           <BookingCard
             key={booking.id}

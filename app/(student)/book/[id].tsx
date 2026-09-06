@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,16 +14,23 @@ import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
-import { occupantChoices, PAYMENT_CHOICES, paymentHintKey, paymentI18nKey } from '@/src/lib/booking';
+import {
+  bookingGateCode,
+  loadActiveStay,
+  occupantChoices,
+  PAYMENT_CHOICES,
+  paymentHintKey,
+  paymentI18nKey,
+} from '@/src/lib/booking';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
 import { loadPendingReview } from '@/src/lib/reviews';
-import { isStudentReady, listingFitsStudent } from '@/src/lib/studentProfile';
+import { isStudentReady, listingFitsStudent, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { Apartment, PaymentMethod } from '@/src/types/database';
+import type { Apartment, Booking, PaymentMethod } from '@/src/types/database';
 
 const MONTHS = [1, 2, 3, 4, 6, 12];
 
@@ -72,10 +79,25 @@ export default function BookScreen() {
   const [occupants, setOccupants] = useState(1);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [loading, setLoading] = useState(false);
+  const [pendingReview, setPendingReview] = useState<Pick<Booking, 'id'> | null>(null);
+  const [activeStay, setActiveStay] = useState<Pick<Booking, 'id'> | null>(null);
+  const prefsApplied = useRef(false);
+
+  useEffect(() => {
+    if (!profile || prefsApplied.current) return;
+    prefsApplied.current = true;
+    if (profile.pref_move_in) setStartDate(profile.pref_move_in);
+    if (profile.pref_occupants) setOccupants(profile.pref_occupants);
+    if (profile.pref_lease_months) setMonths(profile.pref_lease_months);
+  }, [profile]);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const { data } = await supabase.from('apartments').select('*, cities(*)').eq('id', id).single();
+    const [{ data }, review, stay] = await Promise.all([
+      supabase.from('apartments').select('*, cities(*)').eq('id', id).single(),
+      profile?.id ? loadPendingReview(profile.id) : Promise.resolve(null),
+      profile?.id ? loadActiveStay(profile.id) : Promise.resolve(null),
+    ]);
     if (data) {
       const next = data as Apartment;
       setApartment(next);
@@ -84,9 +106,11 @@ export default function BookScreen() {
     } else {
       setMissing(true);
     }
-  }, [id]);
+    setPendingReview(review ? { id: review.id } : null);
+    setActiveStay(stay ? { id: stay.id } : null);
+  }, [id, profile?.id]);
 
-  const { refreshing, refresh } = useLiveReload(load, ['apartments'], `book:${id ?? ''}`);
+  const { refreshing, refresh } = useLiveReload(load, ['apartments', 'bookings', 'apartment_reviews'], `book:${id ?? ''}`);
 
   const today = isoDate(new Date());
   const people = occupantChoices(apartment?.rooms);
@@ -98,12 +122,17 @@ export default function BookScreen() {
   const mismatch = Boolean(
     apartment && profile?.gender && !listingFitsStudent(apartment.gender_policy, profile.gender),
   );
-  const canSubmit = ready && !mismatch;
+  const needsReview = Boolean(pendingReview);
+  const hasActiveStay = Boolean(activeStay);
+  const canSubmit = ready && !mismatch && !needsReview && !hasActiveStay;
 
   const goProfile = () => {
     router.push({
       pathname: '/(student)/(tabs)/profile',
-      params: apartment ? { resumeBook: apartment.id } : undefined,
+      params: {
+        ...(apartment ? { resumeBook: apartment.id } : {}),
+        tab: seekerProfileGapTab(profile),
+      },
     });
   };
 
@@ -116,12 +145,25 @@ export default function BookScreen() {
       ]);
       return;
     }
-    const pendingReview = await loadPendingReview(profile.id);
-    if (pendingReview) {
+    const pending = pendingReview ?? (await loadPendingReview(profile.id));
+    if (pending) {
+      setPendingReview({ id: pending.id });
       alert(t('review.neededTitle'), t('review.neededBody'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('review.goWrite'),
+          onPress: () => router.replace('/(student)/(tabs)/bookings'),
+        },
+      ]);
+      return;
+    }
+    const stay = activeStay ?? (await loadActiveStay(profile.id));
+    if (stay) {
+      setActiveStay({ id: stay.id });
+      alert(t('booking.activeStayTitle'), t('booking.activeStayBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('booking.myBookings'),
           onPress: () => router.replace('/(student)/(tabs)/bookings'),
         },
       ]);
@@ -151,13 +193,50 @@ export default function BookScreen() {
           commission_amount: 0,
         });
         if (error) throw error;
-        void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'));
+        void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'), 'booking');
+
         const visa = method === 'visa' || method === 'pay_now';
         alert(t('booking.success'), visa ? t('booking.successVisa') : t('booking.successBody'), [
           { text: t('common.done'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
         ]);
       } catch (err) {
-        alert(t('common.error'), err instanceof Error ? err.message : '');
+        const gate = bookingGateCode(err);
+        if (gate === 'BOOKING_NEED_PROFILE') {
+          alert(t('booking.needProfile'), t('profile.completeToBook'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('profile.title'), onPress: goProfile },
+          ]);
+        } else if (gate === 'BOOKING_NEED_REVIEW') {
+          setPendingReview({ id: 'pending' });
+          alert(t('review.neededTitle'), t('review.neededBody'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('review.goWrite'),
+              onPress: () => router.replace('/(student)/(tabs)/bookings'),
+            },
+          ]);
+        } else if (gate === 'BOOKING_GENDER_MISMATCH') {
+          alert(t('common.error'), t('listing.genderMismatch'));
+        } else if (gate === 'BOOKING_ACCOUNT_SUSPENDED') {
+          alert(t('common.error'), t('auth.accountSuspended'));
+        } else if (gate === 'BOOKING_ACTIVE_STAY') {
+          setActiveStay({ id: 'active' });
+          alert(t('booking.activeStayTitle'), t('booking.activeStayBody'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('booking.myBookings'),
+              onPress: () => router.replace('/(student)/(tabs)/bookings'),
+            },
+          ]);
+        } else {
+          const message =
+            err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string'
+              ? (err as { message: string }).message
+              : err instanceof Error
+                ? err.message
+                : '';
+          alert(t('common.error'), message);
+        }
       } finally {
         setLoading(false);
       }
@@ -235,6 +314,30 @@ export default function BookScreen() {
           <SectionHead icon="person-outline" title={t('booking.needProfile')} />
           <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.completeToBook')}</Text>
           <Button title={t('profile.title')} onPress={goProfile} pill />
+        </Card>
+      ) : null}
+
+      {ready && needsReview ? (
+        <Card>
+          <SectionHead icon="star-outline" title={t('review.neededTitle')} />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('review.neededBody')}</Text>
+          <Button
+            title={t('review.goWrite')}
+            onPress={() => router.replace('/(student)/(tabs)/bookings')}
+            pill
+          />
+        </Card>
+      ) : null}
+
+      {ready && !needsReview && hasActiveStay ? (
+        <Card>
+          <SectionHead icon="home-outline" title={t('booking.activeStayTitle')} />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.activeStayBody')}</Text>
+          <Button
+            title={t('booking.myBookings')}
+            onPress={() => router.replace('/(student)/(tabs)/bookings')}
+            pill
+          />
         </Card>
       ) : null}
 

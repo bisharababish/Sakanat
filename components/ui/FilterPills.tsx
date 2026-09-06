@@ -17,6 +17,7 @@ export function FilterPills<T extends string>({
   onToggle,
   items,
   allowDeselect,
+  compact,
 }: {
   value?: T;
   onChange?: (next: T) => void;
@@ -24,12 +25,13 @@ export function FilterPills<T extends string>({
   onToggle?: (next: T) => void;
   items: FilterPillItem<T>[];
   allowDeselect?: boolean;
+  compact?: boolean;
 }) {
   const { row } = useLayout();
   const colors = useColors();
 
   return (
-    <View style={[styles.wrap, row]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact, row]}>
       {items.map((item) => {
         const on = values ? values.includes(item.value) : value === item.value;
         return (
@@ -46,6 +48,7 @@ export function FilterPills<T extends string>({
             }}
             style={[
               styles.pill,
+              compact && styles.pillCompact,
               row,
               {
                 backgroundColor: on ? colors.primary : colors.surface,
@@ -53,9 +56,13 @@ export function FilterPills<T extends string>({
               },
             ]}
           >
-            <Text style={[styles.label, { color: on ? colors.white : colors.text }]}>{item.label}</Text>
+            <Text style={[styles.label, compact && styles.labelCompact, { color: on ? colors.white : colors.text }]}>
+              {item.label}
+            </Text>
             {item.count != null ? (
-              <Text style={[styles.count, { color: on ? colors.white : colors.textMuted }]}>{item.count}</Text>
+              <Text style={[styles.count, compact && styles.countCompact, { color: on ? colors.white : colors.textMuted }]}>
+                {item.count}
+              </Text>
             ) : null}
           </Pressable>
         );
@@ -66,6 +73,7 @@ export function FilterPills<T extends string>({
 
 const styles = StyleSheet.create({
   wrap: { flexWrap: 'wrap', gap: 8 },
+  wrapCompact: { gap: 6 },
   pill: {
     alignItems: 'center',
     gap: 8,
@@ -74,6 +82,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
+  pillCompact: {
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
   label: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  labelCompact: { fontSize: 12 },
   count: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  countCompact: { fontSize: 11 },
 });

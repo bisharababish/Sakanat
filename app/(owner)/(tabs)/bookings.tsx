@@ -1,17 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -20,11 +21,12 @@ import { useAuth } from '@/src/lib/auth';
 import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation } from '@/src/lib/chat';
 import { majorLabel } from '@/src/data/majors';
-import { ageLabel, localizedName } from '@/src/lib/format';
-import { seekerExtraIcon, seekerIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
+import { ageLabel, bookingStatusLabel, bookingTone, formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
+import { seekerExtraIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { whatsappLink } from '@/src/lib/phone';
+import { canShowSeekerContact } from '@/src/lib/privacy';
 import { notifyUser } from '@/src/lib/push';
 import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
@@ -49,6 +51,7 @@ export default function OwnerBookings() {
   const [rejectNote, setRejectNote] = useState('');
   const [rejectingBusy, setRejectingBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -96,10 +99,12 @@ export default function OwnerBookings() {
       return;
     }
     if (status === 'confirmed' && booking.student_id) {
-      void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'));
+      void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'), 'booking');
+
     }
     if (status === 'cancelled' && booking.student_id) {
-      void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'));
+      void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'), 'booking');
+
     }
     void load();
   };
@@ -166,8 +171,15 @@ export default function OwnerBookings() {
       ) : null}
 
       {visible.map((booking) => {
-        const phone = booking.profiles?.phone;
-        const whatsapp = booking.profiles?.whatsapp || phone;
+        const open = openId === booking.id;
+        const showPhone = canShowSeekerContact(booking.profiles, 'phone', { bookingStatus: booking.status });
+        const showWhatsapp = canShowSeekerContact(booking.profiles, 'whatsapp', {
+          bookingStatus: booking.status,
+        });
+        const phone = showPhone ? booking.profiles?.phone : null;
+        const whatsapp = showWhatsapp
+          ? booking.profiles?.whatsapp || (showPhone ? booking.profiles?.phone : null)
+          : null;
         const gender = booking.profiles?.gender;
         const role = booking.profiles?.role;
         const university = universities.find((item) => item.id === booking.profiles?.university_id);
@@ -206,72 +218,119 @@ export default function OwnerBookings() {
         const overlapConfirmed = hasConfirmedOverlap(booking, bookings);
         const overlapPending =
           booking.status === 'pending' && overlappingBookings(booking, bookings, ['pending']).length > 0;
+        const photo = booking.apartments?.photos?.[0];
+        const title = localizedTitle(booking.apartments, i18n.language);
+        const warning =
+          booking.status === 'pending' && overlapConfirmed
+            ? t('owner.overlapWarn')
+            : booking.status === 'pending' && overlapPending
+              ? t('owner.overlapPending')
+              : undefined;
         return (
-          <BookingCard
+          <View
             key={booking.id}
-            booking={booking}
-            personIcon={seekerIcon(role)}
-            personLabel={personBits.join(' · ') || undefined}
-            personAvatar={booking.profiles?.avatar_url}
-            extra={extraName || undefined}
-            details={details}
-            extraIcon={seekerExtraIcon(role)}
-            warning={
-              booking.status === 'pending' && overlapConfirmed
-                ? t('owner.overlapWarn')
-                : booking.status === 'pending' && overlapPending
-                  ? t('owner.overlapPending')
-                  : undefined
-            }
-            note={
-              booking.status === 'cancelled' && booking.cancel_reason
-                ? t('booking.cancelledNote', { note: booking.cancel_reason })
-                : undefined
-            }
+            style={[styles.rowCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
-            {booking.status === 'pending' ? (
-              <View style={styles.actions}>
-                <View style={styles.flex}>
-                  <Button title={t('admin.approve')} pill onPress={() => updateStatus(booking, 'confirmed')} />
+            <Pressable
+              onPress={() => setOpenId(open ? null : booking.id)}
+              style={[styles.rowMain, row]}
+              accessibilityRole="button"
+            >
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+              ) : (
+                <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: colors.surfaceMuted }]}>
+                  <Ionicons name="home-outline" size={18} color={colors.textMuted} />
                 </View>
-                <View style={styles.flex}>
+              )}
+              <View style={styles.rowCopy}>
+                <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
+                  {personBits[0] || title}
+                </Text>
+                <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+                  {title} · {formatIls(booking.rent_amount, i18n.language)}
+                </Text>
+              </View>
+              <StatusBadge label={bookingStatusLabel(booking.status, t)} tone={bookingTone(booking.status)} />
+              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+            </Pressable>
+
+            {open ? (
+              <View style={styles.rowActions}>
+                {personBits.length > 1 ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {personBits.slice(1).join(' · ')}
+                  </Text>
+                ) : null}
+                {extraName ? (
+                  <View style={[styles.chipLine, row]}>
+                    <Ionicons name={seekerExtraIcon(role)} size={14} color={colors.primary} />
+                    <Text style={[styles.detailLine, rtlText, { color: colors.text }]}>{extraName}</Text>
+                  </View>
+                ) : null}
+                <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                  {formatBookingDate(booking.start_date, i18n.language)} · {booking.months}{' '}
+                  {booking.months === 1 ? t('common.month') : t('common.months')}
+                </Text>
+                {details.map((line) => (
+                  <Text key={line} style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {line}
+                  </Text>
+                ))}
+                {warning ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.warning }]}>{warning}</Text>
+                ) : null}
+                {booking.status === 'cancelled' && booking.cancel_reason ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {t('booking.cancelledNote', { note: booking.cancel_reason })}
+                  </Text>
+                ) : null}
+
+                {booking.status === 'pending' ? (
+                  <View style={styles.actions}>
+                    <View style={styles.flex}>
+                      <Button title={t('admin.approve')} pill onPress={() => updateStatus(booking, 'confirmed')} />
+                    </View>
+                    <View style={styles.flex}>
+                      <Button
+                        title={t('admin.reject')}
+                        variant="danger"
+                        pill
+                        onPress={() => {
+                          setRejectNote('');
+                          setRejecting(booking);
+                        }}
+                      />
+                    </View>
+                  </View>
+                ) : null}
+                {booking.status === 'confirmed' ? (
+                  <Button title={t('booking.complete')} pill onPress={() => updateStatus(booking, 'completed')} />
+                ) : null}
+                <Button
+                  title={t(seekerMessageKey(role))}
+                  variant="secondary"
+                  pill
+                  loading={busyId === booking.id}
+                  onPress={() => void messageStudent(booking)}
+                />
+                {phone ? (
+                  <Button title={t('common.call')} variant="ghost" pill onPress={() => Linking.openURL(`tel:${phone}`)} />
+                ) : null}
+                {whatsapp ? (
                   <Button
-                    title={t('admin.reject')}
-                    variant="danger"
+                    title={t('profile.openWhatsapp')}
+                    variant="ghost"
                     pill
-                    onPress={() => {
-                      setRejectNote('');
-                      setRejecting(booking);
-                    }}
+                    onPress={() => Linking.openURL(whatsappLink(whatsapp))}
                   />
-                </View>
+                ) : null}
+                {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
+                  <Button title={t('profile.viewIdCards')} variant="ghost" pill onPress={() => setDocsFor(booking)} />
+                ) : null}
               </View>
             ) : null}
-            {booking.status === 'confirmed' ? (
-              <Button title={t('booking.complete')} pill onPress={() => updateStatus(booking, 'completed')} />
-            ) : null}
-            <Button
-              title={t(seekerMessageKey(role))}
-              variant="secondary"
-              pill
-              loading={busyId === booking.id}
-              onPress={() => void messageStudent(booking)}
-            />
-            {phone ? (
-              <Button title={t('common.call')} variant="ghost" pill onPress={() => Linking.openURL(`tel:${phone}`)} />
-            ) : null}
-            {whatsapp ? (
-              <Button
-                title={t('profile.openWhatsapp')}
-                variant="ghost"
-                pill
-                onPress={() => Linking.openURL(whatsappLink(whatsapp))}
-              />
-            ) : null}
-            {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
-              <Button title={t('profile.viewIdCards')} variant="ghost" pill onPress={() => setDocsFor(booking)} />
-            ) : null}
-          </BookingCard>
+          </View>
         );
       })}
 
@@ -349,6 +408,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  rowCard: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  rowMain: { alignItems: 'center', gap: 10, padding: 10 },
+  thumb: { width: 52, height: 52, borderRadius: 12 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  rowCopy: { flex: 1, minWidth: 0, gap: 2 },
+  rowTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  rowMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  rowActions: { paddingHorizontal: 10, paddingBottom: 10, gap: 8 },
+  detailLine: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
+  chipLine: { alignItems: 'center', gap: 6 },
   overlay: {
     flex: 1,
     justifyContent: 'center',

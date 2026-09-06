@@ -1,5 +1,6 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
@@ -7,11 +8,15 @@ import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields'
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
+import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { ProfileSegments } from '@/components/profile/ProfileSegments';
+import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
@@ -19,18 +24,105 @@ import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
 import { regionPrefix, sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
-import { pickProfilePhoto } from '@/src/lib/pickImage';
+import { pickIdCardPhoto, pickProfilePhoto } from '@/src/lib/pickImage';
+import {
+  accountVerification,
+  fetchPublicIp,
+  isValidEmergencyName,
+  isValidNationalId,
+  isValidNationalIdExpiry,
+  nationalIdExpiryState,
+  sanitizeNationalId,
+} from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
-import { uploadProfilePhoto } from '@/src/lib/upload';
+import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
+import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, Profile } from '@/src/types/database';
 
-type ProfileTab = 'account' | 'security';
+type ProfileTab = 'account' | 'trust' | 'settings' | 'security';
+
+type FormSnap = {
+  fullNameEn: string;
+  fullNameAr: string;
+  phoneRegion: PhoneRegion;
+  phoneLocal: string;
+  waLinked: boolean;
+  waRegion: PhoneRegion;
+  waLocal: string;
+  gender: PersonGender | '';
+  birthDate: string;
+  cityId: string;
+  avatarUrl: string | null;
+  nationalId: string;
+  nationalExpiresAt: string;
+  idDocsConsent: boolean;
+  nationalIdUrl: string | null;
+  emergencyName: string;
+  emergencyRegion: PhoneRegion;
+  emergencyLocal: string;
+};
+
+function snapsEqual(a: FormSnap | null, b: FormSnap | null) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.fullNameEn === b.fullNameEn &&
+    a.fullNameAr === b.fullNameAr &&
+    a.phoneRegion === b.phoneRegion &&
+    a.phoneLocal === b.phoneLocal &&
+    a.waLinked === b.waLinked &&
+    a.waRegion === b.waRegion &&
+    a.waLocal === b.waLocal &&
+    a.gender === b.gender &&
+    a.birthDate === b.birthDate &&
+    a.cityId === b.cityId &&
+    a.avatarUrl === b.avatarUrl &&
+    a.nationalId === b.nationalId &&
+    a.nationalExpiresAt === b.nationalExpiresAt &&
+    a.idDocsConsent === b.idDocsConsent &&
+    a.nationalIdUrl === b.nationalIdUrl &&
+    a.emergencyName === b.emergencyName &&
+    a.emergencyRegion === b.emergencyRegion &&
+    a.emergencyLocal === b.emergencyLocal
+  );
+}
+
+function snapFromProfile(next: Profile): FormSnap {
+  const names = namesFromProfile(next.full_name, next.full_name_en);
+  const phoneParts = splitPhone(next.phone);
+  const waParts = splitPhone(next.whatsapp);
+  const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
+  const emergencyParts = splitPhone(next.emergency_phone);
+  return {
+    fullNameEn: names.en,
+    fullNameAr: names.ar,
+    phoneRegion: phoneParts.region,
+    phoneLocal: phoneParts.local,
+    waLinked: sameNumber,
+    waRegion: sameNumber ? phoneParts.region : waParts.region,
+    waLocal: sameNumber ? phoneParts.local : waParts.local,
+    gender: next.gender ?? '',
+    birthDate: next.date_of_birth ? next.date_of_birth.slice(0, 10) : '',
+    cityId: next.city_id ?? '',
+    avatarUrl: next.avatar_url ?? null,
+    nationalId: next.national_id_number ?? '',
+    nationalExpiresAt: next.national_id_expires_at ? next.national_id_expires_at.slice(0, 10) : '',
+    idDocsConsent: Boolean(next.id_docs_consent_at),
+    nationalIdUrl: next.national_id_url ?? null,
+    emergencyName: next.emergency_name ?? '',
+    emergencyRegion: emergencyParts.region,
+    emergencyLocal: emergencyParts.local,
+  };
+}
 
 export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
+  const { rtlText } = useLayout();
+  const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
   const today = useToday();
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<ProfileTab>('account');
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
@@ -43,27 +135,43 @@ export default function OwnerProfile() {
   const [birthDate, setBirthDate] = useState('');
   const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [nationalId, setNationalId] = useState('');
+  const [nationalExpiresAt, setNationalExpiresAt] = useState('');
+  const [idDocsConsent, setIdDocsConsent] = useState(false);
+  const [nationalIdUrl, setNationalIdUrl] = useState<string | null>(null);
+  const [nationalPreview, setNationalPreview] = useState<string | null>(null);
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyRegion, setEmergencyRegion] = useState<PhoneRegion>('ps');
+  const [emergencyLocal, setEmergencyLocal] = useState('');
   const [listingCount, setListingCount] = useState(0);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const hydratedId = useRef<string | null>(null);
+  const baseline = useRef<FormSnap | null>(null);
+  const dirtyRef = useRef(false);
 
   const applyForm = useCallback((next: Profile) => {
-    const names = namesFromProfile(next.full_name, next.full_name_en);
-    setFullNameEn(names.en);
-    setFullNameAr(names.ar);
-    const phoneParts = splitPhone(next.phone);
-    setPhoneRegion(phoneParts.region);
-    setPhoneLocal(phoneParts.local);
-    const waParts = splitPhone(next.whatsapp);
-    const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
-    setWaLinked(sameNumber);
-    setWaRegion(sameNumber ? phoneParts.region : waParts.region);
-    setWaLocal(sameNumber ? phoneParts.local : waParts.local);
-    setGender(next.gender ?? '');
-    setBirthDate(next.date_of_birth ? next.date_of_birth.slice(0, 10) : '');
-    setCityId(next.city_id ?? '');
-    setAvatarUrl(next.avatar_url ?? null);
+    const snap = snapFromProfile(next);
+    baseline.current = snap;
+    setFullNameEn(snap.fullNameEn);
+    setFullNameAr(snap.fullNameAr);
+    setPhoneRegion(snap.phoneRegion);
+    setPhoneLocal(snap.phoneLocal);
+    setWaLinked(snap.waLinked);
+    setWaRegion(snap.waRegion);
+    setWaLocal(snap.waLocal);
+    setGender(snap.gender);
+    setBirthDate(snap.birthDate);
+    setCityId(snap.cityId);
+    setAvatarUrl(snap.avatarUrl);
+    setNationalId(snap.nationalId);
+    setNationalExpiresAt(snap.nationalExpiresAt);
+    setIdDocsConsent(snap.idDocsConsent);
+    setNationalIdUrl(snap.nationalIdUrl);
+    setEmergencyName(snap.emergencyName);
+    setEmergencyRegion(snap.emergencyRegion);
+    setEmergencyLocal(snap.emergencyLocal);
   }, []);
 
   useEffect(() => {
@@ -72,6 +180,22 @@ export default function OwnerProfile() {
     hydratedId.current = profile.id;
     applyForm(profile);
   }, [profile, applyForm]);
+
+  useEffect(() => {
+    if (tabParam === 'security' || tabParam === 'account' || tabParam === 'trust' || tabParam === 'settings') {
+      setTab(tabParam);
+    }
+  }, [tabParam]);
+
+  useEffect(() => {
+    let active = true;
+    void idDocUrl(nationalIdUrl).then((url) => {
+      if (active) setNationalPreview(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [nationalIdUrl]);
 
   const loadListings = useCallback(async () => {
     if (!profile?.id) return;
@@ -88,10 +212,27 @@ export default function OwnerProfile() {
 
   const reloadPull = useCallback(async () => {
     const [, next] = await Promise.all([loadListings(), refreshProfile()]);
-    if (next) applyForm(next);
-  }, [loadListings, refreshProfile, applyForm]);
+    if (!next) return;
+    if (!dirtyRef.current) {
+      applyForm(next);
+      return;
+    }
+    alert(t('profile.discardEditsTitle'), t('profile.discardEditsBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.discardEdits'),
+        style: 'destructive',
+        onPress: () => applyForm(next),
+      },
+    ]);
+  }, [loadListings, refreshProfile, applyForm, t]);
 
-  const { refreshing, refresh } = useLiveReload(reloadAll, ['apartments', 'profiles'], `owner-profile:${profile?.id ?? ''}`, reloadPull);
+  const { refreshing, refresh } = useLiveReload(
+    reloadAll,
+    ['apartments', 'profiles'],
+    `owner-profile:${profile?.id ?? ''}`,
+    reloadPull,
+  );
 
   const cityOptions = useMemo(
     () => cities.map((city) => ({ value: city.id, label: localizedName(city, i18n.language) })),
@@ -123,6 +264,52 @@ export default function OwnerProfile() {
     }
   };
 
+  const cleanPhoneNow = toE164(phoneRegion, phoneLocal);
+  const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
+  const currentSnap: FormSnap = {
+    fullNameEn,
+    fullNameAr,
+    phoneRegion,
+    phoneLocal,
+    waLinked,
+    waRegion,
+    waLocal,
+    gender,
+    birthDate,
+    cityId,
+    avatarUrl,
+    nationalId,
+    nationalExpiresAt,
+    idDocsConsent,
+    nationalIdUrl,
+    emergencyName,
+    emergencyRegion,
+    emergencyLocal,
+  };
+  const dirty = baseline.current != null && !snapsEqual(currentSnap, baseline.current);
+  dirtyRef.current = dirty;
+  const verification = accountVerification(profile);
+  const trustIncomplete = Boolean(
+    !isValidNationalId(nationalId) ||
+      !isValidNationalIdExpiry(nationalExpiresAt) ||
+      !nationalIdUrl ||
+      !idDocsConsent ||
+      profile?.id_verify_status !== 'approved' ||
+      !isValidEmergencyName(emergencyName) ||
+      !cleanEmergency ||
+      cleanEmergency === cleanPhoneNow,
+  );
+  const accountIncomplete = Boolean(
+    !fullNameEn.trim() ||
+      !fullNameAr.trim() ||
+      !gender ||
+      !cityId ||
+      !birthDate ||
+      !phoneLocal.trim() ||
+      !waLocal.trim() ||
+      !avatarUrl,
+  );
+
   const statusLabel =
     profile?.owner_status === 'approved'
       ? t('admin.ownerActive')
@@ -133,17 +320,21 @@ export default function OwnerProfile() {
   const banner =
     profile?.owner_status !== 'approved'
       ? { icon: 'hourglass' as const, text: statusLabel, onPress: () => setTab('account') }
-      : listingCount > 0
-        ? {
-            icon: 'home' as const,
-            text: t('profile.listingCount', { count: listingCount }),
-            onPress: () => router.push('/(owner)/(tabs)/listings'),
-          }
-        : {
-            icon: 'home' as const,
-            text: t('tabs.listings'),
-            onPress: () => router.push('/(owner)/(tabs)/listings'),
-          };
+      : accountIncomplete
+        ? { icon: 'person-outline' as const, text: t('profile.completeHint'), onPress: () => setTab('account') }
+        : trustIncomplete
+          ? { icon: 'shield-outline' as const, text: t('menu.verification'), onPress: () => setTab('trust') }
+          : listingCount > 0
+            ? {
+                icon: 'home' as const,
+                text: t('profile.listingCount', { count: listingCount }),
+                onPress: () => router.push('/(owner)/(tabs)/listings'),
+              }
+            : {
+                icon: 'home' as const,
+                text: t('tabs.listings'),
+                onPress: () => router.push('/(owner)/(tabs)/listings'),
+              };
 
   const changePhoto = async () => {
     if (!profile) return;
@@ -155,6 +346,7 @@ export default function OwnerProfile() {
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
+      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -163,9 +355,58 @@ export default function OwnerProfile() {
     }
   };
 
+  const uploadNational = async () => {
+    if (!profile) return;
+    if (!idDocsConsent) {
+      alert(t('common.error'), t('profile.idConsentRequired'));
+      return;
+    }
+    const uri = await pickIdCardPhoto();
+    if (!uri) return;
+    setUploadingDoc(true);
+    try {
+      const path = await uploadIdDoc(profile.id, 'national', uri);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          national_id_url: path,
+          id_verify_status: 'pending',
+          id_docs_consent_at: profile.id_docs_consent_at ?? new Date().toISOString(),
+        })
+        .eq('id', profile.id);
+      if (error) {
+        if (/national_id_url|id_verify_status|column/i.test(error.message)) {
+          throw new Error(t('profile.idUploadDbMissing'));
+        }
+        throw error;
+      }
+      if (!profile.id_docs_consent_at) setIdDocsConsent(true);
+      setNationalIdUrl(path);
+      if (baseline.current) {
+        baseline.current = { ...baseline.current, nationalIdUrl: path, idDocsConsent: true };
+      }
+      await refreshProfile();
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('profile.idUploadFailed'));
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
   const saveProfile = async () => {
-    if (!profile || !fullNameEn.trim() || !fullNameAr.trim() || !phoneLocal.trim() || !waLocal.trim() || !gender || !cityId || !birthDate || !avatarUrl) {
-      alert(t('common.error'), t('profile.completeRequiredRenter'));
+    const accountMissing = [
+      !avatarUrl && t('profile.photo'),
+      !fullNameEn.trim() && t('common.nameEn'),
+      !fullNameAr.trim() && t('common.nameAr'),
+      !gender && t('profile.gender'),
+      !cityId && t('auth.homeCity'),
+      !birthDate && t('profile.birthDate'),
+      !phoneLocal.trim() && t('common.phone'),
+      !waLocal.trim() && t('profile.whatsapp'),
+    ].filter(Boolean) as string[];
+    if (!profile || accountMissing.length > 0) {
+      alert(t('profile.stillNeeded'), accountMissing.join('\n') || t('profile.completeRequiredRenter'));
+      setTab('account');
       return;
     }
     if (!isValidEnglishName(fullNameEn)) {
@@ -186,17 +427,56 @@ export default function OwnerProfile() {
       alert(t('common.error'), t('phone.invalid'));
       return;
     }
+    if (!isValidNationalId(nationalId)) {
+      alert(t('common.error'), t('profile.nationalIdInvalid'));
+      setTab('trust');
+      return;
+    }
+    if (!isValidNationalIdExpiry(nationalExpiresAt)) {
+      alert(
+        t('common.error'),
+        nationalIdExpiryState(nationalExpiresAt) === 'expired'
+          ? t('profile.idExpired')
+          : t('profile.idExpiryInvalid'),
+      );
+      setTab('trust');
+      return;
+    }
+    if (!isValidEmergencyName(emergencyName)) {
+      alert(t('common.error'), t('profile.emergencyNameInvalid'));
+      setTab('trust');
+      return;
+    }
+    if (!cleanEmergency || cleanEmergency === cleanPhone) {
+      alert(t('common.error'), t('profile.emergencySamePhone'));
+      setTab('trust');
+      return;
+    }
+    if (!idDocsConsent || !nationalIdUrl) {
+      alert(t('common.error'), t('profile.idConsentRequired'));
+      setTab('trust');
+      return;
+    }
+
     setSaving(true);
     try {
+      const ip = await fetchPublicIp();
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: cleanName(fullNameAr),
+          full_name_en: cleanName(fullNameEn),
           phone: cleanPhone,
           whatsapp: cleanWhatsapp,
           gender,
           date_of_birth: birthDate,
           city_id: cityId,
+          national_id_number: sanitizeNationalId(nationalId) || null,
+          national_id_expires_at: nationalExpiresAt || null,
+          emergency_name: emergencyName.trim() || null,
+          emergency_phone: cleanEmergency,
+          id_docs_consent_at: profile.id_docs_consent_at ?? new Date().toISOString(),
+          ...(ip ? { last_seen_ip: ip } : {}),
         })
         .eq('id', profile.id);
       if (error) throw error;
@@ -205,6 +485,7 @@ export default function OwnerProfile() {
       });
       if (nameError) throw nameError;
       await refreshProfile();
+      baseline.current = currentSnap;
       alert(t('common.done'), t('profile.saved'));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -213,34 +494,54 @@ export default function OwnerProfile() {
     }
   };
 
-  const incomplete = Boolean(
-    !fullNameEn.trim() ||
-      !fullNameAr.trim() ||
-      !gender ||
-      !cityId ||
-      !birthDate ||
-      !phoneLocal.trim() ||
-      !waLocal.trim() ||
-      !avatarUrl,
-  );
   const progressItems = [
-    { label: t('profile.photo'), done: Boolean(avatarUrl) },
-    { label: t('common.nameEn'), done: Boolean(fullNameEn.trim()) },
-    { label: t('common.nameAr'), done: Boolean(fullNameAr.trim()) },
-    { label: t('profile.gender'), done: Boolean(gender) },
-    { label: t('auth.homeCity'), done: Boolean(cityId) },
-    { label: t('profile.birthDate'), done: Boolean(birthDate) },
-    { label: t('common.phone'), done: Boolean(phoneLocal.trim()) },
-    { label: t('profile.whatsapp'), done: Boolean(waLocal.trim()) },
+    { id: 'photo', label: t('profile.photo'), done: Boolean(avatarUrl) },
+    { id: 'nameEn', label: t('common.nameEn'), done: Boolean(fullNameEn.trim()) },
+    { id: 'nameAr', label: t('common.nameAr'), done: Boolean(fullNameAr.trim()) },
+    { id: 'gender', label: t('profile.gender'), done: Boolean(gender) },
+    { id: 'city', label: t('auth.homeCity'), done: Boolean(cityId) },
+    { id: 'birth', label: t('profile.birthDate'), done: Boolean(birthDate) },
+    { id: 'phone', label: t('common.phone'), done: Boolean(phoneLocal.trim()) },
+    { id: 'whatsapp', label: t('profile.whatsapp'), done: Boolean(waLocal.trim()) },
   ];
+  const trustProgress = [
+    { id: 'nationalId', label: t('profile.nationalId'), done: isValidNationalId(nationalId) },
+    { id: 'nationalExpiry', label: t('profile.nationalIdExpiry'), done: isValidNationalIdExpiry(nationalExpiresAt) },
+    { id: 'nationalCard', label: t('profile.nationalCard'), done: Boolean(nationalIdUrl) && idDocsConsent },
+    { id: 'idVerified', label: t('profile.idVerified'), done: profile?.id_verify_status === 'approved' },
+    { id: 'emergencyName', label: t('profile.emergencyName'), done: isValidEmergencyName(emergencyName) },
+    {
+      id: 'emergencyPhone',
+      label: t('profile.emergencyPhone'),
+      done: Boolean(cleanEmergency) && cleanEmergency !== cleanPhoneNow,
+    },
+  ];
+
+  const jumpTo = (id: string) => {
+    const trustIds = new Set([
+      'nationalId',
+      'nationalExpiry',
+      'nationalCard',
+      'idVerified',
+      'emergencyName',
+      'emergencyPhone',
+    ]);
+    setTab(trustIds.has(id) ? 'trust' : 'account');
+  };
 
   return (
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
       footer={
-        tab === 'account' ? (
-          <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
+        tab === 'account' || tab === 'trust' ? (
+          <Button
+            title={t('profile.saveProfile')}
+            onPress={() => void saveProfile()}
+            loading={saving}
+            disabled={!dirty}
+            pill
+          />
         ) : null
       }
     >
@@ -258,13 +559,17 @@ export default function OwnerProfile() {
         ]}
         chip={t('roles.owner')}
         email={profile?.email}
+        verifyStatus={profile?.id_verify_status}
+        verifyRole="owner"
       />
       <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
       <ProfileSegments
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: incomplete },
+          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: accountIncomplete },
+          { key: 'trust', icon: 'shield-checkmark', label: t('profile.tabTrust'), dot: trustIncomplete },
+          { key: 'settings', icon: 'options', label: t('profile.tabSettings') },
           { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
         ]}
       />
@@ -286,7 +591,7 @@ export default function OwnerProfile() {
                 : []),
             ].filter((item) => item.text)}
           />
-          <ProfileProgress items={progressItems} />
+          <ProfileProgress items={progressItems} onJump={jumpTo} readyLabel={t('owner.profileReady')} />
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -312,7 +617,53 @@ export default function OwnerProfile() {
         </>
       ) : null}
 
-      {tab === 'security' ? <ProfileSecurity /> : null}
+      {tab === 'trust' && profile?.id_verify_status === 'rejected' ? (
+        <Card compact>
+          <Text style={[{ color: colors.danger, fontFamily: 'Cairo_600SemiBold', fontSize: 13 }, rtlText]}>
+            {profile.id_verify_note || t('menu.verifyRejectedHint')}
+          </Text>
+        </Card>
+      ) : null}
+
+      {tab === 'trust' ? (
+        <>
+          <ProfileProgress items={trustProgress} onJump={jumpTo} readyLabel={t('owner.profileReady')} />
+          <ProfileSafetyFields
+            isStudent={false}
+            nationalId={nationalId}
+            onNationalId={(value) => setNationalId(sanitizeNationalId(value))}
+            nationalExpiresAt={nationalExpiresAt}
+            onNationalExpiresAt={setNationalExpiresAt}
+            idDocsConsent={idDocsConsent}
+            onIdDocsConsent={setIdDocsConsent}
+            nationalUri={nationalPreview}
+            uploadingDoc={uploadingDoc}
+            onUploadNational={() => void uploadNational()}
+            onUploadUniversity={() => undefined}
+            emergencyName={emergencyName}
+            onEmergencyName={setEmergencyName}
+            emergencyRegion={emergencyRegion}
+            emergencyLocal={emergencyLocal}
+            onEmergency={(region, local) => {
+              setEmergencyRegion(region);
+              setEmergencyLocal(local);
+            }}
+          />
+          {verification?.pendingReview ? (
+            <Card compact>
+              <Text style={[{ color: colors.textMuted, fontFamily: 'Cairo_400Regular', fontSize: 12 }, rtlText]}>
+                {t('menu.verifyReviewHint')}
+              </Text>
+            </Card>
+          ) : null}
+        </>
+      ) : null}
+
+      {tab === 'settings' && profile ? (
+        <ProfileSettingsFields variant="owner" profile={profile} onSaved={() => void refreshProfile()} />
+      ) : null}
+
+      {tab === 'security' ? <ProfileSecurity mfaRequired /> : null}
     </Screen>
   );
 }

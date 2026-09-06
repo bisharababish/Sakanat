@@ -11,6 +11,7 @@ import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
+import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { paymentBucket } from '@/src/lib/booking';
 import { formatIls, localizedTitle } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
@@ -65,6 +66,7 @@ export default function AdminOverview() {
   const { t, i18n } = useTranslation();
   const { rtlText, row, lang, textAlign, writingDirection } = useLayout();
   const colors = useColors();
+  const pendingCounts = useAdminPendingCounts();
   const [owners, setOwners] = useState<Profile[]>([]);
   const [pendingIds, setPendingIds] = useState<Profile[]>([]);
   const [students, setStudents] = useState(0);
@@ -223,6 +225,13 @@ export default function AdminOverview() {
           value={String(students)}
           meta={`${t('admin.renters')}: ${renters}`}
           onPress={() => router.push({ pathname: '/(admin)/(tabs)/users', params: { role: 'student' } })}
+        />
+        <StatTile
+          icon="flag-outline"
+          label={t('admin.reportsTitle')}
+          value={String(pendingCounts.reports)}
+          meta={t('admin.reportsMeta')}
+          onPress={() => router.push('/(admin)/(tabs)/reports')}
         />
       </View>
 

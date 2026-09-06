@@ -13,7 +13,15 @@ import { enrollTotp, formatTotpSecret, isMfaCooldown, listAllFactors, mfaCooldow
 import { alert } from '@/src/lib/notice';
 import { useColors } from '@/src/theme/ThemeProvider';
 
-export function MfaSetup({ required = false, onEnabled }: { required?: boolean; onEnabled?: () => void }) {
+export function MfaSetup({
+  required = false,
+  requiredRole = 'admin',
+  onEnabled,
+}: {
+  required?: boolean;
+  requiredRole?: 'admin' | 'owner';
+  onEnabled?: () => void;
+}) {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
@@ -171,7 +179,13 @@ export function MfaSetup({ required = false, onEnabled }: { required?: boolean; 
     <Card>
       <SectionHead icon="shield-checkmark-outline" title={t('mfa.title')} />
       <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>
-        {t(required ? 'mfa.adminRequired' : 'mfa.hint')}
+        {t(
+          required
+            ? requiredRole === 'owner'
+              ? 'mfa.ownerRequired'
+              : 'mfa.adminRequired'
+            : 'mfa.hint',
+        )}
       </Text>
       {loading ? null : enabled && !secret ? (
         <>

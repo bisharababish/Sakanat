@@ -1,22 +1,26 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { ListingCard } from '@/components/ListingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
-import { listingBadgeTone } from '@/src/lib/format';
+import { formatIls, listingBadgeTone, localizedTitle } from '@/src/lib/format';
 import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
+import { verifiedTotpFactor } from '@/src/lib/mfa';
 import { alert } from '@/src/lib/notice';
 import { OWNER_LISTING_PAGE_SIZE } from '@/src/lib/page';
+import { listingGateMessage, ownerReadyForListing } from '@/src/lib/trust';
+import { ownerListingGapTab } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -25,12 +29,30 @@ import type { Apartment, ListingStatus } from '@/src/types/database';
 type Filter = 'all' | ListingStatus;
 
 export default function OwnerListings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { rtlText, writingDirection, textAlign, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
   const [listings, setListings] = useState<Apartment[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [mfaOn, setMfaOn] = useState(true);
+
+  const canList = ownerReadyForListing(profile);
+
+  useEffect(() => {
+    let alive = true;
+    void verifiedTotpFactor()
+      .then((factor) => {
+        if (alive) setMfaOn(Boolean(factor));
+      })
+      .catch(() => {
+        if (alive) setMfaOn(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profile?.id]);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -62,6 +84,35 @@ export default function OwnerListings() {
   );
   const paged = usePaged(visible, OWNER_LISTING_PAGE_SIZE, filter);
 
+  const goProfileGap = () => {
+    router.push({
+      pathname: '/(owner)/(tabs)/profile',
+      params: { tab: ownerListingGapTab(profile) },
+    });
+  };
+
+  const gateAdd = () => {
+    if (profile?.owner_status === 'pending') {
+      alert(t('common.error'), t('owner.listingNeedApproval'));
+      return;
+    }
+    if (profile?.owner_status === 'rejected') {
+      alert(t('common.error'), t('owner.listingSuspended'));
+      return;
+    }
+    if (!canList) {
+      alert(t('common.error'), t('owner.listingNeedVerify'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('profile.title'),
+          onPress: goProfileGap,
+        },
+      ]);
+      return;
+    }
+    router.push('/(owner)/listing/new');
+  };
+
   const removeListing = (id: string) => {
     alert(t('owner.deleteListing'), t('owner.confirmDelete'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -92,12 +143,29 @@ export default function OwnerListings() {
   };
 
   const unhideListing = async (id: string) => {
+    if (!canList) {
+      alert(t('common.error'), t('owner.listingNeedVerify'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('profile.title'), onPress: goProfileGap },
+      ]);
+      return;
+    }
     const { error } = await supabase.from('apartments').update({ status: 'approved' }).eq('id', id);
-    if (error) alert(t('common.error'), error.message);
-    else void load();
+    if (error) {
+      alert(t('common.error'), listingGateMessage(error.message, t) || error.message);
+      return;
+    }
+    void load();
   };
 
   const duplicateListing = async (item: Apartment) => {
+    if (!canList) {
+      alert(t('common.error'), t('owner.listingNeedVerify'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('profile.title'), onPress: goProfileGap },
+      ]);
+      return;
+    }
     const { data, error } = await supabase
       .from('apartments')
       .insert({
@@ -107,7 +175,7 @@ export default function OwnerListings() {
       .select('id')
       .single();
     if (error) {
-      alert(t('common.error'), error.message);
+      alert(t('common.error'), listingGateMessage(error.message, t) || error.message);
       return;
     }
     alert(t('common.done'), t('owner.duplicated'));
@@ -115,7 +183,6 @@ export default function OwnerListings() {
     else void load();
   };
 
-  const addListing = () => router.push('/(owner)/listing/new');
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
 
   return (
@@ -132,22 +199,44 @@ export default function OwnerListings() {
 
       {profile?.owner_status === 'pending' ? (
         <View style={[styles.warnBox, { backgroundColor: colors.warningSoft }]}>
-          <View style={[styles.warnIcon, { backgroundColor: colors.surface }]}>
-            <Ionicons name="time-outline" size={18} color={colors.warning} />
-          </View>
-          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.warning }]}>{t('auth.ownerPending')}</Text>
+          <Ionicons name="time-outline" size={18} color={colors.warning} />
+          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.warning }]}>
+            {t('owner.listingNeedApproval')}
+          </Text>
         </View>
       ) : null}
       {profile?.owner_status === 'rejected' ? (
-        <View style={[styles.warnBox, { backgroundColor: colors.warningSoft }]}>
-          <View style={[styles.warnIcon, { backgroundColor: colors.surface }]}>
-            <Ionicons name="alert-circle-outline" size={18} color={colors.warning} />
-          </View>
-          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.warning }]}>{t('admin.ownerSuspended')}</Text>
+        <View style={[styles.warnBox, { backgroundColor: colors.dangerSoft }]}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.danger }]}>
+            {t('owner.listingSuspended')}
+          </Text>
         </View>
       ) : null}
+      {profile?.owner_status === 'approved' && !canList ? (
+        <Pressable
+          onPress={goProfileGap}
+          style={[styles.warnBox, { backgroundColor: colors.warningSoft }]}
+        >
+          <Ionicons name="shield-outline" size={18} color={colors.warning} />
+          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.warning }]}>
+            {t('owner.listingNeedVerify')}
+          </Text>
+        </Pressable>
+      ) : null}
+      {!mfaOn ? (
+        <Pressable
+          onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'security' } })}
+          style={[styles.warnBox, { backgroundColor: colors.primarySoft }]}
+        >
+          <Ionicons name="lock-closed-outline" size={18} color={colors.primary} />
+          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.primary }]}>
+            {t('owner.mfaNudge')}
+          </Text>
+        </Pressable>
+      ) : null}
 
-      <Button title={t('owner.addListing')} onPress={addListing} pill />
+      <Button title={t('owner.addListing')} onPress={gateAdd} pill />
 
       <FilterPills
         value={filter}
@@ -161,83 +250,106 @@ export default function OwnerListings() {
 
       {visible.length === 0 ? (
         <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="home-outline" size={28} color={colors.primary} />
-          </View>
           <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
             {listings.length === 0 ? t('owner.empty') : t('owner.emptyFiltered')}
           </Text>
-          {listings.length === 0 ? <Button title={t('owner.addFirst')} onPress={addListing} pill /> : null}
+          {listings.length === 0 ? <Button title={t('owner.addFirst')} onPress={gateAdd} pill /> : null}
         </View>
       ) : null}
 
-      {paged.slice.map((item) => (
-        <View key={item.id} style={styles.block}>
-          <ListingCard
-            apartment={item}
-            university={item.universities}
-            distanceKm={item.campus_distance_km}
-            badge={{ label: t(`status.${item.status}`), tone: listingBadgeTone(item.status) }}
-            onPress={() => router.push({ pathname: '/(owner)/listing/[id]', params: { id: item.id } })}
-          />
-          {item.status === 'rejected' && item.reject_reason ? (
-            <Text style={[styles.warn, rtlText, { color: colors.warning }]}>
-              {t('admin.rejectedNote', { note: item.reject_reason })}
-            </Text>
-          ) : null}
-          <View style={[styles.actions, row]}>
+      {paged.slice.map((item) => {
+        const open = openId === item.id;
+        const title = localizedTitle(item, i18n.language);
+        const photo = item.photos?.[0];
+        const tone = listingBadgeTone(item.status);
+        return (
+          <View
+            key={item.id}
+            style={[styles.rowCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
             <Pressable
-              onPress={() => router.push({ pathname: '/(owner)/apartment/[id]', params: { id: item.id } })}
-              style={[styles.action, { backgroundColor: colors.accentSoft }]}
+              onPress={() => setOpenId(open ? null : item.id)}
+              style={[styles.rowMain, row]}
+              accessibilityRole="button"
             >
-              <Ionicons name="phone-portrait-outline" size={16} color={colors.primaryDark} />
-              <Text style={[styles.actionText, { writingDirection, color: colors.primaryDark }]}>
-                {t('owner.preview')}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void duplicateListing(item)}
-              style={[styles.action, { backgroundColor: colors.accentSoft }]}
-            >
-              <Ionicons name="copy-outline" size={16} color={colors.primaryDark} />
-              <Text style={[styles.actionText, { writingDirection, color: colors.primaryDark }]}>
-                {t('owner.duplicate')}
-              </Text>
-            </Pressable>
-            {item.status === 'approved' ? (
-              <Pressable
-                onPress={() => hideListing(item.id)}
-                style={[styles.action, { backgroundColor: colors.accentSoft }]}
-              >
-                <Ionicons name="eye-off-outline" size={16} color={colors.primaryDark} />
-                <Text style={[styles.actionText, { writingDirection, color: colors.primaryDark }]}>
-                  {t('owner.hideListing')}
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+              ) : (
+                <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: colors.surfaceMuted }]}>
+                  <Ionicons name="home-outline" size={18} color={colors.textMuted} />
+                </View>
+              )}
+              <View style={styles.rowCopy}>
+                <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
+                  {title}
                 </Text>
-              </Pressable>
-            ) : null}
-            {item.status === 'hidden' ? (
-              <Pressable
-                onPress={() => void unhideListing(item.id)}
-                style={[styles.action, { backgroundColor: colors.accentSoft }]}
-              >
-                <Ionicons name="eye-outline" size={16} color={colors.primaryDark} />
-                <Text style={[styles.actionText, { writingDirection, color: colors.primaryDark }]}>
-                  {t('owner.unhideListing')}
+                <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+                  {formatIls(item.price_month, i18n.language)} · {item.photos?.length ?? 0}{' '}
+                  {t('owner.photosShort')}
                 </Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => removeListing(item.id)}
-              style={[styles.action, { backgroundColor: colors.dangerSoft }]}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.danger} />
-              <Text style={[styles.actionDangerText, { writingDirection, color: colors.danger }]}>
-                {t('owner.deleteListing')}
-              </Text>
+              </View>
+              <StatusBadge label={t(`status.${item.status}`)} tone={tone} />
+              <Ionicons
+                name={open ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.textMuted}
+              />
             </Pressable>
+
+            {open ? (
+              <View style={styles.rowActions}>
+                {item.status === 'rejected' && item.reject_reason ? (
+                  <Text style={[styles.warn, rtlText, { color: colors.warning }]}>
+                    {t('admin.rejectedNote', { note: item.reject_reason })}
+                  </Text>
+                ) : null}
+                <View style={[styles.actions, row]}>
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/(owner)/listing/[id]', params: { id: item.id } })}
+                    style={[styles.action, { backgroundColor: colors.primarySoft }]}
+                  >
+                    <Text style={[styles.actionText, { color: colors.primary }]}>{t('common.edit')}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/(owner)/apartment/[id]', params: { id: item.id } })}
+                    style={[styles.action, { backgroundColor: colors.accentSoft }]}
+                  >
+                    <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.preview')}</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void duplicateListing(item)}
+                    style={[styles.action, { backgroundColor: colors.accentSoft }]}
+                  >
+                    <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.duplicate')}</Text>
+                  </Pressable>
+                  {item.status === 'approved' ? (
+                    <Pressable
+                      onPress={() => hideListing(item.id)}
+                      style={[styles.action, { backgroundColor: colors.accentSoft }]}
+                    >
+                      <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.hideListing')}</Text>
+                    </Pressable>
+                  ) : null}
+                  {item.status === 'hidden' ? (
+                    <Pressable
+                      onPress={() => void unhideListing(item.id)}
+                      style={[styles.action, { backgroundColor: colors.accentSoft }]}
+                    >
+                      <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.unhideListing')}</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    onPress={() => removeListing(item.id)}
+                    style={[styles.action, { backgroundColor: colors.dangerSoft }]}
+                  >
+                    <Text style={[styles.actionDangerText, { color: colors.danger }]}>{t('owner.deleteListing')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </View>
-        </View>
-      ))}
+        );
+      })}
       <Pager
         page={paged.page}
         pages={paged.pages}
@@ -264,26 +376,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
   },
-  warnIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  warn: { flex: 1, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
-  block: { gap: 10 },
-  actions: { flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  action: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: radius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  actionText: { fontSize: 13, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  actionDangerText: { fontSize: 13, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  warn: { flex: 1, lineHeight: 20, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   emptyBox: {
     padding: spacing.xl,
     borderRadius: 24,
@@ -291,17 +384,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: 1,
   },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    fontFamily: 'Cairo_400Regular',
-  },
+  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
+  rowCard: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  rowMain: { alignItems: 'center', gap: 10, padding: 10 },
+  thumb: { width: 52, height: 52, borderRadius: 12 },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  rowCopy: { flex: 1, minWidth: 0, gap: 2 },
+  rowTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  rowMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  rowActions: { paddingHorizontal: 10, paddingBottom: 10, gap: 8 },
+  actions: { flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  action: { borderRadius: radius.full, paddingHorizontal: 12, paddingVertical: 8 },
+  actionText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  actionDangerText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
 });

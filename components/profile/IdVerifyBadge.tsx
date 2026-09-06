@@ -3,24 +3,32 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import type { IdVerifyStatus } from '@/src/types/database';
+import type { IdVerifyStatus, UserRole } from '@/src/types/database';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
   status?: IdVerifyStatus | null;
   compact?: boolean;
+  role?: UserRole | null;
 };
 
-export function IdVerifyBadge({ status, compact }: Props) {
+export function IdVerifyBadge({ status, compact, role }: Props) {
   const { t } = useTranslation();
   const { row } = useLayout();
   const colors = useColors();
   if (!status || status === 'none') return null;
 
+  const verifiedLabel =
+    role === 'owner'
+      ? t('profile.verifiedOwner')
+      : role === 'renter'
+        ? t('profile.verifiedRenter')
+        : t('profile.verifiedStudent');
+
   const tone =
     status === 'approved'
-      ? { bg: colors.successSoft, fg: colors.success, icon: 'shield-checkmark' as const, label: t('profile.idVerified') }
+      ? { bg: colors.successSoft, fg: colors.success, icon: 'shield-checkmark' as const, label: verifiedLabel }
       : status === 'pending'
         ? { bg: colors.warningSoft, fg: colors.warning, icon: 'time-outline' as const, label: t('profile.idPendingReview') }
         : { bg: colors.dangerSoft, fg: colors.danger, icon: 'alert-circle' as const, label: t('profile.idRejected') };

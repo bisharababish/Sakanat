@@ -161,6 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
+    void import('@/src/lib/devices')
+      .then(({ touchDeviceSession }) => touchDeviceSession(nextProfile.id))
+      .catch(() => undefined);
     return nextProfile;
   };
 

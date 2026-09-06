@@ -17,12 +17,14 @@ export default function OwnerChat() {
       <View style={styles.top}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('chat.title')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('chat.inboxHint')}</Text>
       </View>
       <ConversationList
         roleHref="/(owner)/conversation/[id]"
         items={inbox.items}
         profileId={inbox.profile?.id}
         isOwner
+        onReload={inbox.reload}
       />
     </Screen>
   );
@@ -30,6 +32,7 @@ export default function OwnerChat() {
 
 const styles = StyleSheet.create({
   top: { gap: 2 },
-  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -4 },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -2 },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  hint: { fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_400Regular' },
 });

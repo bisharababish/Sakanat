@@ -46,9 +46,11 @@ export async function deleteOwnAccount() {
 }
 
 export function notifyListingApproved(ownerId: string) {
-  void notifyUser(ownerId, i18n.t('push.listingApprovedTitle'), i18n.t('push.listingApprovedBody'));
+  void notifyUser(ownerId, i18n.t('push.listingApprovedTitle'), i18n.t('push.listingApprovedBody'), 'listing');
+
 }
 
 export function notifyListingRejected(ownerId: string) {
-  void notifyUser(ownerId, i18n.t('push.listingRejectedTitle'), i18n.t('push.listingRejectedBody'));
+  void notifyUser(ownerId, i18n.t('push.listingRejectedTitle'), i18n.t('push.listingRejectedBody'), 'listing');
+
 }

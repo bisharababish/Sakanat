@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Share, StatusBar, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Share, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,17 +11,21 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { loadActiveStay } from '@/src/lib/booking';
 import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
+import { shouldShowSavedCount } from '@/src/lib/privacy';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
+import { submitAppReport } from '@/src/lib/reports';
 import { homeHref, profileHref } from '@/src/lib/routes';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { loadSavedApartmentIds } from '@/src/lib/saved';
 import { appVersion, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
-import { seekerVerification } from '@/src/lib/trust';
+import { accountVerification } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
 
@@ -62,6 +66,10 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const [askLogout, setAskLogout] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [needsReview, setNeedsReview] = useState(false);
+  const [hasActiveStay, setHasActiveStay] = useState(false);
+  const [reportKind, setReportKind] = useState<'tech' | 'safety'>('safety');
+  const [reportBody, setReportBody] = useState('');
+  const [sendingReport, setSendingReport] = useState(false);
   const pendingSignOut = useRef(false);
   const rootScroll = useRef<ScrollView>(null);
   const rootY = useRef(0);
@@ -71,8 +79,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const shownName = displayName(profile, i18n.language);
   const university = localizedName(profile?.universities, i18n.language);
   const city = localizedName(profile?.cities, i18n.language);
-  const verification = seekerVerification(profile);
+  const verification = accountVerification(profile);
   const isSeeker = profile?.role === 'student' || profile?.role === 'renter';
+  const isOwner = profile?.role === 'owner';
 
   useEffect(() => {
     if (!visible) return;
@@ -80,6 +89,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     if (!profile || !isSeeker) {
       setSavedCount(0);
       setNeedsReview(false);
+      setHasActiveStay(false);
       return;
     }
     void loadSavedApartmentIds(profile.id)
@@ -88,6 +98,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     void loadPendingReview(profile.id)
       .then((pending) => setNeedsReview(Boolean(pending)))
       .catch(() => setNeedsReview(false));
+    void loadActiveStay(profile.id)
+      .then((stay) => setHasActiveStay(Boolean(stay)))
+      .catch(() => setHasActiveStay(false));
   }, [visible, profile, isSeeker]);
 
   useEffect(() => {
@@ -97,6 +110,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     }
     setPane('root');
     setAskLogout(false);
+    setReportBody('');
+    setReportKind('safety');
   }, [visible]);
 
   useEffect(() => {
@@ -135,7 +150,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     await setPushEnabled(next, profile?.id);
   };
 
-  const goProfile = (tab?: 'account' | 'trust' | 'saved' | 'security') => {
+  const goProfile = (tab?: 'account' | 'trust' | 'settings' | 'saved' | 'security') => {
     if (!profile) return;
     onClose();
     router.push(profileHref(profile.role, tab) as never);
@@ -148,7 +163,25 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
       router.push('/(student)/(tabs)/bookings');
       return;
     }
+    if (profile.role === 'owner') {
+      router.push('/(owner)/(tabs)/bookings');
+      return;
+    }
     router.push(homeHref(profile.role) as never);
+  };
+
+  const goChats = () => {
+    if (!profile) return;
+    onClose();
+    if (profile.role === 'student' || profile.role === 'renter') {
+      router.push('/(student)/(tabs)/chat');
+      return;
+    }
+    if (profile.role === 'owner') {
+      router.push('/(owner)/(tabs)/chat');
+      return;
+    }
+    router.push('/(admin)/(tabs)/chat');
   };
 
   const openUrl = (url: string) => {
@@ -165,14 +198,37 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     openUrl(mailTo(t('menu.supportSubject')));
   };
 
-  const report = (kind: 'tech' | 'safety') => {
+  const report = async (kind: 'tech' | 'safety', details?: string) => {
     const role = profile ? t(`roles.${profile.role}`) : t('menu.guest');
     const vars = { role, version: VERSION };
-    if (kind === 'safety') {
-      openUrl(mailTo(t('menu.reportSafetySubject'), t('menu.reportSafetyBody', vars), TRUST_EMAIL));
+    const subject = kind === 'safety' ? t('menu.reportSafetySubject') : t('menu.reportTechSubject');
+    const template = kind === 'safety' ? t('menu.reportSafetyBody', vars) : t('menu.reportTechBody', vars);
+    const note = (details ?? '').trim();
+    const body = note ? `${template}\n${note}` : template;
+    if (profile) {
+      if (note.length < 12) {
+        alert(t('common.error'), t('profile.reportBodyShort'));
+        return;
+      }
+      setSendingReport(true);
+      try {
+        await submitAppReport(profile.id, { kind, subject, body });
+        setReportBody('');
+        alert(t('common.done'), t('profile.reportSent'));
+        setPane('root');
+      } catch (err) {
+        alert(t('common.error'), err instanceof Error ? err.message : t('profile.reportFailed'));
+        openUrl(kind === 'safety' ? mailTo(subject, body, TRUST_EMAIL) : mailTo(subject, body));
+      } finally {
+        setSendingReport(false);
+      }
       return;
     }
-    openUrl(mailTo(t('menu.reportTechSubject'), t('menu.reportTechBody', vars)));
+    if (kind === 'safety') {
+      openUrl(mailTo(subject, body, TRUST_EMAIL));
+      return;
+    }
+    openUrl(mailTo(subject, body));
   };
 
   const shareApp = async () => {
@@ -281,7 +337,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
               >
                 {profile ? (
                   <>
-                    {isSeeker ? (
+                    {isSeeker || isOwner ? (
                       <Text style={[styles.section, copy, { color: colors.textMuted, marginTop: 0 }]}>
                         {t('menu.you')}
                       </Text>
@@ -327,6 +383,46 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       </View>
                       <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
                     </Pressable>
+                    {isOwner && profile.owner_status === 'pending' ? (
+                      <View
+                        style={[
+                          styles.verifyCard,
+                          { backgroundColor: colors.warningSoft, borderColor: colors.warning },
+                        ]}
+                      >
+                        <View style={[styles.row, row]}>
+                          <RowIcon name="time-outline" colors={colors} />
+                          <View style={styles.rowCopy}>
+                            <Text style={[styles.rowLabel, copy, { color: colors.warning }]}>
+                              {t('menu.ownerPending')}
+                            </Text>
+                            <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                              {t('menu.ownerPendingHint')}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : null}
+                    {isOwner && profile.owner_status === 'rejected' ? (
+                      <View
+                        style={[
+                          styles.verifyCard,
+                          { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
+                        ]}
+                      >
+                        <View style={[styles.row, row]}>
+                          <RowIcon name="alert-circle" colors={colors} />
+                          <View style={styles.rowCopy}>
+                            <Text style={[styles.rowLabel, copy, { color: colors.danger }]}>
+                              {t('menu.ownerSuspended')}
+                            </Text>
+                            <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                              {t('menu.ownerSuspendedHint')}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : null}
                     {verification ? (
                       <Pressable
                         onPress={() => goProfile('trust')}
@@ -390,26 +486,102 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                         </View>
                       </Pressable>
                     ) : null}
-                    {isSeeker ? (
+                    {isSeeker || isOwner ? (
                       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <MenuLink
+                          icon="chatbubbles-outline"
+                          label={t('tabs.chat')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={goChats}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                        <MenuLink
                           icon="calendar-outline"
-                          label={needsReview ? t('menu.writeReview') : t('menu.bookings')}
+                          label={
+                            isSeeker
+                              ? needsReview
+                                ? t('menu.writeReview')
+                                : hasActiveStay
+                                  ? t('menu.activeStay')
+                                  : t('menu.bookings')
+                              : t('tabs.bookings')
+                          }
                           colors={colors}
                           copy={copy}
                           row={row}
                           isRtl={isRtl}
                           onPress={goBookings}
                         />
+                        {isSeeker ? (
+                          <>
+                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                            <MenuLink
+                              icon="heart-outline"
+                              label={
+                                savedCount > 0 && shouldShowSavedCount(profile)
+                                  ? t('menu.savedCount', { count: savedCount })
+                                  : t('menu.saved')
+                              }
+                              colors={colors}
+                              copy={copy}
+                              row={row}
+                              isRtl={isRtl}
+                              onPress={() => goProfile('saved')}
+                            />
+                          </>
+                        ) : null}
+                        {isOwner ? (
+                          <>
+                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                            <MenuLink
+                              icon="home-outline"
+                              label={t('tabs.listings')}
+                              colors={colors}
+                              copy={copy}
+                              row={row}
+                              isRtl={isRtl}
+                              onPress={() => {
+                                onClose();
+                                router.push('/(owner)/(tabs)/listings');
+                              }}
+                            />
+                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                            <MenuLink
+                              icon="cash-outline"
+                              label={t('tabs.earnings')}
+                              colors={colors}
+                              copy={copy}
+                              row={row}
+                              isRtl={isRtl}
+                              onPress={() => {
+                                onClose();
+                                router.push('/(owner)/(tabs)/earnings');
+                              }}
+                            />
+                          </>
+                        ) : null}
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
                         <MenuLink
-                          icon="heart-outline"
-                          label={savedCount > 0 ? t('menu.savedCount', { count: savedCount }) : t('menu.saved')}
+                          icon="options-outline"
+                          label={t('profile.tabSettings')}
                           colors={colors}
                           copy={copy}
                           row={row}
                           isRtl={isRtl}
-                          onPress={() => goProfile('saved')}
+                          onPress={() => goProfile('settings')}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                        <MenuLink
+                          icon="lock-closed-outline"
+                          label={t('profile.tabSecurity')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={() => goProfile('security')}
                         />
                       </View>
                     ) : null}
@@ -515,29 +687,43 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   {pane === 'faq' ? (
                     <FaqList />
                   ) : pane === 'report' ? (
-                    <View style={styles.reportList}>
-                      <Pressable
-                        onPress={() => report('tech')}
-                        style={({ pressed }) => [
-                          styles.reportCard,
-                          { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.9 : 1 },
+                    <View style={[styles.reportForm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                        {reportKind === 'safety' ? t('menu.reportSafetyHint') : t('menu.reportTechHint')}
+                      </Text>
+                      <FilterPills<'tech' | 'safety'>
+                        compact
+                        value={reportKind}
+                        onChange={setReportKind}
+                        items={[
+                          { value: 'safety', label: t('menu.reportSafety') },
+                          { value: 'tech', label: t('menu.reportTech') },
                         ]}
-                      >
-                        <RowIcon name="construct-outline" colors={colors} />
-                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.reportTech')}</Text>
-                        <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.reportTechHint')}</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => report('safety')}
-                        style={({ pressed }) => [
-                          styles.reportCard,
-                          { backgroundColor: colors.warningSoft, borderColor: colors.warning, opacity: pressed ? 0.9 : 1 },
+                      />
+                      <Text style={[styles.fieldLabel, copy, { color: colors.text }]}>{t('profile.reportDetails')}</Text>
+                      <TextInput
+                        value={reportBody}
+                        onChangeText={setReportBody}
+                        multiline
+                        textAlignVertical="top"
+                        placeholder={t('menu.reportPlaceholder')}
+                        placeholderTextColor={colors.textMuted}
+                        style={[
+                          styles.reportInput,
+                          copy,
+                          {
+                            color: colors.text,
+                            backgroundColor: colors.surfaceMuted,
+                            borderColor: colors.border,
+                          },
                         ]}
-                      >
-                        <RowIcon name="warning-outline" colors={colors} />
-                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.reportSafety')}</Text>
-                        <Text style={[styles.hint, copy, { color: colors.textMuted }]}>{t('menu.reportSafetyHint')}</Text>
-                      </Pressable>
+                      />
+                      <Button
+                        title={profile ? t('profile.sendReport') : t('menu.contact')}
+                        loading={sendingReport}
+                        pill
+                        onPress={() => void report(reportKind, reportBody)}
+                      />
                     </View>
                   ) : (
                     <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
@@ -585,7 +771,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 function RowIcon({ name, colors }: { name: IconName; colors: { primary: string; primarySoft: string } }) {
   return (
     <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
-      <Ionicons name={name} size={18} color={colors.primary} />
+      <Ionicons name={name} size={16} color={colors.primary} />
     </View>
   );
 }
@@ -671,109 +857,121 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: { width: 30, height: 30 },
-  body: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
+  logo: { width: 28, height: 28 },
+  body: { padding: spacing.md, gap: spacing.sm, paddingBottom: 36 },
   hero: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: radius.lg,
+    gap: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   verifyCard: {
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: spacing.sm,
+    gap: 6,
   },
-  chips: { flexWrap: 'wrap', gap: 6 },
+  chips: { flexWrap: 'wrap', gap: 5 },
   chip: {
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  chipText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  reportList: { gap: spacing.sm },
-  reportCard: {
+  chipText: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  reportForm: {
     borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: 8,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  fieldLabel: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  reportInput: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: 'Cairo_400Regular',
   },
   growth: { justifyContent: 'center', alignItems: 'center', gap: 8, paddingTop: 4 },
-  growthText: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
-  growthDot: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
-  avatar: { width: 58, height: 58, borderRadius: 20 },
+  growthText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
+  growthDot: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
+  avatar: { width: 48, height: 48, borderRadius: 16 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  heroCopy: { flex: 1, minWidth: 0, gap: 3 },
-  heroName: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  heroRole: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  heroMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  initials: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroCopy: { flex: 1, minWidth: 0, gap: 2 },
+  heroName: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroRole: { fontSize: 11, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  heroMeta: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
   heroLink: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginTop: 2 },
   guestCard: {
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
-    padding: spacing.md,
+    padding: spacing.sm,
     gap: 8,
   },
   aboutCard: {
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    borderRadius: radius.md,
+    padding: spacing.sm,
     gap: 8,
   },
-  guestName: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  section: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_700Bold', marginTop: 4 },
+  guestName: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  section: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_700Bold', marginTop: 2 },
   card: {
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    gap: 0,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 },
   rowPressed: { opacity: 0.7 },
-  appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  rowCopy: { flex: 1, minWidth: 0, gap: 2 },
-  rowLabel: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  hint: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  article: { fontSize: 15, lineHeight: 26, fontFamily: 'Cairo_400Regular' },
+  appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36 },
+  rowCopy: { flex: 1, minWidth: 0, gap: 1 },
+  rowLabel: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  hint: { fontSize: 11, lineHeight: 15, fontFamily: 'Cairo_400Regular' },
+  article: { fontSize: 14, lineHeight: 24, fontFamily: 'Cairo_400Regular' },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  divider: { height: 1 },
+  divider: { height: StyleSheet.hairlineWidth },
   segment: {
     flexDirection: 'row',
     direction: 'ltr',
-    gap: 4,
-    padding: 4,
-    borderRadius: radius.md,
+    gap: 3,
+    padding: 3,
+    borderRadius: radius.sm,
     borderWidth: 1,
+    marginBottom: 4,
   },
   segmentBtn: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 14,
+    minHeight: 38,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    paddingVertical: 8,
+    gap: 1,
+    paddingVertical: 6,
   },
-  segmentText: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  segmentText: { fontSize: 11, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
   logoutBar: {
-    borderTopWidth: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  confirmBox: { gap: spacing.sm },
-  confirmText: { fontSize: 14, fontFamily: 'Cairo_600SemiBold' },
+  confirmBox: { gap: spacing.xs },
+  confirmText: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   confirmActions: { flexDirection: 'row', direction: 'ltr', gap: 8 },
   confirmBtn: { flex: 1 },
 });
