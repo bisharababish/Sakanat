@@ -20,6 +20,11 @@ import { CAMPUS_KM_VALUES, campusKmChipValue, UNDER_ONE_KM } from '@/src/lib/dis
 import { localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
+import {
+  LISTING_MIN_PHOTOS,
+  listingQualityIssues,
+  type ListingQualityIssue,
+} from '@/src/lib/listingQuality';
 import { pickListingPhotos } from '@/src/lib/pickImage';
 import { ownerListingGapTab } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
@@ -171,13 +176,44 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
     }
   };
 
+  const qualityMessage = (issues: ListingQualityIssue[]) =>
+    issues
+      .map((issue) => {
+        if (issue === 'photos') return t('owner.qualityPhotos', { count: LISTING_MIN_PHOTOS });
+        if (issue === 'description') return t('owner.qualityDescription');
+        if (issue === 'amenities') return t('owner.qualityAmenities');
+        if (issue === 'campus') return t('owner.qualityCampus');
+        if (issue === 'title') return t('auth.missingFields');
+        if (issue === 'city') return t('auth.missingFields');
+        return t('auth.missingFields');
+      })
+      .join('\n');
+
   const save = async () => {
     const listingOwnerId = apartment?.owner_id || ownerId || (!asAdmin ? profile?.id : '');
-    if (!profile || !listingOwnerId || !titleAr.trim() || !cityId || !price) {
+    if (!profile || !listingOwnerId) {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     if (!apartment && !gateOwnerWrite()) return;
+
+    const issues = listingQualityIssues({
+      titleAr,
+      titleEn,
+      descriptionAr: descAr,
+      descriptionEn: descEn,
+      cityId,
+      price,
+      photos,
+      amenities,
+      universityId,
+      campusKm,
+    });
+    if (issues.length > 0 && !asAdmin) {
+      alert(t('owner.qualityTitle'), qualityMessage(issues));
+      return;
+    }
+
     const city = cities.find((item) => item.id === cityId);
     const university = universities.find((item) => item.id === universityId);
     const payload = {
@@ -235,8 +271,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
     }
   };
 
-  const setVisibility = (next: 'hidden' | 'approved') => {
-    if (!apartment) return;
+  const setVisibility = (next: 'hidden' | 'approved') => {    if (!apartment) return;
     if (next === 'approved' && !gateOwnerWrite()) return;
     const run = async () => {
       const { error } = await supabase.from('apartments').update({ status: next }).eq('id', apartment.id);
@@ -278,7 +313,9 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
 
       <Card>
         <SectionHead icon="images-outline" title={t('owner.photos')} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('owner.photosHint')}</Text>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+          {t('owner.qualityPhotosHint', { count: LISTING_MIN_PHOTOS })}
+        </Text>
         {cover ? (
           <Pressable onPress={() => onPhotoPress(cover, 0)} style={styles.coverWrap}>
             <Image source={{ uri: cover }} style={[styles.cover, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />

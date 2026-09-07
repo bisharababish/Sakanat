@@ -10,6 +10,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { updateListingStatus } from '@/src/lib/listing';
+import { LISTING_REJECT_PRESETS } from '@/src/lib/listingQuality';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
@@ -147,6 +148,7 @@ export default function AdminApartmentReview() {
         value={rejectNote}
         confirmTitle={t('admin.reject')}
         loading={busy}
+        presets={LISTING_REJECT_PRESETS.map((key) => t(`admin.${key}`))}
         onChange={setRejectNote}
         onConfirm={() => void setStatus('rejected', rejectNote)}
         onClose={() => setRejecting(false)}

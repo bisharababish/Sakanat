@@ -76,6 +76,7 @@ export default function OwnerEarnings() {
   const [percent, setPercent] = useState<number | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [showHow, setShowHow] = useState(false);
+  const [payFilter, setPayFilter] = useState<'all' | 'owed' | 'clear'>('all');
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -96,12 +97,29 @@ export default function OwnerEarnings() {
 
   const { refreshing, refresh } = useLiveReload(load, ['bookings', 'app_settings'], `earnings:${profile?.id ?? ''}`);
 
+  const unpaidFee = useMemo(
+    () => bookings.filter((item) => item.payment_status !== 'paid').reduce((sum, item) => sum + Number(item.commission_amount), 0),
+    [bookings],
+  );
+  const unpaidCount = useMemo(
+    () => bookings.filter((item) => item.payment_status !== 'paid').length,
+    [bookings],
+  );
+  const settledFee = useMemo(
+    () => bookings.filter((item) => item.payment_status === 'paid').reduce((sum, item) => sum + Number(item.commission_amount), 0),
+    [bookings],
+  );
   const monthBookings = useMemo(() => bookings.filter((item) => isThisMonth(item.created_at)), [bookings]);
   const month = useMemo(() => money(monthBookings), [monthBookings]);
   const all = useMemo(() => money(bookings), [bookings]);
   const shown = period === 'month' ? month : all;
-  const list = period === 'month' ? monthBookings : bookings;
-  const paged = usePaged(list, EARNINGS_PAGE_SIZE, period);
+  const periodList = period === 'month' ? monthBookings : bookings;
+  const list = useMemo(() => {
+    if (payFilter === 'owed') return periodList.filter((item) => item.payment_status !== 'paid');
+    if (payFilter === 'clear') return periodList.filter((item) => item.payment_status === 'paid');
+    return periodList;
+  }, [periodList, payFilter]);
+  const paged = usePaged(list, EARNINGS_PAGE_SIZE, `${period}|${payFilter}`);
   const keepShare = shown.rent > 0 ? Math.round((shown.keep / shown.rent) * 100) : 0;
   const feeShare = 100 - keepShare;
   const paySplit = useMemo(() => {
@@ -158,6 +176,23 @@ export default function OwnerEarnings() {
           </View>
         ) : null}
       </View>
+
+      {unpaidFee > 0 ? (
+        <View style={[styles.owed, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+          <Text style={[styles.owedTitle, rtlText, { color: colors.text }]}>{t('owner.payoutOwedTitle')}</Text>
+          <Text style={[styles.owedValue, rtlText, { color: colors.warning }]}>{formatIls(unpaidFee, lang)}</Text>
+          <Text style={[styles.owedHint, rtlText, { color: colors.textMuted }]}>
+            {t('owner.payoutOwedHint', { count: unpaidCount })}
+          </Text>
+        </View>
+      ) : bookings.length > 0 ? (
+        <View style={[styles.owed, { backgroundColor: colors.successSoft, borderColor: colors.success }]}>
+          <Text style={[styles.owedTitle, rtlText, { color: colors.text }]}>{t('owner.payoutClearTitle')}</Text>
+          <Text style={[styles.owedHint, rtlText, { color: colors.textMuted }]}>
+            {t('owner.payoutClearHint', { amount: formatIls(settledFee, lang) })}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, row]}>
         {(['month', 'all'] as Period[]).map((value) => {
@@ -330,6 +365,26 @@ export default function OwnerEarnings() {
       </View>
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('owner.earningBookings')}</Text>
+      <View style={[styles.segment, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }, row]}>
+        {(
+          [
+            ['all', t('common.all')],
+            ['owed', t('owner.payoutFilterOwed')],
+            ['clear', t('owner.payoutFilterClear')],
+          ] as const
+        ).map(([value, label]) => {
+          const on = payFilter === value;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => setPayFilter(value)}
+              style={[styles.segmentBtn, on && { backgroundColor: colors.surface, shadowColor: colors.text }]}
+            >
+              <Text style={[styles.segmentLabel, { color: on ? colors.primary : colors.textMuted }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
       {list.length === 0 ? (
         <EmptyState title={t('owner.noEarnings')} />
       ) : (
@@ -404,7 +459,9 @@ export default function OwnerEarnings() {
                     {' · '}
                     {bookingStatusLabel(booking.status, t)}
                     {' · '}
-                    {t(`payment.${booking.payment_status}`)}
+                    {booking.payment_status === 'paid'
+                      ? t('owner.payoutSettled')
+                      : t('owner.payoutAwaiting')}
                   </Text>
                 </View>
               ) : null}
@@ -629,4 +686,13 @@ const styles = StyleSheet.create({
   rowFee: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
   detailBox: { paddingHorizontal: spacing.md, paddingBottom: 12, gap: 4 },
   detailLine: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_600SemiBold' },
+  owed: {
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: spacing.md,
+    gap: 4,
+  },
+  owedTitle: { fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  owedValue: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
+  owedHint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
 });

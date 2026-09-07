@@ -15,6 +15,7 @@ import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { paymentBucket } from '@/src/lib/booking';
 import { formatIls, localizedTitle } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
+import { LISTING_REJECT_PRESETS } from '@/src/lib/listingQuality';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
@@ -366,6 +367,7 @@ export default function AdminOverview() {
         value={rejectNote}
         confirmTitle={t('admin.reject')}
         loading={busy}
+        presets={LISTING_REJECT_PRESETS.map((key) => t(`admin.${key}`))}
         onChange={setRejectNote}
         onConfirm={() => rejecting && void setListingStatus(rejecting, 'rejected', rejectNote)}
         onClose={() => setRejecting(null)}

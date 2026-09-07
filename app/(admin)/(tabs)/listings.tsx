@@ -15,6 +15,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { listingBadgeTone, localizedTitle } from '@/src/lib/format';
+import { LISTING_REJECT_PRESETS } from '@/src/lib/listingQuality';
 import { updateListingStatus } from '@/src/lib/listing';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
@@ -219,6 +220,7 @@ export default function AdminListings() {
         value={rejectNote}
         confirmTitle={t('admin.reject')}
         loading={busy}
+        presets={LISTING_REJECT_PRESETS.map((key) => t(`admin.${key}`))}
         onChange={setRejectNote}
         onConfirm={() => rejecting && void setListingStatus(rejecting, 'rejected', rejectNote)}
         onClose={() => setRejecting(null)}

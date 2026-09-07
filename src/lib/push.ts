@@ -112,6 +112,14 @@ export async function notifyUser(
   kind: 'booking' | 'chat' | 'listing' | 'review' = 'booking',
 ) {
   try {
+    const { error } = await supabase.functions.invoke('push-send', {
+      body: { mode: 'user', userId, title, body, kind },
+    });
+    if (!error) return;
+  } catch {
+    // Fall back to direct Expo Push if the Edge Function is not deployed.
+  }
+  try {
     const { data } = await supabase
       .from('profiles')
       .select('expo_push_token, notify_booking, notify_chat, notify_listing, notify_review')
@@ -148,6 +156,16 @@ export async function broadcastPush(opts: {
   title: string;
   body: string;
 }) {
+  try {
+    const { data, error } = await supabase.functions.invoke('push-send', {
+      body: { mode: 'broadcast', roles: opts.roles, title: opts.title, body: opts.body },
+    });
+    if (!error && data && typeof (data as { recipients?: number }).recipients === 'number') {
+      return { recipients: (data as { recipients: number }).recipients };
+    }
+  } catch {
+    // Fall back below.
+  }
   const { data, error } = await supabase
     .from('profiles')
     .select('id, expo_push_token, role, notify_booking')

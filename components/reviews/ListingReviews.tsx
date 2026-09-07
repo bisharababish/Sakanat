@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -5,9 +6,12 @@ import { SectionHead } from '@/components/profile/SectionHead';
 import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { NoteModal } from '@/components/ui/NoteModal';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useAuth } from '@/src/lib/auth';
 import { logAdminAction } from '@/src/lib/audit';
 import { alert } from '@/src/lib/notice';
+import { submitAppReport } from '@/src/lib/reports';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -29,6 +33,10 @@ export function ListingReviews({
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
+  const { profile } = useAuth();
+  const [reporting, setReporting] = useState<ApartmentReview | null>(null);
+  const [reportBody, setReportBody] = useState('');
+  const [busy, setBusy] = useState(false);
   const total = count ?? reviews.length;
   const avg = average ?? (reviews.length ? reviews.reduce((sum, item) => sum + item.stars, 0) / reviews.length : 0);
 
@@ -49,6 +57,31 @@ export function ListingReviews({
         },
       },
     ]);
+  };
+
+  const sendReport = async () => {
+    if (!profile || !reporting) return;
+    if (reportBody.trim().length < 8) {
+      alert(t('common.error'), t('review.reportShort'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await submitAppReport(profile.id, {
+        kind: 'safety',
+        subject: t('review.reportSubject'),
+        body: `${reportBody.trim()}\n\nReview: ${reporting.note}`,
+        targetApartmentId: reporting.apartment_id,
+        targetUserId: reporting.student_id,
+      });
+      setReporting(null);
+      setReportBody('');
+      alert(t('common.done'), t('review.reportSent'));
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('review.reportFailed'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -85,9 +118,33 @@ export function ListingReviews({
             <View style={[styles.actions, row]}>
               <Button title={t('admin.deleteReview')} variant="danger" pill onPress={() => remove(item)} />
             </View>
+          ) : profile && profile.id !== item.student_id ? (
+            <View style={[styles.actions, row]}>
+              <Button
+                title={t('review.report')}
+                variant="ghost"
+                pill
+                onPress={() => {
+                  setReportBody('');
+                  setReporting(item);
+                }}
+              />
+            </View>
           ) : null}
         </View>
       ))}
+      <NoteModal
+        visible={Boolean(reporting)}
+        title={t('review.report')}
+        label={t('review.reportDetails')}
+        hint={t('review.reportHint')}
+        value={reportBody}
+        confirmTitle={t('review.report')}
+        loading={busy}
+        onChange={setReportBody}
+        onConfirm={() => void sendReport()}
+        onClose={() => setReporting(null)}
+      />
     </Card>
   );
 }

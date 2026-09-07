@@ -21,9 +21,16 @@ import { useAuth } from '@/src/lib/auth';
 import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
+import {
+  loadSearchAlertPrefs,
+  loadSeenListingIds,
+  saveSearchAlertPrefs,
+  saveSeenListingIds,
+} from '@/src/lib/searchAlerts';
 import { isStudentReady } from '@/src/lib/studentProfile';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
+import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -52,6 +59,11 @@ export default function SearchScreen() {
   const [amenityFilter, setAmenityFilter] = useState<Amenity[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [alertOn, setAlertOn] = useState(false);
+
+  useEffect(() => {
+    void loadSearchAlertPrefs().then((prefs) => setAlertOn(Boolean(prefs.enabled)));
+  }, []);
 
   useEffect(() => {
     if (isRenter) {
@@ -98,6 +110,55 @@ export default function SearchScreen() {
   }, [profile?.id, reloadCatalog]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], 'search');
+
+  useEffect(() => {
+    if (!profile || apartments.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const prefs = await loadSearchAlertPrefs();
+      if (!prefs.enabled || cancelled) return;
+      const seen = await loadSeenListingIds();
+      const seenSet = new Set(seen);
+      const matches = apartments.filter((item) => {
+        if (seenSet.has(item.id)) return false;
+        if (prefs.universityId && item.nearest_university_id !== prefs.universityId) return false;
+        if (prefs.cityId && item.city_id !== prefs.cityId) return false;
+        if (prefs.maxPrice != null && item.price_month > prefs.maxPrice) return false;
+        if (prefs.maxKm != null) {
+          const uni = universities.find((u) => u.id === prefs.universityId);
+          const km = listingDistanceKm(item, uni ?? null, uni ? null : item.cities);
+          if (km == null || km > prefs.maxKm) return false;
+        }
+        return true;
+      });
+      await saveSeenListingIds(apartments.map((item) => item.id));
+      if (cancelled || matches.length === 0 || seen.length === 0) return;
+      alert(t('search.alertTitle'), t('search.alertBody', { count: matches.length }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apartments, profile, t, universities]);
+
+  const toggleSearchAlert = async () => {
+    if (!profile) {
+      requireAccount();
+      return;
+    }
+    const next = !alertOn;
+    setAlertOn(next);
+    await saveSearchAlertPrefs({
+      enabled: next,
+      universityId: universityId || undefined,
+      cityId: cityId || undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : null,
+      maxKm: maxKm ? Number(maxKm) : null,
+    });
+    if (next) {
+      await saveSeenListingIds(apartments.map((item) => item.id));
+      alert(t('common.done'), t('search.alertEnabled'));
+    }
+  };
 
   const selectedUniversity = useMemo(
     () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
@@ -306,6 +367,25 @@ export default function SearchScreen() {
           </Pressable>
         ) : null}
       </View>
+
+      {profile ? (
+        <Pressable
+          onPress={() => void toggleSearchAlert()}
+          style={[
+            styles.alertRow,
+            {
+              backgroundColor: alertOn ? colors.accentSoft : colors.surface,
+              borderColor: alertOn ? colors.accent : colors.border,
+            },
+            row,
+          ]}
+        >
+          <Ionicons name={alertOn ? 'notifications' : 'notifications-outline'} size={18} color={colors.primary} />
+          <Text style={[styles.alertText, rtlText, { color: colors.text }]}>
+            {alertOn ? t('search.alertOn') : t('search.alertOff')}
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={[styles.panelHead, row]}>
@@ -546,6 +626,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     paddingVertical: 6,
   },
+  alertRow: {
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+  },
+  alertText: { flex: 1, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   panel: {
     borderRadius: radius.lg,
     borderWidth: 1,

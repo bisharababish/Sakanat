@@ -430,7 +430,7 @@ export function ApartmentView({
         onClose={() => setViewer(false)}
       />
 
-      {preview || children ? null : (
+      {preview ? null : (
         <SafeAreaView edges={['bottom']} style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           <View style={styles.footerPriceRow}>
             <Text style={[styles.footerPrice, { color: colors.primary }]}>{formatIls(apartment.price_month, lang)}</Text>
