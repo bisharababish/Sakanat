@@ -9,7 +9,11 @@ export function homeHref(role: UserRole) {
 export type ProfileTab = 'account' | 'trust' | 'settings' | 'saved' | 'security';
 
 export function profileHref(role: UserRole, tab?: ProfileTab) {
-  if (role === 'admin') return '/(admin)/(tabs)/settings';
+  if (role === 'admin') {
+    return tab && (tab === 'account' || tab === 'settings' || tab === 'security')
+      ? { pathname: '/(admin)/(tabs)/settings' as const, params: { tab } }
+      : '/(admin)/(tabs)/settings';
+  }
   if (role === 'owner') {
     return tab && tab !== 'saved'
       ? { pathname: '/(owner)/(tabs)/profile' as const, params: { tab } }

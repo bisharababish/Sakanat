@@ -101,6 +101,11 @@ export async function deleteConversation(id: string) {
   if (error) throw error;
 }
 
+export async function deleteMessage(id: string) {
+  const { error } = await supabase.from('messages').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export function isConversationMuted(conversation: Conversation, myId?: string | null) {
   if (!myId) return false;
   if (conversation.student_id === myId) return Boolean(conversation.student_muted);

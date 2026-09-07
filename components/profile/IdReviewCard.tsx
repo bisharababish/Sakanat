@@ -23,10 +23,12 @@ export function IdReviewCard({
   user,
   meId,
   onChanged,
+  compact,
 }: {
   user: Profile;
   meId?: string | null;
   onChanged: () => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const { rtlText, row } = useLayout();
@@ -60,8 +62,8 @@ export function IdReviewCard({
 
   return (
     <>
-      <Card>
-        <SectionHead icon="shield-checkmark-outline" title={t('admin.idReviewTitle')} />
+      <Card compact={compact}>
+        <SectionHead compact={compact} icon="shield-checkmark-outline" title={t('admin.idReviewTitle')} />
         <IdVerifyBadge status={status} />
         {user.national_id_number ? (
           <View style={styles.idRow}>

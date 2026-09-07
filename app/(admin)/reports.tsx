@@ -60,12 +60,13 @@ export default function AdminReports() {
   };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.reportsTitle')}</Text>
       <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.reportsHint')}</Text>
 
       <FilterPills
+        compact
         value={filter}
         onChange={setFilter}
         items={[
@@ -143,6 +144,19 @@ export default function AdminReports() {
                   }
                 />
               ) : null}
+              {report.target_apartment_id ? (
+                <Button
+                  title={t('admin.openListing')}
+                  variant="secondary"
+                  pill
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(admin)/apartment/[id]',
+                      params: { id: report.target_apartment_id! },
+                    })
+                  }
+                />
+              ) : null}
               {report.status === 'open' ? (
                 <Button
                   title={t('admin.reportsMarkReviewing')}
@@ -202,7 +216,7 @@ export default function AdminReports() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  title: { fontSize: 26, fontFamily: 'Cairo_800ExtraBold', marginBottom: 4 },
+  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold', marginBottom: 2 },
   hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', marginBottom: spacing.sm },
   head: { justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 },
   kind: { flex: 1, fontSize: 12, fontFamily: 'Cairo_700Bold' },

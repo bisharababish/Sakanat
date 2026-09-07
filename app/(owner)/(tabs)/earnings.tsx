@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { type ComponentProps, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +12,7 @@ import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { paymentBucket, paymentI18nKey } from '@/src/lib/booking';
-import { formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
+import { bookingStatusLabel, formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
 import { EARNINGS_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -67,19 +68,23 @@ function initials(name?: string | null) {
 
 export default function OwnerEarnings() {
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl, lang, row } = useLayout();
+  const { rtlText, lang, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [period, setPeriod] = useState<Period>('month');
   const [percent, setPercent] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [showHow, setShowHow] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
     const [bookingRes, settingsRes] = await Promise.all([
       supabase
         .from('bookings')
-        .select('*, apartments(title_ar, title_en), student:profiles!student_id(id, full_name)')
+        .select(
+          '*, apartments(title_ar, title_en), student:profiles!student_id(id, full_name, avatar_url)',
+        )
         .eq('owner_id', profile.id)
         .in('status', ['confirmed', 'completed'])
         .order('created_at', { ascending: false }),
@@ -121,6 +126,24 @@ export default function OwnerEarnings() {
     const peak = Math.max(...points.map((item) => item.value), 1);
     return points.map((item) => ({ ...item, height: 10 + (item.value / peak) * 86 }));
   }, [bookings, months]);
+  const avgKeep = shown.count > 0 ? shown.keep / shown.count : 0;
+  const byListing = useMemo(() => {
+    const map = new Map<string, { title: string; keep: number; rent: number; fee: number; count: number }>();
+    for (const item of list) {
+      const key = item.apartment_id || item.id;
+      const title = localizedTitle(item.apartments, i18n.language) || t('tabs.listings');
+      const rent = Number(item.rent_amount);
+      const fee = Number(item.commission_amount);
+      const keep = Math.max(0, rent - fee);
+      const prev = map.get(key) ?? { title, keep: 0, rent: 0, fee: 0, count: 0 };
+      prev.keep += keep;
+      prev.rent += rent;
+      prev.fee += fee;
+      prev.count += 1;
+      map.set(key, prev);
+    }
+    return [...map.values()].sort((a, b) => b.keep - a.keep);
+  }, [list, i18n.language, t]);
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
@@ -194,12 +217,33 @@ export default function OwnerEarnings() {
         />
         <Metric
           colors={colors}
-          icon="calendar-outline"
-          label={t('owner.bookingsCount')}
-          value={String(shown.count)}
+          icon="trending-up-outline"
+          label={t('owner.avgKeep')}
+          value={formatIls(avgKeep, lang)}
           rtlText={rtlText}
         />
       </View>
+
+      <Pressable
+        onPress={() => setShowHow((value) => !value)}
+        style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}
+      >
+        <View style={[styles.howHead, row]}>
+          <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.howEarnings')}</Text>
+          <Ionicons name={showHow ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+        </View>
+        <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.earningsHint')}</Text>
+        {showHow ? (
+          <View style={styles.howBody}>
+            <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.rentExplain')}</Text>
+            <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>
+              {percent != null ? t('owner.feeExplain', { percent }) : t('owner.feeExplainFallback')}
+            </Text>
+            <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.keepExplain')}</Text>
+            <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.payoutNote')}</Text>
+          </View>
+        ) : null}
+      </Pressable>
 
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
         <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.paySplit')}</Text>
@@ -228,11 +272,44 @@ export default function OwnerEarnings() {
         <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.payoutNote')}</Text>
       </View>
 
+      {byListing.length > 1 ? (
+        <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+          <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.byListing')}</Text>
+          {byListing.map((item, index) => (
+            <View
+              key={`${item.title}-${index}`}
+              style={[
+                styles.splitRow,
+                row,
+                index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : null,
+              ]}
+            >
+              <View style={styles.rowBody}>
+                <Text style={[styles.splitLabel, rtlText, { color: colors.text }]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={[styles.splitMeta, rtlText, { color: colors.textMuted }]}>
+                  {t('owner.bookingsCount')}: {item.count} · {t('owner.platformFee')} {formatIls(item.fee, lang)}
+                </Text>
+              </View>
+              <Text style={[styles.splitValue, { color: colors.primary }]}>{formatIls(item.keep, lang)}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
         <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.lastMonths')}</Text>
         <View style={styles.chart}>
           {chart.map((item) => (
             <View key={item.key} style={styles.col}>
+              {item.value > 0 ? (
+                <Text style={[styles.colValue, { color: colors.textMuted }]} numberOfLines={1}>
+                  {Math.round(item.value)}
+                </Text>
+              ) : (
+                <View style={styles.colValueSpacer} />
+              )}
               <View style={[styles.colTrack, { backgroundColor: colors.surfaceMuted }]}>
                 <View
                   style={[
@@ -264,38 +341,73 @@ export default function OwnerEarnings() {
           const student = booking.student?.full_name;
           const people = booking.occupants ?? 1;
           const keepPct = rent > 0 ? Math.max(8, Math.round((keep / rent) * 100)) : 0;
+          const open = openId === booking.id;
+          const photo = booking.student?.avatar_url;
           return (
             <View
               key={booking.id}
-              style={[
-                styles.row,
-                row,
-                index > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
-              ]}
+              style={index > 0 ? { borderTopWidth: 1, borderTopColor: colors.border } : null}
             >
-              <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
-                <Text style={[styles.initials, { color: colors.primary }]}>{initials(student)}</Text>
-              </View>
-              <View style={styles.rowBody}>
-                <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
-                  {localizedTitle(booking.apartments, i18n.language)}
-                </Text>
-                <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
-                  {student ? `${student} · ` : ''}
-                  {formatBookingDate(booking.start_date, i18n.language)}
-                  {' · '}
-                  {people === 1 ? t('booking.onePerson') : t('booking.people', { count: people })}
-                  {' · '}
-                  {t(paymentI18nKey(booking.payment_method))}
-                </Text>
-                <View style={[styles.mini, { backgroundColor: colors.surfaceMuted }]}>
-                  <View style={[styles.miniKeep, { width: `${keepPct}%`, backgroundColor: colors.primary }]} />
+              <Pressable
+                onPress={() => setOpenId(open ? null : booking.id)}
+                style={[styles.row, row]}
+                accessibilityRole="button"
+              >
+                {photo ? (
+                  <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
+                ) : (
+                  <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
+                    <Text style={[styles.initials, { color: colors.primary }]}>{initials(student)}</Text>
+                  </View>
+                )}
+                <View style={styles.rowBody}>
+                  <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
+                    {localizedTitle(booking.apartments, i18n.language)}
+                  </Text>
+                  <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+                    {student ? `${student} · ` : ''}
+                    {formatBookingDate(booking.start_date, i18n.language)}
+                    {' · '}
+                    {people === 1 ? t('booking.onePerson') : t('booking.people', { count: people })}
+                    {' · '}
+                    {t(paymentI18nKey(booking.payment_method))}
+                  </Text>
+                  <View style={[styles.mini, { backgroundColor: colors.surfaceMuted }]}>
+                    <View style={[styles.miniKeep, { width: `${keepPct}%`, backgroundColor: colors.primary }]} />
+                  </View>
                 </View>
-              </View>
-              <View style={styles.rowCash}>
-                <Text style={[styles.rowKeep, { color: colors.primary }]}>{formatIls(keep, lang)}</Text>
-                <Text style={[styles.rowFee, { color: colors.textMuted }]}>−{formatIls(fee, lang)}</Text>
-              </View>
+                <View style={styles.rowCash}>
+                  <Text style={[styles.rowKeep, { color: colors.primary }]}>{formatIls(keep, lang)}</Text>
+                  <Text style={[styles.rowFee, { color: colors.textMuted }]}>−{formatIls(fee, lang)}</Text>
+                  <Ionicons
+                    name={open ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={colors.textMuted}
+                  />
+                </View>
+              </Pressable>
+              {open ? (
+                <View style={[styles.detailBox, { backgroundColor: colors.surfaceMuted }]}>
+                  <Text style={[styles.detailLine, rtlText, { color: colors.text }]}>
+                    {t('owner.gross')}: {formatIls(rent, lang)}
+                  </Text>
+                  <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {t('owner.commission')}: {formatIls(fee, lang)}
+                    {percent != null ? ` (${percent}%)` : ''}
+                  </Text>
+                  <Text style={[styles.detailLine, rtlText, { color: colors.primary }]}>
+                    {t('owner.net')}: {formatIls(keep, lang)}
+                  </Text>
+                  <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {booking.months}{' '}
+                    {booking.months === 1 ? t('common.month') : t('common.months')}
+                    {' · '}
+                    {bookingStatusLabel(booking.status, t)}
+                    {' · '}
+                    {t(`payment.${booking.payment_status}`)}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           );
         })}
@@ -448,6 +560,8 @@ const styles = StyleSheet.create({
   splitMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   splitHint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular', marginTop: 8 },
+  howHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  howBody: { gap: 6, marginTop: 4 },
   panel: {
     borderRadius: 24,
     borderWidth: 1,
@@ -467,7 +581,9 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 128,
   },
-  col: { flex: 1, alignItems: 'center', gap: 8 },
+  col: { flex: 1, alignItems: 'center', gap: 6 },
+  colValue: { fontSize: 9, fontFamily: 'Cairo_700Bold', height: 14 },
+  colValueSpacer: { height: 14 },
   colTrack: {
     width: '100%',
     maxWidth: 28,
@@ -511,4 +627,6 @@ const styles = StyleSheet.create({
   rowCash: { alignItems: 'flex-end', gap: 2 },
   rowKeep: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   rowFee: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  detailBox: { paddingHorizontal: spacing.md, paddingBottom: 12, gap: 4 },
+  detailLine: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_600SemiBold' },
 });

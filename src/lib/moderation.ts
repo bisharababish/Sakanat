@@ -1,3 +1,4 @@
+import { logAdminAction } from '@/src/lib/audit';
 import i18n from '@/src/i18n';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
@@ -20,6 +21,8 @@ export async function setSuspended(
   const { error } = await supabase.from('profiles').update(patch).eq('id', user.id);
   if (error) throw error;
 
+  void logAdminAction(suspended ? 'user.suspend' : 'user.restore', { targetUserId: user.id });
+
   if (user.role !== 'owner') return;
   if (suspended) {
     await supabase.from('apartments').update({ status: 'rejected' }).eq('owner_id', user.id);
@@ -30,14 +33,19 @@ export async function setSuspended(
 
 export async function deleteUserAccount(userId: string) {
   const { error } = await supabase.rpc('admin_delete_user', { target: userId });
-  if (!error) return;
+  if (!error) {
+    void logAdminAction('user.delete', { targetUserId: userId });
+    return;
+  }
   const fallback = await supabase.from('profiles').delete().eq('id', userId);
   if (fallback.error) throw new Error(error.message || fallback.error.message);
+  void logAdminAction('user.delete', { targetUserId: userId });
 }
 
 export async function unenrollUserMfa(userId: string) {
   const { error } = await supabase.rpc('admin_unenroll_mfa', { target: userId });
   if (error) throw error;
+  void logAdminAction('user.mfa_off', { targetUserId: userId });
 }
 
 export async function deleteOwnAccount() {

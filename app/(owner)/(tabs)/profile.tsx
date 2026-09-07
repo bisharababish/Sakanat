@@ -28,6 +28,7 @@ import { pickIdCardPhoto, pickProfilePhoto } from '@/src/lib/pickImage';
 import {
   accountVerification,
   fetchPublicIp,
+  isValidBio,
   isValidEmergencyName,
   isValidNationalId,
   isValidNationalIdExpiry,
@@ -53,6 +54,8 @@ type FormSnap = {
   birthDate: string;
   cityId: string;
   avatarUrl: string | null;
+  bio: string;
+  spokenLanguages: string[];
   nationalId: string;
   nationalExpiresAt: string;
   idDocsConsent: boolean;
@@ -77,6 +80,8 @@ function snapsEqual(a: FormSnap | null, b: FormSnap | null) {
     a.birthDate === b.birthDate &&
     a.cityId === b.cityId &&
     a.avatarUrl === b.avatarUrl &&
+    a.bio === b.bio &&
+    a.spokenLanguages.join(',') === b.spokenLanguages.join(',') &&
     a.nationalId === b.nationalId &&
     a.nationalExpiresAt === b.nationalExpiresAt &&
     a.idDocsConsent === b.idDocsConsent &&
@@ -105,6 +110,8 @@ function snapFromProfile(next: Profile): FormSnap {
     birthDate: next.date_of_birth ? next.date_of_birth.slice(0, 10) : '',
     cityId: next.city_id ?? '',
     avatarUrl: next.avatar_url ?? null,
+    bio: next.bio ?? '',
+    spokenLanguages: next.spoken_languages ?? [],
     nationalId: next.national_id_number ?? '',
     nationalExpiresAt: next.national_id_expires_at ? next.national_id_expires_at.slice(0, 10) : '',
     idDocsConsent: Boolean(next.id_docs_consent_at),
@@ -135,6 +142,8 @@ export default function OwnerProfile() {
   const [birthDate, setBirthDate] = useState('');
   const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [bio, setBio] = useState('');
+  const [spokenLanguages, setSpokenLanguages] = useState<string[]>([]);
   const [nationalId, setNationalId] = useState('');
   const [nationalExpiresAt, setNationalExpiresAt] = useState('');
   const [idDocsConsent, setIdDocsConsent] = useState(false);
@@ -165,6 +174,8 @@ export default function OwnerProfile() {
     setBirthDate(snap.birthDate);
     setCityId(snap.cityId);
     setAvatarUrl(snap.avatarUrl);
+    setBio(snap.bio);
+    setSpokenLanguages(snap.spokenLanguages);
     setNationalId(snap.nationalId);
     setNationalExpiresAt(snap.nationalExpiresAt);
     setIdDocsConsent(snap.idDocsConsent);
@@ -278,6 +289,8 @@ export default function OwnerProfile() {
     birthDate,
     cityId,
     avatarUrl,
+    bio,
+    spokenLanguages,
     nationalId,
     nationalExpiresAt,
     idDocsConsent,
@@ -417,6 +430,11 @@ export default function OwnerProfile() {
       alert(t('common.error'), t('auth.invalidNameAr'));
       return;
     }
+    if (!isValidBio(bio)) {
+      alert(t('common.error'), t('profile.bioInvalid'));
+      setTab('account');
+      return;
+    }
     const cleanPhone = toE164(phoneRegion, phoneLocal);
     if (!cleanPhone) {
       alert(t('common.error'), t('phone.invalid'));
@@ -471,6 +489,8 @@ export default function OwnerProfile() {
           gender,
           date_of_birth: birthDate,
           city_id: cityId,
+          bio: bio.trim() || null,
+          spoken_languages: spokenLanguages,
           national_id_number: sanitizeNationalId(nationalId) || null,
           national_id_expires_at: nationalExpiresAt || null,
           emergency_name: emergencyName.trim() || null,
@@ -577,9 +597,15 @@ export default function OwnerProfile() {
       {tab === 'account' ? (
         <>
           <OwnerSeenCard
-            title={t('profile.studentSees')}
-            name={fullNameAr.trim() || t('profile.title')}
+            title={t('profile.studentSeesOwner')}
+            name={
+              displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) ||
+              t('profile.title')
+            }
             avatarUrl={avatarUrl}
+            verifyStatus={profile?.id_verify_status}
+            verifyRole="owner"
+            bio={bio}
             lines={[
               ...(gender ? [{ icon: 'person-outline' as const, text: t(`profile.${gender}`) }] : []),
               ...(ageLabel(birthDate, t, today)
@@ -588,6 +614,27 @@ export default function OwnerProfile() {
               ...(cityName ? [{ icon: 'location-outline' as const, text: cityName }] : []),
               ...(phoneLocal.trim()
                 ? [{ icon: 'call-outline' as const, text: `${regionPrefix(phoneRegion)} ${phoneLocal}` }]
+                : []),
+              ...(waLocal.trim()
+                ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
+                : []),
+              ...(spokenLanguages.length
+                ? [
+                    {
+                      icon: 'chatbubbles-outline' as const,
+                      text: spokenLanguages
+                        .map((code) =>
+                          code === 'ar'
+                            ? t('profile.langAr')
+                            : code === 'en'
+                              ? t('profile.langEn')
+                              : code === 'he'
+                                ? t('profile.langHe')
+                                : code,
+                        )
+                        .join(' · '),
+                    },
+                  ]
                 : []),
             ].filter((item) => item.text)}
           />
@@ -613,6 +660,11 @@ export default function OwnerProfile() {
             onWhatsapp={applyWhatsapp}
             waLinked={waLinked}
             onWaLinked={setWaLinked}
+            bio={bio}
+            onBio={setBio}
+            bioHint={t('profile.bioHintOwner')}
+            spokenLanguages={spokenLanguages}
+            onSpokenLanguages={setSpokenLanguages}
           />
         </>
       ) : null}

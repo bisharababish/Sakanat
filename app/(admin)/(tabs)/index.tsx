@@ -18,6 +18,7 @@ import { updateListingStatus } from '@/src/lib/listing';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
+import { hasIdDocs } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, Booking, Profile } from '@/src/types/database';
@@ -92,9 +93,9 @@ export default function AdminOverview() {
     setPendingIds(
       profiles.filter(
         (item) =>
-          (item.role === 'student' || item.role === 'renter') &&
+          (item.role === 'student' || item.role === 'renter' || item.role === 'owner') &&
           item.id_verify_status === 'pending' &&
-          Boolean(item.national_id_url),
+          hasIdDocs(item),
       ),
     );
     setListings((listingRes.data as Apartment[]) ?? []);
@@ -173,7 +174,7 @@ export default function AdminOverview() {
         </Text>
       </Pressable>
 
-      <Card>
+      <Card compact>
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.commissionSplit')}</Text>
         {(['cash', 'check', 'visa'] as const).map((method) => (
           <View key={method} style={[styles.splitRow, row]}>
@@ -194,7 +195,7 @@ export default function AdminOverview() {
           label={t('admin.pendingIds')}
           value={String(pendingIds.length)}
           meta={t('admin.pendingIdsMeta')}
-          onPress={() => router.push('/(admin)/(tabs)/verify')}
+          onPress={() => router.push('/(admin)/verify')}
         />
         <StatTile
           icon="people-outline"
@@ -231,33 +232,42 @@ export default function AdminOverview() {
           label={t('admin.reportsTitle')}
           value={String(pendingCounts.reports)}
           meta={t('admin.reportsMeta')}
-          onPress={() => router.push('/(admin)/(tabs)/reports')}
+          onPress={() => router.push('/(admin)/reports')}
         />
       </View>
 
-      <Card onPress={() => router.push('/(admin)/(tabs)/chat')}>
+      <Card compact onPress={() => router.push('/(admin)/(tabs)/chat')}>
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.inboxTitle')}</Text>
         <Text style={[styles.value, rtlText, { color: colors.primary }]}>{chats}</Text>
         <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.openChat')}</Text>
       </Card>
 
-      <Card onPress={() => router.push('/(admin)/(tabs)/catalog')}>
+      <Card compact onPress={() => router.push('/(admin)/catalog')}>
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.catalogTitle')}</Text>
         <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
-        <Button title={t('admin.openCatalog')} variant="secondary" onPress={() => router.push('/(admin)/(tabs)/catalog')} />
+      </Card>
+
+      <Card compact onPress={() => router.push('/(admin)/payouts')}>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsTitle')}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsHint')}</Text>
+      </Card>
+
+      <Card compact onPress={() => router.push('/(admin)/reviews')}>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.reviewsTitle')}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.reviewsHint')}</Text>
       </Card>
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingIds')}</Text>
       {pendingIds.length === 0 ? <EmptyState title={t('admin.idReviewEmpty')} /> : null}
       {pendingIds.slice(0, 6).map((user) => (
-        <Card key={user.id}>
+        <Card key={user.id} compact>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{user.full_name || user.email}</Text>
           <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
             {t(`roles.${user.role}`)} · {user.email}
           </Text>
           <View style={[styles.row, row]}>
             <View style={styles.flex}>
-              <Button title={t('admin.reviewId')} onPress={() => router.push('/(admin)/(tabs)/verify')} pill />
+              <Button title={t('admin.reviewId')} onPress={() => router.push('/(admin)/verify')} pill />
             </View>
             <View style={styles.flex}>
               <Button
@@ -274,7 +284,7 @@ export default function AdminOverview() {
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingOwners')}</Text>
       {pendingOwners.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
       {pendingOwners.slice(0, 6).map((owner) => (
-        <Card key={owner.id}>
+        <Card key={owner.id} compact>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{owner.full_name || owner.email}</Text>
           <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{owner.email}</Text>
           <View style={[styles.row, row]}>
@@ -312,24 +322,32 @@ export default function AdminOverview() {
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingListings')}</Text>
       {pendingListings.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
       {pendingListings.slice(0, 6).map((item) => (
-        <Card key={item.id}>
+        <Card key={item.id} compact>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedTitle(item, i18n.language)}</Text>
           <View style={[styles.row, row]}>
             <View style={styles.flex}>
-              <Button title={t('admin.review')} variant="secondary" onPress={() => router.push({ pathname: '/(admin)/apartment/[id]', params: { id: item.id } })} />
+              <Button
+                title={t('admin.review')}
+                variant="secondary"
+                pill
+                onPress={() => router.push({ pathname: '/(admin)/apartment/[id]', params: { id: item.id } })}
+              />
             </View>
             <View style={styles.flex}>
-              <Button title={t('admin.approve')} onPress={() => void setListingStatus(item)} />
+              <Button title={t('admin.approve')} pill onPress={() => void setListingStatus(item)} />
+            </View>
+            <View style={styles.flex}>
+              <Button
+                title={t('admin.reject')}
+                variant="danger"
+                pill
+                onPress={() => {
+                  setRejectNote('');
+                  setRejecting(item);
+                }}
+              />
             </View>
           </View>
-          <Button
-            title={t('admin.reject')}
-            variant="danger"
-            onPress={() => {
-              setRejectNote('');
-              setRejecting(item);
-            }}
-          />
         </Card>
       ))}
       {pendingListings.length > 6 ? (
@@ -358,49 +376,49 @@ export default function AdminOverview() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -8 },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   hero: {
-    borderRadius: 28,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.md,
     overflow: 'hidden',
-    gap: 4,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 4,
+    gap: 2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 3,
   },
-  heroLabel: { color: 'rgba(255,255,255,0.78)', fontSize: 13, fontFamily: 'Cairo_700Bold' },
-  heroValue: { color: '#fff', fontSize: 32, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  heroMeta: { color: 'rgba(255,255,255,0.72)', fontSize: 13, fontFamily: 'Cairo_400Regular' },
-  section: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginTop: 8 },
-  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  value: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  meta: { fontFamily: 'Cairo_400Regular' },
-  name: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroLabel: { color: 'rgba(255,255,255,0.78)', fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  heroValue: { color: '#fff', fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroMeta: { color: 'rgba(255,255,255,0.72)', fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  section: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginTop: 4 },
+  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 13 },
+  value: { fontSize: 24, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontFamily: 'Cairo_400Regular', fontSize: 12 },
+  name: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   grid: { flexWrap: 'wrap', gap: 8 },
   tile: {
     width: '47%',
     flexGrow: 1,
-    borderRadius: 22,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    padding: spacing.md,
-    gap: 4,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
+    padding: spacing.sm + 2,
+    gap: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   tileIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  tileLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  tileValue: { fontSize: 24, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  tileMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  tileLabel: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  tileValue: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  tileMeta: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
   row: { gap: 8 },
   flex: { flex: 1 },
   splitRow: {

@@ -1,6 +1,7 @@
-import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
@@ -12,25 +13,122 @@ import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
+import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
+import { logAdminAction } from '@/src/lib/audit';
+import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
+import { exportPlatformBookingsCsv } from '@/src/lib/dataExport';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
-import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
 import { sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
+import { broadcastPush } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
+import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, Profile } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'security' | 'settings';
+
+type FormSnap = {
+  fullNameEn: string;
+  fullNameAr: string;
+  phoneRegion: PhoneRegion;
+  phoneLocal: string;
+  waLinked: boolean;
+  waRegion: PhoneRegion;
+  waLocal: string;
+  gender: PersonGender | '';
+  birthDate: string;
+  cityId: string;
+  avatarUrl: string | null;
+};
+
+function snapsEqual(a: FormSnap | null, b: FormSnap | null) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.fullNameEn === b.fullNameEn &&
+    a.fullNameAr === b.fullNameAr &&
+    a.phoneRegion === b.phoneRegion &&
+    a.phoneLocal === b.phoneLocal &&
+    a.waLinked === b.waLinked &&
+    a.waRegion === b.waRegion &&
+    a.waLocal === b.waLocal &&
+    a.gender === b.gender &&
+    a.birthDate === b.birthDate &&
+    a.cityId === b.cityId &&
+    a.avatarUrl === b.avatarUrl
+  );
+}
+
+function snapFromProfile(next: Profile): FormSnap {
+  const names = namesFromProfile(next.full_name, next.full_name_en);
+  const phoneParts = splitPhone(next.phone);
+  const waParts = splitPhone(next.whatsapp);
+  const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
+  return {
+    fullNameEn: names.en,
+    fullNameAr: names.ar,
+    phoneRegion: phoneParts.region,
+    phoneLocal: phoneParts.local,
+    waLinked: sameNumber,
+    waRegion: sameNumber ? phoneParts.region : waParts.region,
+    waLocal: sameNumber ? phoneParts.local : waParts.local,
+    gender: next.gender ?? '',
+    birthDate: next.date_of_birth ? next.date_of_birth.slice(0, 10) : '',
+    cityId: next.city_id ?? '',
+    avatarUrl: next.avatar_url ?? null,
+  };
+}
+
+function QueueRow({
+  icon,
+  label,
+  count,
+  onPress,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  count?: number;
+  onPress: () => void;
+}) {
+  const { rtlText, row, isRtl } = useLayout();
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.queueRow,
+        row,
+        { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+        pressed && { opacity: 0.9 },
+      ]}
+    >
+      <View style={[styles.queueIcon, { backgroundColor: colors.primarySoft }]}>
+        <Ionicons name={icon} size={16} color={colors.primary} />
+      </View>
+      <Text style={[styles.queueLabel, rtlText, { color: colors.text }]} numberOfLines={1}>
+        {label}
+      </Text>
+      {count != null && count > 0 ? (
+        <View style={[styles.queueBadge, { backgroundColor: colors.warning }]}>
+          <Text style={styles.queueBadgeText}>{count > 9 ? '9+' : count}</Text>
+        </View>
+      ) : null}
+      <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textMuted} />
+    </Pressable>
+  );
+}
 
 export default function AdminSettings() {
   const { t, i18n } = useTranslation();
@@ -39,6 +137,8 @@ export default function AdminSettings() {
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
   const today = useToday();
+  const pending = useAdminPendingCounts();
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<ProfileTab>('account');
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
@@ -52,27 +152,49 @@ export default function AdminSettings() {
   const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [percent, setPercent] = useState(String(DEFAULT_COMMISSION_PERCENT));
+  const [adminEmail, setAdminEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingCommission, setSavingCommission] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastBody, setBroadcastBody] = useState('');
+  const [broadcastRoles, setBroadcastRoles] = useState<Array<'student' | 'renter' | 'owner'>>([
+    'student',
+    'renter',
+    'owner',
+  ]);
   const hydratedId = useRef<string | null>(null);
+  const baseline = useRef<FormSnap | null>(null);
+  const dirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (tabParam === 'account' || tabParam === 'security' || tabParam === 'settings') {
+      setTab(tabParam);
+    }
+  }, [tabParam]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void pending.refresh();
+    }, [pending.refresh]),
+  );
 
   const applyForm = useCallback((next: Profile) => {
-    const names = namesFromProfile(next.full_name, next.full_name_en);
-    setFullNameEn(names.en);
-    setFullNameAr(names.ar);
-    const phoneParts = splitPhone(next.phone);
-    setPhoneRegion(phoneParts.region);
-    setPhoneLocal(phoneParts.local);
-    const waParts = splitPhone(next.whatsapp);
-    const sameNumber = !waParts.local || (waParts.region === phoneParts.region && waParts.local === phoneParts.local);
-    setWaLinked(sameNumber);
-    setWaRegion(sameNumber ? phoneParts.region : waParts.region);
-    setWaLocal(sameNumber ? phoneParts.local : waParts.local);
-    setGender(next.gender ?? '');
-    setBirthDate(next.date_of_birth ? next.date_of_birth.slice(0, 10) : '');
-    setCityId(next.city_id ?? '');
-    setAvatarUrl(next.avatar_url ?? null);
+    const snap = snapFromProfile(next);
+    baseline.current = snap;
+    setFullNameEn(snap.fullNameEn);
+    setFullNameAr(snap.fullNameAr);
+    setPhoneRegion(snap.phoneRegion);
+    setPhoneLocal(snap.phoneLocal);
+    setWaLinked(snap.waLinked);
+    setWaRegion(snap.waRegion);
+    setWaLocal(snap.waLocal);
+    setGender(snap.gender);
+    setBirthDate(snap.birthDate);
+    setCityId(snap.cityId);
+    setAvatarUrl(snap.avatarUrl);
   }, []);
 
   useEffect(() => {
@@ -85,20 +207,33 @@ export default function AdminSettings() {
   const loadSettings = useCallback(async () => {
     const { data } = await supabase
       .from('app_settings')
-      .select('commission_percent')
+      .select('commission_percent, admin_email')
       .eq('id', 1)
       .maybeSingle();
     if (data?.commission_percent != null) setPercent(String(data.commission_percent));
+    if (data?.admin_email) setAdminEmail(String(data.admin_email));
   }, []);
 
   const reloadAll = useCallback(async () => {
-    await Promise.all([loadSettings(), refreshProfile()]);
-  }, [loadSettings, refreshProfile]);
+    await Promise.all([loadSettings(), refreshProfile(), pending.refresh()]);
+  }, [loadSettings, refreshProfile, pending.refresh]);
 
   const reloadPull = useCallback(async () => {
-    const [, next] = await Promise.all([loadSettings(), refreshProfile()]);
-    if (next) applyForm(next);
-  }, [loadSettings, refreshProfile, applyForm]);
+    const [, next] = await Promise.all([loadSettings(), refreshProfile(), pending.refresh()]);
+    if (!next) return;
+    if (!dirtyRef.current) {
+      applyForm(next);
+      return;
+    }
+    alert(t('profile.discardEditsTitle'), t('profile.discardEditsBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.discardEdits'),
+        style: 'destructive',
+        onPress: () => applyForm(next),
+      },
+    ]);
+  }, [loadSettings, refreshProfile, pending.refresh, applyForm, t]);
 
   const { refreshing, refresh } = useLiveReload(reloadAll, ['app_settings', 'profiles'], 'admin-settings', reloadPull);
 
@@ -110,6 +245,23 @@ export default function AdminSettings() {
     () => localizedName(cities.find((item) => item.id === cityId), i18n.language),
     [cities, cityId, i18n.language],
   );
+
+  const currentSnap: FormSnap = {
+    fullNameEn,
+    fullNameAr,
+    phoneRegion,
+    phoneLocal,
+    waLinked,
+    waRegion,
+    waLocal,
+    gender,
+    birthDate,
+    cityId,
+    avatarUrl,
+  };
+  const dirty = baseline.current != null && !snapsEqual(currentSnap, baseline.current);
+  dirtyRef.current = dirty;
+
   const applyPhone = (region: PhoneRegion, local: string) => {
     setPhoneRegion(region);
     setPhoneLocal(local);
@@ -141,6 +293,7 @@ export default function AdminSettings() {
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
+      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -178,6 +331,7 @@ export default function AdminSettings() {
         .from('profiles')
         .update({
           full_name: cleanName(fullNameAr),
+          full_name_en: cleanName(fullNameEn),
           phone: cleanPhone,
           whatsapp: cleanWhatsapp,
           gender,
@@ -187,10 +341,14 @@ export default function AdminSettings() {
         .eq('id', profile.id);
       if (error) throw error;
       const { error: nameError } = await supabase.auth.updateUser({
-        data: { full_name_en: cleanName(fullNameEn) },
+        data: {
+          full_name: cleanName(fullNameAr),
+          full_name_en: cleanName(fullNameEn),
+        },
       });
       if (nameError) throw nameError;
       await refreshProfile();
+      baseline.current = currentSnap;
       alert(t('common.done'), t('profile.saved'));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -205,17 +363,77 @@ export default function AdminSettings() {
       alert(t('common.error'), t('admin.invalidCommission'));
       return;
     }
+    const email = adminEmail.trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      alert(t('common.error'), t('auth.invalidEmail'));
+      return;
+    }
     setSavingCommission(true);
     const { error } = await supabase
       .from('app_settings')
-      .update({ commission_percent: value, updated_at: new Date().toISOString() })
+      .update({
+        commission_percent: value,
+        admin_email: email,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', 1);
     setSavingCommission(false);
     if (error) alert(t('common.error'), error.message);
     else {
       setPercent(String(value));
+      setAdminEmail(email);
+      void logAdminAction('settings.update', { detail: { commission_percent: value, admin_email: email } });
       alert(t('common.done'));
     }
+  };
+
+  const runExport = async () => {
+    setExporting(true);
+    try {
+      const count = await exportPlatformBookingsCsv();
+      void logAdminAction('export.platform', { detail: { rows: count } });
+      alert(t('common.done'), t('admin.exportDone', { count }));
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const sendBroadcast = async () => {
+    const title = broadcastTitle.trim();
+    const body = broadcastBody.trim();
+    if (!title || body.length < 8) {
+      alert(t('common.error'), t('admin.broadcastShort'));
+      return;
+    }
+    if (broadcastRoles.length === 0) {
+      alert(t('common.error'), t('admin.broadcastNeedRoles'));
+      return;
+    }
+    alert(t('admin.broadcastTitle'), t('admin.broadcastConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.broadcastSend'),
+        onPress: async () => {
+          setBroadcasting(true);
+          try {
+            const result = await broadcastPush({ roles: broadcastRoles, title, body });
+            void logAdminAction('broadcast', {
+              note: title,
+              detail: { roles: broadcastRoles, recipients: result.recipients },
+            });
+            setBroadcastTitle('');
+            setBroadcastBody('');
+            alert(t('common.done'), t('admin.broadcastSent', { count: result.recipients }));
+          } catch (err) {
+            alert(t('common.error'), err instanceof Error ? err.message : '');
+          } finally {
+            setBroadcasting(false);
+          }
+        },
+      },
+    ]);
   };
 
   const incomplete = Boolean(
@@ -229,15 +447,35 @@ export default function AdminSettings() {
       !avatarUrl,
   );
   const progressItems = [
-    { label: t('profile.photo'), done: Boolean(avatarUrl) },
-    { label: t('common.nameEn'), done: Boolean(fullNameEn.trim()) },
-    { label: t('common.nameAr'), done: Boolean(fullNameAr.trim()) },
-    { label: t('profile.gender'), done: Boolean(gender) },
-    { label: t('auth.homeCity'), done: Boolean(cityId) },
-    { label: t('profile.birthDate'), done: Boolean(birthDate) },
-    { label: t('common.phone'), done: Boolean(phoneLocal.trim()) },
-    { label: t('profile.whatsapp'), done: Boolean(waLocal.trim()) },
+    { id: 'photo', label: t('profile.photo'), done: Boolean(avatarUrl) },
+    { id: 'nameEn', label: t('common.nameEn'), done: Boolean(fullNameEn.trim()) },
+    { id: 'nameAr', label: t('common.nameAr'), done: Boolean(fullNameAr.trim()) },
+    { id: 'gender', label: t('profile.gender'), done: Boolean(gender) },
+    { id: 'city', label: t('auth.homeCity'), done: Boolean(cityId) },
+    { id: 'birth', label: t('profile.birthDate'), done: Boolean(birthDate) },
+    { id: 'phone', label: t('common.phone'), done: Boolean(phoneLocal.trim()) },
+    { id: 'whatsapp', label: t('profile.whatsapp'), done: Boolean(waLocal.trim()) },
   ];
+
+  const pendingTotal = pending.owners + pending.ids + pending.listings + pending.bookings + pending.reports;
+  const banner =
+    incomplete
+      ? {
+          icon: 'person-outline' as const,
+          text: t('admin.profileIncomplete'),
+          onPress: () => setTab('account'),
+        }
+      : pendingTotal > 0
+        ? {
+            icon: 'flash-outline' as const,
+            text: t('admin.queueBanner', { count: pendingTotal }),
+            onPress: () => setTab('settings'),
+          }
+        : {
+            icon: 'cash-outline' as const,
+            text: `${t('admin.commissionRate')}: ${percent}%`,
+            onPress: () => setTab('settings'),
+          };
 
   return (
     <Screen
@@ -245,7 +483,13 @@ export default function AdminSettings() {
       refreshing={refreshing}
       footer={
         tab === 'account' ? (
-          <Button title={t('profile.saveProfile')} onPress={saveProfile} loading={saving} pill />
+          <Button
+            title={t('profile.saveProfile')}
+            onPress={() => void saveProfile()}
+            loading={saving}
+            disabled={!dirty}
+            pill
+          />
         ) : null
       }
     >
@@ -255,7 +499,7 @@ export default function AdminSettings() {
         uploading={uploading}
         onChangePhoto={() => void changePhoto()}
         metas={[
-          { icon: 'grid', text: t('admin.platformSettings') },
+          { icon: 'shield-checkmark', text: t('admin.platformSettings') },
           ...(ageLabel(birthDate, t, today)
             ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
             : []),
@@ -264,24 +508,24 @@ export default function AdminSettings() {
         chip={t('roles.admin')}
         email={profile?.email}
       />
-      <ProfileBanner
-        icon="cash"
-        text={`${t('admin.commissionRate')}: ${percent}%`}
-        onPress={() => setTab('settings')}
-      />
+      <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
       <ProfileSegments
         value={tab}
         onChange={setTab}
         tabs={[
           { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: incomplete },
           { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
-          { key: 'settings', icon: 'settings', label: t('profile.tabSettings') },
+          { key: 'settings', icon: 'options', label: t('profile.tabSettings'), dot: pendingTotal > 0 },
         ]}
       />
 
       {tab === 'account' ? (
         <>
-          <ProfileProgress items={progressItems} />
+          <ProfileProgress
+            items={progressItems}
+            onJump={() => setTab('account')}
+            readyLabel={t('admin.profileReady')}
+          />
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -311,25 +555,138 @@ export default function AdminSettings() {
 
       {tab === 'settings' ? (
         <>
-          <Card>
-            <SectionHead icon="settings-outline" title={t('admin.platformSettings')} />
+          <Card compact>
+            <SectionHead compact icon="flash-outline" title={t('admin.queueTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.queueHint')}</Text>
+            <View style={styles.queueList}>
+              <QueueRow
+                icon="people-outline"
+                label={t('admin.pendingOwners')}
+                count={pending.owners}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(admin)/(tabs)/users',
+                    params: { role: 'owner', owner: 'pending', from: 'settings' },
+                  })
+                }
+              />
+              <QueueRow
+                icon="id-card-outline"
+                label={t('admin.pendingIds')}
+                count={pending.ids}
+                onPress={() => router.push('/(admin)/verify')}
+              />
+              <QueueRow
+                icon="home-outline"
+                label={t('admin.pendingListings')}
+                count={pending.listings}
+                onPress={() =>
+                  router.push({ pathname: '/(admin)/(tabs)/listings', params: { from: 'settings' } })
+                }
+              />
+              <QueueRow
+                icon="calendar-outline"
+                label={t('admin.pendingBookings')}
+                count={pending.bookings}
+                onPress={() =>
+                  router.push({ pathname: '/(admin)/(tabs)/bookings', params: { from: 'settings' } })
+                }
+              />
+              <QueueRow
+                icon="flag-outline"
+                label={t('admin.reportsTitle')}
+                count={pending.reports}
+                onPress={() => router.push('/(admin)/reports')}
+              />
+              <QueueRow
+                icon="star-outline"
+                label={t('admin.reviewsTitle')}
+                onPress={() => router.push('/(admin)/reviews')}
+              />
+              <QueueRow
+                icon="wallet-outline"
+                label={t('admin.payoutsTitle')}
+                onPress={() => router.push('/(admin)/payouts')}
+              />
+              <QueueRow
+                icon="map-outline"
+                label={t('admin.catalogTitle')}
+                onPress={() => router.push('/(admin)/catalog')}
+              />
+              <QueueRow
+                icon="time-outline"
+                label={t('admin.auditTitle')}
+                onPress={() => router.push('/(admin)/audit')}
+              />
+            </View>
+          </Card>
+
+          <Card compact>
+            <SectionHead compact icon="cash-outline" title={t('admin.platformSettings')} />
             <Input
+              compact
               label={`${t('admin.commissionRate')} %`}
               value={percent}
               onChangeText={setPercent}
               keyboardType="numeric"
             />
-            <Button title={t('admin.saveSettings')} onPress={saveCommission} loading={savingCommission} pill />
+            <Input
+              compact
+              label={t('admin.adminEmail')}
+              value={adminEmail}
+              onChangeText={setAdminEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              ltr
+              hint={t('admin.adminEmailHint')}
+            />
+            <Button
+              title={t('admin.saveSettings')}
+              onPress={() => void saveCommission()}
+              loading={savingCommission}
+              pill
+            />
           </Card>
-          <Card>
-            <SectionHead icon="map-outline" title={t('admin.catalogTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
-            <Button title={t('admin.openCatalog')} onPress={() => router.push('/(admin)/(tabs)/catalog')} pill />
+
+          <Card compact>
+            <SectionHead compact icon="download-outline" title={t('admin.exportTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.exportHint')}</Text>
+            <Button
+              title={t('admin.exportBookingsCsv')}
+              variant="secondary"
+              pill
+              loading={exporting}
+              onPress={() => void runExport()}
+            />
           </Card>
-          <Card>
-            <SectionHead icon="flag-outline" title={t('admin.reportsTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.reportsHint')}</Text>
-            <Button title={t('admin.openReports')} onPress={() => router.push('/(admin)/(tabs)/reports')} pill />
+
+          <Card compact>
+            <SectionHead compact icon="megaphone-outline" title={t('admin.broadcastTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.broadcastHint')}</Text>
+            <FilterPills
+              compact
+              values={broadcastRoles}
+              onToggle={(role) =>
+                setBroadcastRoles((current) =>
+                  current.includes(role) ? current.filter((item) => item !== role) : [...current, role],
+                )
+              }
+              items={[
+                { value: 'student', label: t('roles.student') },
+                { value: 'renter', label: t('roles.renter') },
+                { value: 'owner', label: t('roles.owner') },
+              ]}
+            />
+            <Input compact label={t('admin.broadcastSubject')} value={broadcastTitle} onChangeText={setBroadcastTitle} />
+            <Input
+              compact
+              label={t('admin.broadcastBody')}
+              value={broadcastBody}
+              onChangeText={setBroadcastBody}
+              multiline
+            />
+            <Button title={t('admin.broadcastSend')} pill loading={broadcasting} onPress={() => void sendBroadcast()} />
           </Card>
         </>
       ) : null}
@@ -338,5 +695,31 @@ export default function AdminSettings() {
 }
 
 const styles = StyleSheet.create({
-  hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
+  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 19 },
+  queueList: { gap: spacing.xs },
+  queueRow: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  queueIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueLabel: { flex: 1, fontSize: 14, fontFamily: 'Cairo_600SemiBold' },
+  queueBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  queueBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Cairo_700Bold' },
 });

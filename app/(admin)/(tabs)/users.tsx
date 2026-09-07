@@ -40,7 +40,10 @@ export default function AdminUsers() {
   const { rtlText, alignStart, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
-  const params = useLocalSearchParams<{ role?: string; owner?: string }>();
+  const params = useLocalSearchParams<{ role?: string; owner?: string; from?: string }>();
+  const fromSettings = params.from === 'settings';
+  const backToSettings = () =>
+    router.push({ pathname: '/(admin)/(tabs)/settings', params: { tab: 'settings' } });
   const [users, setUsers] = useState<Profile[]>([]);
   const [role, setRole] = useState<RoleFilter>('all');
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
@@ -217,10 +220,15 @@ export default function AdminUsers() {
     status === 'approved' ? t('admin.ownerActive') : status === 'rejected' ? t('admin.ownerSuspended') : t('admin.ownerWaiting');
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      back={fromSettings}
+      onBack={fromSettings ? backToSettings : undefined}
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+    >
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.users')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.users')}</Text>
-      <Card>
+      <Card compact>
         <Pressable
           onPress={() => setCreateOpen((open) => !open)}
           accessibilityRole="button"
@@ -233,17 +241,13 @@ export default function AdminUsers() {
               <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.createOwnerHint')}</Text>
             ) : null}
           </View>
-          <Ionicons name={createOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textMuted} />
+          <Ionicons name={createOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
         </Pressable>
         {createOpen ? (
           <>
-            <NameField
-              label={t('common.nameAr')}
-              value={fullName}
-              onChangeText={setFullName}
-              script="ar"
-            />
+            <NameField compact label={t('common.nameAr')} value={fullName} onChangeText={setFullName} script="ar" />
             <Input
+              compact
               label={t('common.email')}
               value={email}
               onChangeText={setEmail}
@@ -253,14 +257,22 @@ export default function AdminUsers() {
               ltr
             />
             <PhoneField
+              compact
               label={t('common.phone')}
               region={phoneRegion}
               local={phoneLocal}
               onRegionChange={setPhoneRegion}
               onLocalChange={setPhoneLocal}
             />
-            <Input label={t('admin.createOwnerPassword')} value={password} onChangeText={setPassword} secureTextEntry />
             <Input
+              compact
+              label={t('admin.createOwnerPassword')}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            <Input
+              compact
               label={t('admin.confirmOwnerPassword')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -271,8 +283,9 @@ export default function AdminUsers() {
           </>
         ) : null}
       </Card>
-      <Input label={t('admin.searchUsers')} value={query} onChangeText={setQuery} />
+      <Input compact label={t('admin.searchUsers')} value={query} onChangeText={setQuery} />
       <FilterPills
+        compact
         value={role}
         onChange={setRole}
         items={[
@@ -285,6 +298,7 @@ export default function AdminUsers() {
       />
       {role === 'owner' ? (
         <FilterPills
+          compact
           value={ownerFilter}
           onChange={setOwnerFilter}
           items={[
@@ -302,34 +316,48 @@ export default function AdminUsers() {
         const city = localizedName(user.cities, i18n.language);
         const university = localizedName(user.universities, i18n.language);
         return (
-          <Card key={user.id} onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}>
-            <Text style={[styles.name, rtlText, { color: colors.text }]}>{user.full_name || user.email}</Text>
-            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{user.email}</Text>
-            {phone ? <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{phone}</Text> : null}
-            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t(`roles.${user.role}`)}</Text>
-            {city || university ? (
-              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{[city, university].filter(Boolean).join(' · ')}</Text>
-            ) : null}
-            {user.role === 'student' && user.student_id_number ? (
-              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
-                {t('profile.studentId')}: {user.student_id_number}
-              </Text>
-            ) : null}
-            {isSuspended(user) ? (
-              <StatusBadge label={t('admin.accountSuspended')} tone="rejected" />
-            ) : user.role === 'owner' ? (
-              <StatusBadge label={ownerLabel(user.owner_status)} tone={ownerTone(user.owner_status)} />
-            ) : null}
-            <Button
-              title={t('admin.editUser')}
-              variant="secondary"
-              onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
-            />
-            {user.role !== 'admin' && user.id !== profile?.id ? (
-              <View style={[styles.row, { justifyContent: alignStart }]}>
-                {user.role === 'owner' && user.owner_status !== 'approved' && !isSuspended(user) ? (
+          <Card
+            key={user.id}
+            compact
+            onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
+          >
+            <View style={[styles.userHead, row]}>
+              <View style={styles.userCopy}>
+                <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
+                  {user.full_name || user.email}
+                </Text>
+                <Text style={[styles.meta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+                  {[user.email, t(`roles.${user.role}`), city || university].filter(Boolean).join(' · ')}
+                </Text>
+                {user.role === 'student' && user.student_id_number ? (
+                  <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+                    {t('profile.studentId')}: {user.student_id_number}
+                  </Text>
+                ) : null}
+              </View>
+              {isSuspended(user) ? (
+                <StatusBadge label={t('admin.accountSuspended')} tone="rejected" />
+              ) : user.role === 'owner' ? (
+                <StatusBadge label={ownerLabel(user.owner_status)} tone={ownerTone(user.owner_status)} />
+              ) : null}
+            </View>
+            <View style={[styles.row, { justifyContent: alignStart }]}>
+              <View style={styles.flex}>
+                <Button
+                  title={t('admin.editUser')}
+                  variant="secondary"
+                  onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
+                  pill
+                />
+              </View>
+              {user.role !== 'admin' && user.id !== profile?.id ? (
+                user.role === 'owner' && user.owner_status !== 'approved' && !isSuspended(user) ? (
                   <View style={styles.flex}>
-                    <Button title={t('admin.approveAlways')} onPress={() => void setOwnerStatus(user.id, 'approved')} />
+                    <Button
+                      title={t('admin.approveAlways')}
+                      onPress={() => void setOwnerStatus(user.id, 'approved')}
+                      pill
+                    />
                   </View>
                 ) : (
                   <View style={styles.flex}>
@@ -337,14 +365,29 @@ export default function AdminUsers() {
                       title={isSuspended(user) ? t('admin.restoreAccount') : t('admin.suspend')}
                       variant={isSuspended(user) ? 'secondary' : 'danger'}
                       onPress={() => toggleSuspend(user)}
+                      pill
                     />
                   </View>
-                )}
+                )
+              ) : null}
+            </View>
+            {phone || whatsapp ? (
+              <View style={[styles.row, { justifyContent: alignStart }]}>
+                {phone ? (
+                  <View style={styles.flex}>
+                    <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${phone}`)} />
+                  </View>
+                ) : null}
+                {whatsapp ? (
+                  <View style={styles.flex}>
+                    <Button
+                      title={t('profile.openWhatsapp')}
+                      variant="ghost"
+                      onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+                    />
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-            {phone ? <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${phone}`)} /> : null}
-            {whatsapp ? (
-              <Button title={t('profile.openWhatsapp')} variant="ghost" onPress={() => Linking.openURL(whatsappLink(whatsapp))} />
             ) : null}
           </Card>
         );
@@ -364,12 +407,14 @@ export default function AdminUsers() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  formTitle: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  formTitle: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   createHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   createCopy: { flex: 1, minWidth: 0, gap: 2 },
+  userHead: { alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  userCopy: { flex: 1, minWidth: 0, gap: 2 },
   row: { flexDirection: 'row', gap: 8 },
-  name: { fontSize: 17, fontWeight: '800' },
-  meta: {},
+  name: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   flex: { flex: 1 },
 });

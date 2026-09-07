@@ -1,16 +1,17 @@
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { NameField } from '@/components/profile/NameField';
 import { IdReviewCard } from '@/components/profile/IdReviewCard';
+import { NameField } from '@/components/profile/NameField';
+import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { UserDataExport } from '@/components/profile/UserDataExport';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
@@ -19,6 +20,7 @@ import { PhoneField } from '@/components/ui/PhoneField';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -27,22 +29,38 @@ import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { deleteUserAccount, setSuspended, unenrollUserMfa } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
-import { cleanName, isValidArabicName, namesFromProfile } from '@/src/lib/name';
+import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
 import { isValidStudentId, sanitizeStudentId, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { supabase } from '@/src/lib/supabase';
+import { sanitizeNationalId } from '@/src/lib/trust';
+import { logAdminAction } from '@/src/lib/audit';
+import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { OwnerStatus, PersonGender, Profile, UserRole } from '@/src/types/database';
+
+type EditTab = 'profile' | 'access' | 'actions';
+
+function initials(name?: string | null) {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('');
+}
 
 export default function AdminUserEdit() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile: me } = useAuth();
   const { cities, universities } = useCatalog();
+  const [tab, setTab] = useState<EditTab>('profile');
   const [user, setUser] = useState<Profile | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [fullNameEn, setFullNameEn] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
   const [whatsRegion, setWhatsRegion] = useState<PhoneRegion>('ps');
@@ -57,6 +75,12 @@ export default function AdminUserEdit() {
   const [major, setMajor] = useState('');
   const [degreeLevel, setDegreeLevel] = useState('');
   const [studyYear, setStudyYear] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [nationalExpiresAt, setNationalExpiresAt] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyRegion, setEmergencyRegion] = useState<PhoneRegion>('ps');
+  const [emergencyLocal, setEmergencyLocal] = useState('');
   const [saving, setSaving] = useState(false);
   const [clearingMfa, setClearingMfa] = useState(false);
   const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
@@ -65,7 +89,8 @@ export default function AdminUserEdit() {
     setUser(next);
     setLoaded(true);
     if (!next) return;
-    setFullName(namesFromProfile(next.full_name).ar);
+    setFullName(namesFromProfile(next.full_name, next.full_name_en).ar);
+    setFullNameEn(namesFromProfile(next.full_name, next.full_name_en).en);
     const phone = splitPhone(next.phone);
     setPhoneRegion(phone.region);
     setPhoneLocal(phone.local);
@@ -83,6 +108,13 @@ export default function AdminUserEdit() {
     setMajor(next.major ?? '');
     setDegreeLevel(next.degree_level ?? '');
     setStudyYear(next.study_year && next.study_year !== 'graduate' ? next.study_year : '');
+    setNationalId(next.national_id_number ?? '');
+    setNationalExpiresAt(next.national_id_expires_at ? next.national_id_expires_at.slice(0, 10) : '');
+    setHomeAddress(next.home_address ?? '');
+    setEmergencyName(next.emergency_name ?? '');
+    const emergency = splitPhone(next.emergency_phone);
+    setEmergencyRegion(emergency.region);
+    setEmergencyLocal(emergency.local);
   }, []);
 
   const load = useCallback(async () => {
@@ -129,9 +161,18 @@ export default function AdminUserEdit() {
       alert(t('common.error'), t('auth.invalidNameAr'));
       return;
     }
+    if (fullNameEn.trim() && !isValidEnglishName(fullNameEn)) {
+      alert(t('common.error'), t('auth.invalidNameEn'));
+      return;
+    }
     const phone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     const whatsapp = whatsLocal.trim() ? toE164(whatsRegion, whatsLocal) : null;
+    const emergencyPhone = emergencyLocal.trim() ? toE164(emergencyRegion, emergencyLocal) : null;
     if (phoneLocal.trim() && !phone) {
+      alert(t('common.error'), t('phone.invalid'));
+      return;
+    }
+    if (emergencyLocal.trim() && !emergencyPhone) {
       alert(t('common.error'), t('phone.invalid'));
       return;
     }
@@ -146,6 +187,7 @@ export default function AdminUserEdit() {
         .from('profiles')
         .update({
           full_name: cleanName(fullName),
+          full_name_en: fullNameEn.trim() ? cleanName(fullNameEn) : null,
           phone,
           whatsapp,
           gender: gender || null,
@@ -158,13 +200,20 @@ export default function AdminUserEdit() {
           major: major || null,
           degree_level: degreeLevel || null,
           study_year: studyYear || null,
+          national_id_number: sanitizeNationalId(nationalId) || null,
+          national_id_expires_at: nationalExpiresAt || null,
+          home_address: homeAddress.trim() || null,
+          emergency_name: emergencyName.trim() || null,
+          emergency_phone: emergencyPhone,
         })
         .eq('id', user.id);
       if (error) throw error;
       if (nextRole === 'owner' && ownerStatus === 'rejected') {
         await supabase.from('apartments').update({ status: 'rejected' }).eq('owner_id', user.id);
       }
+      void logAdminAction('user.update', { targetUserId: user.id });
       alert(t('common.done'), t('profile.saved'));
+      await load();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
@@ -255,174 +304,287 @@ export default function AdminUserEdit() {
     );
   }
 
+  const shownName =
+    displayName({ full_name: fullName || user.full_name, full_name_en: user.full_name_en }, i18n.language) ||
+    user.email;
+  const canModerate = user.role !== 'admin' && user.id !== me?.id;
+  const showStudies = role === 'student';
+  const showIdReview =
+    (user.role === 'student' || user.role === 'renter' || user.role === 'owner') &&
+    Boolean(user.national_id_url || user.university_card_url);
+
   return (
-    <Screen back refreshing={refreshing} onRefresh={() => void refresh()}>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.editUser')}</Text>
-      <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{user.email}</Text>
-      {accountStatus === 'suspended' ? <StatusBadge label={t('admin.accountSuspended')} tone="rejected" /> : null}
-      {user.accepted_terms_at ? (
-        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>
-          {t('admin.acceptedTerms')}: {user.accepted_terms_at.slice(0, 10)}
-        </Text>
-      ) : null}
-
-      <Card>
-        <SectionHead icon="person-outline" title={t('profile.personalTitle')} />
-        <NameField
-          label={t('common.nameAr')}
-          value={fullName}
-          onChangeText={setFullName}
-          script="ar"
-        />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-        <FilterPills
-          value={gender}
-          onChange={setGender}
-          allowDeselect
-          items={[
-            { value: 'male', label: t('profile.male') },
-            { value: 'female', label: t('profile.female') },
-          ]}
-        />
-        <DateField label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
-        <Select
-          label={t('common.city')}
-          value={cityId}
-          placeholder={t('common.select')}
-          options={cityOptions}
-          onChange={setCityId}
-          clearable
-        />
-        <SearchSelect
-          label={t('common.university')}
-          value={universityId}
-          placeholder={t('common.select')}
-          options={universityOptions}
-          onChange={setUniversityId}
-          clearable
-        />
+    <Screen
+      back
+      refreshing={refreshing}
+      onRefresh={() => void refresh()}
+      footer={
+        tab === 'profile' || tab === 'access' ? (
+          <Button title={t('common.save')} onPress={() => void save()} loading={saving} pill />
+        ) : null
+      }
+    >
+      <Card compact>
+        <View style={[styles.header, row]}>
+          {user.avatar_url ? (
+            <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
+              <Text style={[styles.initials, { color: colors.primary }]}>{initials(shownName)}</Text>
+            </View>
+          )}
+          <View style={styles.headerCopy}>
+            <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
+              {shownName}
+            </Text>
+            <Text style={[styles.email, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+              {user.email}
+            </Text>
+            <View style={[styles.badges, row]}>
+              <StatusBadge label={t(`roles.${user.role}`)} tone="pending" />
+              {accountStatus === 'suspended' ? (
+                <StatusBadge label={t('admin.accountSuspended')} tone="rejected" />
+              ) : user.role === 'owner' ? (
+                <StatusBadge
+                  label={
+                    ownerStatus === 'approved'
+                      ? t('admin.ownerActive')
+                      : ownerStatus === 'rejected'
+                        ? t('admin.ownerSuspended')
+                        : t('admin.ownerWaiting')
+                  }
+                  tone={ownerStatus === 'approved' ? 'approved' : ownerStatus === 'rejected' ? 'rejected' : 'pending'}
+                />
+              ) : null}
+            </View>
+            {user.accepted_terms_at ? (
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+                {t('admin.acceptedTerms')}: {user.accepted_terms_at.slice(0, 10)}
+              </Text>
+            ) : null}
+          </View>
+        </View>
       </Card>
 
-      <Card>
-        <SectionHead icon="call-outline" title={t('profile.contactTitle')} />
-        <PhoneField
-          label={t('common.phone')}
-          region={phoneRegion}
-          local={phoneLocal}
-          onRegionChange={setPhoneRegion}
-          onLocalChange={setPhoneLocal}
-        />
-        <PhoneField
-          label={t('profile.whatsapp')}
-          region={whatsRegion}
-          local={whatsLocal}
-          onRegionChange={setWhatsRegion}
-          onLocalChange={setWhatsLocal}
-        />
-      </Card>
+      <ProfileSegments
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { key: 'profile', icon: 'person', label: t('admin.editTabProfile') },
+          { key: 'access', icon: 'shield', label: t('admin.editTabAccess'), dot: showIdReview },
+          { key: 'actions', icon: 'hammer', label: t('admin.editTabActions') },
+        ]}
+      />
 
-      {(user.role === 'student' || user.role === 'renter') &&
-      (user.national_id_url || user.university_card_url) ? (
-        <IdReviewCard user={user} meId={me?.id} onChanged={() => void load()} />
-      ) : null}
+      {tab === 'profile' ? (
+        <>
+          <Card compact>
+            <SectionHead compact icon="person-outline" title={t('profile.personalTitle')} />
+            <NameField compact label={t('common.nameAr')} value={fullName} onChangeText={setFullName} script="ar" />
+            <NameField compact label={t('common.nameEn')} value={fullNameEn} onChangeText={setFullNameEn} script="en" />
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
+            <FilterPills
+              compact
+              value={gender}
+              onChange={setGender}
+              allowDeselect
+              items={[
+                { value: 'male', label: t('profile.male') },
+                { value: 'female', label: t('profile.female') },
+              ]}
+            />
+            <DateField compact label={t('profile.birthDate')} value={birthDate} onChange={setBirthDate} />
+            <Select
+              dense
+              label={t('common.city')}
+              value={cityId}
+              placeholder={t('common.select')}
+              options={cityOptions}
+              onChange={setCityId}
+              clearable
+            />
+            <SearchSelect
+              dense
+              label={t('common.university')}
+              value={universityId}
+              placeholder={t('common.select')}
+              options={universityOptions}
+              onChange={setUniversityId}
+              clearable
+            />
+          </Card>
 
-      <UserDataExport userId={user.id} titleKey="admin.exportUserData" />
+          <Card compact>
+            <SectionHead compact icon="call-outline" title={t('profile.contactTitle')} />
+            <PhoneField
+              compact
+              label={t('common.phone')}
+              region={phoneRegion}
+              local={phoneLocal}
+              onRegionChange={setPhoneRegion}
+              onLocalChange={setPhoneLocal}
+            />
+            <PhoneField
+              compact
+              label={t('profile.whatsapp')}
+              region={whatsRegion}
+              local={whatsLocal}
+              onRegionChange={setWhatsRegion}
+              onLocalChange={setWhatsLocal}
+            />
+          </Card>
 
-      {user.role !== 'admin' ? (
-        <Card>
-          <SectionHead icon="shield-outline" title={t('profile.role')} />
-          <FilterPills
-            value={role}
-            onChange={setRole}
-            items={[
-              { value: 'student', label: t('roles.student') },
-              { value: 'renter', label: t('roles.renter') },
-              { value: 'owner', label: t('roles.owner') },
-            ]}
-          />
-          {role === 'owner' ? (
-            <>
-              <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('admin.ownerStatus')}</Text>
+          <Card compact>
+            <SectionHead compact icon="shield-checkmark-outline" title={t('profile.tabTrust')} />
+            <Input
+              compact
+              label={t('profile.nationalId')}
+              value={nationalId}
+              onChangeText={(value) => setNationalId(sanitizeNationalId(value))}
+              keyboardType="number-pad"
+              ltr
+            />
+            <DateField
+              compact
+              label={t('profile.nationalIdExpiry')}
+              value={nationalExpiresAt}
+              onChange={setNationalExpiresAt}
+              kind="expiry"
+            />
+            <Input
+              compact
+              label={t('profile.homeAddress')}
+              value={homeAddress}
+              onChangeText={setHomeAddress}
+              multiline
+            />
+            <Input compact label={t('profile.emergencyName')} value={emergencyName} onChangeText={setEmergencyName} />
+            <PhoneField
+              compact
+              label={t('profile.emergencyPhone')}
+              region={emergencyRegion}
+              local={emergencyLocal}
+              onRegionChange={setEmergencyRegion}
+              onLocalChange={setEmergencyLocal}
+            />
+          </Card>
+
+          {showStudies ? (
+            <Card compact>
+              <SectionHead compact icon="school-outline" title={t('profile.studiesTitle')} />
+              <Input
+                compact
+                label={t('profile.studentId')}
+                value={studentId}
+                onChangeText={(value) => setStudentId(sanitizeStudentId(value))}
+                autoCapitalize="none"
+                autoCorrect={false}
+                ltr
+              />
+              <SearchSelect
+                dense
+                label={t('profile.major')}
+                value={major}
+                placeholder={t('profile.searchMajor')}
+                options={majorOptions}
+                onChange={setMajor}
+                clearable
+              />
+              <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.degree')}</Text>
               <FilterPills
-                value={ownerStatus}
-                onChange={setOwnerStatus}
+                compact
+                value={degreeLevel}
+                onChange={setDegreeLevel}
+                allowDeselect
                 items={[
-                  { value: 'pending', label: t('admin.ownerWaiting') },
-                  { value: 'approved', label: t('admin.ownerActive') },
-                  { value: 'rejected', label: t('admin.ownerSuspended') },
+                  { value: 'bachelor', label: t('profile.bachelor') },
+                  { value: 'master', label: t('profile.master') },
+                  { value: 'doctorate', label: t('profile.doctorate') },
+                  { value: 'diploma', label: t('profile.diploma') },
+                  { value: 'other', label: t('profile.otherDegree') },
                 ]}
               />
-            </>
+              <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.studyYear')}</Text>
+              <FilterPills
+                compact
+                value={studyYear}
+                onChange={setStudyYear}
+                allowDeselect
+                items={(['1', '2', '3', '4', '5', '6'] as const).map((value) => ({
+                  value,
+                  label: t(`profile.year${value}`),
+                }))}
+              />
+            </Card>
           ) : null}
-        </Card>
-      ) : (
-        <Card>
-          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('roles.admin')}</Text>
-        </Card>
-      )}
-
-      {role === 'student' ? (
-        <Card>
-          <SectionHead icon="school-outline" title={t('profile.studiesTitle')} />
-          <Input
-            label={t('profile.studentId')}
-            value={studentId}
-            onChangeText={(value) => setStudentId(sanitizeStudentId(value))}
-            autoCapitalize="none"
-            autoCorrect={false}
-            ltr
-          />
-          <SearchSelect
-            label={t('profile.major')}
-            value={major}
-            placeholder={t('profile.searchMajor')}
-            options={majorOptions}
-            onChange={setMajor}
-            clearable
-          />
-          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.degree')}</Text>
-          <FilterPills
-            value={degreeLevel}
-            onChange={setDegreeLevel}
-            allowDeselect
-            items={[
-              { value: 'bachelor', label: t('profile.bachelor') },
-              { value: 'master', label: t('profile.master') },
-              { value: 'doctorate', label: t('profile.doctorate') },
-              { value: 'diploma', label: t('profile.diploma') },
-              { value: 'other', label: t('profile.otherDegree') },
-            ]}
-          />
-          <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.studyYear')}</Text>
-          <FilterPills
-            value={studyYear}
-            onChange={setStudyYear}
-            allowDeselect
-            items={(['1', '2', '3', '4', '5', '6'] as const).map((value) => ({
-              value,
-              label: t(`profile.year${value}`),
-            }))}
-          />
-        </Card>
+        </>
       ) : null}
 
-      <Button title={t('common.save')} onPress={() => void save()} loading={saving} pill />
-      {user.role !== 'admin' && user.id !== me?.id ? (
+      {tab === 'access' ? (
         <>
-          <Button
-            title={t('admin.disableMfa')}
-            variant="secondary"
-            onPress={clearMfa}
-            loading={clearingMfa}
-            pill
-          />
-          <Button
-            title={accountStatus === 'suspended' ? t('admin.restoreAccount') : t('admin.suspend')}
-            variant={accountStatus === 'suspended' ? 'secondary' : 'danger'}
-            onPress={toggleSuspend}
-            pill
-          />
-          <Button title={t('admin.deleteUser')} variant="danger" onPress={removeUser} pill />
+          {user.role !== 'admin' ? (
+            <Card compact>
+              <SectionHead compact icon="shield-outline" title={t('profile.role')} />
+              <FilterPills
+                compact
+                value={role}
+                onChange={setRole}
+                items={[
+                  { value: 'student', label: t('roles.student') },
+                  { value: 'renter', label: t('roles.renter') },
+                  { value: 'owner', label: t('roles.owner') },
+                ]}
+              />
+              {role === 'owner' ? (
+                <>
+                  <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('admin.ownerStatus')}</Text>
+                  <FilterPills
+                    compact
+                    value={ownerStatus}
+                    onChange={setOwnerStatus}
+                    items={[
+                      { value: 'pending', label: t('admin.ownerWaiting') },
+                      { value: 'approved', label: t('admin.ownerActive') },
+                      { value: 'rejected', label: t('admin.ownerSuspended') },
+                    ]}
+                  />
+                </>
+              ) : null}
+            </Card>
+          ) : (
+            <Card compact>
+              <SectionHead compact icon="shield-outline" title={t('roles.admin')} />
+              <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('roles.admin')}</Text>
+            </Card>
+          )}
+          {showIdReview ? <IdReviewCard compact user={user} meId={me?.id} onChanged={() => void load()} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'actions' ? (
+        <>
+          <UserDataExport compact userId={user.id} titleKey="admin.exportUserData" />
+          {canModerate ? (
+            <Card compact>
+              <SectionHead compact icon="warning-outline" title={t('admin.dangerZone')} />
+              <View style={styles.actions}>
+                <Button
+                  title={t('admin.disableMfa')}
+                  variant="secondary"
+                  onPress={clearMfa}
+                  loading={clearingMfa}
+                  pill
+                />
+                <Button
+                  title={accountStatus === 'suspended' ? t('admin.restoreAccount') : t('admin.suspend')}
+                  variant={accountStatus === 'suspended' ? 'secondary' : 'danger'}
+                  onPress={toggleSuspend}
+                  pill
+                />
+                <Button title={t('admin.deleteUser')} variant="danger" onPress={removeUser} pill />
+              </View>
+            </Card>
+          ) : null}
         </>
       ) : null}
     </Screen>
@@ -430,8 +592,16 @@ export default function AdminUserEdit() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  sub: { fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4 },
-  label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
+  header: { alignItems: 'center', gap: spacing.sm },
+  avatar: { width: 56, height: 56, borderRadius: 18 },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center' },
+  initials: { fontSize: 18, fontFamily: 'Cairo_800ExtraBold' },
+  headerCopy: { flex: 1, minWidth: 0, gap: 2 },
+  name: { fontSize: 17, fontFamily: 'Cairo_800ExtraBold' },
+  email: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  badges: { flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular', marginTop: 2 },
+  label: { fontFamily: 'Cairo_700Bold', fontSize: 13 },
   muted: { textAlign: 'center' },
+  actions: { gap: 8 },
 });

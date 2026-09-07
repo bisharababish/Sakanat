@@ -26,9 +26,11 @@ import {
   markConversationDelivered,
   markConversationRead,
   messageReceipt,
+  deleteMessage,
   sendMessage,
   type MessageReceipt,
 } from '@/src/lib/chat';
+import { logAdminAction } from '@/src/lib/audit';
 import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -216,6 +218,26 @@ export function ChatThread({
 
   const canSend = Boolean(draft.trim()) && !sending;
 
+  const removeMessage = (item: Message) => {
+    if (!readOnly || item.id.startsWith('temp-')) return;
+    alert(t('admin.deleteMessage'), t('admin.confirmDeleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteMessage(item.id);
+            setMessages((current) => current.filter((row) => row.id !== item.id));
+            void logAdminAction('message.delete', { targetId: item.id });
+          } catch (err) {
+            alert(t('common.error'), err instanceof Error ? err.message : '');
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: colors.background }]}
@@ -282,7 +304,9 @@ export function ChatThread({
                   {senderLabel}
                 </Text>
               ) : null}
-              <View
+              <Pressable
+                onLongPress={readOnly ? () => removeMessage(item) : undefined}
+                delayLongPress={350}
                 style={[
                   styles.bubble,
                   mine
@@ -317,7 +341,7 @@ export function ChatThread({
                     {showTicks ? <ReceiptTick status={receipt} onMine={mine} /> : null}
                   </View>
                 ) : null}
-              </View>
+              </Pressable>
             </View>
           );
         }}

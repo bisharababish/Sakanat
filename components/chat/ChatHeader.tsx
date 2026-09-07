@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ChatPeerSheet } from '@/components/chat/ChatPeerSheet';
@@ -23,9 +23,9 @@ import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { submitAppReport } from '@/src/lib/reports';
 import { seekerRoleLabel } from '@/src/lib/seeker';
-import { spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { Conversation } from '@/src/types/database';
+import type { Conversation, Profile } from '@/src/types/database';
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -35,6 +35,14 @@ function initials(name: string) {
     .map((part) => part[0])
     .join('');
 }
+
+type PeerPick = {
+  id: string;
+  full_name?: string | null;
+  full_name_en?: string | null;
+  avatar_url?: string | null;
+  role?: Profile['role'] | null;
+};
 
 export function ChatHeader({
   conversationId,
@@ -46,7 +54,7 @@ export function ChatHeader({
   onDelete?: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -54,6 +62,8 @@ export function ChatHeader({
   const [reportBody, setReportBody] = useState('');
   const [reporting, setReporting] = useState(false);
   const [peerOpen, setPeerOpen] = useState(false);
+  const [peerPick, setPeerPick] = useState<PeerPick | null>(null);
+  const [adminPickOpen, setAdminPickOpen] = useState(false);
 
   const reload = useCallback(() => {
     void loadConversation(conversationId)
@@ -71,13 +81,42 @@ export function ChatHeader({
     ? [personName(student) || seekerRoleLabel(student?.role, t), personName(owner) || t('roles.owner')].join(' · ')
     : personName(person) || t('chat.unknownPerson');
   const listing = conversation?.apartments ? localizedTitle(conversation.apartments, i18n.language) : '';
-  const photo = person?.avatar_url;
+  const photo = admin ? student?.avatar_url || owner?.avatar_url : person?.avatar_url;
   const listingPhoto = conversation?.apartments?.photos?.[0];
   const asOwner = profile?.role === 'owner';
   const muted = conversation && profile ? isConversationMuted(conversation, profile.id) : false;
 
+  const openPeer = (next: PeerPick | null | undefined) => {
+    if (!next?.id) return;
+    setPeerPick({
+      id: next.id,
+      full_name: next.full_name,
+      full_name_en: next.full_name_en,
+      avatar_url: next.avatar_url,
+      role: next.role,
+    });
+    setAdminPickOpen(false);
+    setPeerOpen(true);
+  };
+
+  const openHeaderProfile = () => {
+    if (admin) {
+      if (student?.id && owner?.id) {
+        setAdminPickOpen(true);
+        return;
+      }
+      openPeer(student ?? owner);
+      return;
+    }
+    if (person?.id) openPeer(person);
+  };
+
   const openListing = () => {
-    if (!conversation?.apartment_id || admin) return;
+    if (!conversation?.apartment_id) return;
+    if (admin) {
+      router.push({ pathname: '/(admin)/apartment/[id]', params: { id: conversation.apartment_id } });
+      return;
+    }
     if (asOwner) {
       router.push({ pathname: '/(owner)/apartment/[id]', params: { id: conversation.apartment_id } });
       return;
@@ -160,10 +199,8 @@ export function ChatHeader({
       <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
         <BackButton compact />
         <Pressable
-          onPress={() => {
-            if (!admin && person?.id) setPeerOpen(true);
-          }}
-          disabled={admin || !person?.id}
+          onPress={openHeaderProfile}
+          disabled={admin ? !(student?.id || owner?.id) : !person?.id}
           hitSlop={4}
           accessibilityRole="button"
           accessibilityLabel={t('chat.peerProfile')}
@@ -178,10 +215,8 @@ export function ChatHeader({
         </Pressable>
         <View style={styles.meta}>
           <Pressable
-            onPress={() => {
-              if (!admin && person?.id) setPeerOpen(true);
-            }}
-            disabled={admin || !person?.id}
+            onPress={openHeaderProfile}
+            disabled={admin ? !(student?.id || owner?.id) : !person?.id}
             accessibilityRole="button"
             accessibilityLabel={t('chat.peerProfile')}
           >
@@ -190,7 +225,7 @@ export function ChatHeader({
             </Text>
           </Pressable>
           {listing ? (
-            <Pressable onPress={openListing} disabled={admin || !conversation?.apartment_id}>
+            <Pressable onPress={openListing} disabled={!conversation?.apartment_id}>
               <Text style={[styles.sub, rtlText, { color: colors.primary }]} numberOfLines={1}>
                 {listing}
               </Text>
@@ -198,7 +233,7 @@ export function ChatHeader({
           ) : null}
         </View>
         {listingPhoto ? (
-          <Pressable onPress={openListing} disabled={admin || !conversation?.apartment_id}>
+          <Pressable onPress={openListing} disabled={!conversation?.apartment_id}>
             <Image
               source={{ uri: listingPhoto }}
               style={[styles.listingPhoto, { backgroundColor: colors.surfaceMuted }]}
@@ -273,21 +308,69 @@ export function ChatHeader({
           setReportBody('');
         }}
       />
+
+      <Modal visible={adminPickOpen} transparent animationType="fade" onRequestClose={() => setAdminPickOpen(false)}>
+        <View style={[styles.pickOverlay, { backgroundColor: colors.overlay }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAdminPickOpen(false)} />
+          <View style={[styles.pickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.pickTitle, rtlText, { color: colors.text }]}>{t('chat.peerProfile')}</Text>
+            <Text style={[styles.pickHint, rtlText, { color: colors.textMuted }]}>{t('admin.pickChatProfile')}</Text>
+            {student?.id ? (
+              <Pressable
+                onPress={() => openPeer(student)}
+                style={({ pressed }) => [
+                  styles.pickRow,
+                  row,
+                  { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                  pressed && { opacity: 0.9 },
+                ]}
+              >
+                <Ionicons name="school-outline" size={18} color={colors.primary} />
+                <View style={styles.pickCopy}>
+                  <Text style={[styles.pickName, rtlText, { color: colors.text }]} numberOfLines={1}>
+                    {personName(student) || seekerRoleLabel(student.role, t)}
+                  </Text>
+                  <Text style={[styles.pickRole, rtlText, { color: colors.textMuted }]}>
+                    {seekerRoleLabel(student.role, t)}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+            {owner?.id ? (
+              <Pressable
+                onPress={() => openPeer(owner)}
+                style={({ pressed }) => [
+                  styles.pickRow,
+                  row,
+                  { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                  pressed && { opacity: 0.9 },
+                ]}
+              >
+                <Ionicons name="home-outline" size={18} color={colors.primary} />
+                <View style={styles.pickCopy}>
+                  <Text style={[styles.pickName, rtlText, { color: colors.text }]} numberOfLines={1}>
+                    {personName(owner) || t('roles.owner')}
+                  </Text>
+                  <Text style={[styles.pickRole, rtlText, { color: colors.textMuted }]}>{t('roles.owner')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
       <ChatPeerSheet
         visible={peerOpen}
-        userId={person?.id}
+        userId={peerPick?.id}
         viewerId={profile?.id}
-        seed={
-          person?.id
-            ? {
-                id: person.id,
-                full_name: person.full_name,
-                avatar_url: person.avatar_url,
-                role: person.role,
-              }
-            : null
-        }
-        onClose={() => setPeerOpen(false)}
+        adminReview={admin}
+        seed={peerPick}
+        onClose={() => {
+          setPeerOpen(false);
+          setPeerPick(null);
+        }}
       />
     </>
   );
@@ -315,4 +398,28 @@ const styles = StyleSheet.create({
   sub: { fontSize: 11, fontFamily: 'Cairo_600SemiBold' },
   listingPhoto: { width: 32, height: 32, borderRadius: 10 },
   iconBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  pickOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  pickCard: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+    zIndex: 1,
+  },
+  pickTitle: { fontSize: 17, fontFamily: 'Cairo_800ExtraBold' },
+  pickHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', marginBottom: 4 },
+  pickRow: {
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  pickCopy: { flex: 1, minWidth: 0, gap: 2 },
+  pickName: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  pickRole: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
 });

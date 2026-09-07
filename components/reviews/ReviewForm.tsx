@@ -1,4 +1,15 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { StarRow } from '@/components/reviews/StarRow';
@@ -14,6 +25,7 @@ export function ReviewForm({
   title,
   stars,
   note,
+  error,
   loading,
   onStars,
   onNote,
@@ -24,6 +36,7 @@ export function ReviewForm({
   title: string;
   stars: number;
   note: string;
+  error?: string;
   loading?: boolean;
   onStars: (next: number) => void;
   onNote: (next: string) => void;
@@ -33,42 +46,96 @@ export function ReviewForm({
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+
+  const close = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
+  const submit = () => {
+    Keyboard.dismiss();
+    onConfirm();
+  };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>{title}</Text>
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('review.formHint')}</Text>
-          <StarRow value={stars} size={32} onChange={onStars} />
-          <Input
-            label={t('review.note')}
-            value={note}
-            onChangeText={onNote}
-            multiline
-            maxLength={REVIEW_NOTE_MAX}
-            hint={t('review.noteHint', { min: REVIEW_NOTE_MIN })}
-          />
-          <View style={styles.actions}>
-            <Button title={t('common.cancel')} variant="ghost" pill onPress={onClose} />
-            <Button title={t('review.submit')} pill loading={loading} onPress={onConfirm} />
-          </View>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+      <KeyboardAvoidingView
+        style={[styles.overlay, { backgroundColor: colors.overlay }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              marginTop: Math.max(insets.top, spacing.md),
+              marginBottom: Math.max(insets.bottom, spacing.md),
+            },
+          ]}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={styles.sheetBody}
+          >
+            <Text style={[styles.title, rtlText, { color: colors.text }]}>{title}</Text>
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('review.formHint')}</Text>
+            <StarRow value={stars} size={32} onChange={onStars} />
+            <Input
+              label={t('review.note')}
+              value={note}
+              onChangeText={onNote}
+              placeholder={t('review.notePlaceholder')}
+              multiline
+              maxLength={REVIEW_NOTE_MAX}
+              hint={t('review.noteHint', { min: REVIEW_NOTE_MIN })}
+            />
+            {error ? (
+              <View style={[styles.errorBox, { backgroundColor: colors.dangerSoft, borderColor: colors.danger }]}>
+                <Text style={[styles.errorText, rtlText, { color: colors.danger }]}>{error}</Text>
+              </View>
+            ) : null}
+            <View style={styles.actions}>
+              <Button title={t('common.cancel')} variant="ghost" pill onPress={close} />
+              <Button title={t('review.submit')} pill loading={loading} onPress={submit} />
+            </View>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'center', padding: spacing.lg },
+  overlay: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
   sheet: {
     borderWidth: 1,
     borderRadius: radius.xl,
+    maxHeight: '86%',
+    zIndex: 1,
+    elevation: 8,
+  },
+  sheetBody: {
     padding: spacing.lg,
     gap: spacing.sm,
   },
   title: { fontSize: 20, fontFamily: 'Cairo_800ExtraBold' },
   hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
+  errorBox: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
+  },
+  errorText: { fontSize: 14, lineHeight: 20, fontFamily: 'Cairo_600SemiBold' },
   actions: { gap: 8, marginTop: 4 },
 });

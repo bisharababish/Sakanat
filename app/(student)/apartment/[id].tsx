@@ -18,10 +18,11 @@ import { supabase } from '@/src/lib/supabase';
 import type { Apartment } from '@/src/types/database';
 
 export default function ApartmentDetails() {
-  const { id, universityId, from } = useLocalSearchParams<{
+  const { id, universityId, from, focus } = useLocalSearchParams<{
     id: string;
     universityId?: string;
     from?: string;
+    focus?: string;
   }>();
   const { t } = useTranslation();
   const { profile } = useAuth();
@@ -156,6 +157,7 @@ export default function ApartmentDetails() {
       signedIn={Boolean(profile)}
       refreshing={refreshing}
       onRefresh={() => void refresh()}
+      focusReviews={focus === 'reviews'}
       onRequireAccount={requireAccount}
       onToggleSave={() => {
         if (!profile) {

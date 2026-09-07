@@ -11,6 +11,7 @@ type Props = {
   scroll?: boolean;
   showMenu?: boolean;
   back?: boolean;
+  onBack?: () => void;
   footer?: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
@@ -22,13 +23,14 @@ export function Screen({
   scroll = true,
   showMenu = true,
   back = false,
+  onBack,
   footer,
   refreshing = false,
   onRefresh,
   scrollRef,
 }: Props) {
   const colors = useColors();
-  const bar = <ChromeBar back={back} showMenu={showMenu} />;
+  const bar = <ChromeBar back={back} showMenu={showMenu} onBack={onBack} />;
   const bottom = footer ? (
     <SafeAreaView edges={['bottom']} style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
       {footer}

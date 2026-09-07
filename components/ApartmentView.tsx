@@ -69,6 +69,7 @@ export function ApartmentView({
   saving,
   busy,
   signedIn,
+  asAdmin,
   onToggleSave,
   onChat,
   onBook,
@@ -76,6 +77,7 @@ export function ApartmentView({
   children,
   refreshing = false,
   onRefresh,
+  focusReviews = false,
 }: {
   apartment: Apartment | null;
   missing?: boolean;
@@ -88,6 +90,7 @@ export function ApartmentView({
   saving?: boolean;
   busy?: boolean;
   signedIn?: boolean;
+  asAdmin?: boolean;
   onToggleSave?: () => void;
   onChat?: () => void;
   onBook?: () => void;
@@ -95,6 +98,7 @@ export function ApartmentView({
   children?: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
+  focusReviews?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, lang, isRtl } = useLayout();
@@ -103,6 +107,8 @@ export function ApartmentView({
   const [viewer, setViewer] = useState(false);
   const [reviews, setReviews] = useState<ApartmentReview[]>([]);
   const carouselRef = useRef<ScrollView>(null);
+  const pageScrollRef = useRef<ScrollView>(null);
+  const reviewsY = useRef(0);
   const wasViewer = useRef(false);
   const copy = { textAlign, writingDirection };
   const photos = apartment?.photos?.filter(Boolean) ?? [];
@@ -131,6 +137,14 @@ export function ApartmentView({
     }
     wasViewer.current = viewer;
   }, [viewer, photoIndex]);
+
+  useEffect(() => {
+    if (!focusReviews || !apartment?.id) return;
+    const timer = setTimeout(() => {
+      pageScrollRef.current?.scrollTo({ y: Math.max(0, reviewsY.current - 12), animated: true });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [focusReviews, apartment?.id, reviews.length]);
 
   const onPhotosScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(event.nativeEvent.contentOffset.x / PHOTO_WIDTH);
@@ -205,6 +219,7 @@ export function ApartmentView({
         }
       />
       <ScrollView
+        ref={pageScrollRef}
         contentContainerStyle={styles.content}
         bounces
         alwaysBounceVertical={Boolean(onRefresh)}
@@ -387,11 +402,23 @@ export function ApartmentView({
             />
           ) : null}
         </Card>
-        <ListingReviews
-          reviews={reviews}
-          average={apartment.review_avg}
-          count={apartment.review_count}
-        />
+        <View
+          onLayout={(event) => {
+            reviewsY.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <ListingReviews
+            reviews={reviews}
+            average={apartment.review_avg}
+            count={apartment.review_count}
+            asAdmin={asAdmin}
+            onChanged={() => {
+              if (!apartment?.id) return;
+              void loadApartmentReviews(apartment.id).then(setReviews).catch(() => setReviews([]));
+              onRefresh?.();
+            }}
+          />
+        </View>
         {children}
       </ScrollView>
 

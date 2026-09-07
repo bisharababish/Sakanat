@@ -142,3 +142,40 @@ export async function notifyUser(
     // Push is optional.
   }
 }
+
+export async function broadcastPush(opts: {
+  roles: Array<'student' | 'renter' | 'owner'>;
+  title: string;
+  body: string;
+}) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, expo_push_token, role, notify_booking')
+    .in('role', opts.roles)
+    .not('expo_push_token', 'is', null)
+    .neq('account_status', 'suspended');
+  if (error) throw error;
+  const tokens = ((data as { expo_push_token: string | null; notify_booking?: boolean }[]) ?? [])
+    .filter((row) => row.expo_push_token && row.notify_booking !== false)
+    .map((row) => row.expo_push_token as string);
+  const unique = Array.from(new Set(tokens));
+  let sent = 0;
+  for (let i = 0; i < unique.length; i += 90) {
+    const chunk = unique.slice(i, i + 90);
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(
+        chunk.map((to) => ({
+          to,
+          title: opts.title,
+          body: opts.body,
+          sound: 'default',
+          channelId: 'default',
+        })),
+      ),
+    });
+    sent += chunk.length;
+  }
+  return { recipients: sent };
+}

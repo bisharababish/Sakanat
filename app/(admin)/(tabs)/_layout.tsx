@@ -18,6 +18,7 @@ export default function AdminTabs() {
   const pending = useAdminPendingCounts();
   const badgeStyle = { backgroundColor: colors.warning, color: colors.white, fontSize: 10 };
   const usersBadge = badge(pending.owners + pending.ids);
+  const settingsBadge = badge(pending.reports);
 
   return (
     <Tabs screenOptions={tabOptions}>
@@ -25,6 +26,8 @@ export default function AdminTabs() {
         name="index"
         options={{
           title: t('tabs.overview'),
+          tabBarBadge: badge(pending.owners + pending.ids + pending.listings + pending.bookings + pending.reports),
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="grid-outline" filled="grid" />,
         }}
       />
@@ -63,31 +66,12 @@ export default function AdminTabs() {
         }}
       />
       <Tabs.Screen
-        name="catalog"
-        options={{
-          href: null,
-          title: t('tabs.catalog'),
-        }}
-      />
-      <Tabs.Screen
-        name="verify"
-        options={{
-          href: null,
-          title: t('admin.idReviewTitle'),
-        }}
-      />
-      <Tabs.Screen
-        name="reports"
-        options={{
-          href: null,
-          title: t('admin.reportsTitle'),
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
-          title: t('tabs.settings'),
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="settings-outline" filled="settings" />,
+          title: t('tabs.profile'),
+          tabBarBadge: settingsBadge,
+          tabBarBadgeStyle: badgeStyle,
+          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="person-outline" filled="person" />,
         }}
       />
     </Tabs>

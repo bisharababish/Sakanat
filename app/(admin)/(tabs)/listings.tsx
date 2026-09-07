@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -7,13 +7,14 @@ import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { Input } from '@/components/ui/Input';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
-import { listingBadgeTone } from '@/src/lib/format';
+import { listingBadgeTone, localizedTitle } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
@@ -25,11 +26,16 @@ import type { Apartment, ListingStatus } from '@/src/types/database';
 type Filter = 'all' | ListingStatus;
 
 export default function AdminListings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
+  const params = useLocalSearchParams<{ from?: string }>();
+  const fromSettings = params.from === 'settings';
+  const backToSettings = () =>
+    router.push({ pathname: '/(admin)/(tabs)/settings', params: { tab: 'settings' } });
   const [listings, setListings] = useState<Apartment[]>([]);
   const [status, setStatus] = useState<Filter>('pending');
+  const [query, setQuery] = useState('');
   const [rejecting, setRejecting] = useState<Apartment | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,11 +92,26 @@ export default function AdminListings() {
     ]);
   };
 
-  const visible = useMemo(
-    () => (status === 'all' ? listings : listings.filter((item) => item.status === status)),
-    [listings, status],
-  );
-  const paged = usePaged(visible, ADMIN_LISTING_PAGE_SIZE, status);
+  const visible = useMemo(() => {
+    const byStatus = status === 'all' ? listings : listings.filter((item) => item.status === status);
+    const needle = query.trim().toLowerCase();
+    if (!needle) return byStatus;
+    return byStatus.filter((item) => {
+      const hay = [
+        localizedTitle(item, i18n.language),
+        item.title_ar,
+        item.title_en,
+        item.profiles?.full_name,
+        item.profiles?.email,
+        item.profiles?.phone,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [listings, status, query, i18n.language]);
+  const paged = usePaged(visible, ADMIN_LISTING_PAGE_SIZE, `${status}|${query}`);
 
   const openListing = (id: string) => {
     router.push({ pathname: '/(admin)/apartment/[id]', params: { id } });
@@ -99,13 +120,20 @@ export default function AdminListings() {
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      back={fromSettings}
+      onBack={fromSettings ? backToSettings : undefined}
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+    >
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.listings')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.listings')}</Text>
       </View>
       <Button title={t('owner.addListing')} pill onPress={() => router.push('/(admin)/listing/new')} />
+      <Input compact label={t('admin.searchListings')} value={query} onChangeText={setQuery} />
       <FilterPills
+        compact
         value={status}
         onChange={setStatus}
         items={filters.map((value) => ({
@@ -162,14 +190,15 @@ export default function AdminListings() {
                 />
               </View>
             ) : null}
+            <View style={styles.flex}>
+              <Button
+                title={t('owner.editListing')}
+                variant="secondary"
+                pill
+                onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: item.id } })}
+              />
+            </View>
           </View>
-          <Button
-            title={t('owner.editListing')}
-            variant="secondary"
-            pill
-            onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: item.id } })}
-          />
-          <Button title={t('admin.review')} variant="ghost" pill onPress={() => openListing(item.id)} />
           <Button title={t('admin.deleteListing')} variant="ghost" onPress={() => removeListing(item)} />
         </View>
       ))}
@@ -201,9 +230,9 @@ export default function AdminListings() {
 const styles = StyleSheet.create({
   head: { gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  block: { gap: 8 },
-  owner: { fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  block: { gap: 6 },
+  owner: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 13 },
   row: { gap: 8 },
   flex: { flex: 1 },
 });

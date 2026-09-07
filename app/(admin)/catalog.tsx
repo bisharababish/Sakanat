@@ -261,7 +261,7 @@ export default function AdminCatalog() {
   };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.catalog')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.catalogTitle')}</Text>
       <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>

@@ -83,6 +83,12 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists notify_review boolean not null default true;
 
+alter table public.profiles
+  add column if not exists bio text;
+
+alter table public.profiles
+  add column if not exists spoken_languages text[] not null default '{}';
+
 -- Backfill English name from auth metadata when the column is empty
 update public.profiles p
 set full_name_en = nullif(btrim(u.raw_user_meta_data->>'full_name_en'), '')

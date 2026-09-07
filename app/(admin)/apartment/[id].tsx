@@ -83,6 +83,7 @@ export default function AdminApartmentReview() {
         university={university}
         distance={apartment ? listingDistanceKm(apartment, university) : null}
         preview
+        asAdmin
         signedIn
         refreshing={refreshing}
         onRefresh={() => void refresh()}

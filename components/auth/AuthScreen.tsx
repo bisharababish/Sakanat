@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChromeBar } from '@/components/ui/ChromeBar';
@@ -16,24 +16,19 @@ type Props = {
 export function AuthScreen({ children, footer, back = false, center = true }: Props) {
   const colors = useColors();
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <ChromeBar back={back} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          automaticallyAdjustKeyboardInsets
-          contentContainerStyle={[
-            styles.content,
-            footer ? styles.contentWithFooter : null,
-            center ? styles.center : styles.start,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </ScrollView>
+      <ScrollView
+        style={styles.flex}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        contentContainerStyle={[styles.content, center ? styles.center : styles.start]}
+        showsVerticalScrollIndicator={false}
+      >
+        {children}
         {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -44,16 +39,14 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: 40,
+    paddingBottom: spacing.md,
     gap: spacing.md,
   },
-  contentWithFooter: { paddingBottom: spacing.sm },
   center: { justifyContent: 'center' },
   start: { justifyContent: 'flex-start', paddingTop: spacing.sm },
   footer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
     gap: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
 });

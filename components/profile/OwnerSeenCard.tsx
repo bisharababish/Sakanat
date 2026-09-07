@@ -1,9 +1,11 @@
-import { type ComponentProps, useState } from 'react';
+import { type ComponentProps, type ReactNode, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { useLayout } from '@/src/hooks/useLayout';
+import type { IdVerifyStatus, UserRole } from '@/src/types/database';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -14,6 +16,10 @@ type Props = {
   name: string;
   avatarUrl: string | null;
   lines: Line[];
+  bio?: string | null;
+  verifyStatus?: IdVerifyStatus | null;
+  verifyRole?: UserRole | null;
+  footer?: ReactNode;
 };
 
 function initials(name?: string) {
@@ -25,13 +31,22 @@ function initials(name?: string) {
     .join('');
 }
 
-export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
+export function OwnerSeenCard({
+  title,
+  name,
+  avatarUrl,
+  lines,
+  bio,
+  verifyStatus,
+  verifyRole,
+  footer,
+}: Props) {
   const { rtlText, row, isRtl } = useLayout();
   const colors = useColors();
   const [open, setOpen] = useState(false);
   const preview = lines.slice(0, 3);
   const shown = open ? lines : preview;
-  const canExpand = lines.length > 3;
+  const canExpand = lines.length > 3 || Boolean(bio?.trim());
 
   return (
     <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -55,9 +70,12 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
             <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
           </View>
         )}
-        <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
-          {name}
-        </Text>
+        <View style={styles.personCopy}>
+          <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
+            {name}
+          </Text>
+          <IdVerifyBadge status={verifyStatus} role={verifyRole} compact />
+        </View>
       </View>
       {shown.length ? (
         <View style={[styles.chips, row]}>
@@ -69,13 +87,19 @@ export function OwnerSeenCard({ title, name, avatarUrl, lines }: Props) {
               </Text>
             </View>
           ))}
-          {!open && canExpand ? (
+          {!open && canExpand && lines.length > preview.length ? (
             <Pressable onPress={() => setOpen(true)} style={[styles.chip, row, { backgroundColor: colors.surfaceMuted }]}>
               <Text style={[styles.chipText, { color: colors.textMuted }]}>+{lines.length - preview.length}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
+      {open && bio?.trim() ? (
+        <Text style={[styles.bio, rtlText, { color: colors.textMuted }]} numberOfLines={4}>
+          {bio.trim()}
+        </Text>
+      ) : null}
+      {footer}
     </View>
   );
 }
@@ -91,6 +115,7 @@ const styles = StyleSheet.create({
   head: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   kicker: { flex: 1, fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   person: { alignItems: 'center', gap: 8 },
+  personCopy: { flex: 1, minWidth: 0, gap: 4 },
   avatar: {
     width: 28,
     height: 28,
@@ -99,7 +124,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initials: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  name: { flex: 1, fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  name: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   chips: { flexWrap: 'wrap', gap: 4 },
   chip: {
     alignItems: 'center',
@@ -110,4 +135,5 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   chipText: { fontSize: 10, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
+  bio: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
 });

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { type ComponentProps, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -58,9 +59,9 @@ export type ChatPeerSeed = {
 };
 
 const PEER_SELECTS = [
-  'id, full_name, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, bio, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status, home_address, emergency_name, emergency_phone, share_emergency, spoken_languages, student_id_number',
-  'id, full_name, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, phone, whatsapp, id_verify_status, home_address, emergency_name, emergency_phone, student_id_number',
-  'id, full_name, avatar_url, role, gender, date_of_birth, city_id, university_id, phone, whatsapp, id_verify_status',
+  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, bio, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status, home_address, emergency_name, emergency_phone, share_emergency, spoken_languages, student_id_number',
+  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, phone, whatsapp, id_verify_status, home_address, emergency_name, emergency_phone, student_id_number',
+  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, phone, whatsapp, id_verify_status',
   'id, full_name, avatar_url, role, phone',
 ];
 
@@ -107,12 +108,14 @@ export function ChatPeerSheet({
   userId,
   viewerId,
   seed,
+  adminReview = false,
   onClose,
 }: {
   visible: boolean;
   userId?: string | null;
   viewerId?: string | null;
   seed?: ChatPeerSeed | null;
+  adminReview?: boolean;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -190,14 +193,17 @@ export function ChatPeerSheet({
     : '';
   const isOwnerPeer = peer?.role === 'owner';
   const contactFn = isOwnerPeer ? canShowOwnerContact : canShowSeekerContact;
-  const showPhone = peer ? contactFn(peer, 'phone', { bookingStatus }) : false;
-  const showWhatsapp = peer ? contactFn(peer, 'whatsapp', { bookingStatus }) : false;
-  const showEmergency =
-    peer && shouldShareEmergency(peer)
-      ? isOwnerPeer
-        ? bookingStatus === 'confirmed' || bookingStatus === 'completed'
-        : Boolean(bookingStatus)
-      : false;
+  const showPhone = peer ? adminReview || contactFn(peer, 'phone', { bookingStatus }) : false;
+  const showWhatsapp = peer ? adminReview || contactFn(peer, 'whatsapp', { bookingStatus }) : false;
+  const showEmergency = peer
+    ? adminReview
+      ? Boolean(peer.emergency_name || peer.emergency_phone)
+      : shouldShareEmergency(peer)
+        ? isOwnerPeer
+          ? bookingStatus === 'confirmed' || bookingStatus === 'completed'
+          : Boolean(bookingStatus)
+        : false
+    : false;
 
   const yearKey = peer?.study_year;
   const yearLabel =
@@ -290,9 +296,22 @@ export function ChatPeerSheet({
               {showEmergency && peer.emergency_phone ? (
                 <Row icon="call-outline" text={`${t('profile.emergencyPhone')} ${peer.emergency_phone}`} />
               ) : null}
+              {adminReview && peer.home_address && isOwnerPeer ? (
+                <Row icon="home-outline" text={peer.home_address} />
+              ) : null}
             </ScrollView>
           )}
 
+          {adminReview && peer?.id ? (
+            <Button
+              title={t('admin.editUser')}
+              pill
+              onPress={() => {
+                onClose();
+                router.push({ pathname: '/(admin)/user/[id]', params: { id: peer.id } });
+              }}
+            />
+          ) : null}
           <Button title={t('common.close')} variant="ghost" pill onPress={onClose} />
         </View>
       </View>

@@ -3,8 +3,12 @@ import { useTranslation } from 'react-i18next';
 
 import { SectionHead } from '@/components/profile/SectionHead';
 import { StarRow } from '@/components/reviews/StarRow';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useLayout } from '@/src/hooks/useLayout';
+import { logAdminAction } from '@/src/lib/audit';
+import { alert } from '@/src/lib/notice';
+import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { ApartmentReview } from '@/src/types/database';
@@ -13,20 +17,43 @@ export function ListingReviews({
   reviews,
   average,
   count,
+  asAdmin = false,
+  onChanged,
 }: {
   reviews: ApartmentReview[];
   average?: number | null;
   count?: number | null;
+  asAdmin?: boolean;
+  onChanged?: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const total = count ?? reviews.length;
   const avg = average ?? (reviews.length ? reviews.reduce((sum, item) => sum + item.stars, 0) / reviews.length : 0);
 
+  const remove = (item: ApartmentReview) => {
+    alert(t('admin.deleteReview'), t('admin.confirmDeleteReview'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.deleteReview'),
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('apartment_reviews').delete().eq('id', item.id);
+          if (error) {
+            alert(t('common.error'), error.message);
+            return;
+          }
+          void logAdminAction('review.delete', { targetId: item.id, targetUserId: item.student_id });
+          onChanged?.();
+        },
+      },
+    ]);
+  };
+
   return (
-    <Card>
-      <SectionHead icon="star-outline" title={t('review.title')} />
+    <Card compact={asAdmin}>
+      <SectionHead compact={asAdmin} icon="star-outline" title={t('review.title')} />
       {total > 0 ? (
         <View style={styles.summary}>
           <Text style={[styles.avg, rtlText, { color: colors.text }]}>{avg.toFixed(1)}</Text>
@@ -54,6 +81,11 @@ export function ListingReviews({
               day: 'numeric',
             })}
           </Text>
+          {asAdmin ? (
+            <View style={[styles.actions, row]}>
+              <Button title={t('admin.deleteReview')} variant="danger" pill onPress={() => remove(item)} />
+            </View>
+          ) : null}
         </View>
       ))}
     </Card>
@@ -70,4 +102,5 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, fontFamily: 'Cairo_700Bold' },
   note: { fontSize: 14, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
   date: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  actions: { marginTop: 4 },
 });

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,8 @@ import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
+import { FilterPills } from '@/components/ui/FilterPills';
+import { Input } from '@/components/ui/Input';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -16,7 +18,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { majorLabel } from '@/src/data/majors';
-import { ageLabel, formatIls, localizedName } from '@/src/lib/format';
+import { ageLabel, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
@@ -28,6 +30,7 @@ import { useColors } from '@/src/theme/ThemeProvider';
 import type { Booking, BookingStatus, PaymentStatus } from '@/src/types/database';
 
 type Filter = 'all' | BookingStatus;
+type PayFilter = 'all' | 'unpaid' | 'paid' | 'cash' | 'check' | 'visa';
 
 export default function AdminBookings() {
   const { t, i18n } = useTranslation();
@@ -35,8 +38,14 @@ export default function AdminBookings() {
   const colors = useColors();
   const { universities } = useCatalog();
   const today = useToday();
+  const params = useLocalSearchParams<{ from?: string }>();
+  const fromSettings = params.from === 'settings';
+  const backToSettings = () =>
+    router.push({ pathname: '/(admin)/(tabs)/settings', params: { tab: 'settings' } });
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
+  const [payFilter, setPayFilter] = useState<PayFilter>('all');
+  const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rejecting, setRejecting] = useState<Booking | null>(null);
   const [rejectNote, setRejectNote] = useState('');
@@ -109,19 +118,52 @@ export default function AdminBookings() {
     return next;
   }, [bookings]);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? bookings : bookings.filter((item) => item.status === filter)),
-    [bookings, filter],
-  );
+  const filtered = useMemo(() => {
+    let next = filter === 'all' ? bookings : bookings.filter((item) => item.status === filter);
+    if (payFilter === 'unpaid') next = next.filter((item) => item.payment_status !== 'paid');
+    else if (payFilter === 'paid') next = next.filter((item) => item.payment_status === 'paid');
+    else if (payFilter === 'cash' || payFilter === 'check' || payFilter === 'visa') {
+      next = next.filter((item) => item.payment_method === payFilter);
+    }
+    const needle = query.trim().toLowerCase();
+    if (!needle) return next;
+    return next.filter((item) => {
+      const hay = [
+        item.student?.full_name,
+        item.student?.email,
+        item.student?.phone,
+        item.owner?.full_name,
+        item.owner?.email,
+        item.owner?.phone,
+        localizedTitle(item.apartments, i18n.language),
+        item.apartments?.title_ar,
+        item.apartments?.title_en,
+        item.id,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(needle);
+    });
+  }, [bookings, filter, payFilter, query, i18n.language]);
   const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
 
   const pickFilter = (next: Filter) => {
     setFilter(next);
     setPage(0);
   };
+  const pickPay = (next: PayFilter) => {
+    setPayFilter(next);
+    setPage(0);
+  };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      back={fromSettings}
+      onBack={fromSettings ? backToSettings : undefined}
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+    >
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
@@ -134,6 +176,20 @@ export default function AdminBookings() {
         ) : null}
       </View>
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
+      <Input compact label={t('admin.searchBookings')} value={query} onChangeText={(value) => { setQuery(value); setPage(0); }} />
+      <FilterPills
+        compact
+        value={payFilter}
+        onChange={pickPay}
+        items={[
+          { value: 'all', label: t('common.all') },
+          { value: 'unpaid', label: t('admin.unpaid') },
+          { value: 'paid', label: t('admin.paid') },
+          { value: 'cash', label: t('payment.cash') },
+          { value: 'check', label: t('payment.check') },
+          { value: 'visa', label: t('payment.visa') },
+        ]}
+      />
       {filtered.length === 0 ? (
         <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>

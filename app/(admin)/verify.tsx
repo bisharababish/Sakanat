@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
+import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
@@ -31,6 +32,7 @@ export default function AdminVerifyIds() {
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile: me } = useAuth();
+  const pendingCounts = useAdminPendingCounts();
   const [users, setUsers] = useState<Profile[]>([]);
   const [docsFor, setDocsFor] = useState<Profile | null>(null);
   const [rejecting, setRejecting] = useState<Profile | null>(null);
@@ -42,7 +44,7 @@ export default function AdminVerifyIds() {
     const { data, error } = await supabase
       .from('profiles')
       .select(
-        'id, full_name, full_name_en, email, role, national_id_url, university_card_url, national_id_number, id_verify_status, id_verify_note, home_address, emergency_name, emergency_phone',
+        'id, full_name, full_name_en, email, role, national_id_url, university_card_url, national_id_number, national_id_expires_at, id_verify_status, id_verify_note, home_address, emergency_name, emergency_phone',
       )
       .eq('id_verify_status', 'pending')
       .order('created_at', { ascending: true });
@@ -80,10 +82,11 @@ export default function AdminVerifyIds() {
       return next;
     });
     void load();
+    void pendingCounts.refresh();
   };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.idReviewTitle')}</Text>
       <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.idReviewHint')}</Text>
 

@@ -46,6 +46,7 @@ type Props = {
   onHomeAddress?: (value: string) => void;
   bio?: string;
   onBio?: (value: string) => void;
+  bioHint?: string;
   spokenLanguages?: string[];
   onSpokenLanguages?: (value: string[]) => void;
   graduationTerm?: string;
@@ -78,6 +79,7 @@ export function ProfileAccountFields({
   onHomeAddress,
   bio = '',
   onBio,
+  bioHint,
   spokenLanguages = [],
   onSpokenLanguages,
   graduationTerm = '',
@@ -189,7 +191,14 @@ export function ProfileAccountFields({
             </>
           ) : null}
           {onBio ? (
-            <Input compact label={t('profile.bio')} value={bio} onChangeText={onBio} multiline />
+            <Input
+              compact
+              label={t('profile.bio')}
+              value={bio}
+              onChangeText={onBio}
+              multiline
+              hint={bioHint || t('profile.bioHint')}
+            />
           ) : null}
           {onSpokenLanguages ? (
             <>

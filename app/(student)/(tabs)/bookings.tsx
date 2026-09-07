@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
+import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -23,7 +24,7 @@ import { whatsappLink } from '@/src/lib/phone';
 import { canShowOwnerContact } from '@/src/lib/privacy';
 import { canReviewStay, isValidReview, loadMyReviews, submitApartmentReview } from '@/src/lib/reviews';
 import { supabase } from '@/src/lib/supabase';
-import { spacing } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, ApartmentReview, Booking, BookingStatus } from '@/src/types/database';
 
@@ -43,6 +44,7 @@ export default function StudentBookings() {
   const [reviewStars, setReviewStars] = useState(5);
   const [reviewNote, setReviewNote] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -124,18 +126,26 @@ export default function StudentBookings() {
 
   const openReview = (booking: Booking) => {
     const existing = reviewByBooking[booking.id];
+    setReviewError('');
     setReviewing(booking);
     setReviewStars(existing?.stars ?? 5);
     setReviewNote(existing?.note ?? '');
   };
 
+  const closeReview = () => {
+    setReviewing(null);
+    setReviewError('');
+  };
+
   const saveReview = async () => {
     if (!profile || !reviewing) return;
     if (!isValidReview(reviewStars, reviewNote)) {
-      alert(t('common.error'), t('review.invalid'));
+      setReviewError(t('review.invalid'));
       return;
     }
     setReviewBusy(true);
+    setReviewError('');
+    const apartmentId = reviewing.apartment_id;
     try {
       await submitApartmentReview({
         booking: reviewing,
@@ -145,10 +155,21 @@ export default function StudentBookings() {
         note: reviewNote,
         existingId: reviewByBooking[reviewing.id]?.id,
       });
-      setReviewing(null);
+      closeReview();
       await load();
+      alert(t('review.postedTitle'), t('review.postedBody'), [
+        { text: t('common.done'), style: 'cancel' },
+        {
+          text: t('review.viewOnListing'),
+          onPress: () =>
+            router.push({
+              pathname: '/(student)/apartment/[id]',
+              params: { id: apartmentId, focus: 'reviews' },
+            }),
+        },
+      ]);
     } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : t('review.failed'));
+      setReviewError(err instanceof Error ? err.message : t('review.failed'));
     } finally {
       setReviewBusy(false);
     }
@@ -177,7 +198,7 @@ export default function StudentBookings() {
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.myBookings')}</Text>
-          <Text style={[styles.kicker, rtlText, { color: colors.textMuted }]}>{t('booking.reviewsHere')}</Text>
+          <Text style={[styles.kicker, rtlText, { color: colors.textMuted }]}>{t('review.whereHint')}</Text>
         </View>
         {counts.pending > 0 ? (
           <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
@@ -217,6 +238,7 @@ export default function StudentBookings() {
         const whatsapp = showWhatsapp
           ? booking.profiles?.whatsapp || (showPhone ? booking.profiles?.phone : null)
           : null;
+        const myReview = reviewByBooking[booking.id];
         return (
           <BookingCard
             key={booking.id}
@@ -229,6 +251,28 @@ export default function StudentBookings() {
                 : undefined
             }
           >
+            {myReview ? (
+              <View style={[styles.myReview, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
+                <Text style={[styles.myReviewLabel, rtlText, { color: colors.primaryDark }]}>
+                  {t('review.yourReview')}
+                </Text>
+                <StarRow value={myReview.stars} size={16} />
+                <Text style={[styles.myReviewNote, rtlText, { color: colors.text }]} numberOfLines={3}>
+                  {myReview.note}
+                </Text>
+                <Button
+                  title={t('review.viewOnListing')}
+                  variant="secondary"
+                  pill
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(student)/apartment/[id]',
+                      params: { id: booking.apartment_id, focus: 'reviews' },
+                    })
+                  }
+                />
+              </View>
+            ) : null}
             {booking.apartment_id ? (
               <Button
                 title={t('booking.viewListing')}
@@ -264,7 +308,7 @@ export default function StudentBookings() {
             ) : null}
             {canReviewStay(booking) ? (
               <Button
-                title={reviewByBooking[booking.id] ? t('review.edit') : t('review.write')}
+                title={myReview ? t('review.edit') : t('review.write')}
                 pill
                 onPress={() => openReview(booking)}
               />
@@ -293,11 +337,18 @@ export default function StudentBookings() {
         }
         stars={reviewStars}
         note={reviewNote}
+        error={reviewError}
         loading={reviewBusy}
-        onStars={setReviewStars}
-        onNote={setReviewNote}
+        onStars={(next) => {
+          setReviewError('');
+          setReviewStars(next);
+        }}
+        onNote={(next) => {
+          setReviewError('');
+          setReviewNote(next);
+        }}
         onConfirm={() => void saveReview()}
-        onClose={() => setReviewing(null)}
+        onClose={closeReview}
       />
     </Screen>
   );
@@ -335,4 +386,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
   warn: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
   warnText: { fontSize: 14, lineHeight: 22, fontFamily: 'Cairo_600SemiBold' },
+  myReview: {
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: 8,
+  },
+  myReviewLabel: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  myReviewNote: { fontSize: 14, lineHeight: 21, fontFamily: 'Cairo_400Regular' },
 });

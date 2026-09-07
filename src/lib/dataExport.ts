@@ -194,3 +194,40 @@ export async function shareImageUri(uri: string, dialogTitle?: string) {
 export async function shareTextFallback(message: string, title?: string) {
   await Share.share({ message, title });
 }
+
+export async function exportPlatformBookingsCsv() {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(
+      'id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, created_at, student:profiles!student_id(full_name, email), owner:profiles!owner_id(full_name, email), apartments(title_ar, title_en)',
+    )
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = ((data as Record<string, unknown>[]) ?? []).map((item) => {
+    const student = item.student as { full_name?: string; email?: string } | null;
+    const owner = item.owner as { full_name?: string; email?: string } | null;
+    const apt = item.apartments as { title_ar?: string; title_en?: string } | null;
+    return {
+      id: item.id,
+      status: item.status,
+      payment_method: item.payment_method,
+      payment_status: item.payment_status,
+      start_date: item.start_date,
+      months: item.months,
+      occupants: item.occupants,
+      rent_amount: item.rent_amount,
+      commission_amount: item.commission_amount,
+      created_at: item.created_at,
+      student_name: student?.full_name,
+      student_email: student?.email,
+      owner_name: owner?.full_name,
+      owner_email: owner?.email,
+      listing_ar: apt?.title_ar,
+      listing_en: apt?.title_en,
+    };
+  });
+  const csv = rowsToCsv(rows) || 'id';
+  const stamp = new Date().toISOString().slice(0, 10);
+  await shareCsvFile(`sakanat-bookings-${stamp}.csv`, csv);
+  return rows.length;
+}

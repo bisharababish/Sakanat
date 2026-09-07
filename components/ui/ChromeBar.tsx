@@ -9,15 +9,16 @@ type Props = {
   back?: boolean;
   compactBack?: boolean;
   showMenu?: boolean;
+  onBack?: () => void;
   extra?: ReactNode;
 };
 
-export function ChromeBar({ back = false, compactBack = false, showMenu = true, extra }: Props) {
+export function ChromeBar({ back = false, compactBack = false, showMenu = true, onBack, extra }: Props) {
   if (!back && !showMenu && !extra) return null;
 
   return (
     <View style={[styles.bar, back ? styles.spread : styles.end]}>
-      {back ? <BackButton compact={compactBack} /> : null}
+      {back ? <BackButton compact={compactBack} onPress={onBack} /> : null}
       <View style={styles.trail}>
         {extra}
         {showMenu ? <MenuButton /> : null}

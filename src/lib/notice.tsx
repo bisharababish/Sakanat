@@ -128,25 +128,34 @@ function NoticeHost({
 
   return (
     <>
-      {toast ? (
+      <Modal visible={Boolean(toast)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideToast}>
         <View pointerEvents="box-none" style={styles.host}>
-          <Animated.View
-            style={[
-              styles.toastWrap,
-              { top: insets.top + 56, opacity: slide, transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }] },
-            ]}
-          >
-            <Pressable onPress={onHideToast} style={[styles.toast, { backgroundColor: palette.bg, borderColor: palette.tint, shadowColor: colors.text }]}>
-              {isRtl ? null : <Ionicons name={palette.icon} size={26} color={palette.tint} />}
-              <View style={styles.toastCopy}>
-                <Text style={[styles.toastTitle, rtlText, { color: palette.tint }]}>{toast.title}</Text>
-                {toast.message ? <Text style={[styles.toastBody, rtlText, { color: colors.text }]}>{toast.message}</Text> : null}
-              </View>
-              {isRtl ? <Ionicons name={palette.icon} size={26} color={palette.tint} /> : null}
-            </Pressable>
-          </Animated.View>
+          {toast ? (
+            <Animated.View
+              style={[
+                styles.toastWrap,
+                {
+                  top: insets.top + 56,
+                  opacity: slide,
+                  transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+                },
+              ]}
+            >
+              <Pressable
+                onPress={onHideToast}
+                style={[styles.toast, { backgroundColor: palette.bg, borderColor: palette.tint, shadowColor: colors.text }]}
+              >
+                {isRtl ? null : <Ionicons name={palette.icon} size={26} color={palette.tint} />}
+                <View style={styles.toastCopy}>
+                  <Text style={[styles.toastTitle, rtlText, { color: palette.tint }]}>{toast.title}</Text>
+                  {toast.message ? <Text style={[styles.toastBody, rtlText, { color: colors.text }]}>{toast.message}</Text> : null}
+                </View>
+                {isRtl ? <Ionicons name={palette.icon} size={26} color={palette.tint} /> : null}
+              </Pressable>
+            </Animated.View>
+          ) : null}
         </View>
-      ) : null}
+      </Modal>
 
       <Modal visible={Boolean(dialog)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideDialog}>
         <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
@@ -183,19 +192,12 @@ function NoticeHost({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   host: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 50,
-    elevation: 50,
+    flex: 1,
   },
   toastWrap: {
     position: 'absolute',
     left: spacing.md,
     right: spacing.md,
-    zIndex: 50,
   },
   toast: {
     flexDirection: 'row',
