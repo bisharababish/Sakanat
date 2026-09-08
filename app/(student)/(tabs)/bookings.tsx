@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
@@ -194,6 +195,7 @@ export default function StudentBookings() {
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+      <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>

@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationList, useInbox } from '@/components/ConversationList';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -14,6 +15,7 @@ export default function StudentChat() {
 
   return (
     <Screen onRefresh={() => void inbox.refresh()} refreshing={inbox.refreshing}>
+      <OfflineBanner />
       <View style={styles.top}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('chat.title')}</Text>

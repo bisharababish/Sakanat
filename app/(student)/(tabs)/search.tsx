@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
-import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -18,8 +18,8 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
-import { listingDistanceKm, UNDER_ONE_KM } from '@/src/lib/distance';
-import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { UNDER_ONE_KM, listingDistanceKm } from '@/src/lib/distance';
+import { localizedName } from '@/src/lib/format';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import {
   loadSearchAlertPrefs,
@@ -27,11 +27,12 @@ import {
   saveSearchAlertPrefs,
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
+import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings';
 import { isStudentReady } from '@/src/lib/studentProfile';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { alert } from '@/src/lib/notice';
-import { supabase } from '@/src/lib/supabase';
+import { trackEvent } from '@/src/lib/analytics';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import { AMENITIES, type Amenity, type Apartment, type GenderPolicy, type University } from '@/src/types/database';
@@ -60,6 +61,7 @@ export default function SearchScreen() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [alertOn, setAlertOn] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     void loadSearchAlertPrefs().then((prefs) => setAlertOn(Boolean(prefs.enabled)));
@@ -91,25 +93,66 @@ export default function SearchScreen() {
     profile?.pref_gender_policy,
   ]);
 
+  const selectedUniversity = useMemo(
+    () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
+    [isRenter, universities, universityId],
+  );
+  const distancePlace = selectedUniversity ? ('campus' as const) : ('city' as const);
+
   const load = useCallback(async () => {
     reloadCatalog();
-    const { data } = await supabase
-      .from('apartments')
-      .select('*, cities(*), universities(*)')
-      .eq('status', 'approved')
-      .order('price_month');
-    setApartments((data as Apartment[]) ?? []);
-    setLoading(false);
-    if (profile?.id) {
-      try {
-        setSavedIds(await loadSavedApartmentIds(profile.id));
-      } catch {
-        setSavedIds([]);
+    setLoadError('');
+    try {
+      const next = await fetchApprovedListings({
+        cityId: cityId || undefined,
+        universityId: isRenter ? undefined : universityId || undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : null,
+        gender: genderFilter,
+        profileGender: profile?.gender ?? null,
+        rooms: roomsFilter || undefined,
+        amenities: amenityFilter,
+        query: '',
+        maxKm: null,
+        sort: 'price',
+        university: selectedUniversity,
+        lang: i18n.language,
+        isRenter,
+      });
+      setApartments(next.map((row) => row.item));
+    } catch (err) {
+      setApartments([]);
+      setLoadError(err instanceof Error ? err.message : t('common.offlineHint'));
+    } finally {
+      setLoading(false);
+      if (profile?.id) {
+        try {
+          setSavedIds(await loadSavedApartmentIds(profile.id));
+        } catch {
+          setSavedIds([]);
+        }
       }
     }
-  }, [profile?.id, reloadCatalog]);
+  }, [
+    amenityFilter,
+    cityId,
+    genderFilter,
+    i18n.language,
+    isRenter,
+    maxPrice,
+    profile?.gender,
+    profile?.id,
+    reloadCatalog,
+    roomsFilter,
+    selectedUniversity,
+    t,
+    universityId,
+  ]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], 'search');
+
+  useEffect(() => {
+    void trackEvent('search_open', { role: profile?.role }, profile?.id);
+  }, [profile?.id, profile?.role]);
 
   useEffect(() => {
     if (!profile || apartments.length === 0) return;
@@ -160,86 +203,18 @@ export default function SearchScreen() {
     }
   };
 
-  const selectedUniversity = useMemo(
-    () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
-    [isRenter, universities, universityId],
+  const filtered = useMemo(
+    () =>
+      refineListings(apartments, {
+        query,
+        maxKm: maxKm ? Number(maxKm) : null,
+        sort,
+        university: selectedUniversity,
+        lang: i18n.language,
+        isRenter,
+      }),
+    [apartments, i18n.language, isRenter, maxKm, query, selectedUniversity, sort],
   );
-  const distancePlace = selectedUniversity ? ('campus' as const) : ('city' as const);
-
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const withDistance = apartments
-      .filter((item) => !cityId || item.city_id === cityId)
-      .filter((item) => {
-        if (genderFilter === 'all') return true;
-        if (genderFilter === 'suitable') {
-          if (!profile?.gender) return true;
-          return item.gender_policy === 'any' || item.gender_policy === profile.gender;
-        }
-        return item.gender_policy === genderFilter;
-      })
-      .filter((item) => {
-        if (!needle) return true;
-        const haystack = [
-          localizedTitle(item, i18n.language),
-          localizedDescription(item, i18n.language),
-          localizedName(item.cities, i18n.language),
-          ...(isRenter ? [] : [localizedName(item.universities, i18n.language)]),
-        ]
-          .join(' ')
-          .toLowerCase();
-        return haystack.includes(needle);
-      })
-      .filter((item) => {
-        if (amenityFilter.length === 0) return true;
-        const list = item.amenities ?? [];
-        return amenityFilter.every((key) => list.includes(key));
-      })
-      .map((item) => ({
-        item,
-        distance: listingDistanceKm(
-          item,
-          selectedUniversity,
-          selectedUniversity ? null : item.cities,
-        ),
-      }))
-      .filter((entry) => !maxPrice || entry.item.price_month <= Number(maxPrice))
-      .filter((entry) => !maxKm || (entry.distance != null && entry.distance <= Number(maxKm)))
-      .filter((entry) => {
-        if (!roomsFilter) return true;
-        if (roomsFilter === '4') return entry.item.rooms >= 4;
-        return entry.item.rooms === Number(roomsFilter);
-      });
-
-    withDistance.sort((a, b) => {
-      if (sort === 'distance') return (a.distance ?? 999) - (b.distance ?? 999);
-      if (sort === 'rating') {
-        const aAvg = a.item.review_avg ?? 0;
-        const bAvg = b.item.review_avg ?? 0;
-        if (bAvg !== aAvg) return bAvg - aAvg;
-        const aCount = a.item.review_count ?? 0;
-        const bCount = b.item.review_count ?? 0;
-        if (bCount !== aCount) return bCount - aCount;
-        return a.item.price_month - b.item.price_month;
-      }
-      return a.item.price_month - b.item.price_month;
-    });
-    return withDistance;
-  }, [
-    amenityFilter,
-    apartments,
-    cityId,
-    genderFilter,
-    i18n.language,
-    isRenter,
-    maxKm,
-    maxPrice,
-    profile?.gender,
-    query,
-    roomsFilter,
-    selectedUniversity,
-    sort,
-  ]);
 
   const paged = usePaged(
     filtered,
@@ -332,6 +307,7 @@ export default function SearchScreen() {
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+      <OfflineBanner />
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.search')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('search.title')}</Text>
@@ -541,16 +517,30 @@ export default function SearchScreen() {
       </View>
 
       {loading ? <ActivityIndicator color={colors.primary} /> : null}
-      {!loading && filtered.length === 0 ? (
+      {!loading && loadError ? (
+        <EmptyState
+          title={t('common.error')}
+          hint={loadError}
+          actionTitle={t('common.retry')}
+          onAction={() => void refresh()}
+        />
+      ) : null}
+      {!loading && !loadError && filtered.length === 0 ? (
         <View style={styles.empty}>
-          <EmptyState title={t('search.empty')} />
-          {filtersOn ? <Button title={t('search.clear')} onPress={clearFilters} variant="secondary" pill /> : null}
+          <EmptyState
+            title={t('search.empty')}
+            hint={filtersOn ? t('search.emptyHint') : undefined}
+            actionTitle={filtersOn ? t('search.clear') : undefined}
+            onAction={filtersOn ? clearFilters : undefined}
+          />
         </View>
       ) : null}
-      {paged.slice.map(({ item, distance }) => (
+      {!loadError
+        ? paged.slice.map(({ item, distance }) => (
         <ListingCard
           key={item.id}
           apartment={item}
+          ownerVerified={item.profiles?.id_verify_status === 'approved'}
           university={
             isRenter
               ? null
@@ -590,8 +580,9 @@ export default function SearchScreen() {
             })
           }
         />
-      ))}
-      {!loading && filtered.length > 0 ? (
+      ))
+        : null}
+      {!loading && !loadError && filtered.length > 0 ? (
         <Pager
           page={paged.page}
           pages={paged.pages}

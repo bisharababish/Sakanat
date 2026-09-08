@@ -1,9 +1,23 @@
-# Deploy push-send
+# Push + analytics + product ops SQL
 
-From the project root (with Supabase CLI logged in):
+Deploy + secret for `push-send` should already be done.
 
-```bash
-supabase functions deploy push-send
+## In Supabase → SQL Editor (run in order)
+
+1. `supabase/analytics-rate-limits.sql`
+2. `supabase/push-triggers.sql` (re-run OK — Arabic + deep-link data)
+3. `supabase/product-ops.sql` (search-alert push, booking SLA/auto-complete/review nudge, owner insights, report close push, review replies, chat images)
+
+## Redeploy Edge Function (after SQL)
+
+```powershell
+npx supabase functions deploy push-send --project-ref lnyozqdnxfwzgrwtcxjc
 ```
 
-The app calls `push-send` first, then falls back to direct Expo Push if the function is missing.
+Needed so push payloads include `data` for deep links.
+
+## Optional check
+
+```sql
+select public.run_booking_ops();
+```

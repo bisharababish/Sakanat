@@ -155,7 +155,7 @@ export type Apartment = {
   created_at: string;
   cities?: City;
   universities?: University | null;
-  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp'>;
+  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp' | 'id_verify_status'>;
 };
 
 export type Booking = {
@@ -261,6 +261,8 @@ export type ApartmentReview = {
   note: string;
   author_name: string;
   created_at: string;
+  owner_reply?: string | null;
+  owner_replied_at?: string | null;
 };
 
 export type Message = {
@@ -269,6 +271,7 @@ export type Message = {
   sender_id: string;
   body: string;
   created_at: string;
+  image_url?: string | null;
 };
 
 export type AppSettings = {

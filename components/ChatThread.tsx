@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +31,9 @@ import {
   sendMessage,
   type MessageReceipt,
 } from '@/src/lib/chat';
+import { enqueueChatOutbox, flushChatOutbox } from '@/src/lib/chatOutbox';
+import { pickChatPhoto } from '@/src/lib/pickImage';
+import { uploadChatPhoto } from '@/src/lib/upload';
 import { logAdminAction } from '@/src/lib/audit';
 import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -143,7 +147,13 @@ export function ChatThread({
           setMessages((current) => {
             if (current.some((item) => item.id === next.id)) return current;
             const withoutTemp = current.filter(
-              (item) => !(item.id.startsWith('temp-') && item.body === next.body && item.sender_id === next.sender_id),
+              (item) =>
+                !(
+                  item.id.startsWith('temp-') &&
+                  item.sender_id === next.sender_id &&
+                  (item.body === next.body ||
+                    (item.image_url && next.image_url && item.image_url === next.image_url))
+                ),
             );
             return [...withoutTemp, next];
           });
@@ -184,36 +194,69 @@ export function ChatThread({
   }, [messages]);
 
   useEffect(() => {
+    if (readOnly) return;
+    void flushChatOutbox().then((result) => {
+      if (result.sent > 0) void loadMessages();
+    });
+  }, [loadMessages, readOnly]);
+
+  useEffect(() => {
     if (!profile?.id || readOnly) return;
     void markConversationDelivered(conversationId, asOwner);
     void markConversationRead(conversationId, profile.id, asOwner);
   }, [asOwner, conversationId, profile?.id, readOnly, messages.length]);
 
-  const onSend = async () => {
-    if (readOnly || !profile || !draft.trim() || sending) return;
-    const body = draft.trim().slice(0, MESSAGE_MAX);
+  const deliver = async (body: string, imageUri?: string | null) => {
+    if (readOnly || !profile || sending) return;
+    const text = body.trim().slice(0, MESSAGE_MAX);
+    if (!text && !imageUri) return;
+    const tempId = `temp-${Date.now()}`;
     const temp: Message = {
-      id: `temp-${Date.now()}`,
+      id: tempId,
       conversation_id: conversationId,
       sender_id: profile.id,
-      body,
+      body: text || t('chat.photoMessage'),
+      image_url: imageUri || null,
       created_at: new Date().toISOString(),
     };
-    setDraft('');
+    if (!imageUri) setDraft('');
     setMessages((current) => [...current, temp]);
     setSending(true);
     try {
-      await sendMessage(conversationId, profile.id, body);
+      let imageUrl: string | null = null;
+      if (imageUri) {
+        imageUrl = await uploadChatPhoto(profile.id, conversationId, imageUri);
+      }
+      await sendMessage(conversationId, profile.id, text, imageUrl);
+      void loadMessages();
     } catch (err) {
-      setMessages((current) => current.filter((item) => item.id !== temp.id));
-      setDraft(body);
+      await enqueueChatOutbox({
+        id: tempId,
+        conversationId,
+        senderId: profile.id,
+        body: text,
+        imageUri: imageUri || null,
+        createdAt: temp.created_at,
+      });
       alert(
         t('common.error'),
-        err instanceof Error && err.message ? err.message : t('chat.sendFailed'),
+        err instanceof Error && err.message ? err.message : t('chat.sendQueued'),
       );
     } finally {
       setSending(false);
     }
+  };
+
+  const onSend = async () => {
+    if (!draft.trim()) return;
+    await deliver(draft);
+  };
+
+  const onAttach = async () => {
+    const uri = await pickChatPhoto();
+    if (!uri) return;
+    await deliver(draft, uri);
+    setDraft('');
   };
 
   const canSend = Boolean(draft.trim()) && !sending;
@@ -325,14 +368,23 @@ export function ChatThread({
                       },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.body,
-                    { writingDirection, color: mine ? colors.white : colors.text },
-                  ]}
-                >
-                  {item.body}
-                </Text>
+                {item.image_url ? (
+                  <Image
+                    source={{ uri: item.image_url }}
+                    style={styles.bubbleImage}
+                    contentFit="cover"
+                  />
+                ) : null}
+                {item.body && !(item.image_url && item.body === t('chat.photoMessage')) ? (
+                  <Text
+                    style={[
+                      styles.body,
+                      { writingDirection, color: mine ? colors.white : colors.text },
+                    ]}
+                  >
+                    {item.body}
+                  </Text>
+                ) : null}
                 {item.lastInGroup ? (
                   <View style={[styles.meta, row]}>
                     <Text style={[styles.time, { color: mine ? 'rgba(255,255,255,0.72)' : colors.textMuted }]}>
@@ -358,6 +410,15 @@ export function ChatThread({
             },
           ]}
         >
+          <Pressable
+            onPress={() => void onAttach()}
+            disabled={sending}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.attachPhoto')}
+            style={[styles.attach, { backgroundColor: colors.surfaceMuted }]}
+          >
+            <Ionicons name="image-outline" size={20} color={colors.primary} />
+          </Pressable>
           <TextInput
             value={draft}
             onChangeText={(value) => setDraft(value.slice(0, MESSAGE_MAX))}
@@ -440,6 +501,12 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 4,
   },
+  bubbleImage: {
+    width: 220,
+    height: 160,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
   body: { fontSize: 15, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
   meta: { alignItems: 'center', gap: 4, alignSelf: 'flex-end' },
   time: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
@@ -452,6 +519,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderTopWidth: 1,
     alignItems: 'flex-end',
+  },
+  attach: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,

@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ApartmentView } from '@/components/ApartmentView';
+import { ListingQualityChecklist, apartmentHasQualityIssues } from '@/components/admin/ListingQualityChecklist';
 import { Button } from '@/components/ui/Button';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useCatalog } from '@/src/hooks/useCatalog';
@@ -45,6 +46,21 @@ export default function AdminApartmentReview() {
   );
 
   const setStatus = async (status: ListingStatus, reason?: string | null) => {
+    if (!apartment) return;
+    if (status === 'approved' && apartmentHasQualityIssues(apartment) && apartment.status !== 'approved') {
+      alert(t('admin.approveDespiteQuality'), t('admin.approveDespiteQualityBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('admin.approveAnyway'),
+          onPress: () => void applyStatus('approved', reason),
+        },
+      ]);
+      return;
+    }
+    await applyStatus(status, reason);
+  };
+
+  const applyStatus = async (status: ListingStatus, reason?: string | null) => {
     if (!apartment) return;
     setBusy(true);
     const { error } = await updateListingStatus(apartment.id, status, reason);
@@ -91,6 +107,7 @@ export default function AdminApartmentReview() {
       >
         {apartment ? (
           <View style={styles.actions}>
+            <ListingQualityChecklist apartment={apartment} />
             {apartment.status !== 'approved' ? (
               <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} pill />
             ) : (

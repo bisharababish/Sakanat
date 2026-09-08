@@ -26,6 +26,7 @@ import { Card } from '@/components/ui/Card';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useAuth } from '@/src/lib/auth';
 import { MAX_OCCUPANTS } from '@/src/lib/booking';
 import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
@@ -102,6 +103,7 @@ export function ApartmentView({
 }) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, lang, isRtl } = useLayout();
+  const { profile } = useAuth();
   const colors = useColors();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [viewer, setViewer] = useState(false);
@@ -383,6 +385,9 @@ export function ApartmentView({
           <Text style={[styles.body, copy, { color: colors.text }]}>
             {apartment.profiles?.full_name || t('listing.owner')}
           </Text>
+          {apartment.profiles?.id_verify_status === 'approved' ? (
+            <Text style={[styles.muted, copy, { color: colors.primary }]}>{t('listing.verifiedOwner')}</Text>
+          ) : null}
           {preview && signedIn && apartment.profiles?.phone ? (
             <Button
               title={t('common.call')}
@@ -412,6 +417,9 @@ export function ApartmentView({
             average={apartment.review_avg}
             count={apartment.review_count}
             asAdmin={asAdmin}
+            ownerApartmentIds={
+              profile?.role === 'owner' && profile.id === apartment.owner_id ? [apartment.id] : undefined
+            }
             onChanged={() => {
               if (!apartment?.id) return;
               void loadApartmentReviews(apartment.id).then(setReviews).catch(() => setReviews([]));

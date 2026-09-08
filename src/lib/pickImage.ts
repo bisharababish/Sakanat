@@ -78,6 +78,25 @@ export async function pickIdCardPhoto() {
   return ok ? result.assets[0].uri : null;
 }
 
+export async function pickChatPhoto() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    alert(i18n.t('common.error'), i18n.t('chat.photoPermission'));
+    return null;
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.7,
+    allowsEditing: false,
+  });
+  if (result.canceled || !result.assets[0]) return null;
+  if (!withinSize(result.assets[0].fileSize)) {
+    alert(i18n.t('common.error'), i18n.t('chat.photoTooLarge'));
+    return null;
+  }
+  return result.assets[0].uri;
+}
+
 export async function pickListingPhotos(remaining: number) {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {

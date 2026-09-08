@@ -20,6 +20,7 @@ type Props = {
   distancePlace?: DistancePlace;
   saved?: boolean;
   onToggleSave?: () => void;
+  ownerVerified?: boolean;
   badge?: { label: string; tone: 'pending' | 'approved' | 'rejected' | 'info' };
   onPress: () => void;
 };
@@ -49,6 +50,7 @@ export function ListingCard({
   distancePlace = 'campus',
   saved,
   onToggleSave,
+  ownerVerified,
   badge,
   onPress,
 }: Props) {
@@ -115,6 +117,12 @@ export function ListingCard({
         <Text style={[styles.title, copy, { color: colors.text }]} numberOfLines={2}>
           {localizedTitle(apartment, lang)}
         </Text>
+        {ownerVerified ? (
+          <View style={[styles.verifiedRow, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+            <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
+            <Text style={[styles.verified, copy, { color: colors.primary }]}>{t('listing.verifiedOwner')}</Text>
+          </View>
+        ) : null}
         {city || university ? (
           <View style={[styles.cityRow, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
             <Ionicons name="location-outline" size={14} color={colors.primary} />
@@ -200,6 +208,8 @@ const styles = StyleSheet.create({
   heartEnd: { end: 12 },
   body: { padding: spacing.md, gap: 8 },
   title: { fontSize: 18, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', lineHeight: 26 },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  verified: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   cityRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -2 },
   muted: { flex: 1, fontSize: 13, fontFamily: 'Cairo_400Regular' },
   facts: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },

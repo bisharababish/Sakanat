@@ -86,4 +86,20 @@ export async function submitApartmentReview(input: {
   }
   const { error } = await supabase.from('apartment_reviews').insert(row);
   if (error) throw error;
+  try {
+    const { trackEvent } = await import('@/src/lib/analytics');
+    const { notifyUser } = await import('@/src/lib/push');
+    const i18n = (await import('@/src/i18n')).default;
+    void trackEvent('review_submit', { apartmentId: input.booking.apartment_id }, input.studentId);
+    if (input.booking.owner_id) {
+      void notifyUser(
+        input.booking.owner_id,
+        i18n.t('push.reviewTitle'),
+        i18n.t('push.reviewBody'),
+        'review',
+      );
+    }
+  } catch {
+    // optional
+  }
 }

@@ -14,8 +14,12 @@ import { PushPrompt } from '@/components/PushPrompt';
 import { IdleGuard } from '@/src/hooks/useIdleLogout';
 import { isSuspended } from '@/src/lib/moderation';
 import { syncPushToken } from '@/src/lib/push';
+import { routeFromPushData, type PushRouteData } from '@/src/lib/pushRouting';
+import { maybeRunBookingOps } from '@/src/lib/searchAlerts';
+import { flushChatOutbox } from '@/src/lib/chatOutbox';
 import { allowedAppGroup, homeHref } from '@/src/lib/routes';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
+import { OnboardingGate } from '@/components/OnboardingGate';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -67,6 +71,7 @@ export default function RootLayout() {
             <SessionGuard>
               <AppStack />
               <PushPrompt />
+              <OnboardingGate />
             </SessionGuard>
           </MenuProvider>
         </NoticeProvider>
@@ -104,7 +109,34 @@ function SessionGuard({ children }: { children: ReactNode }) {
       return;
     }
     void syncPushToken(profile.id);
+    void maybeRunBookingOps();
+    void flushChatOutbox();
   }, [profile, signOut]);
+
+  useEffect(() => {
+    if (!profile?.id || profile.role === 'admin') return;
+    let sub: { remove: () => void } | undefined;
+    let alive = true;
+    void (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        const open = (data: PushRouteData) => routeFromPushData(data, profile.role);
+        const last = await Notifications.getLastNotificationResponseAsync();
+        if (alive && last?.notification.request.content.data) {
+          open(last.notification.request.content.data as PushRouteData);
+        }
+        sub = Notifications.addNotificationResponseReceivedListener((response) => {
+          open((response.notification.request.content.data ?? {}) as PushRouteData);
+        });
+      } catch {
+        // Expo Go / web — optional.
+      }
+    })();
+    return () => {
+      alive = false;
+      sub?.remove();
+    };
+  }, [profile?.id, profile?.role]);
 
   useEffect(() => {
     if (loading) return;

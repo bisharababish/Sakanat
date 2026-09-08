@@ -231,3 +231,103 @@ export async function exportPlatformBookingsCsv() {
   await shareCsvFile(`sakanat-bookings-${stamp}.csv`, csv);
   return rows.length;
 }
+
+export async function exportOwnerEarningsCsv(ownerId: string) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(
+      'id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, commission_percent, created_at, student:profiles!student_id(full_name, email), apartments(title_ar, title_en)',
+    )
+    .eq('owner_id', ownerId)
+    .in('status', ['confirmed', 'completed'])
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = ((data as Record<string, unknown>[]) ?? []).map((item) => {
+    const student = item.student as { full_name?: string; email?: string } | null;
+    const apt = item.apartments as { title_ar?: string; title_en?: string } | null;
+    const rent = Number(item.rent_amount) || 0;
+    const fee = Number(item.commission_amount) || 0;
+    return {
+      id: item.id,
+      status: item.status,
+      payment_method: item.payment_method,
+      payment_status: item.payment_status,
+      start_date: item.start_date,
+      months: item.months,
+      occupants: item.occupants,
+      rent_amount: rent,
+      commission_amount: fee,
+      owner_keep: Math.max(0, rent - fee),
+      commission_percent: item.commission_percent,
+      created_at: item.created_at,
+      student_name: student?.full_name,
+      student_email: student?.email,
+      listing_ar: apt?.title_ar,
+      listing_en: apt?.title_en,
+    };
+  });
+  const csv = rowsToCsv(rows) || 'id';
+  const stamp = new Date().toISOString().slice(0, 10);
+  await shareCsvFile(`sakanat-earnings-${stamp}.csv`, csv);
+  return rows.length;
+}
+
+export async function exportUsersCsv() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(
+      'id, email, full_name, full_name_en, role, phone, city_id, university_id, owner_status, id_verify_status, account_status, created_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) throw error;
+  const csv = rowsToCsv((data as Record<string, unknown>[]) ?? []) || 'id';
+  const stamp = new Date().toISOString().slice(0, 10);
+  await shareCsvFile(`sakanat-users-${stamp}.csv`, csv);
+  return (data ?? []).length;
+}
+
+export async function exportListingsCsv() {
+  const { data, error } = await supabase
+    .from('apartments')
+    .select(
+      'id, title_ar, title_en, status, price_month, rooms, bathrooms, city_id, nearest_university_id, owner_id, review_avg, review_count, created_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) throw error;
+  const csv = rowsToCsv((data as Record<string, unknown>[]) ?? []) || 'id';
+  const stamp = new Date().toISOString().slice(0, 10);
+  await shareCsvFile(`sakanat-listings-${stamp}.csv`, csv);
+  return (data ?? []).length;
+}
+
+export async function exportReportsCsv() {
+  const { data, error } = await supabase
+    .from('app_reports')
+    .select(
+      'id, kind, subject, status, admin_note, reporter_id, target_user_id, target_apartment_id, created_at, updated_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) throw error;
+  const csv = rowsToCsv((data as Record<string, unknown>[]) ?? []) || 'id';
+  const stamp = new Date().toISOString().slice(0, 10);
+  await shareCsvFile(`sakanat-reports-${stamp}.csv`, csv);
+  return (data ?? []).length;
+}
+
+export async function exportReviewsCsv() {
+  const { data, error } = await supabase
+    .from('apartment_reviews')
+    .select(
+      'id, apartment_id, student_id, stars, note, author_name, owner_reply, owner_replied_at, created_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) throw error;
+  const csv = rowsToCsv((data as Record<string, unknown>[]) ?? []) || 'id';
+  const stamp = new Date().toISOString().slice(0, 10);
+  await shareCsvFile(`sakanat-reviews-${stamp}.csv`, csv);
+  return (data ?? []).length;
+}

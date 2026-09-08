@@ -1,0 +1,15 @@
+---
+description: Deferred until app finish — do not raise unless asked
+globs:
+alwaysApply: false
+---
+
+# Deferred (until app finish)
+
+Keep quiet unless the user asks. Do not pitch these in normal work:
+
+- Owner map pin + real campus distance
+- EAS production builds
+- Real card payments (or removing simulated Visa)
+
+Continue other product work around these.

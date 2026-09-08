@@ -28,6 +28,12 @@ export type AdminAppReport = AppReport & {
 };
 
 export async function submitAppReport(reporterId: string, draft: ReportDraft) {
+  const { assertRateLimit, RATE, rateLimitMessage } = await import('@/src/lib/rateLimit');
+  const { trackEvent } = await import('@/src/lib/analytics');
+  if (!(await assertRateLimit(`report:${reporterId}`, RATE.reportMs))) {
+    const { default: i18n } = await import('@/src/i18n');
+    throw new Error(rateLimitMessage('RATE_REPORT', (key) => i18n.t(key)));
+  }
   const { data, error } = await supabase
     .from('app_reports')
     .insert({
@@ -42,6 +48,7 @@ export async function submitAppReport(reporterId: string, draft: ReportDraft) {
     .select('id, kind, subject, body, status, admin_note, created_at, updated_at')
     .single();
   if (error) throw error;
+  void trackEvent('report_submit', { kind: draft.kind }, reporterId);
   return data as AppReport;
 }
 

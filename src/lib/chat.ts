@@ -35,7 +35,12 @@ export async function openConversation(apartment: Apartment, studentId: string) 
     .eq('student_id', studentId)
     .maybeSingle();
   if (existingError) throw existingError;
-  if (existing?.id) return existing.id as string;
+  if (existing?.id) {
+    void import('@/src/lib/analytics').then(({ trackEvent }) =>
+      trackEvent('chat_open', { apartmentId: apartment.id }, studentId),
+    );
+    return existing.id as string;
+  }
 
   const { data, error } = await supabase
     .from('conversations')
@@ -47,6 +52,9 @@ export async function openConversation(apartment: Apartment, studentId: string) 
     .select('id')
     .single();
   if (error) throw error;
+  void import('@/src/lib/analytics').then(({ trackEvent }) =>
+    trackEvent('chat_open', { apartmentId: apartment.id }, studentId),
+  );
   return data.id as string;
 }
 
@@ -229,9 +237,19 @@ export async function markInboxDelivered(items: Conversation[], asOwner: boolean
   );
 }
 
-export async function sendMessage(conversationId: string, senderId: string, body: string) {
+export async function sendMessage(
+  conversationId: string,
+  senderId: string,
+  body: string,
+  imageUrl?: string | null,
+) {
   const trimmed = body.trim().slice(0, MESSAGE_MAX);
-  if (!trimmed) return;
+  const image = (imageUrl ?? '').trim() || null;
+  if (!trimmed && !image) return;
+  const { assertRateLimit, RATE, rateLimitMessage } = await import('@/src/lib/rateLimit');
+  if (!(await assertRateLimit(`message:${senderId}`, RATE.messageMs))) {
+    throw new Error(rateLimitMessage('RATE_MESSAGE', (key) => i18n.t(key)));
+  }
   const { data: convo } = await supabase
     .from('conversations')
     .select('student_id, owner_id')
@@ -244,10 +262,12 @@ export async function sendMessage(conversationId: string, senderId: string, body
       throw new Error(i18n.t('chat.blockedSend'));
     }
   }
+  const preview = trimmed || (image ? i18n.t('chat.photoMessage') : '');
   const { error } = await supabase.from('messages').insert({
     conversation_id: conversationId,
     sender_id: senderId,
-    body: trimmed,
+    body: trimmed || preview,
+    image_url: image,
   });
   if (error) throw error;
   const now = new Date().toISOString();
@@ -255,7 +275,7 @@ export async function sendMessage(conversationId: string, senderId: string, body
   await supabase
     .from('conversations')
     .update({
-      last_message: trimmed,
+      last_message: preview,
       last_message_at: now,
       ...(asOwner
         ? { owner_last_read_at: now, owner_delivered_at: now }
@@ -273,7 +293,9 @@ export async function sendMessage(conversationId: string, senderId: string, body
       ((flags.student_id === otherId && flags.student_muted) ||
         (flags.owner_id === otherId && flags.owner_muted));
     if (!mutedForOther) {
-      void notifyUser(otherId, i18n.t('push.newMessageTitle'), trimmed.slice(0, 90), 'chat');
+      void notifyUser(otherId, i18n.t('push.newMessageTitle'), preview.slice(0, 90), 'chat', {
+        conversationId,
+      });
     }
   }
 }

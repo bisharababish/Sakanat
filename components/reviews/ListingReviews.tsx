@@ -22,12 +22,15 @@ export function ListingReviews({
   average,
   count,
   asAdmin = false,
+  ownerApartmentIds,
   onChanged,
 }: {
   reviews: ApartmentReview[];
   average?: number | null;
   count?: number | null;
   asAdmin?: boolean;
+  /** When set, owner can reply to reviews on these listings. */
+  ownerApartmentIds?: string[];
   onChanged?: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -35,10 +38,13 @@ export function ListingReviews({
   const colors = useColors();
   const { profile } = useAuth();
   const [reporting, setReporting] = useState<ApartmentReview | null>(null);
+  const [replying, setReplying] = useState<ApartmentReview | null>(null);
   const [reportBody, setReportBody] = useState('');
+  const [replyBody, setReplyBody] = useState('');
   const [busy, setBusy] = useState(false);
   const total = count ?? reviews.length;
   const avg = average ?? (reviews.length ? reviews.reduce((sum, item) => sum + item.stars, 0) / reviews.length : 0);
+  const ownerSet = new Set(ownerApartmentIds ?? []);
 
   const remove = (item: ApartmentReview) => {
     alert(t('admin.deleteReview'), t('admin.confirmDeleteReview'), [
@@ -84,6 +90,30 @@ export function ListingReviews({
     }
   };
 
+  const sendReply = async () => {
+    if (!replying) return;
+    if (replyBody.trim().length < 2) {
+      alert(t('common.error'), t('review.replyShort'));
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc('owner_reply_review', {
+        p_review_id: replying.id,
+        p_reply: replyBody.trim(),
+      });
+      if (error) throw error;
+      setReplying(null);
+      setReplyBody('');
+      alert(t('common.done'), t('review.replySent'));
+      onChanged?.();
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('review.replyFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Card compact={asAdmin}>
       <SectionHead compact={asAdmin} icon="star-outline" title={t('review.title')} />
@@ -98,41 +128,66 @@ export function ListingReviews({
       ) : (
         <Text style={[styles.empty, rtlText, { color: colors.textMuted }]}>{t('review.empty')}</Text>
       )}
-      {reviews.map((item) => (
-        <View key={item.id} style={[styles.item, { backgroundColor: colors.surfaceMuted }]}>
-          <View style={styles.head}>
-            <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
-              {item.author_name}
+      {reviews.map((item) => {
+        const canReply =
+          profile?.role === 'owner' && ownerSet.has(item.apartment_id) && !item.owner_reply;
+        return (
+          <View key={item.id} style={[styles.item, { backgroundColor: colors.surfaceMuted }]}>
+            <View style={styles.head}>
+              <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
+                {item.author_name}
+              </Text>
+              <StarRow value={item.stars} size={14} />
+            </View>
+            <Text style={[styles.note, rtlText, { color: colors.text }]}>{item.note}</Text>
+            <Text style={[styles.date, rtlText, { color: colors.textMuted }]}>
+              {new Date(item.created_at).toLocaleDateString(i18n.language === 'ar' ? 'ar' : 'en', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
             </Text>
-            <StarRow value={item.stars} size={14} />
+            {item.owner_reply ? (
+              <View style={[styles.replyBox, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <Text style={[styles.replyLabel, rtlText, { color: colors.primary }]}>
+                  {t('review.ownerReply')}
+                </Text>
+                <Text style={[styles.note, rtlText, { color: colors.text }]}>{item.owner_reply}</Text>
+              </View>
+            ) : null}
+            {asAdmin ? (
+              <View style={[styles.actions, row]}>
+                <Button title={t('admin.deleteReview')} variant="danger" pill onPress={() => remove(item)} />
+              </View>
+            ) : (
+              <View style={[styles.actions, row]}>
+                {canReply ? (
+                  <Button
+                    title={t('review.reply')}
+                    variant="secondary"
+                    pill
+                    onPress={() => {
+                      setReplyBody('');
+                      setReplying(item);
+                    }}
+                  />
+                ) : null}
+                {profile && profile.id !== item.student_id ? (
+                  <Button
+                    title={t('review.report')}
+                    variant="ghost"
+                    pill
+                    onPress={() => {
+                      setReportBody('');
+                      setReporting(item);
+                    }}
+                  />
+                ) : null}
+              </View>
+            )}
           </View>
-          <Text style={[styles.note, rtlText, { color: colors.text }]}>{item.note}</Text>
-          <Text style={[styles.date, rtlText, { color: colors.textMuted }]}>
-            {new Date(item.created_at).toLocaleDateString(i18n.language === 'ar' ? 'ar' : 'en', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </Text>
-          {asAdmin ? (
-            <View style={[styles.actions, row]}>
-              <Button title={t('admin.deleteReview')} variant="danger" pill onPress={() => remove(item)} />
-            </View>
-          ) : profile && profile.id !== item.student_id ? (
-            <View style={[styles.actions, row]}>
-              <Button
-                title={t('review.report')}
-                variant="ghost"
-                pill
-                onPress={() => {
-                  setReportBody('');
-                  setReporting(item);
-                }}
-              />
-            </View>
-          ) : null}
-        </View>
-      ))}
+        );
+      })}
       <NoteModal
         visible={Boolean(reporting)}
         title={t('review.report')}
@@ -144,6 +199,18 @@ export function ListingReviews({
         onChange={setReportBody}
         onConfirm={() => void sendReport()}
         onClose={() => setReporting(null)}
+      />
+      <NoteModal
+        visible={Boolean(replying)}
+        title={t('review.reply')}
+        label={t('review.replyDetails')}
+        hint={t('review.replyHint')}
+        value={replyBody}
+        confirmTitle={t('review.reply')}
+        loading={busy}
+        onChange={setReplyBody}
+        onConfirm={() => void sendReply()}
+        onClose={() => setReplying(null)}
       />
     </Card>
   );
@@ -159,5 +226,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, fontFamily: 'Cairo_700Bold' },
   note: { fontSize: 14, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
   date: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  actions: { marginTop: 4 },
+  actions: { marginTop: 4, flexWrap: 'wrap', gap: 8 },
+  replyBox: { borderWidth: 1, borderRadius: radius.md, padding: spacing.sm, gap: 4 },
+  replyLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
 });

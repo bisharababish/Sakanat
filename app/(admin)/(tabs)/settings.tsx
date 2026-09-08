@@ -24,7 +24,13 @@ import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
 import { logAdminAction } from '@/src/lib/audit';
 import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
-import { exportPlatformBookingsCsv } from '@/src/lib/dataExport';
+import {
+  exportListingsCsv,
+  exportPlatformBookingsCsv,
+  exportReportsCsv,
+  exportReviewsCsv,
+  exportUsersCsv,
+} from '@/src/lib/dataExport';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
@@ -132,7 +138,7 @@ function QueueRow({
 
 export default function AdminSettings() {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
@@ -387,11 +393,22 @@ export default function AdminSettings() {
     }
   };
 
-  const runExport = async () => {
+  const runExport = async (
+    kind: 'bookings' | 'users' | 'listings' | 'reports' | 'reviews',
+  ) => {
     setExporting(true);
     try {
-      const count = await exportPlatformBookingsCsv();
-      void logAdminAction('export.platform', { detail: { rows: count } });
+      const count =
+        kind === 'users'
+          ? await exportUsersCsv()
+          : kind === 'listings'
+            ? await exportListingsCsv()
+            : kind === 'reports'
+              ? await exportReportsCsv()
+              : kind === 'reviews'
+                ? await exportReviewsCsv()
+                : await exportPlatformBookingsCsv();
+      void logAdminAction('export.platform', { detail: { kind, rows: count } });
       alert(t('common.done'), t('admin.exportDone', { count }));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -650,6 +667,25 @@ export default function AdminSettings() {
           </Card>
 
           <Card compact>
+            <SectionHead compact icon="storefront-outline" title={t('admin.storeReadyTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.storeReadyHint')}</Text>
+            {[
+              t('admin.storeReadyPrivacy'),
+              t('admin.storeReadyDelete'),
+              t('admin.storeReadySupport'),
+              t('admin.storeReadyShots'),
+              t('admin.storeReadyPayments'),
+            ].map((line) => (
+              <View key={line} style={[styles.queueRow, row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.queueIcon, { backgroundColor: colors.primarySoft }]}>
+                  <Ionicons name="checkmark" size={16} color={colors.primary} />
+                </View>
+                <Text style={[styles.queueLabel, rtlText, { color: colors.text }]}>{line}</Text>
+              </View>
+            ))}
+          </Card>
+
+          <Card compact>
             <SectionHead compact icon="download-outline" title={t('admin.exportTitle')} />
             <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.exportHint')}</Text>
             <Button
@@ -657,7 +693,35 @@ export default function AdminSettings() {
               variant="secondary"
               pill
               loading={exporting}
-              onPress={() => void runExport()}
+              onPress={() => void runExport('bookings')}
+            />
+            <Button
+              title={t('admin.exportUsersCsv')}
+              variant="secondary"
+              pill
+              loading={exporting}
+              onPress={() => void runExport('users')}
+            />
+            <Button
+              title={t('admin.exportListingsCsv')}
+              variant="secondary"
+              pill
+              loading={exporting}
+              onPress={() => void runExport('listings')}
+            />
+            <Button
+              title={t('admin.exportReportsCsv')}
+              variant="secondary"
+              pill
+              loading={exporting}
+              onPress={() => void runExport('reports')}
+            />
+            <Button
+              title={t('admin.exportReviewsCsv')}
+              variant="secondary"
+              pill
+              loading={exporting}
+              onPress={() => void runExport('reviews')}
             />
           </Card>
 

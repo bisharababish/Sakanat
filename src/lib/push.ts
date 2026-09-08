@@ -110,40 +110,42 @@ export async function notifyUser(
   title: string,
   body: string,
   kind: 'booking' | 'chat' | 'listing' | 'review' = 'booking',
+  data: Record<string, unknown> = {},
 ) {
   try {
     const { error } = await supabase.functions.invoke('push-send', {
-      body: { mode: 'user', userId, title, body, kind },
+      body: { mode: 'user', userId, title, body, kind, data: { kind, ...data } },
     });
     if (!error) return;
   } catch {
     // Fall back to direct Expo Push if the Edge Function is not deployed.
   }
   try {
-    const { data } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('expo_push_token, notify_booking, notify_chat, notify_listing, notify_review')
       .eq('id', userId)
       .maybeSingle();
-    if (!data?.expo_push_token) return;
+    if (!profile?.expo_push_token) return;
     const allowed =
       kind === 'chat'
-        ? data.notify_chat !== false
+        ? profile.notify_chat !== false
         : kind === 'listing'
-          ? data.notify_listing !== false
+          ? profile.notify_listing !== false
           : kind === 'review'
-            ? data.notify_review !== false
-            : data.notify_booking !== false;
+            ? profile.notify_review !== false
+            : profile.notify_booking !== false;
     if (!allowed) return;
     await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
-        to: data.expo_push_token,
+        to: profile.expo_push_token,
         title,
         body,
         sound: 'default',
         channelId: 'default',
+        data: { kind, ...data },
       }),
     });
   } catch {

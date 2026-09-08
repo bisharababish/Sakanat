@@ -7,13 +7,16 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
+import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
+import { loadAnalyticsSummary, type AnalyticsSummary } from '@/src/lib/analytics';
 import { paymentBucket } from '@/src/lib/booking';
-import { formatIls, localizedTitle } from '@/src/lib/format';
+import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { updateListingStatus } from '@/src/lib/listing';
 import { LISTING_REJECT_PRESETS } from '@/src/lib/listingQuality';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
@@ -69,6 +72,7 @@ export default function AdminOverview() {
   const { rtlText, row, lang, textAlign, writingDirection } = useLayout();
   const colors = useColors();
   const pendingCounts = useAdminPendingCounts();
+  const { universities } = useCatalog();
   const [owners, setOwners] = useState<Profile[]>([]);
   const [pendingIds, setPendingIds] = useState<Profile[]>([]);
   const [students, setStudents] = useState(0);
@@ -76,16 +80,19 @@ export default function AdminOverview() {
   const [listings, setListings] = useState<Apartment[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [chats, setChats] = useState(0);
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [analyticsDays, setAnalyticsDays] = useState<7 | 30>(7);
   const [rejecting, setRejecting] = useState<Apartment | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const [profileRes, listingRes, bookingRes, chatRes] = await Promise.all([
+    const [profileRes, listingRes, bookingRes, chatRes, analyticsRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email, role, owner_status, phone, id_verify_status, national_id_url, university_card_url'),
       supabase.from('apartments').select('id, title_ar, title_en, status, owner_id, reject_reason'),
       supabase.from('bookings').select('id, status, commission_amount, payment_method, created_at'),
       supabase.from('conversations').select('id', { count: 'exact', head: true }),
+      loadAnalyticsSummary(analyticsDays).catch(() => null),
     ]);
     const profiles = (profileRes.data as Profile[]) ?? [];
     setStudents(profiles.filter((item) => item.role === 'student').length);
@@ -102,7 +109,8 @@ export default function AdminOverview() {
     setListings((listingRes.data as Apartment[]) ?? []);
     setBookings((bookingRes.data as Booking[]) ?? []);
     setChats(chatRes.count ?? 0);
-  }, []);
+    setAnalytics(analyticsRes);
+  }, [analyticsDays]);
 
   const { refreshing, refresh } = useLiveReload(
     load,
@@ -131,6 +139,22 @@ export default function AdminOverview() {
   const pendingBookings = bookings.filter((item) => item.status === 'pending').length;
   const liveListings = listings.filter((item) => item.status === 'approved').length;
   const activeOwners = owners.filter((item) => item.owner_status === 'approved').length;
+  const chartDays = useMemo(() => {
+    const days = analytics?.byDay ?? [];
+    if (days.length <= 12) return days;
+    const size = Math.ceil(days.length / 10);
+    const buckets: { key: string; label: string; views: number; books: number }[] = [];
+    for (let i = 0; i < days.length; i += size) {
+      const slice = days.slice(i, i + size);
+      buckets.push({
+        key: slice[0].key,
+        label: slice[0].label,
+        views: slice.reduce((sum, day) => sum + day.views, 0),
+        books: slice.reduce((sum, day) => sum + day.books, 0),
+      });
+    }
+    return buckets;
+  }, [analytics?.byDay]);
 
   const setOwnerStatus = async (id: string, owner_status: 'approved' | 'rejected' = 'approved') => {
     const { error } = await supabase.from('profiles').update({ owner_status }).eq('id', id);
@@ -174,6 +198,87 @@ export default function AdminOverview() {
           {t('admin.allTimeCommission')}: {formatIls(allTime, lang)}
         </Text>
       </Pressable>
+
+      <Card compact>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.analyticsTitle')}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.analyticsHint')}</Text>
+        <FilterPills
+          compact
+          value={String(analyticsDays) as '7' | '30'}
+          onChange={(next) => setAnalyticsDays(next === '30' ? 30 : 7)}
+          items={[
+            { value: '7', label: t('admin.analyticsDays7') },
+            { value: '30', label: t('admin.analyticsDays30') },
+          ]}
+        />
+        <View style={[styles.splitRow, row]}>
+          <Text style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}>
+            {t('admin.analyticsConversion')}
+          </Text>
+          <Text style={[styles.splitValue, { color: colors.primary }]}>
+            {`${analytics?.conversion ?? 0}%`}
+          </Text>
+        </View>
+        <View style={[styles.splitRow, row]}>
+          <Text style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}>
+            {t('admin.analyticsViews')}
+          </Text>
+          <Text style={[styles.splitValue, { color: colors.primary }]}>
+            {String(analytics?.totals.listing_view ?? 0)}
+          </Text>
+        </View>
+        <View style={[styles.splitRow, row]}>
+          <Text style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}>
+            {t('admin.analyticsBookings')}
+          </Text>
+          <Text style={[styles.splitValue, { color: colors.primary }]}>
+            {String(analytics?.totals.booking_request ?? 0)}
+          </Text>
+        </View>
+        <View style={[styles.splitRow, row]}>
+          <Text style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}>
+            {t('admin.analyticsSearch')}
+          </Text>
+          <Text style={[styles.splitValue, { color: colors.primary }]}>
+            {String(analytics?.totals.search_open ?? 0)}
+          </Text>
+        </View>
+        <View style={[styles.splitRow, row]}>
+          <Text style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}>
+            {t('admin.analyticsReviews')}
+          </Text>
+          <Text style={[styles.splitValue, { color: colors.primary }]}>
+            {String(analytics?.totals.review_submit ?? 0)}
+          </Text>
+        </View>
+        {chartDays.length > 0 ? (
+          <View style={styles.chartWrap}>
+            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.analyticsChart')}</Text>
+            <View style={[styles.chartRow, row]}>
+              {chartDays.map((day) => {
+                const max = Math.max(1, ...chartDays.map((d) => d.views + d.books));
+                const height = Math.max(4, Math.round(((day.views + day.books) / max) * 48));
+                return (
+                  <View key={day.key} style={styles.chartCol}>
+                    <View style={[styles.chartBar, { height, backgroundColor: colors.primary }]} />
+                    <Text style={[styles.chartLabel, { color: colors.textMuted }]}>{day.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+        {(analytics?.byCampus ?? []).slice(0, 5).map((campusRow) => {
+          const uni = universities.find((item) => item.id === campusRow.universityId);
+          return (
+            <Text key={campusRow.universityId} style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+              {localizedName(uni, i18n.language) || campusRow.universityId}: {campusRow.views}{' '}
+              {t('admin.analyticsViewsShort')} · {campusRow.books} {t('admin.analyticsBooksShort')} ·{' '}
+              {campusRow.conversion}%
+            </Text>
+          );
+        })}
+      </Card>
 
       <Card compact>
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.commissionSplit')}</Text>
@@ -432,4 +537,14 @@ const styles = StyleSheet.create({
   },
   splitLabel: { flex: 1, minWidth: 0, fontFamily: 'Cairo_400Regular' },
   splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', flexShrink: 0 },
+  chartWrap: { gap: 8, paddingTop: 8 },
+  chartRow: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 2,
+    minHeight: 64,
+  },
+  chartCol: { flex: 1, alignItems: 'center', gap: 4 },
+  chartBar: { width: '70%', minWidth: 4, maxWidth: 14, borderRadius: 4 },
+  chartLabel: { fontSize: 8, fontFamily: 'Cairo_400Regular' },
 });

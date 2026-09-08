@@ -25,6 +25,7 @@ import {
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
+import { trackEvent } from '@/src/lib/analytics';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { isStudentReady, listingFitsStudent, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
@@ -180,6 +181,11 @@ export default function BookScreen() {
     const place = async () => {
       setLoading(true);
       try {
+        const { assertRateLimit, RATE, rateLimitMessage } = await import('@/src/lib/rateLimit');
+        if (!(await assertRateLimit(`booking:${profile.id}`, RATE.bookingMs))) {
+          alert(t('common.error'), rateLimitMessage('RATE_BOOKING', t));
+          return;
+        }
         const { error } = await supabase.from('bookings').insert({
           apartment_id: apartment.id,
           student_id: profile.id,
@@ -194,6 +200,11 @@ export default function BookScreen() {
         });
         if (error) throw error;
         void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'), 'booking');
+        void trackEvent(
+          'booking_request',
+          { apartmentId: apartment.id, universityId: apartment.nearest_university_id },
+          profile.id,
+        );
 
         const visa = method === 'visa' || method === 'pay_now';
         alert(t('booking.success'), visa ? t('booking.successVisa') : t('booking.successBody'), [
@@ -235,7 +246,8 @@ export default function BookScreen() {
               : err instanceof Error
                 ? err.message
                 : '';
-          alert(t('common.error'), message);
+          const { rateLimitMessage } = await import('@/src/lib/rateLimit');
+          alert(t('common.error'), rateLimitMessage(message, t) || message);
         }
       } finally {
         setLoading(false);

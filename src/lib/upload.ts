@@ -38,6 +38,11 @@ export async function uploadProfilePhoto(userId: string, uri: string) {
   return uploadPublicImage(`avatars/${userId}.${ext}`, uri, true);
 }
 
+export async function uploadChatPhoto(userId: string, conversationId: string, uri: string) {
+  const ext = photoExt(uri);
+  return uploadPublicImage(`chat/${conversationId}/${userId}-${Date.now()}.${ext}`, uri);
+}
+
 /** National / university cards — private bucket; returns storage path (not a public URL). */
 export async function uploadIdDoc(userId: string, kind: 'national' | 'university', uri: string) {
   const response = await fetch(uri);

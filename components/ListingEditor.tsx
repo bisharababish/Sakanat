@@ -263,6 +263,11 @@ export function ListingEditor({ apartment, asAdmin, ownerId }: Props) {
       } else {
         router.back();
       }
+      if (!asAdmin && profile?.id) {
+        void import('@/src/lib/analytics').then(({ trackEvent }) =>
+          trackEvent('listing_submit', { apartmentId: apartment?.id }, profile.id),
+        );
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : '';
       alert(t('common.error'), listingGateMessage(raw, t) || raw);

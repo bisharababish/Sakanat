@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
+import { trackEvent } from '@/src/lib/analytics';
 import { openConversation } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedTitle } from '@/src/lib/format';
@@ -56,12 +57,12 @@ export default function ApartmentDetails() {
     const [{ data }, { data: others }] = await Promise.all([
       supabase
         .from('apartments')
-        .select('*, cities(*), universities(*), profiles!owner_id(id, full_name)')
+        .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, id_verify_status)')
         .eq('id', id)
         .single(),
       supabase
         .from('apartments')
-        .select('*, cities(*), universities(*)')
+        .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, id_verify_status)')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(40),
@@ -84,6 +85,15 @@ export default function ApartmentDetails() {
   }, [id, profile?.id]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], `apartment:${id ?? ''}`);
+
+  useEffect(() => {
+    if (!apartment?.id) return;
+    void trackEvent(
+      'listing_view',
+      { apartmentId: apartment.id, universityId: apartment.nearest_university_id },
+      profile?.id,
+    );
+  }, [apartment?.id, apartment?.nearest_university_id, profile?.id]);
 
   const isRenter = profile?.role === 'renter';
   const useCity =
@@ -249,6 +259,7 @@ export default function ApartmentDetails() {
               <ListingCard
                 key={item.id}
                 apartment={item}
+                ownerVerified={item.profiles?.id_verify_status === 'approved'}
                 university={item.universities}
                 distanceKm={listingDistanceKm(item, university, useCity ? item.cities : null)}
                 onPress={() =>

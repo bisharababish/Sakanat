@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { Button } from '@/components/ui/Button';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -13,6 +14,8 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { paymentBucket, paymentI18nKey } from '@/src/lib/booking';
 import { bookingStatusLabel, formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
+import { exportOwnerEarningsCsv } from '@/src/lib/dataExport';
+import { alert } from '@/src/lib/notice';
 import { EARNINGS_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -77,6 +80,7 @@ export default function OwnerEarnings() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [showHow, setShowHow] = useState(false);
   const [payFilter, setPayFilter] = useState<'all' | 'owed' | 'clear'>('all');
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -176,6 +180,26 @@ export default function OwnerEarnings() {
           </View>
         ) : null}
       </View>
+      <Button
+        title={t('owner.exportCsv')}
+        variant="secondary"
+        pill
+        loading={exporting}
+        onPress={() => {
+          if (!profile) return;
+          void (async () => {
+            setExporting(true);
+            try {
+              const count = await exportOwnerEarningsCsv(profile.id);
+              alert(t('common.done'), t('owner.exportDone', { count }));
+            } catch (err) {
+              alert(t('common.error'), err instanceof Error ? err.message : '');
+            } finally {
+              setExporting(false);
+            }
+          })();
+        }}
+      />
 
       {unpaidFee > 0 ? (
         <View style={[styles.owed, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
