@@ -58,13 +58,24 @@ export default function SearchScreen() {
   const [genderFilter, setGenderFilter] = useState<GenderFilter>(profile?.gender ? 'suitable' : 'all');
   const [roomsFilter, setRoomsFilter] = useState('');
   const [amenityFilter, setAmenityFilter] = useState<Amenity[]>([]);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [alertOn, setAlertOn] = useState(false);
+  const [alertSummary, setAlertSummary] = useState('');
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    void loadSearchAlertPrefs().then((prefs) => setAlertOn(Boolean(prefs.enabled)));
+    void loadSearchAlertPrefs().then((prefs) => {
+      setAlertOn(Boolean(prefs.enabled));
+      const bits = [
+        prefs.universityId ? 'uni' : '',
+        prefs.cityId ? 'city' : '',
+        prefs.maxPrice != null ? `₪${prefs.maxPrice}` : '',
+        prefs.maxKm != null ? `${prefs.maxKm}km` : '',
+      ].filter(Boolean);
+      setAlertSummary(bits.join(' · '));
+    });
   }, []);
 
   useEffect(() => {
@@ -197,6 +208,13 @@ export default function SearchScreen() {
       maxPrice: maxPrice ? Number(maxPrice) : null,
       maxKm: maxKm ? Number(maxKm) : null,
     });
+    const bits = [
+      universityId ? 'uni' : '',
+      cityId ? 'city' : '',
+      maxPrice ? `₪${maxPrice}` : '',
+      maxKm ? `${maxKm}km` : '',
+    ].filter(Boolean);
+    setAlertSummary(bits.join(' · '));
     if (next) {
       await saveSeenListingIds(apartments.map((item) => item.id));
       alert(t('common.done'), t('search.alertEnabled'));
@@ -212,14 +230,15 @@ export default function SearchScreen() {
         university: selectedUniversity,
         lang: i18n.language,
         isRenter,
+        verifiedOnly,
       }),
-    [apartments, i18n.language, isRenter, maxKm, query, selectedUniversity, sort],
+    [apartments, i18n.language, isRenter, maxKm, query, selectedUniversity, sort, verifiedOnly],
   );
 
   const paged = usePaged(
     filtered,
     LISTING_PAGE_SIZE,
-    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, genderFilter, sort, amenityFilter.join(',')].join('|'),
+    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, genderFilter, sort, amenityFilter.join(','), verifiedOnly].join('|'),
   );
 
   const defaultCityId = isRenter ? (profile?.city_id ?? '') : '';
@@ -234,6 +253,7 @@ export default function SearchScreen() {
       maxKm ||
       roomsFilter ||
       amenityFilter.length > 0 ||
+      verifiedOnly ||
       genderFilter !== defaultGender ||
       sort !== defaultSort,
   );
@@ -246,6 +266,7 @@ export default function SearchScreen() {
     setMaxKm('');
     setRoomsFilter('');
     setAmenityFilter([]);
+    setVerifiedOnly(false);
     setGenderFilter(defaultGender);
     setSort(defaultSort);
   };
@@ -273,6 +294,7 @@ export default function SearchScreen() {
     else if (genderFilter === 'female' || genderFilter === 'male') parts.push(t(`gender.${genderFilter}`));
     if (amenityFilter.length === 1) parts.push(t(`amenities.${amenityFilter[0]}`));
     else if (amenityFilter.length > 1) parts.push(t('search.amenitiesCount', { count: amenityFilter.length }));
+    if (verifiedOnly) parts.push(t('search.verifiedOnly'));
     if (sort === 'rating') parts.push(t('search.sortRating'));
     return parts.join(' · ');
   }, [
@@ -289,6 +311,7 @@ export default function SearchScreen() {
     t,
     universities,
     universityId,
+    verifiedOnly,
   ]);
 
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
@@ -358,7 +381,9 @@ export default function SearchScreen() {
         >
           <Ionicons name={alertOn ? 'notifications' : 'notifications-outline'} size={18} color={colors.primary} />
           <Text style={[styles.alertText, rtlText, { color: colors.text }]}>
-            {alertOn ? t('search.alertOn') : t('search.alertOff')}
+            {alertOn
+              ? `${t('search.alertOn')}${alertSummary ? ` · ${alertSummary}` : ''}`
+              : t('search.alertOff')}
           </Text>
         </Pressable>
       ) : null}
@@ -493,6 +518,17 @@ export default function SearchScreen() {
 
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
             <FilterPills compact value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+
+            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.trust')}</Text>
+            <FilterPills
+              compact
+              value={verifiedOnly ? 'verified' : 'any'}
+              onChange={(next) => setVerifiedOnly(next === 'verified')}
+              items={[
+                { value: 'any', label: t('common.all') },
+                { value: 'verified', label: t('search.verifiedOnly') },
+              ]}
+            />
 
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('listing.amenities')}</Text>
             <FilterPills

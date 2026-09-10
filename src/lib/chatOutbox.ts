@@ -15,6 +15,21 @@ export type ChatOutboxItem = {
   createdAt: string;
 };
 
+type Listener = (count: number) => void;
+const listeners = new Set<Listener>();
+
+function emit(count: number) {
+  listeners.forEach((fn) => fn(count));
+}
+
+export function subscribeOutboxCount(listener: Listener) {
+  listeners.add(listener);
+  void outboxCount().then(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 async function readQueue(): Promise<ChatOutboxItem[]> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
@@ -28,6 +43,7 @@ async function readQueue(): Promise<ChatOutboxItem[]> {
 
 async function writeQueue(items: ChatOutboxItem[]) {
   await AsyncStorage.setItem(KEY, JSON.stringify(items.slice(0, 40)));
+  emit(items.length);
 }
 
 export async function enqueueChatOutbox(item: ChatOutboxItem) {
@@ -36,12 +52,16 @@ export async function enqueueChatOutbox(item: ChatOutboxItem) {
   await writeQueue(queue);
 }
 
-export async function flushChatOutbox() {
+export async function flushChatOutbox(conversationId?: string) {
   const queue = await readQueue();
   if (queue.length === 0) return { sent: 0, left: 0 };
   const remaining: ChatOutboxItem[] = [];
   let sent = 0;
   for (const item of queue) {
+    if (conversationId && item.conversationId !== conversationId) {
+      remaining.push(item);
+      continue;
+    }
     try {
       let imageUrl = item.imageUrl ?? null;
       if (!imageUrl && item.imageUri) {
@@ -57,6 +77,8 @@ export async function flushChatOutbox() {
   return { sent, left: remaining.length };
 }
 
-export async function outboxCount() {
-  return (await readQueue()).length;
+export async function outboxCount(conversationId?: string) {
+  const queue = await readQueue();
+  if (!conversationId) return queue.length;
+  return queue.filter((item) => item.conversationId === conversationId).length;
 }

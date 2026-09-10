@@ -51,13 +51,17 @@ npm run web
 4) SUPABASE SQL (SQL Editor — run in this order)
 ------------------------------------------------
 
-Open each file in the repo, copy all, paste into Supabase → SQL Editor → Run:
+Open each file, copy ALL, paste into Supabase → SQL Editor → Run:
 
 1. supabase/analytics-rate-limits.sql
 2. supabase/push-triggers.sql
+   → Already includes hook URL + secret. NO edits needed.
 3. supabase/product-ops.sql
+   → Uses the same hook from app_settings_secrets. NO edits needed — just run as-is.
+4. supabase/product-ops-v2.sql
+   → max_km alerts, booking-ops status, owner insights v2, private chat-photos. NO edits needed.
 
-Optional check after product-ops.sql:
+Optional check after product-ops:
   select public.run_booking_ops();
 
 ------------------------------------------------

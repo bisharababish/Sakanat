@@ -14,12 +14,13 @@ import { PushPrompt } from '@/components/PushPrompt';
 import { IdleGuard } from '@/src/hooks/useIdleLogout';
 import { isSuspended } from '@/src/lib/moderation';
 import { syncPushToken } from '@/src/lib/push';
-import { routeFromPushData, type PushRouteData } from '@/src/lib/pushRouting';
-import { maybeRunBookingOps } from '@/src/lib/searchAlerts';
+import { routeFromAppUrl, routeFromPushData, type PushRouteData } from '@/src/lib/pushRouting';
+import { maybeRunBookingOps, syncSearchAlertOnLogin } from '@/src/lib/searchAlerts';
 import { flushChatOutbox } from '@/src/lib/chatOutbox';
 import { allowedAppGroup, homeHref } from '@/src/lib/routes';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 import { OnboardingGate } from '@/components/OnboardingGate';
+import * as Linking from 'expo-linking';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -111,7 +112,20 @@ function SessionGuard({ children }: { children: ReactNode }) {
     void syncPushToken(profile.id);
     void maybeRunBookingOps();
     void flushChatOutbox();
+    void syncSearchAlertOnLogin();
   }, [profile, signOut]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let sub: { remove: () => void } | undefined;
+    void Linking.getInitialURL().then((url) => {
+      if (url) routeFromAppUrl(url, profile.role);
+    });
+    sub = Linking.addEventListener('url', ({ url }) => {
+      routeFromAppUrl(url, profile.role);
+    });
+    return () => sub?.remove();
+  }, [profile?.id, profile?.role]);
 
   useEffect(() => {
     if (!profile?.id || profile.role === 'admin') return;

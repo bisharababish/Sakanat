@@ -30,6 +30,7 @@ import { useAuth } from '@/src/lib/auth';
 import { MAX_OCCUPANTS } from '@/src/lib/booking';
 import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { listingShareUrl } from '@/src/lib/pushRouting';
 import { whatsappLink } from '@/src/lib/phone';
 import { loadApartmentReviews } from '@/src/lib/reviews';
 import { radius, spacing } from '@/src/theme/colors';
@@ -176,13 +177,16 @@ export function ApartmentView({
   const city = localizedName(apartment.cities, i18n.language);
   const shareListing = async () => {
     try {
+      const link = listingShareUrl(apartment.id);
       await Share.share({
         message: t('listing.shareMessage', {
           title: localizedTitle(apartment, i18n.language),
           city: city || t('listing.location'),
           price: formatIls(apartment.price_month, lang),
           name: t('appName'),
+          link,
         }),
+        url: link,
       });
     } catch {
       // user dismissed the sheet

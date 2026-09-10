@@ -31,14 +31,32 @@ import {
   sendMessage,
   type MessageReceipt,
 } from '@/src/lib/chat';
-import { enqueueChatOutbox, flushChatOutbox } from '@/src/lib/chatOutbox';
+import { enqueueChatOutbox, flushChatOutbox, subscribeOutboxCount } from '@/src/lib/chatOutbox';
 import { pickChatPhoto } from '@/src/lib/pickImage';
-import { uploadChatPhoto } from '@/src/lib/upload';
+import { chatPhotoUrl, uploadChatPhoto } from '@/src/lib/upload';
 import { logAdminAction } from '@/src/lib/audit';
 import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation, Message } from '@/src/types/database';
+
+function ChatBubbleImage({ pathOrUrl }: { pathOrUrl: string }) {
+  const colors = useColors();
+  const [uri, setUri] = useState<string | null>(pathOrUrl.startsWith('http') || pathOrUrl.startsWith('file:') ? pathOrUrl : null);
+  useEffect(() => {
+    let alive = true;
+    void chatPhotoUrl(pathOrUrl).then((next) => {
+      if (alive) setUri(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pathOrUrl]);
+  if (!uri) {
+    return <View style={[styles.bubbleImage, { backgroundColor: colors.surfaceMuted }]} />;
+  }
+  return <Image source={{ uri }} style={styles.bubbleImage} contentFit="cover" />;
+}
 
 function dayKey(iso: string) {
   const date = new Date(iso);
@@ -106,8 +124,13 @@ export function ChatThread({
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [outboxLeft, setOutboxLeft] = useState(0);
   const listRef = useRef<FlatList<ThreadItem>>(null);
   const asOwner = profile?.role === 'owner';
+
+  useEffect(() => {
+    return subscribeOutboxCount((count) => setOutboxLeft(count));
+  }, []);
 
   const loadMessages = useCallback(async () => {
     const { data } = await supabase
@@ -195,10 +218,10 @@ export function ChatThread({
 
   useEffect(() => {
     if (readOnly) return;
-    void flushChatOutbox().then((result) => {
+    void flushChatOutbox(conversationId).then((result) => {
       if (result.sent > 0) void loadMessages();
     });
-  }, [loadMessages, readOnly]);
+  }, [conversationId, loadMessages, readOnly]);
 
   useEffect(() => {
     if (!profile?.id || readOnly) return;
@@ -287,6 +310,22 @@ export function ChatThread({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
+      {!readOnly && outboxLeft > 0 ? (
+        <Pressable
+          onPress={() => {
+            void flushChatOutbox(conversationId).then((result) => {
+              if (result.sent > 0) void loadMessages();
+            });
+          }}
+          style={[styles.outboxBanner, row, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
+        >
+          <Ionicons name="cloud-upload-outline" size={16} color={colors.warning} />
+          <Text style={[styles.outboxText, { color: colors.text }]}>
+            {t('chat.outboxPending', { count: outboxLeft })}
+          </Text>
+          <Text style={[styles.outboxRetry, { color: colors.primary }]}>{t('chat.outboxRetry')}</Text>
+        </Pressable>
+      ) : null}
       <FlatList
         ref={listRef}
         data={items}
@@ -368,13 +407,7 @@ export function ChatThread({
                       },
                 ]}
               >
-                {item.image_url ? (
-                  <Image
-                    source={{ uri: item.image_url }}
-                    style={styles.bubbleImage}
-                    contentFit="cover"
-                  />
-                ) : null}
+                {item.image_url ? <ChatBubbleImage pathOrUrl={item.image_url} /> : null}
                 {item.body && !(item.image_url && item.body === t('chat.photoMessage')) ? (
                   <Text
                     style={[
@@ -544,4 +577,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  outboxBanner: {
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  outboxText: { flex: 1, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
+  outboxRetry: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
 });

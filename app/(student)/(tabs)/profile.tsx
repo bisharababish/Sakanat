@@ -270,7 +270,11 @@ export default function StudentProfileScreen() {
   const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
-  const { resumeBook, tab: tabParam } = useLocalSearchParams<{ resumeBook?: string; tab?: string }>();
+  const { resumeBook, tab: tabParam, reportId } = useLocalSearchParams<{
+    resumeBook?: string;
+    tab?: string;
+    reportId?: string;
+  }>();
   const resumeId = typeof resumeBook === 'string' ? resumeBook : undefined;
   const { cities, universities } = useCatalog();
   const today = useToday();
@@ -1110,6 +1114,7 @@ export default function StudentProfileScreen() {
       {tab === 'settings' && profile ? (
         <ProfileSettingsFields
           profile={profile}
+          highlightReportId={reportId ? String(reportId) : null}
           onSaved={async () => {
             await refreshProfile();
           }}

@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -36,6 +36,7 @@ export default function StudentBookings() {
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
+  const { focus, review } = useLocalSearchParams<{ focus?: string; review?: string }>();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<ApartmentReview[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -46,6 +47,7 @@ export default function StudentBookings() {
   const [reviewNote, setReviewNote] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -73,6 +75,24 @@ export default function StudentBookings() {
     () => Object.fromEntries(reviews.map((item) => [item.booking_id, item])),
     [reviews],
   );
+
+  const needsReview = useMemo(
+    () => bookings.filter((item) => canReviewStay(item) && !reviewByBooking[item.id]),
+    [bookings, reviewByBooking],
+  );
+
+  useEffect(() => {
+    if (!focus && !review) return;
+    const id = String(review || focus);
+    setHighlightId(id);
+    const target = bookings.find((item) => item.id === id);
+    if (target && canReviewStay(target) && !reviewByBooking[target.id]) {
+      setReviewing(target);
+      setReviewStars(5);
+      setReviewNote('');
+      setReviewError('');
+    }
+  }, [bookings, focus, review, reviewByBooking]);
 
   const counts = useMemo(() => {
     const next: Record<Filter, number> = {
@@ -209,9 +229,23 @@ export default function StudentBookings() {
         ) : null}
       </View>
 
-      {bookings.some((item) => canReviewStay(item) && !reviewByBooking[item.id]) ? (
+      {needsReview.length > 0 ? (
         <View style={[styles.warn, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
-          <Text style={[styles.warnText, rtlText, { color: colors.text }]}>{t('review.neededBody')}</Text>
+          <Text style={[styles.warnText, rtlText, { color: colors.text }]}>
+            {t('review.nudgeInApp', { count: needsReview.length })}
+          </Text>
+          <Button
+            title={t('review.goWrite')}
+            pill
+            onPress={() => {
+              const first = needsReview[0];
+              setHighlightId(first.id);
+              setReviewing(first);
+              setReviewStars(5);
+              setReviewNote('');
+              setReviewError('');
+            }}
+          />
         </View>
       ) : null}
 

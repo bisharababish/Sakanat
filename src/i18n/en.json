@@ -357,7 +357,9 @@
     "hideFilters": "Hide filters",
     "sort": "Sort",
     "empty": "No matching apartments yet. Try another city or a higher price.",
-    "emptyHint": "Clear some filters to see more places."
+    "emptyHint": "Clear some filters to see more places.",
+    "verifiedOnly": "Verified owners",
+    "trust": "Trust"
   },
   "listing": {
     "details": "Listing details",
@@ -390,7 +392,7 @@
     "verifiedOwner": "Verified owner",
     "similarHint": "Other approved places like this one.",
     "share": "Share listing",
-    "shareMessage": "{{title}} in {{city}} · {{price}} / month\n{{name}}"
+    "shareMessage": "{{title}} in {{city}} · {{price}} / month\n{{name}}\n{{link}}"
   },
   "booking": {
     "title": "Confirm booking",
@@ -414,6 +416,7 @@
     "paidOk": "Marked as paid (simulated).",
     "empty": "You have no bookings yet.",
     "emptyFiltered": "No bookings in this status.",
+    "pendingExpire": "Auto-expires in about {{hours}} hours if you don’t reply",
     "statusFilter": "Status",
     "findPlace": "Find a place",
     "incoming": "Booking requests",
@@ -554,6 +557,8 @@
     "photosShort": "photos",
     "insightsViews": "{{count}} views",
     "insightsSaves": "{{count}} saves",
+    "insightsChats": "{{count}} chats",
+    "insightsBookings": "{{count}} books",
     "profileReady": "Ready to list",
     "mfaNudge": "Turn on Google Authenticator to protect your owner account.",
     "mfaNudgeAction": "Open security"
@@ -597,6 +602,8 @@
     "photoMessage": "Photo",
     "photoPermission": "Allow photo library access to send images in chat.",
     "photoTooLarge": "That photo is too large. Pick a smaller one.",
+    "outboxPending": "{{count}} message(s) waiting to send",
+    "outboxRetry": "Retry",
     "reportUser": "Report this chat",
     "reportHint": "Describe what {{name}} did. This goes to trust and safety with this chat linked.",
     "reportPrefill": "Reported user: {{name}}\nListing: {{listing}}",
@@ -817,6 +824,15 @@
     "exportReportsCsv": "Export reports CSV",
     "exportReviewsCsv": "Export reviews CSV",
     "exportDone": "Exported {{count}} rows",
+    "opsTitle": "Booking ops",
+    "opsHint": "Remind pending owners, expire stale requests, auto-complete stays, nudge reviews. Run product-ops.sql first.",
+    "opsCron": "Hourly cron: {{status}}",
+    "opsCronOn": "scheduled",
+    "opsCronOff": "not found (run SQL; app still runs ops when opened)",
+    "opsLast": "Last run: {{at}}",
+    "opsRun": "Run booking ops now",
+    "opsDone": "Reminded {{reminded}} · expired {{expired}} · completed {{completed}} · nudged {{nudged}}",
+    "opsFailed": "Could not run ops. Apply product-ops.sql / product-ops-v2.sql.",
     "broadcastTitle": "Broadcast push",
     "broadcastHint": "Send a one-shot Expo push to people with tokens and booking alerts on.",
     "broadcastSubject": "Title",
@@ -1150,6 +1166,7 @@
     "failed": "Could not save the review. Try again.",
     "neededTitle": "Review your stay first",
     "neededBody": "Write a review for a place you already stayed before you book another apartment.",
+    "nudgeInApp": "You have {{count}} stay(s) ready for a review.",
     "goWrite": "Write review",
     "report": "Report review",
     "reportDetails": "Why is this review a problem?",

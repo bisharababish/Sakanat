@@ -16,6 +16,29 @@ export type SearchAlertPrefs = {
 
 export async function loadSearchAlertPrefs(): Promise<SearchAlertPrefs> {
   try {
+    const { data, error } = await supabase.rpc('get_search_alert');
+    if (!error && Array.isArray(data) && data[0]) {
+      const row = data[0] as {
+        enabled: boolean;
+        university_id?: string | null;
+        city_id?: string | null;
+        max_price?: number | null;
+        max_km?: number | null;
+      };
+      const prefs: SearchAlertPrefs = {
+        enabled: Boolean(row.enabled),
+        universityId: row.university_id || undefined,
+        cityId: row.city_id || undefined,
+        maxPrice: row.max_price != null ? Number(row.max_price) : null,
+        maxKm: row.max_km != null ? Number(row.max_km) : null,
+      };
+      await AsyncStorage.setItem(KEY, JSON.stringify(prefs));
+      return prefs;
+    }
+  } catch {
+    // Fall back to local.
+  }
+  try {
     const raw = await AsyncStorage.getItem(KEY);
     if (!raw) return { enabled: false };
     return { enabled: false, ...JSON.parse(raw) } as SearchAlertPrefs;
@@ -36,6 +59,17 @@ export async function saveSearchAlertPrefs(prefs: SearchAlertPrefs) {
     });
   } catch {
     // Local prefs still work if SQL not applied yet.
+  }
+}
+
+export async function syncSearchAlertOnLogin() {
+  try {
+    const prefs = await loadSearchAlertPrefs();
+    if (prefs.enabled) {
+      await saveSearchAlertPrefs(prefs);
+    }
+  } catch {
+    // optional
   }
 }
 
@@ -64,4 +98,35 @@ export async function maybeRunBookingOps() {
   } catch {
     // Optional until product-ops.sql is applied.
   }
+}
+
+export async function runBookingOpsNow() {
+  const { data, error } = await supabase.rpc('run_booking_ops');
+  if (error) throw error;
+  await AsyncStorage.setItem(OPS_KEY, String(Date.now()));
+  return data as {
+    reminded?: number;
+    expired?: number;
+    completed?: number;
+    nudged?: number;
+  };
+}
+
+export async function loadBookingOpsStatus() {
+  const { data, error } = await supabase.rpc('booking_ops_status');
+  if (error) throw error;
+  return data as {
+    cronScheduled?: boolean;
+    lastAt?: string | null;
+    lastResult?: Record<string, number> | null;
+  };
+}
+
+/** Hours left before pending auto-expire (5 days). */
+export function pendingExpireHoursLeft(createdAt: string, now = Date.now()) {
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return null;
+  const expireAt = created + 5 * 24 * 60 * 60 * 1000;
+  const left = Math.max(0, expireAt - now);
+  return Math.ceil(left / (60 * 60 * 1000));
 }

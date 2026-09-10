@@ -357,7 +357,9 @@
     "hideFilters": "إخفاء التصفية",
     "sort": "الترتيب",
     "empty": "لا توجد شقق مطابقة الآن. جرّب مدينة أخرى أو سعراً أعلى.",
-    "emptyHint": "امسح بعض المرشحات لترى المزيد."
+    "emptyHint": "امسح بعض المرشحات لترى المزيد.",
+    "verifiedOnly": "ملاك موثّقون",
+    "trust": "الثقة"
   },
   "listing": {
     "details": "تفاصيل السكن",
@@ -390,7 +392,7 @@
     "verifiedOwner": "مالك موثّق",
     "similarHint": "أماكن معتمدة مشابهة لهذا.",
     "share": "مشاركة السكن",
-    "shareMessage": "{{title}} في {{city}} · {{price}} شهرياً\n{{name}}"
+    "shareMessage": "{{title}} في {{city}} · {{price}} شهرياً\n{{name}}\n{{link}}"
   },
   "booking": {
     "title": "تأكيد الحجز",
@@ -414,6 +416,7 @@
     "paidOk": "عُلّم مدفوعاً (تجريبي).",
     "empty": "ليس لديك حجوزات بعد.",
     "emptyFiltered": "لا توجد حجوزات بهذه الحالة.",
+    "pendingExpire": "ينتهي تلقائياً خلال حوالي {{hours}} ساعة إن لم ترد",
     "statusFilter": "الحالة",
     "findPlace": "ابحث عن سكن",
     "incoming": "طلبات الحجز",
@@ -554,6 +557,8 @@
     "photosShort": "صور",
     "insightsViews": "{{count}} مشاهدة",
     "insightsSaves": "{{count}} حفظ",
+    "insightsChats": "{{count}} محادثات",
+    "insightsBookings": "{{count}} حجوزات",
     "profileReady": "جاهز للإعلان",
     "mfaNudge": "فعّل Google Authenticator لحماية حساب المالك.",
     "mfaNudgeAction": "فتح الأمان"
@@ -597,6 +602,8 @@
     "photoMessage": "صورة",
     "photoPermission": "اسمح بالوصول للصور لإرسالها في المحادثة.",
     "photoTooLarge": "الصورة كبيرة جداً. اختر صورة أصغر.",
+    "outboxPending": "{{count}} رسالة بانتظار الإرسال",
+    "outboxRetry": "إعادة المحاولة",
     "reportUser": "الإبلاغ عن هذه المحادثة",
     "reportHint": "صف ما فعله {{name}}. يُرسل لفريق الأمان مع ربط هذه المحادثة.",
     "reportPrefill": "المُبلَغ عنه: {{name}}\nالشقة: {{listing}}",
@@ -817,6 +824,15 @@
     "exportReportsCsv": "تصدير بلاغات CSV",
     "exportReviewsCsv": "تصدير تقييمات CSV",
     "exportDone": "تم تصدير {{count}} صفاً",
+    "opsTitle": "عمليات الحجوزات",
+    "opsHint": "تذكير الملاك، إنهاء الطلبات القديمة، إكمال الإقامات، وتنبيه التقييم. نفّذ product-ops.sql أولاً.",
+    "opsCron": "جدولة كل ساعة: {{status}}",
+    "opsCronOn": "مفعّلة",
+    "opsCronOff": "غير موجودة (نفّذ SQL؛ التطبيق يشغّل العمليات عند الفتح)",
+    "opsLast": "آخر تشغيل: {{at}}",
+    "opsRun": "تشغيل عمليات الحجوزات الآن",
+    "opsDone": "تذكير {{reminded}} · منتهي {{expired}} · مكتمل {{completed}} · تنبيه تقييم {{nudged}}",
+    "opsFailed": "تعذر التشغيل. طبّق product-ops.sql / product-ops-v2.sql.",
     "broadcastTitle": "إشعار جماعي",
     "broadcastHint": "أرسل إشعار Expo مرة واحدة لمن لديهم رمز وتنبيهات الحجز مفعّلة.",
     "broadcastSubject": "العنوان",
@@ -1148,6 +1164,7 @@
     "failed": "تعذر حفظ التقييم. حاول مرة أخرى.",
     "neededTitle": "قيّم سكنك أولاً",
     "neededBody": "اكتب تقييماً لمكان سكنت فيه قبل أن تحجز شقة أخرى.",
+    "nudgeInApp": "لديك {{count}} إقامة/إقامات جاهزة للتقييم.",
     "goWrite": "اكتب التقييم",
     "report": "الإبلاغ عن التقييم",
     "reportDetails": "لماذا هذا التقييم مشكلة؟",

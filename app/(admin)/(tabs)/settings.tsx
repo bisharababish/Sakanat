@@ -37,11 +37,12 @@ import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFro
 import { sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
 import { broadcastPush } from '@/src/lib/push';
+import { loadBookingOpsStatus, runBookingOpsNow } from '@/src/lib/searchAlerts';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { PersonGender, Profile } from '@/src/types/database';
+import type { PersonGender, Profile, UserRole } from '@/src/types/database';
 
 type ProfileTab = 'account' | 'security' | 'settings';
 
@@ -163,6 +164,12 @@ export default function AdminSettings() {
   const [uploading, setUploading] = useState(false);
   const [savingCommission, setSavingCommission] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [opsRunning, setOpsRunning] = useState(false);
+  const [opsStatus, setOpsStatus] = useState<{
+    cronScheduled?: boolean;
+    lastAt?: string | null;
+    lastResult?: Record<string, number> | null;
+  } | null>(null);
   const [broadcasting, setBroadcasting] = useState(false);
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastBody, setBroadcastBody] = useState('');
@@ -184,6 +191,9 @@ export default function AdminSettings() {
   useFocusEffect(
     useCallback(() => {
       void pending.refresh();
+      void loadBookingOpsStatus()
+        .then(setOpsStatus)
+        .catch(() => setOpsStatus(null));
     }, [pending.refresh]),
   );
 
@@ -390,6 +400,29 @@ export default function AdminSettings() {
       setAdminEmail(email);
       void logAdminAction('settings.update', { detail: { commission_percent: value, admin_email: email } });
       alert(t('common.done'));
+    }
+  };
+
+  const runOps = async () => {
+    setOpsRunning(true);
+    try {
+      const result = await runBookingOpsNow();
+      void logAdminAction('ops.booking_run', { detail: result });
+      const status = await loadBookingOpsStatus().catch(() => null);
+      setOpsStatus(status);
+      alert(
+        t('common.done'),
+        t('admin.opsDone', {
+          reminded: result.reminded ?? 0,
+          expired: result.expired ?? 0,
+          completed: result.completed ?? 0,
+          nudged: result.nudged ?? 0,
+        }),
+      );
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('admin.opsFailed'));
+    } finally {
+      setOpsRunning(false);
     }
   };
 
@@ -663,6 +696,29 @@ export default function AdminSettings() {
               onPress={() => void saveCommission()}
               loading={savingCommission}
               pill
+            />
+          </Card>
+
+          <Card compact>
+            <SectionHead compact icon="timer-outline" title={t('admin.opsTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.opsHint')}</Text>
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+              {t('admin.opsCron', {
+                status: opsStatus?.cronScheduled ? t('admin.opsCronOn') : t('admin.opsCronOff'),
+              })}
+            </Text>
+            {opsStatus?.lastAt ? (
+              <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+                {t('admin.opsLast', {
+                  at: new Date(opsStatus.lastAt).toLocaleString(i18n.language.startsWith('ar') ? 'ar' : 'en'),
+                })}
+              </Text>
+            ) : null}
+            <Button
+              title={t('admin.opsRun')}
+              pill
+              loading={opsRunning}
+              onPress={() => void runOps()}
             />
           </Card>
 

@@ -19,6 +19,7 @@ export type SearchFilters = {
   university?: University | null;
   lang?: string;
   isRenter?: boolean;
+  verifiedOnly?: boolean;
 };
 
 /** Server filters what Postgres can do; distance/text refined on the client. */
@@ -70,6 +71,10 @@ export function refineListings(apartments: Apartment[], filters: SearchFilters) 
     item,
     distance: listingDistanceKm(item, uni, uni ? null : item.cities),
   }));
+
+  if (filters.verifiedOnly) {
+    rows = rows.filter((entry) => entry.item.profiles?.id_verify_status === 'approved');
+  }
 
   if (needle) {
     rows = rows.filter((entry) => {

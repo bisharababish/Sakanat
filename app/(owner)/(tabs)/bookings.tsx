@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +28,7 @@ import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { whatsappLink } from '@/src/lib/phone';
 import { canShowSeekerContact } from '@/src/lib/privacy';
 import { notifyUser } from '@/src/lib/push';
+import { pendingExpireHoursLeft } from '@/src/lib/searchAlerts';
 import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -43,6 +44,7 @@ export default function OwnerBookings() {
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
   const today = useToday();
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [page, setPage] = useState(0);
@@ -52,6 +54,12 @@ export default function OwnerBookings() {
   const [rejectingBusy, setRejectingBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focus) return;
+    setOpenId(String(focus));
+    setFilter('all');
+  }, [focus]);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -286,6 +294,13 @@ export default function OwnerBookings() {
                   </Text>
                 ) : null}
 
+                {booking.status === 'pending' ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.warning }]}>
+                    {t('booking.pendingExpire', {
+                      hours: pendingExpireHoursLeft(booking.created_at) ?? 0,
+                    })}
+                  </Text>
+                ) : null}
                 {booking.status === 'pending' ? (
                   <View style={styles.actions}>
                     <View style={styles.flex}>

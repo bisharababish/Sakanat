@@ -34,7 +34,9 @@ export default function OwnerListings() {
   const colors = useColors();
   const { profile } = useAuth();
   const [listings, setListings] = useState<Apartment[]>([]);
-  const [stats, setStats] = useState<Record<string, { views: number; saves: number }>>({});
+  const [stats, setStats] = useState<
+    Record<string, { views: number; saves: number; chats: number; bookings: number }>
+  >({});
   const [filter, setFilter] = useState<Filter>('all');
   const [openId, setOpenId] = useState<string | null>(null);
   const [mfaOn, setMfaOn] = useState(true);
@@ -65,9 +67,20 @@ export default function OwnerListings() {
     setListings((data as Apartment[]) ?? []);
     try {
       const { data: rows } = await supabase.rpc('owner_listing_stats');
-      const next: Record<string, { views: number; saves: number }> = {};
-      for (const row of (rows as { apartment_id: string; views: number; saves: number }[]) ?? []) {
-        next[row.apartment_id] = { views: Number(row.views) || 0, saves: Number(row.saves) || 0 };
+      const next: Record<string, { views: number; saves: number; chats: number; bookings: number }> = {};
+      for (const row of (rows as {
+        apartment_id: string;
+        views: number;
+        saves: number;
+        chats?: number;
+        bookings?: number;
+      })[] ?? []) {
+        next[row.apartment_id] = {
+          views: Number(row.views) || 0,
+          saves: Number(row.saves) || 0,
+          chats: Number(row.chats) || 0,
+          bookings: Number(row.bookings) || 0,
+        };
       }
       setStats(next);
     } catch {
@@ -298,7 +311,7 @@ export default function OwnerListings() {
                   {formatIls(item.price_month, i18n.language)} · {item.photos?.length ?? 0}{' '}
                   {t('owner.photosShort')}
                   {stats[item.id]
-                    ? ` · ${t('owner.insightsViews', { count: stats[item.id].views })} · ${t('owner.insightsSaves', { count: stats[item.id].saves })}`
+                    ? ` · ${t('owner.insightsViews', { count: stats[item.id].views })} · ${t('owner.insightsSaves', { count: stats[item.id].saves })} · ${t('owner.insightsChats', { count: stats[item.id].chats })} · ${t('owner.insightsBookings', { count: stats[item.id].bookings })}`
                     : ''}
                 </Text>
               </View>

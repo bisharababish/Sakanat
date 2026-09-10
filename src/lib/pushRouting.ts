@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 
 import type { UserRole } from '@/src/types/database';
 
@@ -10,13 +11,24 @@ export type PushRouteData = {
   reportId?: string;
 };
 
+export function listingShareUrl(apartmentId: string) {
+  return Linking.createURL(`apartment/${apartmentId}`);
+}
+
 export function routeFromPushData(data: PushRouteData | null | undefined, role?: UserRole | null) {
-  if (!data?.kind || !role || role === 'admin') {
-    if (data?.kind === 'report' && role === 'admin') {
+  if (!data?.kind || !role) {
+    if (data?.apartmentId) {
+      router.push({ pathname: '/(student)/apartment/[id]', params: { id: data.apartmentId } });
+    }
+    return;
+  }
+
+  if (role === 'admin') {
+    if (data.kind === 'report') {
       router.push('/(admin)/reports');
       return;
     }
-    if (role === 'admin') return;
+    return;
   }
 
   const kind = data.kind;
@@ -30,26 +42,73 @@ export function routeFromPushData(data: PushRouteData | null | undefined, role?:
   }
 
   if (kind === 'booking') {
-    if (role === 'owner') router.push('/(owner)/(tabs)/bookings');
-    else router.push('/(student)/(tabs)/bookings');
+    if (role === 'owner') {
+      router.push({
+        pathname: '/(owner)/(tabs)/bookings',
+        params: data.bookingId ? { focus: data.bookingId } : undefined,
+      });
+    } else {
+      router.push({
+        pathname: '/(student)/(tabs)/bookings',
+        params: data.bookingId ? { focus: data.bookingId, review: data.bookingId } : undefined,
+      });
+    }
     return;
   }
 
   if ((kind === 'listing' || kind === 'review') && data.apartmentId) {
     if (role === 'owner') {
       router.push({ pathname: '/(owner)/apartment/[id]', params: { id: data.apartmentId } });
+    } else if (kind === 'review' && data.bookingId) {
+      router.push({
+        pathname: '/(student)/(tabs)/bookings',
+        params: { focus: data.bookingId, review: data.bookingId },
+      });
     } else {
-      router.push({ pathname: '/(student)/apartment/[id]', params: { id: data.apartmentId } });
+      router.push({
+        pathname: '/(student)/apartment/[id]',
+        params: { id: data.apartmentId, focus: kind === 'review' ? 'reviews' : undefined },
+      });
     }
     return;
   }
 
   if (kind === 'review') {
-    router.push('/(student)/(tabs)/bookings');
+    router.push({
+      pathname: '/(student)/(tabs)/bookings',
+      params: data.bookingId ? { focus: data.bookingId, review: data.bookingId } : undefined,
+    });
     return;
   }
 
   if (kind === 'report') {
-    router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'settings' } });
+    router.push({
+      pathname: '/(student)/(tabs)/profile',
+      params: { tab: 'settings', reportId: data.reportId || '' },
+    });
   }
+}
+
+/** Handle sakanat://apartment/{id} (and exp://…/apartment/{id}) share links. */
+export function routeFromAppUrl(url: string | null | undefined, role?: UserRole | null) {
+  if (!url) return false;
+  try {
+    const parsed = Linking.parse(url);
+    const parts = (parsed.path ?? '').split('/').filter(Boolean);
+    const aptIdx = parts.findIndex((p) => p === 'apartment');
+    if (aptIdx >= 0 && parts[aptIdx + 1]) {
+      const id = parts[aptIdx + 1];
+      if (role === 'owner') {
+        router.push({ pathname: '/(owner)/apartment/[id]', params: { id } });
+      } else if (role === 'admin') {
+        router.push({ pathname: '/(admin)/apartment/[id]', params: { id } });
+      } else {
+        router.push({ pathname: '/(student)/apartment/[id]', params: { id } });
+      }
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }

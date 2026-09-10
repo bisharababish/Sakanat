@@ -30,6 +30,7 @@ type Props = {
   onSaved: () => void | Promise<void>;
   /** Owners skip seeker housing prefs and saved-count privacy. */
   variant?: 'seeker' | 'owner';
+  highlightReportId?: string | null;
 };
 
 function ToggleRow({
@@ -61,7 +62,12 @@ function ToggleRow({
   );
 }
 
-export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: Props) {
+export function ProfileSettingsFields({
+  profile,
+  onSaved,
+  variant = 'seeker',
+  highlightReportId,
+}: Props) {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
@@ -447,7 +453,14 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
             reports.map((item) => (
               <View
                 key={item.id}
-                style={[styles.reportRow, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+                style={[
+                  styles.reportRow,
+                  {
+                    backgroundColor:
+                      highlightReportId === item.id ? colors.accentSoft : colors.surfaceMuted,
+                    borderColor: highlightReportId === item.id ? colors.accent : colors.border,
+                  },
+                ]}
               >
                 <View style={[styles.reportHead, row]}>
                   <Text style={[styles.reportKind, rtlText, { color: colors.primary }]}>
