@@ -7,7 +7,15 @@ export default function AdminLayout() {
   const colors = useColors();
   return (
     <AdminPendingProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+          animation: 'ios_from_right',
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      />
     </AdminPendingProvider>
   );
 }

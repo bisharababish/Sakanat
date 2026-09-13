@@ -1,13 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
+import { HubRow } from '@/components/ui/HubRow';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -62,21 +64,35 @@ export default function SearchScreen() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [alertOn, setAlertOn] = useState(false);
-  const [alertSummary, setAlertSummary] = useState('');
   const [loadError, setLoadError] = useState('');
+  const alertHydrated = useRef(false);
 
   useEffect(() => {
     void loadSearchAlertPrefs().then((prefs) => {
       setAlertOn(Boolean(prefs.enabled));
-      const bits = [
-        prefs.universityId ? 'uni' : '',
-        prefs.cityId ? 'city' : '',
-        prefs.maxPrice != null ? `₪${prefs.maxPrice}` : '',
-        prefs.maxKm != null ? `${prefs.maxKm}km` : '',
-      ].filter(Boolean);
-      setAlertSummary(bits.join(' · '));
+      if (prefs.enabled) {
+        if (prefs.cityId) setCityId(prefs.cityId);
+        if (prefs.universityId) setUniversityId(prefs.universityId);
+        setMaxPrice(prefs.maxPrice != null ? String(prefs.maxPrice) : '');
+        setMaxKm(prefs.maxKm != null ? String(prefs.maxKm) : '');
+      }
+      alertHydrated.current = true;
     });
   }, []);
+
+  useEffect(() => {
+    if (!profile || !alertOn || !alertHydrated.current) return;
+    const timer = setTimeout(() => {
+      void saveSearchAlertPrefs({
+        enabled: true,
+        universityId: universityId || undefined,
+        cityId: cityId || undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : null,
+        maxKm: maxKm ? Number(maxKm) : null,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [alertOn, cityId, maxKm, maxPrice, profile, universityId]);
 
   useEffect(() => {
     if (isRenter) {
@@ -208,13 +224,6 @@ export default function SearchScreen() {
       maxPrice: maxPrice ? Number(maxPrice) : null,
       maxKm: maxKm ? Number(maxKm) : null,
     });
-    const bits = [
-      universityId ? 'uni' : '',
-      cityId ? 'city' : '',
-      maxPrice ? `₪${maxPrice}` : '',
-      maxKm ? `${maxKm}km` : '',
-    ].filter(Boolean);
-    setAlertSummary(bits.join(' · '));
     if (next) {
       await saveSeenListingIds(apartments.map((item) => item.id));
       alert(t('common.done'), t('search.alertEnabled'));
@@ -314,6 +323,21 @@ export default function SearchScreen() {
     verifiedOnly,
   ]);
 
+  const alertSummary = useMemo(() => {
+    const parts: string[] = [];
+    const city = cities.find((item) => item.id === cityId);
+    if (city) parts.push(localizedName(city, i18n.language));
+    if (!isRenter && universityId) {
+      const campus = universities.find((item) => item.id === universityId);
+      if (campus) parts.push(localizedName(campus, i18n.language));
+    }
+    if (maxPrice) parts.push(`₪${maxPrice}`);
+    if (maxKm) {
+      parts.push(maxKm === String(UNDER_ONE_KM) ? t('common.under1km') : `${maxKm} ${t('common.km')}`);
+    }
+    return parts.join(' · ');
+  }, [cities, cityId, i18n.language, isRenter, maxKm, maxPrice, t, universities, universityId]);
+
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
   const genderItems = [
     ...(profile?.gender ? [{ value: 'suitable' as const, label: t('search.suitable') }] : []),
@@ -329,7 +353,13 @@ export default function SearchScreen() {
   ];
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      back={filtersOpen}
+      onBack={() => setFiltersOpen(false)}
+    >
+      <ProfileEnter scene="search" enterOnMount>
       <OfflineBanner />
       <View style={styles.head}>
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.search')}</Text>
@@ -367,63 +397,47 @@ export default function SearchScreen() {
         ) : null}
       </View>
 
-      {profile ? (
-        <Pressable
-          onPress={() => void toggleSearchAlert()}
-          style={[
-            styles.alertRow,
-            {
-              backgroundColor: alertOn ? colors.accentSoft : colors.surface,
-              borderColor: alertOn ? colors.accent : colors.border,
-            },
-            row,
-          ]}
-        >
-          <Ionicons name={alertOn ? 'notifications' : 'notifications-outline'} size={18} color={colors.primary} />
-          <Text style={[styles.alertText, rtlText, { color: colors.text }]}>
-            {alertOn
-              ? `${t('search.alertOn')}${alertSummary ? ` · ${alertSummary}` : ''}`
-              : t('search.alertOff')}
-          </Text>
-        </Pressable>
-      ) : null}
+      <View style={styles.hub}>
+        <HubRow
+          icon="options-outline"
+          label={t('search.filters')}
+          hint={filterSummary || t(filtersOpen ? 'search.hideFilters' : 'search.showFilters')}
+          onPress={() => setFiltersOpen((open) => !open)}
+          trailing={
+            <Ionicons
+              name={filtersOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textMuted}
+            />
+          }
+        />
+        {profile ? (
+          <HubRow
+            icon={alertOn ? 'notifications' : 'notifications-outline'}
+            label={alertOn ? t('search.alertOn') : t('search.alertOff')}
+            hint={alertOn ? alertSummary || undefined : undefined}
+            onPress={() => void toggleSearchAlert()}
+          />
+        ) : null}
+        {profile ? (
+          <HubRow
+            icon="heart-outline"
+            label={t('profile.tabSaved')}
+            hint={t('profile.itemCount', { count: savedIds.length })}
+            onPress={() =>
+              router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'saved' } })
+            }
+          />
+        ) : null}
+      </View>
 
+      {filtersOpen ? (
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={[styles.panelHead, row]}>
-          <Pressable
-            onPress={() => setFiltersOpen((open) => !open)}
-            accessibilityRole="button"
-            accessibilityLabel={filtersOpen ? t('search.hideFilters') : t('search.showFilters')}
-            style={styles.panelHeadCopy}
-          >
-            <Text style={[styles.panelTitle, { color: colors.text }]}>{t('search.filters')}</Text>
-            {!filtersOpen && filterSummary ? (
-              <Text style={[styles.panelSummary, rtlText, { color: colors.textMuted }]} numberOfLines={2}>
-                {filterSummary}
-              </Text>
-            ) : null}
-          </Pressable>
-          <View style={[styles.panelHeadActions, row]}>
-            {filtersOn ? (
-              <Pressable onPress={clearFilters} hitSlop={8}>
-                <Text style={[styles.clear, { color: colors.primary }]}>{t('search.clear')}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => setFiltersOpen((open) => !open)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={filtersOpen ? t('search.hideFilters') : t('search.showFilters')}
-            >
-              <Ionicons
-                name={filtersOpen ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.textMuted}
-              />
+          {filtersOn ? (
+            <Pressable onPress={clearFilters} hitSlop={8} style={{ alignSelf: isRtl ? 'flex-end' : 'flex-start' }}>
+              <Text style={[styles.clear, { color: colors.primary }]}>{t('search.clear')}</Text>
             </Pressable>
-          </View>
-        </View>
-        {filtersOpen ? (
+          ) : null}
           <View style={styles.filtersBody}>
             <View style={[styles.filterGrid, chipAlign]}>
               <View style={styles.filterCell}>
@@ -541,8 +555,8 @@ export default function SearchScreen() {
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
             <FilterPills compact value={sort} onChange={setSort} items={sortItems} />
           </View>
-        ) : null}
       </View>
+      ) : null}
 
       <View style={[styles.metaRow, row]}>
         <View style={[styles.countPill, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
@@ -552,7 +566,20 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {loading ? <ActivityIndicator color={colors.primary} /> : null}
+      {loading ? (
+        <View style={styles.skelWrap}>
+          {[0, 1, 2].map((index) => (
+            <View
+              key={index}
+              style={[styles.skelCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
+              <View style={[styles.skelCover, { backgroundColor: colors.surfaceMuted }]} />
+              <View style={[styles.skelLine, { backgroundColor: colors.surfaceMuted, width: '72%' }]} />
+              <View style={[styles.skelLine, { backgroundColor: colors.surfaceMuted, width: '44%' }]} />
+            </View>
+          ))}
+        </View>
+      ) : null}
       {!loading && loadError ? (
         <EmptyState
           title={t('common.error')}
@@ -629,6 +656,7 @@ export default function SearchScreen() {
           onPage={paged.setPage}
         />
       ) : null}
+      </ProfileEnter>
     </Screen>
   );
 }
@@ -653,6 +681,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     paddingVertical: 6,
   },
+  hub: { gap: 8 },
   alertRow: {
     alignItems: 'center',
     gap: 10,
@@ -668,11 +697,6 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     gap: spacing.xs,
   },
-  panelHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  panelHeadCopy: { flex: 1, minWidth: 0, gap: 1 },
-  panelHeadActions: { alignItems: 'center', gap: 8, flexShrink: 0 },
-  panelTitle: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  panelSummary: { fontSize: 11, lineHeight: 16, fontFamily: 'Cairo_400Regular' },
   panelLabel: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
   filtersBody: { gap: spacing.xs },
   filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
@@ -687,4 +711,14 @@ const styles = StyleSheet.create({
   count: { fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
   clear: { fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
   empty: { gap: spacing.sm },
+  skelWrap: { gap: spacing.sm },
+  skelCard: {
+    borderRadius: 28,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  skelCover: { height: 148, width: '100%' },
+  skelLine: { height: 12, borderRadius: 6, marginHorizontal: spacing.md },
 });

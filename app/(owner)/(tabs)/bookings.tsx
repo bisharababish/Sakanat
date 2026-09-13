@@ -7,8 +7,11 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusFilters } from '@/components/booking/StatusFilters';
+import { EmptyState } from '@/components/EmptyState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
+import { HubRow } from '@/components/ui/HubRow';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -155,6 +158,7 @@ export default function OwnerBookings() {
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+      <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
@@ -167,15 +171,25 @@ export default function OwnerBookings() {
         ) : null}
       </View>
 
+      <HubRow
+        icon="hourglass-outline"
+        label={bookingStatusLabel('pending', t)}
+        hint={t('profile.itemCount', { count: counts.pending })}
+        dot={counts.pending > 0}
+        onPress={() => pickFilter('pending')}
+      />
+      <HubRow
+        icon="home-outline"
+        label={t('tabs.listings')}
+        onPress={() => router.push('/(owner)/(tabs)/listings')}
+      />
+
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
       {filtered.length === 0 ? (
-        <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="calendar-outline" size={28} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>{t('booking.emptyFiltered')}</Text>
-        </View>
+        <EmptyState
+          title={bookings.length === 0 ? t('booking.emptyIncoming') : t('booking.emptyFiltered')}
+        />
       ) : null}
 
       {visible.map((booking) => {
@@ -237,7 +251,14 @@ export default function OwnerBookings() {
         return (
           <View
             key={booking.id}
-            style={[styles.rowCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.rowCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: String(focus) === booking.id ? colors.primary : colors.border,
+                borderWidth: String(focus) === booking.id ? 2 : 1,
+              },
+            ]}
           >
             <Pressable
               onPress={() => setOpenId(open ? null : booking.id)}
@@ -408,21 +429,6 @@ const styles = StyleSheet.create({
   countText: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   actions: { flexDirection: 'row', gap: 8 },
   flex: { flex: 1, minWidth: 0 },
-  emptyBox: {
-    padding: spacing.xl,
-    borderRadius: 24,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-  },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
   rowCard: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
   rowMain: { alignItems: 'center', gap: 10, padding: 10 },
   thumb: { width: 52, height: 52, borderRadius: 12 },

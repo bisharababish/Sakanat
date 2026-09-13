@@ -450,10 +450,21 @@ export function ApartmentView({
           </View>
           <View style={[styles.actions, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
             <View style={styles.action}>
-              <Button title={t('listing.chat')} variant="secondary" onPress={onChat} loading={busy} pill />
+              <Button
+                title={signedIn ? t('listing.chat') : t('listing.chatGuest')}
+                variant="secondary"
+                onPress={onChat}
+                loading={busy}
+                pill
+              />
             </View>
             <View style={styles.action}>
-              <Button title={t('listing.book')} onPress={onBook} pill disabled={mismatch} />
+              <Button
+                title={signedIn ? t('listing.book') : t('listing.bookGuest')}
+                onPress={onBook}
+                pill
+                disabled={mismatch}
+              />
             </View>
           </View>
         </SafeAreaView>

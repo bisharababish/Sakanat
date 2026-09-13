@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
+import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -23,17 +23,31 @@ export default function GuestAccount() {
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('guest.accountTitle')}</Text>
-      <Card>
+      <ProfileEnter scene="guest">
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('guest.accountTitle')}</Text>
         <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('guest.accountBody')}</Text>
-      </Card>
-      <Button title={t('auth.login')} onPress={openLogin} pill />
-      <Button title={t('auth.register')} variant="secondary" onPress={openRegister} pill />
+        <ProfileMenu
+          links={[
+            {
+              key: 'login',
+              icon: 'log-in-outline',
+              label: t('auth.login'),
+              onPress: openLogin,
+            },
+            {
+              key: 'register',
+              icon: 'person-add-outline',
+              label: t('auth.register'),
+              onPress: openRegister,
+            },
+          ]}
+        />
+      </ProfileEnter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   body: { fontSize: 15, lineHeight: 24, fontFamily: 'Cairo_400Regular' },
 });

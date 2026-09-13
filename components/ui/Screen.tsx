@@ -53,7 +53,7 @@ export function Screen({
       contentContainerStyle={[styles.pad, footer ? styles.padWithFooter : null]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
-      automaticallyAdjustKeyboardInsets
+      contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}
       bounces
       alwaysBounceVertical={Boolean(onRefresh)}

@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { type ComponentProps, useEffect, useRef, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Share, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -13,6 +13,7 @@ import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useAuth } from '@/src/lib/auth';
 import { loadActiveStay } from '@/src/lib/booking';
 import { localizedName } from '@/src/lib/format';
@@ -255,6 +256,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     onClose();
   };
 
+  const onEdgeBack = useCallback(() => {
+    if (pane !== 'root') setPane('root');
+    else onClose();
+  }, [onClose, pane]);
+  const edgeBack = useEdgeBack(open, onEdgeBack);
+
   const paneTitle =
     pane === 'faq'
       ? t('menu.faqTitle')
@@ -271,8 +278,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   if (!open) return null;
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.frame}>
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onEdgeBack}>
+      <View style={styles.frame} {...edgeBack}>
         <Animated.View style={[styles.dim, overlayStyle, { backgroundColor: colors.overlay }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.close')} />
         </Animated.View>
@@ -357,7 +364,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       ]}
                     >
                       {profile.avatar_url ? (
-                        <Image source={{ uri: profile.avatar_url }} style={styles.avatar} contentFit="cover" />
+                        <Image
+                          source={{ uri: profile.avatar_url }}
+                          style={styles.avatar}
+                          contentFit="cover"
+                          recyclingKey={profile.avatar_url}
+                        />
                       ) : (
                         <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primary }]}>
                           <Text style={[styles.initials, { color: colors.white }]}>{initials(shownName)}</Text>
@@ -754,10 +766,14 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <Pressable onPress={() => void shareApp()} hitSlop={8}>
                     <Text style={[styles.growthText, { color: colors.textMuted }]}>{t('menu.share')}</Text>
                   </Pressable>
-                  <Text style={[styles.growthDot, { color: colors.border }]}>·</Text>
-                  <Pressable onPress={() => void rateApp()} hitSlop={8}>
-                    <Text style={[styles.growthText, { color: colors.textMuted }]}>{t('menu.rate')}</Text>
-                  </Pressable>
+                  {rateUrl() ? (
+                    <>
+                      <Text style={[styles.growthDot, { color: colors.border }]}>·</Text>
+                      <Pressable onPress={() => void rateApp()} hitSlop={8}>
+                        <Text style={[styles.growthText, { color: colors.textMuted }]}>{t('menu.rate')}</Text>
+                      </Pressable>
+                    </>
+                  ) : null}
                 </View>
               </View>
             ) : null}

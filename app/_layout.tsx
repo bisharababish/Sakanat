@@ -10,6 +10,7 @@ import { MenuProvider } from '@/components/menu/MenuProvider';
 import { AuthProvider, useAuth } from '@/src/lib/auth';
 import i18n, { applyRtl, loadSavedLanguage } from '@/src/i18n';
 import { NoticeProvider } from '@/src/lib/notice';
+import { EdgeBackProvider } from '@/src/hooks/useEdgeBack';
 import { PushPrompt } from '@/components/PushPrompt';
 import { IdleGuard } from '@/src/hooks/useIdleLogout';
 import { isSuspended } from '@/src/lib/moderation';
@@ -67,6 +68,7 @@ export default function RootLayout() {
     <AuthProvider>
       <ThemeProvider>
         <NoticeProvider>
+          <EdgeBackProvider>
           <MenuProvider>
             <ThemedStatusBar />
             <SessionGuard>
@@ -75,6 +77,7 @@ export default function RootLayout() {
               <OnboardingGate />
             </SessionGuard>
           </MenuProvider>
+          </EdgeBackProvider>
         </NoticeProvider>
       </ThemeProvider>
     </AuthProvider>
@@ -93,6 +96,9 @@ function AppStack() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        animation: 'ios_from_right',
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
       }}
     />
   );

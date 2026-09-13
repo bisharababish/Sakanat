@@ -78,23 +78,65 @@ export async function pickIdCardPhoto() {
   return ok ? result.assets[0].uri : null;
 }
 
-export async function pickChatPhoto() {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+async function ensurePermission(
+  get: () => Promise<{ granted: boolean }>,
+  request: () => Promise<{ granted: boolean }>,
+  deniedMessage: string,
+) {
+  const existing = await get();
+  if (existing.granted) return true;
+  const permission = await request();
   if (!permission.granted) {
-    alert(i18n.t('common.error'), i18n.t('chat.photoPermission'));
-    return null;
+    alert(i18n.t('common.error'), deniedMessage);
+    return false;
   }
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images'],
-    quality: 0.7,
-    allowsEditing: false,
-  });
+  return true;
+}
+
+function chatAssetUri(result: ImagePicker.ImagePickerResult) {
   if (result.canceled || !result.assets[0]) return null;
   if (!withinSize(result.assets[0].fileSize)) {
     alert(i18n.t('common.error'), i18n.t('chat.photoTooLarge'));
     return null;
   }
   return result.assets[0].uri;
+}
+
+export async function pickChatPhoto() {
+  const ok = await ensurePermission(
+    () => ImagePicker.getMediaLibraryPermissionsAsync(),
+    () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+    i18n.t('chat.photoPermission'),
+  );
+  if (!ok) return null;
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.7,
+    allowsEditing: false,
+  });
+  return chatAssetUri(result);
+}
+
+export async function takeChatPhoto() {
+  const cameraOk = await ensurePermission(
+    () => ImagePicker.getCameraPermissionsAsync(),
+    () => ImagePicker.requestCameraPermissionsAsync(),
+    i18n.t('chat.cameraPermission'),
+  );
+  if (!cameraOk) return null;
+  // Android / older iOS also need the library to hand back the captured file.
+  const libraryOk = await ensurePermission(
+    () => ImagePicker.getMediaLibraryPermissionsAsync(),
+    () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+    i18n.t('chat.photoPermission'),
+  );
+  if (!libraryOk) return null;
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    quality: 0.7,
+    allowsEditing: false,
+  });
+  return chatAssetUri(result);
 }
 
 export async function pickListingPhotos(remaining: number) {

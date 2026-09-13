@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu/MenuButton';
-import { BackButton } from '@/components/ui/BackButton';
+import { BackButton, goBack } from '@/components/ui/BackButton';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { spacing } from '@/src/theme/colors';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function ChromeBar({ back = false, compactBack = false, showMenu = true, onBack, extra }: Props) {
+  useEdgeBack(back, onBack ?? goBack);
   if (!back && !showMenu && !extra) return null;
 
   return (

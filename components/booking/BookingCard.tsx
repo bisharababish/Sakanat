@@ -22,6 +22,7 @@ type Props = {
   details?: string[];
   warning?: string;
   note?: string;
+  highlighted?: boolean;
   children?: ReactNode;
 };
 
@@ -53,6 +54,7 @@ export function BookingCard({
   details = [],
   warning,
   note,
+  highlighted,
   children,
 }: Props) {
   const { t, i18n } = useTranslation();
@@ -64,7 +66,17 @@ export function BookingCard({
   const people = booking.occupants ?? 1;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: highlighted ? colors.primary : colors.border,
+          borderWidth: highlighted ? 2 : 1,
+          shadowColor: colors.text,
+        },
+      ]}
+    >
       <View style={styles.coverWrap}>
         {photo ? (
           <Image source={{ uri: photo }} style={styles.cover} contentFit="cover" />

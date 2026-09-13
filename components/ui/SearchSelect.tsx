@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -38,6 +39,7 @@ export function SearchSelect({
   const { t } = useTranslation();
   const { rtlText, textAlign, writingDirection, alignStart, isRtl } = useLayout();
   const colors = useColors();
+  const edgeBack = useEdgeBack(open, () => setOpen(false));
   const selected = value ? options.find((option) => option.value === value) : undefined;
   const active = Boolean(value);
   const filtered = useMemo(() => {
@@ -86,7 +88,7 @@ export function SearchSelect({
         ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]} {...edgeBack}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
           <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>

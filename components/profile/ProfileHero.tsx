@@ -59,7 +59,7 @@ export function ProfileHero({
           style={styles.avatarWrap}
         >
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} cachePolicy="none" recyclingKey={avatarUrl} />
           ) : (
             <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
               <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>

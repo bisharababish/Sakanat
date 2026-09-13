@@ -1,3 +1,4 @@
+import i18n from '@/src/i18n';
 import { supabase } from '@/src/lib/supabase';
 import type { ApartmentReview, Booking } from '@/src/types/database';
 
@@ -77,7 +78,7 @@ export async function submitApartmentReview(input: {
     student_id: input.studentId,
     stars: input.stars,
     note,
-    author_name: input.authorName.trim() || 'Student',
+    author_name: input.authorName.trim() || i18n.t('roles.student'),
   };
   if (input.existingId) {
     const { error } = await supabase.from('apartment_reviews').update(row).eq('id', input.existingId);

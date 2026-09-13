@@ -1,4 +1,5 @@
 import { I18nManager, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Chip } from '@/components/ui/Chip';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -28,6 +29,7 @@ export function PhoneField({
   compact,
 }: Props) {
   const { rtlText, alignStart } = useLayout();
+  const { t } = useTranslation();
   const colors = useColors();
   const maxLength = phoneLocalMax(local);
 
@@ -70,7 +72,7 @@ export function PhoneField({
           value={local}
           onChangeText={(value) => onLocalChange(sanitizePhoneLocal(value))}
           keyboardType="phone-pad"
-          placeholder={region === 'ps' ? '59xxxxxxx' : '5xxxxxxxx'}
+          placeholder={region === 'ps' ? t('phone.placeholderPs') : t('phone.placeholderOther')}
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}

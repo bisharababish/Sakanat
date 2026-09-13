@@ -6,10 +6,11 @@ import { useTranslation } from 'react-i18next';
 
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
+import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
-import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -17,6 +18,7 @@ import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
+import { useHubTabBack } from '@/src/hooks/useHubTabBack';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -44,7 +46,7 @@ import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, Profile, UserRole } from '@/src/types/database';
 
-type ProfileTab = 'account' | 'security' | 'settings';
+type ProfileTab = 'menu' | 'account' | 'security' | 'settings';
 
 type FormSnap = {
   fullNameEn: string;
@@ -141,12 +143,14 @@ export default function AdminSettings() {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const { cities } = useCatalog();
   const today = useToday();
   const pending = useAdminPendingCounts();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<ProfileTab>('account');
+  const [tab, setTab] = useState<ProfileTab>('menu');
+  const goHub = useCallback(() => setTab('menu'), []);
+  useHubTabBack(tab === 'menu', goHub);
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -305,11 +309,11 @@ export default function AdminSettings() {
     if (!uri) return;
     setUploading(true);
     try {
+      setAvatarUrl(uri);
       const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
-      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -527,10 +531,19 @@ export default function AdminSettings() {
             onPress: () => setTab('settings'),
           };
 
+  const askLogout = () => {
+    alert(t('common.logout'), t('common.confirmLogout'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.logout'), style: 'destructive', onPress: () => void signOut() },
+    ]);
+  };
+
   return (
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
+      back={tab !== 'menu'}
+      onBack={goHub}
       footer={
         tab === 'account' ? (
           <Button
@@ -543,39 +556,70 @@ export default function AdminSettings() {
         ) : null
       }
     >
-      <ProfileHero
-        name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
-        avatarUrl={avatarUrl}
-        uploading={uploading}
-        onChangePhoto={() => void changePhoto()}
-        metas={[
-          { icon: 'shield-checkmark', text: t('admin.platformSettings') },
-          ...(ageLabel(birthDate, t, today)
-            ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
-            : []),
-          ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
-        ]}
-        chip={t('roles.admin')}
-        email={profile?.email}
-      />
-      <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
-      <ProfileSegments
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: incomplete },
-          { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
-          { key: 'settings', icon: 'options', label: t('profile.tabSettings'), dot: pendingTotal > 0 },
-        ]}
-      />
-
-      {tab === 'account' ? (
+      <ProfileEnter scene={tab} reverse={tab === 'menu'}>
+      {tab === 'menu' ? (
         <>
+          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('profile.title')}</Text>
+          <ProfileHero
+            name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
+            avatarUrl={avatarUrl}
+            uploading={uploading}
+            onChangePhoto={() => void changePhoto()}
+            metas={[
+              { icon: 'shield-checkmark', text: t('admin.platformSettings') },
+              ...(ageLabel(birthDate, t, today)
+                ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
+                : []),
+              ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
+            ]}
+            chip={t('roles.admin')}
+            email={profile?.email}
+          />
+          <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
           <ProfileProgress
             items={progressItems}
             onJump={() => setTab('account')}
             readyLabel={t('admin.profileReady')}
           />
+          <ProfileMenu
+            onLogout={askLogout}
+            links={[
+              {
+                key: 'account',
+                icon: 'person-outline',
+                label: t('profile.personalTitle'),
+                dot: incomplete,
+                onPress: () => setTab('account'),
+              },
+              {
+                key: 'settings',
+                icon: 'options-outline',
+                label: t('profile.tabSettings'),
+                hint: pendingTotal > 0 ? String(pendingTotal) : undefined,
+                dot: pendingTotal > 0,
+                onPress: () => setTab('settings'),
+              },
+              {
+                key: 'security',
+                icon: 'lock-closed-outline',
+                label: t('profile.tabSecurity'),
+                onPress: () => setTab('security'),
+              },
+            ]}
+          />
+        </>
+      ) : (
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>
+          {tab === 'account'
+            ? t('profile.personalTitle')
+            : tab === 'security'
+              ? t('profile.tabSecurity')
+              : t('profile.tabSettings')}
+        </Text>
+      )}
+
+      {tab === 'account' ? (
+        <>
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -810,11 +854,13 @@ export default function AdminSettings() {
           </Card>
         </>
       ) : null}
+      </ProfileEnter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 19 },
   queueList: { gap: spacing.xs },
   queueRow: {

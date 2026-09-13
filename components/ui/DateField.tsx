@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { BackButton } from '@/components/ui/BackButton';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useToday } from '@/src/hooks/useToday';
 import { ageFromDob } from '@/src/lib/format';
 import { radius, spacing } from '@/src/theme/colors';
@@ -84,6 +85,7 @@ export function DateField({ label, value, onChange, kind = 'birth', compact }: P
   const { t, i18n } = useTranslation();
   const { rtlText, row, alignStart } = useLayout();
   const colors = useColors();
+  const edgeBack = useEdgeBack(open, () => setOpen(false));
   const today = useToday();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('days');
@@ -179,7 +181,7 @@ export function DateField({ label, value, onChange, kind = 'birth', compact }: P
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]} {...edgeBack}>
           <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />

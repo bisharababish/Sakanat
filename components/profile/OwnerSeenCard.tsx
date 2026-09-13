@@ -64,7 +64,7 @@ export function OwnerSeenCard({
       </Pressable>
       <View style={[styles.person, row]}>
         {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} recyclingKey={avatarUrl} />
         ) : (
           <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
             <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>

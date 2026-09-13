@@ -65,6 +65,8 @@ export function ListingCard({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={localizedTitle(apartment, lang)}
       style={({ pressed }) => [
         styles.card,
         {

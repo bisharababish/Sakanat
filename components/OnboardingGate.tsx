@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
@@ -66,9 +66,9 @@ export function OnboardingGate() {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => void dismiss()}>
+    <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => void dismiss()} />
+        <View style={StyleSheet.absoluteFill} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('onboarding.welcome')}</Text>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>

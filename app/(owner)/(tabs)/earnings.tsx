@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -169,6 +170,7 @@ export default function OwnerEarnings() {
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+      <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.earnings')}</Text>

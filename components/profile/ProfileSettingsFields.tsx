@@ -344,7 +344,7 @@ export function ProfileSettingsFields({
             onChangeText={setBudget}
             keyboardType="number-pad"
             ltr
-            placeholder="1500"
+            placeholder={t('profile.budgetPlaceholder')}
           />
           <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.houseGender')}</Text>
           <FilterPills<GenderPolicy | ''>

@@ -36,7 +36,7 @@ export async function uploadApartmentPhoto(userId: string, uri: string) {
 
 export async function uploadProfilePhoto(userId: string, uri: string) {
   const ext = photoExt(uri);
-  return uploadPublicImage(`avatars/${userId}.${ext}`, uri, true);
+  return uploadPublicImage(`avatars/${userId}/${Date.now()}.${ext}`, uri);
 }
 
 /** Private chat photo — returns storage path (not a public URL). */
@@ -82,14 +82,14 @@ export async function uploadIdDoc(userId: string, kind: 'national' | 'university
     throw new Error(i18n.t('profile.photoTooLarge'));
   }
   const ext = photoExt(uri);
-  const path = `${userId}/${kind}.${ext}`;
+  const path = `${userId}/${kind}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from(ID_DOCS_BUCKET).upload(path, buffer, {
     contentType: contentTypeFor(ext),
-    upsert: true,
+    upsert: false,
   });
   if (error) {
     if (/bucket|not found|row-level security/i.test(error.message)) {
-      throw new Error(i18n.t('profile.idUploadDbMissing'));
+      throw new Error(i18n.t('profile.idUploadFailed'));
     }
     throw error;
   }
@@ -99,7 +99,7 @@ export async function uploadIdDoc(userId: string, kind: 'national' | 'university
 /** Resolves a signed (or legacy public) URL for an ID card path. */
 export async function idDocUrl(path?: string | null) {
   if (!path) return null;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('file:')) return path;
 
   if (path.startsWith('docs/')) {
     const { data } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(path);

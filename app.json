@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "بدك سكن؟ اطلب منا",
+    "name": "Sakanat",
     "slug": "sakanat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,10 +9,15 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ps.sakanat.app"
+      "bundleIdentifier": "ps.sakanat.app",
+      "infoPlist": {
+        "CFBundleName": "Sakanat",
+        "CFBundleDisplayName": "بدك سكن؟ اطلب منا"
+      }
     },
     "android": {
       "package": "ps.sakanat.app",
+      "label": "بدك سكن؟ اطلب منا",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
@@ -48,7 +53,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "نحتاج إلى الصور حتى يضيف المالك صور الشقة."
+          "photosPermission": "نحتاج إلى الصور حتى يضيف المالك صور الشقة وترسل صور في المحادثة.",
+          "cameraPermission": "نحتاج إلى الكاميرا لالتقاط صورة وإرسالها في المحادثة."
         }
       ],
       [

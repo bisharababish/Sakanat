@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColors } from '@/src/theme/ThemeProvider';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 
 export function PhotoViewer({
   photos,
@@ -33,6 +34,7 @@ export function PhotoViewer({
   const { t } = useTranslation();
   const colors = useColors();
   const { width, height } = useWindowDimensions();
+  const edgeBack = useEdgeBack(visible, onClose);
   const scroller = useRef<ScrollView>(null);
   const indexRef = useRef(index);
   indexRef.current = index;
@@ -51,7 +53,7 @@ export function PhotoViewer({
 
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={styles.backdrop} {...edgeBack}>
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <View style={styles.top}>
             <Text style={[styles.count, { color: colors.white }]}>

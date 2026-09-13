@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -7,23 +6,27 @@ import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
+import { EmptyState } from '@/components/EmptyState';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
+import { HubRow } from '@/components/ui/HubRow';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
-import { localizedTitle } from '@/src/lib/format';
+import { bookingStatusLabel, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { displayName } from '@/src/lib/name';
 import { whatsappLink } from '@/src/lib/phone';
 import { canShowOwnerContact } from '@/src/lib/privacy';
 import { canReviewStay, isValidReview, loadMyReviews, submitApartmentReview } from '@/src/lib/reviews';
+import { pendingExpireHoursLeft } from '@/src/lib/searchAlerts';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -86,6 +89,10 @@ export default function StudentBookings() {
     const id = String(review || focus);
     setHighlightId(id);
     const target = bookings.find((item) => item.id === id);
+    if (target) {
+      setFilter(target.status);
+      setPage(0);
+    }
     if (target && canReviewStay(target) && !reviewByBooking[target.id]) {
       setReviewing(target);
       setReviewStars(5);
@@ -214,7 +221,13 @@ export default function StudentBookings() {
   };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      back={filter !== 'all'}
+      onBack={() => setFilter('all')}
+    >
+      <ProfileEnter scene="bookings" enterOnMount>
       <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
@@ -229,40 +242,43 @@ export default function StudentBookings() {
         ) : null}
       </View>
 
+      <HubRow
+        icon="hourglass-outline"
+        label={bookingStatusLabel('pending', t)}
+        hint={t('profile.itemCount', { count: counts.pending })}
+        dot={counts.pending > 0}
+        onPress={() => pickFilter('pending')}
+      />
       {needsReview.length > 0 ? (
-        <View style={[styles.warn, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
-          <Text style={[styles.warnText, rtlText, { color: colors.text }]}>
-            {t('review.nudgeInApp', { count: needsReview.length })}
-          </Text>
-          <Button
-            title={t('review.goWrite')}
-            pill
-            onPress={() => {
-              const first = needsReview[0];
-              setHighlightId(first.id);
-              setReviewing(first);
-              setReviewStars(5);
-              setReviewNote('');
-              setReviewError('');
-            }}
-          />
-        </View>
+        <HubRow
+          icon="star-outline"
+          label={t('review.goWrite')}
+          hint={t('profile.itemCount', { count: needsReview.length })}
+          dot
+          onPress={() => {
+            const first = needsReview[0];
+            setHighlightId(first.id);
+            setReviewing(first);
+            setReviewStars(5);
+            setReviewNote('');
+            setReviewError('');
+          }}
+        />
       ) : null}
+      <HubRow
+        icon="search-outline"
+        label={t('booking.findPlace')}
+        onPress={() => router.push('/(student)/(tabs)/search')}
+      />
 
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
       {filtered.length === 0 ? (
-        <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="calendar-outline" size={28} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
-            {bookings.length === 0 ? t('booking.empty') : t('booking.emptyFiltered')}
-          </Text>
-          {bookings.length === 0 ? (
-            <Button title={t('booking.findPlace')} onPress={() => router.push('/(student)/(tabs)/search')} pill />
-          ) : null}
-        </View>
+        <EmptyState
+          title={bookings.length === 0 ? t('booking.empty') : t('booking.emptyFiltered')}
+          actionTitle={bookings.length === 0 ? t('booking.findPlace') : undefined}
+          onAction={bookings.length === 0 ? () => router.push('/(student)/(tabs)/search') : undefined}
+        />
       ) : null}
 
       {visible.map((booking) => {
@@ -279,8 +295,16 @@ export default function StudentBookings() {
           <BookingCard
             key={booking.id}
             booking={booking}
+            highlighted={highlightId === booking.id}
             personIcon="home"
             personLabel={booking.profiles?.full_name ? `${t('listing.owner')}: ${booking.profiles.full_name}` : undefined}
+            warning={
+              booking.status === 'pending'
+                ? t('booking.pendingExpireStudent', {
+                    hours: pendingExpireHoursLeft(booking.created_at) ?? 0,
+                  })
+                : undefined
+            }
             note={
               booking.status === 'cancelled' && booking.cancel_reason
                 ? t('booking.cancelledNote', { note: booking.cancel_reason })
@@ -386,6 +410,7 @@ export default function StudentBookings() {
         onConfirm={() => void saveReview()}
         onClose={closeReview}
       />
+      </ProfileEnter>
     </Screen>
   );
 }
@@ -405,23 +430,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   countText: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  emptyBox: {
-    padding: spacing.xl,
-    borderRadius: 24,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-  },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
-  warn: { borderWidth: 1, borderRadius: 16, padding: spacing.md },
-  warnText: { fontSize: 14, lineHeight: 22, fontFamily: 'Cairo_600SemiBold' },
   myReview: {
     borderWidth: 1,
     borderRadius: radius.lg,

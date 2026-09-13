@@ -5,8 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { EmptyState } from '@/components/EmptyState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { HubRow } from '@/components/ui/HubRow';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -68,13 +71,13 @@ export default function OwnerListings() {
     try {
       const { data: rows } = await supabase.rpc('owner_listing_stats');
       const next: Record<string, { views: number; saves: number; chats: number; bookings: number }> = {};
-      for (const row of (rows as {
+      for (const row of ((rows as {
         apartment_id: string;
         views: number;
         saves: number;
         chats?: number;
         bookings?: number;
-      })[] ?? []) {
+      }[]) ?? [])) {
         next[row.apartment_id] = {
           views: Number(row.views) || 0,
           saves: Number(row.saves) || 0,
@@ -208,9 +211,45 @@ export default function OwnerListings() {
   };
 
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
+  const listingAlert =
+    profile?.owner_status === 'rejected'
+      ? {
+          icon: 'alert-circle-outline' as const,
+          color: colors.danger,
+          bg: colors.dangerSoft,
+          text: t('owner.listingSuspended'),
+          onPress: goProfileGap,
+        }
+      : profile?.owner_status === 'pending'
+        ? {
+            icon: 'time-outline' as const,
+            color: colors.warning,
+            bg: colors.warningSoft,
+            text: t('owner.listingNeedApproval'),
+            onPress: undefined,
+          }
+        : profile?.owner_status === 'approved' && !canList
+          ? {
+              icon: 'shield-outline' as const,
+              color: colors.warning,
+              bg: colors.warningSoft,
+              text: t('owner.listingNeedVerify'),
+              onPress: goProfileGap,
+            }
+          : !mfaOn
+            ? {
+                icon: 'lock-closed-outline' as const,
+                color: colors.primary,
+                bg: colors.primarySoft,
+                text: t('owner.mfaNudge'),
+                onPress: () =>
+                  router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'security' } }),
+              }
+            : null;
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+      <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.listings')}</Text>
@@ -221,46 +260,29 @@ export default function OwnerListings() {
         </View>
       </View>
 
-      {profile?.owner_status === 'pending' ? (
-        <View style={[styles.warnBox, { backgroundColor: colors.warningSoft }]}>
-          <Ionicons name="time-outline" size={18} color={colors.warning} />
-          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.warning }]}>
-            {t('owner.listingNeedApproval')}
-          </Text>
-        </View>
-      ) : null}
-      {profile?.owner_status === 'rejected' ? (
-        <View style={[styles.warnBox, { backgroundColor: colors.dangerSoft }]}>
-          <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
-          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.danger }]}>
-            {t('owner.listingSuspended')}
-          </Text>
-        </View>
-      ) : null}
-      {profile?.owner_status === 'approved' && !canList ? (
+      {listingAlert ? (
         <Pressable
-          onPress={goProfileGap}
-          style={[styles.warnBox, { backgroundColor: colors.warningSoft }]}
+          onPress={listingAlert.onPress}
+          disabled={!listingAlert.onPress}
+          style={[styles.warnBox, { backgroundColor: listingAlert.bg }]}
         >
-          <Ionicons name="shield-outline" size={18} color={colors.warning} />
-          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.warning }]}>
-            {t('owner.listingNeedVerify')}
-          </Text>
-        </Pressable>
-      ) : null}
-      {!mfaOn ? (
-        <Pressable
-          onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'security' } })}
-          style={[styles.warnBox, { backgroundColor: colors.primarySoft }]}
-        >
-          <Ionicons name="lock-closed-outline" size={18} color={colors.primary} />
-          <Text style={[styles.warn, { writingDirection, textAlign, color: colors.primary }]}>
-            {t('owner.mfaNudge')}
+          <Ionicons name={listingAlert.icon} size={18} color={listingAlert.color} />
+          <Text style={[styles.warn, { writingDirection, textAlign, color: listingAlert.color }]}>
+            {listingAlert.text}
           </Text>
         </Pressable>
       ) : null}
 
-      <Button title={t('owner.addListing')} onPress={gateAdd} pill />
+      <HubRow icon="add-circle-outline" label={t('owner.addListing')} onPress={gateAdd} />
+      {counts.pending > 0 ? (
+        <HubRow
+          icon="time-outline"
+          label={t('status.pending')}
+          hint={t('profile.itemCount', { count: counts.pending })}
+          dot
+          onPress={() => setFilter('pending')}
+        />
+      ) : null}
 
       <FilterPills
         value={filter}
@@ -273,12 +295,11 @@ export default function OwnerListings() {
       />
 
       {visible.length === 0 ? (
-        <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
-            {listings.length === 0 ? t('owner.empty') : t('owner.emptyFiltered')}
-          </Text>
-          {listings.length === 0 ? <Button title={t('owner.addFirst')} onPress={gateAdd} pill /> : null}
-        </View>
+        <EmptyState
+          title={listings.length === 0 ? t('owner.empty') : t('owner.emptyFiltered')}
+          actionTitle={listings.length === 0 ? t('owner.addFirst') : undefined}
+          onAction={listings.length === 0 ? gateAdd : undefined}
+        />
       ) : null}
 
       {paged.slice.map((item) => {
@@ -404,14 +425,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   warn: { flex: 1, lineHeight: 20, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
-  emptyBox: {
-    padding: spacing.xl,
-    borderRadius: 24,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-  },
-  emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
   rowCard: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
   rowMain: { alignItems: 'center', gap: 10, padding: 10 },
   thumb: { width: 52, height: 52, borderRadius: 12 },

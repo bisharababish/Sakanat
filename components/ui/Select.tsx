@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -39,6 +40,7 @@ export function Select({
   const { t } = useTranslation();
   const { rtlText, alignStart, isRtl, textAlign, writingDirection } = useLayout();
   const colors = useColors();
+  const edgeBack = useEdgeBack(open, () => setOpen(false));
   const list =
     clearable && !options.some((option) => option.value === '')
       ? [{ value: '', label: t('common.none') }, ...options]
@@ -80,7 +82,7 @@ export function Select({
         ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]} {...edgeBack}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
           <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>

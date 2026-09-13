@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationCard } from '@/components/chat/ConversationCard';
-import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/EmptyState';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -31,7 +31,7 @@ import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
-type InboxFilter = 'inbox' | 'unread' | 'archived';
+export type InboxFilter = 'inbox' | 'unread' | 'archived';
 
 export function useInbox() {
   const { profile } = useAuth();
@@ -60,12 +60,16 @@ export function ConversationList({
   profileId,
   isOwner,
   onReload,
+  filter,
+  onFilterChange,
 }: {
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
   items: Conversation[] | null;
   profileId?: string;
   isOwner?: boolean;
   onReload?: () => void | Promise<void>;
+  filter?: InboxFilter;
+  onFilterChange?: (next: InboxFilter) => void;
 }) {
   if (!items) return null;
   return (
@@ -75,6 +79,8 @@ export function ConversationList({
       profileId={profileId}
       isOwner={isOwner}
       onReload={onReload}
+      filter={filter}
+      onFilterChange={onFilterChange}
     />
   );
 }
@@ -85,18 +91,24 @@ function ConversationPages({
   profileId,
   isOwner,
   onReload,
+  filter: filterProp,
+  onFilterChange,
 }: {
   items: Conversation[];
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
   profileId?: string;
   isOwner?: boolean;
   onReload?: () => void | Promise<void>;
+  filter?: InboxFilter;
+  onFilterChange?: (next: InboxFilter) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { textAlign, writingDirection, row, rtlText } = useLayout();
+  const { textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<InboxFilter>('inbox');
+  const [internalFilter, setInternalFilter] = useState<InboxFilter>('inbox');
+  const filter = filterProp ?? internalFilter;
+  const setFilter = onFilterChange ?? setInternalFilter;
   const [messageHits, setMessageHits] = useState<string[]>([]);
 
   useEffect(() => {
@@ -228,29 +240,21 @@ function ConversationPages({
       />
 
       {items.length === 0 ? (
-        <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="chatbubbles-outline" size={26} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
-            {isOwner ? t('chat.emptyOwner') : t('chat.empty')}
-          </Text>
-          <Button
-            title={isOwner ? t('chat.emptyOwnerCta') : t('chat.emptyCta')}
-            onPress={emptyBrowse}
-            pill
-          />
-        </View>
+        <EmptyState
+          title={isOwner ? t('chat.emptyOwner') : t('chat.empty')}
+          actionTitle={isOwner ? t('chat.emptyOwnerCta') : t('chat.emptyCta')}
+          onAction={emptyBrowse}
+        />
       ) : filtered.length === 0 ? (
-        <View style={[styles.emptyBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>
-            {filter === 'archived'
+        <EmptyState
+          title={
+            filter === 'archived'
               ? t('chat.emptyArchived')
               : filter === 'unread'
                 ? t('chat.emptyUnread')
-                : t('chat.noMatch')}
-          </Text>
-        </View>
+                : t('chat.noMatch')
+          }
+        />
       ) : (
         <View style={styles.list}>
           {paged.slice.map((item) => {
@@ -296,19 +300,4 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   searchInput: { flex: 1, fontSize: 14, fontFamily: 'Cairo_400Regular', paddingVertical: 6 },
-  emptyBox: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-  },
-  emptyIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: { fontSize: 13, lineHeight: 20, textAlign: 'center', fontFamily: 'Cairo_400Regular' },
 });

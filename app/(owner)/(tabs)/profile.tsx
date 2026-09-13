@@ -3,19 +3,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
+import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
-import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useHubTabBack } from '@/src/hooks/useHubTabBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
@@ -40,7 +43,7 @@ import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, Profile } from '@/src/types/database';
 
-type ProfileTab = 'account' | 'trust' | 'settings' | 'security';
+type ProfileTab = 'menu' | 'account' | 'trust' | 'settings' | 'security';
 
 type FormSnap = {
   fullNameEn: string;
@@ -126,11 +129,13 @@ export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const { cities } = useCatalog();
   const today = useToday();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<ProfileTab>('account');
+  const [tab, setTab] = useState<ProfileTab>('menu');
+  const goHub = useCallback(() => setTab('menu'), []);
+  useHubTabBack(tab === 'menu', goHub);
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -355,11 +360,11 @@ export default function OwnerProfile() {
     if (!uri) return;
     setUploading(true);
     try {
+      setAvatarUrl(uri);
       const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
-      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -377,6 +382,7 @@ export default function OwnerProfile() {
     const uri = await pickIdCardPhoto();
     if (!uri) return;
     setUploadingDoc(true);
+    setNationalIdUrl(uri);
     try {
       const path = await uploadIdDoc(profile.id, 'national', uri);
       const { error } = await supabase
@@ -395,9 +401,6 @@ export default function OwnerProfile() {
       }
       if (!profile.id_docs_consent_at) setIdDocsConsent(true);
       setNationalIdUrl(path);
-      if (baseline.current) {
-        baseline.current = { ...baseline.current, nationalIdUrl: path, idDocsConsent: true };
-      }
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : t('profile.idUploadFailed'));
@@ -549,10 +552,19 @@ export default function OwnerProfile() {
     setTab(trustIds.has(id) ? 'trust' : 'account');
   };
 
+  const askLogout = () => {
+    alert(t('common.logout'), t('common.confirmLogout'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.logout'), style: 'destructive', onPress: () => void signOut() },
+    ]);
+  };
+
   return (
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
+      back={tab !== 'menu'}
+      onBack={goHub}
       footer={
         tab === 'account' || tab === 'trust' ? (
           <Button
@@ -565,34 +577,75 @@ export default function OwnerProfile() {
         ) : null
       }
     >
-      <ProfileHero
-        name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
-        avatarUrl={avatarUrl}
-        uploading={uploading}
-        onChangePhoto={() => void changePhoto()}
-        metas={[
-          { icon: 'shield-checkmark', text: statusLabel },
-          ...(ageLabel(birthDate, t, today)
-            ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
-            : []),
-          ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
-        ]}
-        chip={t('roles.owner')}
-        email={profile?.email}
-        verifyStatus={profile?.id_verify_status}
-        verifyRole="owner"
-      />
-      <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
-      <ProfileSegments
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: accountIncomplete },
-          { key: 'trust', icon: 'shield-checkmark', label: t('profile.tabTrust'), dot: trustIncomplete },
-          { key: 'settings', icon: 'options', label: t('profile.tabSettings') },
-          { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
-        ]}
-      />
+      <OfflineBanner />
+      <ProfileEnter scene={tab} reverse={tab === 'menu'}>
+      {tab === 'menu' ? (
+        <>
+          <Text style={[{ fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' }, rtlText, { color: colors.accent }]}>
+            {t('profile.title')}
+          </Text>
+          <ProfileHero
+            name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
+            avatarUrl={avatarUrl}
+            uploading={uploading}
+            onChangePhoto={() => void changePhoto()}
+            metas={[
+              { icon: 'shield-checkmark', text: statusLabel },
+              ...(ageLabel(birthDate, t, today)
+                ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
+                : []),
+              ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
+            ]}
+            chip={t('roles.owner')}
+            email={profile?.email}
+            verifyStatus={profile?.id_verify_status}
+            verifyRole="owner"
+          />
+          <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
+          <ProfileProgress items={progressItems} onJump={jumpTo} readyLabel={t('owner.profileReady')} />
+          <ProfileMenu
+            onLogout={askLogout}
+            links={[
+              {
+                key: 'account',
+                icon: 'person-outline',
+                label: t('profile.personalTitle'),
+                dot: accountIncomplete,
+                onPress: () => setTab('account'),
+              },
+              {
+                key: 'trust',
+                icon: 'shield-checkmark-outline',
+                label: t('profile.tabTrust'),
+                dot: trustIncomplete,
+                onPress: () => setTab('trust'),
+              },
+              {
+                key: 'settings',
+                icon: 'options-outline',
+                label: t('profile.tabSettings'),
+                onPress: () => setTab('settings'),
+              },
+              {
+                key: 'security',
+                icon: 'lock-closed-outline',
+                label: t('profile.tabSecurity'),
+                onPress: () => setTab('security'),
+              },
+            ]}
+          />
+        </>
+      ) : (
+        <Text style={[{ fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' }, rtlText, { color: colors.accent }]}>
+          {tab === 'account'
+            ? t('profile.personalTitle')
+            : tab === 'trust'
+              ? t('profile.tabTrust')
+              : tab === 'settings'
+                ? t('profile.tabSettings')
+                : t('profile.tabSecurity')}
+        </Text>
+      )}
 
       {tab === 'account' ? (
         <>
@@ -716,6 +769,7 @@ export default function OwnerProfile() {
       ) : null}
 
       {tab === 'security' ? <ProfileSecurity mfaRequired /> : null}
+      </ProfileEnter>
     </Screen>
   );
 }

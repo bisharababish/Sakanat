@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -89,14 +90,15 @@ export function ProfileSafetyFields({
         : expiryState === 'expired' || (nationalExpiresAt && !isValidNationalIdExpiry(nationalExpiresAt))
           ? colors.danger
           : colors.textMuted;
+  const cardY = useRef(0);
 
   return (
     <Card
       compact
       onLayout={(event) => {
         const y = event.nativeEvent.layout.y;
+        cardY.current = y;
         onSectionLayout?.('docs', y);
-        onSectionLayout?.('emergency', y);
       }}
     >
       <View style={styles.denseBlock}>
@@ -153,7 +155,12 @@ export function ProfileSafetyFields({
         ) : null}
       </View>
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
-      <View style={styles.denseBlock}>
+      <View
+        style={styles.denseBlock}
+        onLayout={(event) => {
+          onSectionLayout?.('emergency', cardY.current + event.nativeEvent.layout.y);
+        }}
+      >
         <SectionHead compact icon="alert-circle-outline" title={t('profile.emergencyTitle')} />
         <Input
           compact

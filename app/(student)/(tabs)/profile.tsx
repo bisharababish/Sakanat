@@ -8,10 +8,11 @@ import { ListingCard } from '@/components/ListingCard';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
+import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
-import { ProfileSegments } from '@/components/profile/ProfileSegments';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
@@ -24,6 +25,7 @@ import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
 import { MAJORS, majorLabel } from '@/src/data/majors';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useHubTabBack } from '@/src/hooks/useHubTabBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -50,7 +52,7 @@ import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, PersonGender, Profile } from '@/src/types/database';
 
-type ProfileTab = 'account' | 'trust' | 'settings' | 'saved' | 'security';
+type ProfileTab = 'menu' | 'account' | 'trust' | 'settings' | 'saved' | 'security';
 
 type SectionKey = 'hero' | 'names' | 'about' | 'contact' | 'studies' | 'docs' | 'emergency';
 
@@ -278,7 +280,9 @@ export default function StudentProfileScreen() {
   const resumeId = typeof resumeBook === 'string' ? resumeBook : undefined;
   const { cities, universities } = useCatalog();
   const today = useToday();
-  const [tab, setTab] = useState<ProfileTab>('account');
+  const [tab, setTab] = useState<ProfileTab>('menu');
+  const goHub = useCallback(() => setTab('menu'), []);
+  useHubTabBack(tab === 'menu', goHub);
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -532,7 +536,9 @@ export default function StudentProfileScreen() {
     'emergencyName',
     'emergencyPhone',
   ]);
-  const trustIncomplete = progressItems.some((item) => item.id && trustIds.has(item.id) && !item.done);
+  const trustIncomplete = progressItems.some(
+    (item) => item.id && (trustIds.has(item.id) || item.id === 'homeAddress') && !item.done,
+  );
   const accountIncomplete = progressItems.some((item) => item.id && !trustIds.has(item.id) && !item.done);
   const jumpTo = (id: string) => {
     const section: SectionKey =
@@ -638,6 +644,8 @@ export default function StudentProfileScreen() {
     const uri = await pickIdCardPhoto();
     if (!uri) return;
     setUploadingDoc(true);
+    if (kind === 'national') setNationalIdUrl(uri);
+    else setUniversityCardUrl(uri);
     try {
       const path = await uploadIdDoc(profile.id, kind, uri);
       const column = kind === 'national' ? 'national_id_url' : 'university_card_url';
@@ -651,18 +659,13 @@ export default function StudentProfileScreen() {
         .eq('id', profile.id);
       if (error) {
         if (/national_id_url|university_card_url|id_verify_status|column/i.test(error.message)) {
-          throw new Error(t('profile.idUploadDbMissing'));
+          throw new Error(t('profile.idUploadFailed'));
         }
         throw error;
       }
       if (!profile.id_docs_consent_at) setIdDocsConsent(true);
-      if (kind === 'national') {
-        setNationalIdUrl(path);
-        if (baseline.current) baseline.current = { ...baseline.current, nationalIdUrl: path, idDocsConsent: true };
-      } else {
-        setUniversityCardUrl(path);
-        if (baseline.current) baseline.current = { ...baseline.current, universityCardUrl: path, idDocsConsent: true };
-      }
+      if (kind === 'national') setNationalIdUrl(path);
+      else setUniversityCardUrl(path);
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : t('profile.idUploadFailed'));
@@ -677,11 +680,11 @@ export default function StudentProfileScreen() {
     if (!uri) return;
     setUploading(true);
     try {
+      setAvatarUrl(uri);
       const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
-      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -691,87 +694,100 @@ export default function StudentProfileScreen() {
   };
 
   const saveProfile = async () => {
-    const missing = progressItems.filter((item) => !item.done).map((item) => item.label);
-    if (!profile || missing.length > 0) {
+    if (!profile) return;
+    const onTrust = tab === 'trust';
+    const missing = progressItems
+      .filter((item) => {
+        if (item.done || !item.id) return false;
+        const trustField = trustIds.has(item.id);
+        return onTrust ? trustField : !trustField;
+      })
+      .map((item) => item.label);
+    if (missing.length > 0) {
       alert(t('profile.stillNeeded'), missing.join('\n') || t(isStudent ? 'profile.completeRequired' : 'profile.completeRequiredRenter'));
       return;
     }
     const cleanPhone = toE164(phoneRegion, phoneLocal);
-    if (!cleanPhone) {
-      alert(t('common.error'), t('phone.invalid'));
-      return;
-    }
     const cleanWhatsapp = toE164(waRegion, waLocal);
-    if (!cleanWhatsapp) {
-      alert(t('common.error'), t('phone.invalid'));
-      return;
-    }
-    if (!cleanEmergency || cleanEmergency === cleanPhone) {
-      alert(t('common.error'), t('profile.emergencySamePhone'));
-      return;
+    const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
+    if (!onTrust) {
+      if (!cleanPhone) {
+        alert(t('common.error'), t('phone.invalid'));
+        return;
+      }
+      if (!cleanWhatsapp) {
+        alert(t('common.error'), t('phone.invalid'));
+        return;
+      }
+      if (isStudent && !isValidStudentId(studentId)) {
+        alert(t('common.error'), t('profile.studentIdHint'));
+        return;
+      }
+      if (!isValidHomeAddress(homeAddress)) {
+        alert(t('common.error'), t('profile.homeAddressInvalid'));
+        return;
+      }
+      if (!isValidBio(bio)) {
+        alert(t('common.error'), t('profile.bioInvalid'));
+        return;
+      }
+      if (!englishNameOk(fullNameEn)) {
+        alert(t('common.error'), t('auth.invalidNameEn'));
+        return;
+      }
+      if (!arabicNameOk(fullNameAr)) {
+        alert(t('common.error'), t('auth.invalidNameAr'));
+        return;
+      }
+      if (isStudent && universityId !== (profile.university_id ?? '')) {
+        const emailIssue = studentEmailError(profile.email, universityDomains);
+        if (emailIssue === 'universityEmailMismatch') {
+          alert(t('common.error'), t('auth.universityEmailMismatch', { domains: universityDomains.join(', ') }));
+          return;
+        }
+        if (emailIssue) {
+          alert(t('common.error'), t(`auth.${emailIssue}`));
+          return;
+        }
+      }
+    } else {
+      if (!cleanEmergency || cleanEmergency === (cleanPhone || profile.phone)) {
+        alert(t('common.error'), t('profile.emergencySamePhone'));
+        return;
+      }
+      if (nationalId.trim() && !isValidNationalId(nationalId)) {
+        alert(t('common.error'), t('profile.nationalIdInvalid'));
+        return;
+      }
+      if (!isValidNationalIdExpiry(nationalExpiresAt)) {
+        alert(
+          t('common.error'),
+          nationalIdExpiryState(nationalExpiresAt) === 'expired'
+            ? t('profile.idExpired')
+            : t('profile.idExpiryInvalid'),
+        );
+        return;
+      }
+      if (!isValidEmergencyName(emergencyName)) {
+        alert(t('common.error'), t('profile.emergencyNameInvalid'));
+        return;
+      }
+      if ((nationalIdUrl || universityCardUrl) && !idDocsConsent) {
+        alert(t('common.error'), t('profile.idConsentRequired'));
+        return;
+      }
     }
     const ip = await fetchPublicIp();
-    if (isStudent && !isValidStudentId(studentId)) {
-      alert(t('common.error'), t('profile.studentIdHint'));
-      return;
-    }
-    if (nationalId.trim() && !isValidNationalId(nationalId)) {
-      alert(t('common.error'), t('profile.nationalIdInvalid'));
-      return;
-    }
-    if (!isValidNationalIdExpiry(nationalExpiresAt)) {
-      alert(
-        t('common.error'),
-        nationalIdExpiryState(nationalExpiresAt) === 'expired'
-          ? t('profile.idExpired')
-          : t('profile.idExpiryInvalid'),
-      );
-      return;
-    }
-    if (!isValidHomeAddress(homeAddress)) {
-      alert(t('common.error'), t('profile.homeAddressInvalid'));
-      return;
-    }
-    if (!isValidEmergencyName(emergencyName)) {
-      alert(t('common.error'), t('profile.emergencyNameInvalid'));
-      return;
-    }
-    if (!isValidBio(bio)) {
-      alert(t('common.error'), t('profile.bioInvalid'));
-      return;
-    }
-    if ((nationalIdUrl || universityCardUrl) && !idDocsConsent) {
-      alert(t('common.error'), t('profile.idConsentRequired'));
-      return;
-    }
-    if (!englishNameOk(fullNameEn)) {
-      alert(t('common.error'), t('auth.invalidNameEn'));
-      return;
-    }
-    if (!arabicNameOk(fullNameAr)) {
-      alert(t('common.error'), t('auth.invalidNameAr'));
-      return;
-    }
-    if (isStudent && universityId !== (profile.university_id ?? '')) {
-      const emailIssue = studentEmailError(profile.email, universityDomains);
-      if (emailIssue === 'universityEmailMismatch') {
-        alert(t('common.error'), t('auth.universityEmailMismatch', { domains: universityDomains.join(', ') }));
-        return;
-      }
-      if (emailIssue) {
-        alert(t('common.error'), t(`auth.${emailIssue}`));
-        return;
-      }
-    }
     setSaving(true);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: cleanName(fullNameAr),
-          phone: cleanPhone,
+          full_name: cleanName(fullNameAr) || profile.full_name,
+          full_name_en: englishNameOk(fullNameEn) ? cleanName(fullNameEn) : (profile.full_name_en ?? null),
+          phone: cleanPhone || profile.phone,
           student_id_number: isStudent ? studentId.trim() || null : null,
-          whatsapp: cleanWhatsapp,
+          whatsapp: cleanWhatsapp || profile.whatsapp,
           major: isStudent ? major || null : null,
           degree_level: isStudent ? degreeLevel || null : null,
           study_year: isStudent ? studyYear || null : null,
@@ -779,25 +795,27 @@ export default function StudentProfileScreen() {
           date_of_birth: birthDate || null,
           city_id: cityId || null,
           university_id: isStudent ? universityId || null : null,
-          home_address: homeAddress.trim(),
+          home_address: homeAddress.trim() || profile.home_address,
           bio: bio.trim() || null,
           spoken_languages: spokenLanguages,
           graduation_term: graduationTerm.trim() || null,
-          national_id_number: nationalId.trim(),
-          national_id_expires_at: nationalExpiresAt || null,
+          national_id_number: nationalId.trim() || profile.national_id_number,
+          national_id_expires_at: nationalExpiresAt || profile.national_id_expires_at || null,
           id_docs_consent_at: idDocsConsent
             ? profile.id_docs_consent_at ?? new Date().toISOString()
-            : null,
-          emergency_name: emergencyName.trim(),
-          emergency_phone: cleanEmergency,
+            : profile.id_docs_consent_at,
+          emergency_name: emergencyName.trim() || profile.emergency_name,
+          emergency_phone: cleanEmergency || profile.emergency_phone,
           last_seen_ip: ip ?? profile.last_seen_ip ?? null,
         })
         .eq('id', profile.id);
       if (error) throw error;
-      const { error: nameError } = await supabase.auth.updateUser({
-        data: { full_name_en: cleanName(fullNameEn) },
-      });
-      if (nameError) throw nameError;
+      if (englishNameOk(fullNameEn)) {
+        const { error: nameError } = await supabase.auth.updateUser({
+          data: { full_name_en: cleanName(fullNameEn) },
+        });
+        if (nameError) throw nameError;
+      }
       await refreshProfile();
       baseline.current = currentSnap;
       if (resumeId) {
@@ -819,6 +837,13 @@ export default function StudentProfileScreen() {
   };
 
   const canDeleteAccount = profile?.role === 'student' || profile?.role === 'renter';
+
+  const askLogout = () => {
+    alert(t('common.logout'), t('common.confirmLogout'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.logout'), style: 'destructive', onPress: () => void signOut() },
+    ]);
+  };
 
   const removeAccount = () => {
     if (!canDeleteAccount) return;
@@ -871,6 +896,8 @@ export default function StudentProfileScreen() {
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
+      back={tab !== 'menu'}
+      onBack={goHub}
       footer={
         tab === 'account' || tab === 'trust' ? (
           <Button
@@ -884,41 +911,100 @@ export default function StudentProfileScreen() {
       }
       scrollRef={scrollRef}
     >
-      <View onLayout={(event) => { sectionY.current.hero = event.nativeEvent.layout.y; }}>
-        <ProfileHero
-          name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
-          avatarUrl={avatarUrl}
-          uploading={uploading}
-          onChangePhoto={() => void changePhoto()}
-          metas={heroMetas}
-          chip={t(`roles.${profile?.role ?? 'student'}`)}
-          email={profile?.email}
-          verifyStatus={profile?.id_verify_status}
-          verifyRole={profile?.role}
-        />
-      </View>
-      {needsReview ? (
-        <ProfileBanner
-          icon="star"
-          text={t('review.neededBody')}
-          onPress={() => router.push('/(student)/(tabs)/bookings')}
-        />
-      ) : null}
-      {bookingBanner ? (
-        <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
-      ) : null}
-      <ProfileProgress items={progressItems} onJump={jumpTo} />
-      <ProfileSegments
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { key: 'account', icon: 'person', label: t('profile.tabAccount'), dot: accountIncomplete },
-          { key: 'trust', icon: 'shield-checkmark', label: t('profile.tabTrust'), dot: trustIncomplete },
-          { key: 'settings', icon: 'options', label: t('profile.tabSettings') },
-          { key: 'saved', icon: 'heart', label: t('profile.tabSaved'), badge: shouldShowSavedCount(profile) ? savedListings.length : undefined },
-          { key: 'security', icon: 'lock-closed', label: t('profile.tabSecurity') },
-        ]}
-      />
+      <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
+      {tab === 'menu' ? (
+        <>
+          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('profile.title')}</Text>
+          <View onLayout={(event) => { sectionY.current.hero = event.nativeEvent.layout.y; }}>
+            <ProfileHero
+              name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
+              avatarUrl={avatarUrl}
+              uploading={uploading}
+              onChangePhoto={() => void changePhoto()}
+              metas={heroMetas}
+              chip={t(`roles.${profile?.role ?? 'student'}`)}
+              email={profile?.email}
+              verifyStatus={profile?.id_verify_status}
+              verifyRole={profile?.role}
+            />
+          </View>
+          {needsReview ? (
+            <ProfileBanner
+              icon="star"
+              text={t('review.neededBody')}
+              onPress={() => router.push('/(student)/(tabs)/bookings')}
+            />
+          ) : null}
+          {bookingBanner ? (
+            <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
+          ) : null}
+          <ProfileProgress items={progressItems} onJump={jumpTo} />
+          <ProfileMenu
+            onLogout={askLogout}
+            links={[
+              {
+                key: 'account',
+                icon: 'person-outline',
+                label: t('profile.personalTitle'),
+                dot: accountIncomplete,
+                onPress: () => setTab('account'),
+              },
+              {
+                key: 'trust',
+                icon: 'shield-checkmark-outline',
+                label: t('profile.tabTrust'),
+                dot: trustIncomplete,
+                onPress: () => setTab('trust'),
+              },
+              {
+                key: 'bookings',
+                icon: 'calendar-outline',
+                label: t('tabs.bookings'),
+                onPress: () => router.push('/(student)/(tabs)/bookings'),
+              },
+              {
+                key: 'chat',
+                icon: 'chatbubbles-outline',
+                label: t('tabs.chat'),
+                onPress: () => router.push('/(student)/(tabs)/chat'),
+              },
+              {
+                key: 'saved',
+                icon: 'heart-outline',
+                label: t('profile.tabSaved'),
+                hint: shouldShowSavedCount(profile)
+                  ? t('profile.itemCount', { count: savedListings.length })
+                  : undefined,
+                onPress: () => setTab('saved'),
+              },
+              {
+                key: 'settings',
+                icon: 'options-outline',
+                label: t('profile.tabSettings'),
+                onPress: () => setTab('settings'),
+              },
+              {
+                key: 'security',
+                icon: 'lock-closed-outline',
+                label: t('profile.tabSecurity'),
+                onPress: () => setTab('security'),
+              },
+            ]}
+          />
+        </>
+      ) : (
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>
+          {tab === 'account'
+            ? t('profile.personalTitle')
+            : tab === 'trust'
+              ? t('profile.tabTrust')
+              : tab === 'settings'
+                ? t('profile.tabSettings')
+                : tab === 'saved'
+                  ? t('profile.tabSaved')
+                  : t('profile.tabSecurity')}
+        </Text>
+      )}
 
       {tab === 'trust' && profile?.id_verify_status === 'rejected' ? (
         <ProfileBanner
@@ -928,8 +1014,12 @@ export default function StudentProfileScreen() {
               ? t('profile.idRejectedBody', { note: profile.id_verify_note })
               : t('profile.idRejectedHint')
           }
-          onPress={() => undefined}
+          onPress={() => jumpTo('nationalCard')}
         />
+      ) : null}
+
+      {tab === 'trust' && profile?.id_verify_status === 'pending' && (nationalIdUrl || universityCardUrl) ? (
+        <ProfileBanner icon="time-outline" text={t('profile.idPendingHint')} onPress={() => jumpTo('nationalCard')} />
       ) : null}
 
       {tab === 'trust' ? (
@@ -1194,11 +1284,13 @@ export default function StudentProfileScreen() {
           deleting={deleting}
         />
       ) : null}
+      </ProfileEnter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   denseBlock: { gap: spacing.xs },
   savedBlock: { gap: 8 },

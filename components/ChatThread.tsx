@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
+import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { useAuth } from '@/src/lib/auth';
@@ -32,8 +34,9 @@ import {
   type MessageReceipt,
 } from '@/src/lib/chat';
 import { enqueueChatOutbox, flushChatOutbox, subscribeOutboxCount } from '@/src/lib/chatOutbox';
-import { pickChatPhoto } from '@/src/lib/pickImage';
+import { pickChatPhoto, takeChatPhoto } from '@/src/lib/pickImage';
 import { chatPhotoUrl, uploadChatPhoto } from '@/src/lib/upload';
+import { isSeeker, isStudentReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { logAdminAction } from '@/src/lib/audit';
 import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -275,11 +278,18 @@ export function ChatThread({
     await deliver(draft);
   };
 
-  const onAttach = async () => {
-    const uri = await pickChatPhoto();
+  const sendPickedImage = async (uri: string | null) => {
     if (!uri) return;
     await deliver(draft, uri);
     setDraft('');
+  };
+
+  const onAttach = async () => {
+    await sendPickedImage(await pickChatPhoto());
+  };
+
+  const onTakePhoto = async () => {
+    await sendPickedImage(await takeChatPhoto());
   };
 
   const canSend = Boolean(draft.trim()) && !sending;
@@ -310,6 +320,18 @@ export function ChatThread({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
+      {!readOnly && profile && isSeeker(profile) && !isStudentReady(profile) ? (
+        <ProfileBanner
+          icon="sparkles"
+          text={t('chat.completeToChat')}
+          onPress={() =>
+            router.push({
+              pathname: '/(student)/(tabs)/profile',
+              params: { tab: seekerProfileGapTab(profile) },
+            })
+          }
+        />
+      ) : null}
       {!readOnly && outboxLeft > 0 ? (
         <Pressable
           onPress={() => {
@@ -443,6 +465,15 @@ export function ChatThread({
             },
           ]}
         >
+          <Pressable
+            onPress={() => void onTakePhoto()}
+            disabled={sending}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.takePhoto')}
+            style={[styles.attach, { backgroundColor: colors.surfaceMuted }]}
+          >
+            <Ionicons name="camera-outline" size={20} color={colors.primary} />
+          </Pressable>
           <Pressable
             onPress={() => void onAttach()}
             disabled={sending}

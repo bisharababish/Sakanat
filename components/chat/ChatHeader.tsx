@@ -10,6 +10,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { MenuButton } from '@/components/menu/MenuButton';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useAuth } from '@/src/lib/auth';
 import {
   conversationParties,
@@ -57,6 +58,7 @@ export function ChatHeader({
   const { rtlText, row } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
+  useEdgeBack(true);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportBody, setReportBody] = useState('');
