@@ -39,6 +39,12 @@ import type { Apartment, ApartmentReview, University } from '@/src/types/databas
 
 const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 
+export type ListingBookGate = {
+  kind: 'profile' | 'review' | 'stay' | 'gender';
+  title: string;
+  body: string;
+};
+
 function Fact({
   icon,
   text,
@@ -75,6 +81,7 @@ export function ApartmentView({
   onToggleSave,
   onChat,
   onBook,
+  bookGate = null,
   onRequireAccount,
   children,
   refreshing = false,
@@ -96,6 +103,7 @@ export function ApartmentView({
   onToggleSave?: () => void;
   onChat?: () => void;
   onBook?: () => void;
+  bookGate?: ListingBookGate | null;
   onRequireAccount?: () => void;
   children?: ReactNode;
   refreshing?: boolean;
@@ -103,12 +111,13 @@ export function ApartmentView({
   focusReviews?: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const { textAlign, writingDirection, lang, isRtl } = useLayout();
+  const { textAlign, writingDirection, lang, isRtl, row } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [viewer, setViewer] = useState(false);
   const [reviews, setReviews] = useState<ApartmentReview[]>([]);
+  const [amenityOpen, setAmenityOpen] = useState(false);
   const carouselRef = useRef<ScrollView>(null);
   const pageScrollRef = useRef<ScrollView>(null);
   const reviewsY = useRef(0);
@@ -337,7 +346,7 @@ export function ApartmentView({
             </View>
           ) : null}
         </View>
-        {mismatch && !preview ? (
+        {mismatch && !preview && !bookGate ? (
           <Text style={[styles.warn, copy, { color: colors.danger }]}>{t('listing.genderMismatch')}</Text>
         ) : null}
 
@@ -349,24 +358,28 @@ export function ApartmentView({
         ) : null}
 
         <Card>
-          <SectionHead
-            icon={distancePlace === 'city' ? 'location-outline' : 'school-outline'}
-            title={distancePlace === 'city' ? t('listing.distanceCity') : t('listing.distance')}
-          />
-          <Text style={[styles.body, copy, { color: colors.text }]}>
-            {distancePlace === 'city'
-              ? city || t('listing.location')
-              : university
-                ? localizedName(university, i18n.language)
-                : t('listing.location')}
-            {distance != null ? `\n${formatKm(distance, lang, distancePlace)}` : ''}
-          </Text>
-          <Button
-            title={t('common.openMaps')}
-            variant="ghost"
-            pill
-            onPress={() => Linking.openURL(mapsUrl(apartment.lat, apartment.lng, localizedTitle(apartment, i18n.language)))}
-          />
+          <View style={[styles.mapsRow, row]}>
+            <Ionicons
+              name={distancePlace === 'city' ? 'location-outline' : 'school-outline'}
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={[styles.mapsCopy, copy, { color: colors.text }]} numberOfLines={2}>
+              {distancePlace === 'city'
+                ? city || t('listing.location')
+                : university
+                  ? localizedName(university, i18n.language)
+                  : t('listing.location')}
+              {distance != null ? ` · ${formatKm(distance, lang, distancePlace)}` : ''}
+            </Text>
+            <Button
+              title={t('common.openMaps')}
+              variant="ghost"
+              compact
+              pill
+              onPress={() => Linking.openURL(mapsUrl(apartment.lat, apartment.lng, localizedTitle(apartment, i18n.language)))}
+            />
+          </View>
         </Card>
 
         <Card>
@@ -374,13 +387,24 @@ export function ApartmentView({
           {apartment.amenities.length === 0 ? (
             <Text style={[styles.muted, copy, { color: colors.textMuted }]}>{t('listing.noAmenities')}</Text>
           ) : (
-            <View style={[styles.facts, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-              {apartment.amenities.map((item) => (
-                <View key={item} style={[styles.fact, { backgroundColor: colors.primarySoft }]}>
-                  <Text style={[styles.factText, { color: colors.primaryDark }]}>{t(`amenities.${item}`)}</Text>
-                </View>
-              ))}
-            </View>
+            <>
+              <View style={[styles.facts, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+                {(amenityOpen ? apartment.amenities : apartment.amenities.slice(0, 4)).map((item) => (
+                  <View key={item} style={[styles.fact, { backgroundColor: colors.primarySoft }]}>
+                    <Text style={[styles.factText, { color: colors.primaryDark }]}>{t(`amenities.${item}`)}</Text>
+                  </View>
+                ))}
+              </View>
+              {apartment.amenities.length > 4 ? (
+                <Button
+                  title={amenityOpen ? t('listing.hideAmenities') : t('listing.moreAmenities', { count: apartment.amenities.length - 4 })}
+                  variant="ghost"
+                  compact
+                  pill
+                  onPress={() => setAmenityOpen((open) => !open)}
+                />
+              ) : null}
+            </>
           )}
         </Card>
 
@@ -444,6 +468,49 @@ export function ApartmentView({
 
       {preview ? null : (
         <SafeAreaView edges={['bottom']} style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          {bookGate ? (
+            <Pressable
+              onPress={bookGate.kind === 'gender' ? undefined : onBook}
+              disabled={bookGate.kind === 'gender'}
+              style={[
+                styles.gate,
+                row,
+                {
+                  backgroundColor: bookGate.kind === 'gender' ? colors.dangerSoft : colors.warningSoft,
+                  borderColor: bookGate.kind === 'gender' ? colors.danger : colors.warning,
+                },
+              ]}
+            >
+              <Ionicons
+                name={
+                  bookGate.kind === 'profile'
+                    ? 'person-outline'
+                    : bookGate.kind === 'review'
+                      ? 'star-outline'
+                      : bookGate.kind === 'stay'
+                        ? 'home-outline'
+                        : 'warning-outline'
+                }
+                size={18}
+                color={bookGate.kind === 'gender' ? colors.danger : colors.warning}
+              />
+              <View style={styles.gateCopy}>
+                <Text
+                  style={[
+                    styles.gateTitle,
+                    copy,
+                    { color: bookGate.kind === 'gender' ? colors.danger : colors.text },
+                  ]}
+                >
+                  {bookGate.title}
+                </Text>
+                <Text style={[styles.gateBody, copy, { color: colors.textMuted }]}>{bookGate.body}</Text>
+              </View>
+              {bookGate.kind === 'gender' ? null : (
+                <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.warning} />
+              )}
+            </Pressable>
+          ) : null}
           <View style={styles.footerPriceRow}>
             <Text style={[styles.footerPrice, { color: colors.primary }]}>{formatIls(apartment.price_month, lang)}</Text>
             <Text style={[styles.footerPer, { color: colors.textMuted }]}>/ {t('common.perMonth')}</Text>
@@ -460,10 +527,20 @@ export function ApartmentView({
             </View>
             <View style={styles.action}>
               <Button
-                title={signedIn ? t('listing.book') : t('listing.bookGuest')}
+                title={
+                  !signedIn
+                    ? t('listing.bookGuest')
+                    : bookGate?.kind === 'profile'
+                      ? t('booking.needProfile')
+                      : bookGate?.kind === 'review'
+                        ? t('review.goWrite')
+                        : bookGate?.kind === 'stay'
+                          ? t('booking.myBookings')
+                          : t('listing.book')
+                }
                 onPress={onBook}
                 pill
-                disabled={mismatch}
+                disabled={bookGate?.kind === 'gender'}
               />
             </View>
           </View>
@@ -504,7 +581,7 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 4,
   },
-  cover: { height: 240 },
+  cover: { height: 188 },
   coverFallback: { width: '100%', alignItems: 'center', justifyContent: 'center' },
   ltr: { direction: 'ltr' },
   pricePill: {
@@ -535,7 +612,7 @@ const styles = StyleSheet.create({
   },
   dot: { width: 6, height: 6, borderRadius: 3 },
   dotOn: { width: 16 },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   cityRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -8 },
   city: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   muted: { fontFamily: 'Cairo_400Regular' },
@@ -550,7 +627,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   factText: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  mapsRow: { alignItems: 'center', gap: 8 },
+  mapsCopy: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   warn: { fontFamily: 'Cairo_600SemiBold', fontSize: 14 },
+  gate: {
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  gateCopy: { flex: 1, minWidth: 0, gap: 2 },
+  gateTitle: { fontSize: 13, fontFamily: 'Cairo_800ExtraBold' },
+  gateBody: { fontSize: 12, lineHeight: 16, fontFamily: 'Cairo_400Regular' },
   footer: {
     borderTopWidth: 1,
     paddingHorizontal: spacing.lg,

@@ -49,7 +49,9 @@ function ToggleRow({
   return (
     <View style={styles.toggleBlock}>
       <View style={[styles.toggleRow, row]}>
-        <Text style={[styles.toggleLabel, rtlText, { color: colors.text }]}>{label}</Text>
+        <Text style={[styles.toggleLabel, rtlText, { color: colors.text }]} numberOfLines={2}>
+          {label}
+        </Text>
         <Switch
           value={value}
           onValueChange={onChange}
@@ -288,7 +290,7 @@ export function ProfileSettingsFields({
           <SectionHead compact icon="eye-outline" title={t('profile.privacyTitle')} />
           <View style={[styles.levelChip, row, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
-            <Text style={[styles.levelText, rtlText, { color: colors.text }]}>{privacyLevel}</Text>
+            <Text style={[styles.levelText, rtlText, { color: colors.text }]} numberOfLines={1}>
           </View>
           <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.privacyIntro')}</Text>
 
@@ -463,7 +465,7 @@ export function ProfileSettingsFields({
                 ]}
               >
                 <View style={[styles.reportHead, row]}>
-                  <Text style={[styles.reportKind, rtlText, { color: colors.primary }]}>
+                  <Text style={[styles.reportKind, rtlText, { color: colors.primary }]} numberOfLines={1}>
                     {item.kind === 'safety' ? t('menu.reportSafety') : t('menu.reportTech')}
                   </Text>
                   <Text style={[styles.reportStatus, { color: colors.textMuted }]}>
@@ -493,30 +495,32 @@ export function ProfileSettingsFields({
 }
 
 const styles = StyleSheet.create({
-  dense: { gap: spacing.xs },
+  dense: { gap: spacing.xs, maxWidth: '100%' },
   denseLabel: { fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
   hint: { fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_400Regular' },
   mini: { fontSize: 11, lineHeight: 15, fontFamily: 'Cairo_400Regular' },
   levelChip: {
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     alignItems: 'center',
     gap: 6,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  levelText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  toggleBlock: { gap: 2 },
+  levelText: { fontSize: 12, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
+  toggleBlock: { gap: 2, maxWidth: '100%' },
   toggleRow: { alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  toggleLabel: { flex: 1, fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  toggleLabel: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_700Bold' },
   reportRow: {
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.sm,
     gap: 4,
+    maxWidth: '100%',
   },
   reportHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  reportKind: { fontSize: 12, fontFamily: 'Cairo_800ExtraBold' },
-  reportStatus: { fontSize: 11, fontFamily: 'Cairo_600SemiBold' },
+  reportKind: { flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'Cairo_800ExtraBold' },
+  reportStatus: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', flexShrink: 0 },
   reportBody: { fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_400Regular' },
 });

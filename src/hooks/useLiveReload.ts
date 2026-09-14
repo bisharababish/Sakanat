@@ -15,7 +15,8 @@ type LiveTable =
   | 'universities'
   | 'saved_apartments'
   | 'apartment_reviews'
-  | 'app_settings';
+  | 'app_settings'
+  | 'app_reports';
 
 export function useLiveReload(
   load: () => Promise<void>,

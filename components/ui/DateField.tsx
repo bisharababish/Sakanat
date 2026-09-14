@@ -85,9 +85,9 @@ export function DateField({ label, value, onChange, kind = 'birth', compact }: P
   const { t, i18n } = useTranslation();
   const { rtlText, row, alignStart } = useLayout();
   const colors = useColors();
-  const edgeBack = useEdgeBack(open, () => setOpen(false));
   const today = useToday();
   const [open, setOpen] = useState(false);
+  const edgeBack = useEdgeBack(open, () => setOpen(false));
   const [mode, setMode] = useState<Mode>('days');
   const now = new Date();
   const { minYear, maxYear } = yearBounds(kind, now);
@@ -170,6 +170,7 @@ export function DateField({ label, value, onChange, kind = 'birth', compact }: P
             rtlText,
             { color: value ? colors.text : colors.textMuted },
           ]}
+          numberOfLines={1}
         >
           {display || t('profile.pickDate')}
         </Text>
@@ -336,7 +337,7 @@ export function DateField({ label, value, onChange, kind = 'birth', compact }: P
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 6 },
+  wrap: { gap: 6, maxWidth: '100%' },
   wrapCompact: { gap: 4 },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   labelCompact: { fontSize: 12 },

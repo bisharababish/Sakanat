@@ -85,7 +85,7 @@ export async function loadAdminReports(status?: AppReportStatus | 'active') {
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as AdminAppReport[];
+  return (data ?? []) as unknown as AdminAppReport[];
 }
 
 export async function updateAppReport(

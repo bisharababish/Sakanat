@@ -1,3 +1,5 @@
+import { Animated } from 'react-native';
+
 import { AppTabBar } from '@/components/navigation/AppTabBar';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -16,7 +18,7 @@ export function useAppTabScreenOptions() {
     sceneStyleInterpolator: ({
       current,
     }: {
-      current: { progress: { interpolate: (config: object) => number } };
+      current: { progress: Animated.AnimatedInterpolation<number> };
     }) => ({
       sceneStyle: {
         opacity: current.progress.interpolate({

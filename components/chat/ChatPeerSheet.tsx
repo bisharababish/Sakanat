@@ -68,7 +68,7 @@ const PEER_SELECTS = [
 async function loadPeerProfile(userId: string): Promise<PeerProfile | null> {
   for (const columns of PEER_SELECTS) {
     const { data, error } = await supabase.from('profiles').select(columns).eq('id', userId).maybeSingle();
-    if (!error && data) return data as PeerProfile;
+    if (!error && data) return data as unknown as PeerProfile;
   }
   return null;
 }
@@ -76,8 +76,8 @@ async function loadPeerProfile(userId: string): Promise<PeerProfile | null> {
 function seedAsPeer(seed: ChatPeerSeed): PeerProfile {
   return {
     id: seed.id,
-    full_name: seed.full_name,
-    full_name_en: seed.full_name_en,
+    full_name: seed.full_name ?? undefined,
+    full_name_en: seed.full_name_en ?? undefined,
     avatar_url: seed.avatar_url,
     role: seed.role ?? undefined,
   };

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { localizedTitle } from '@/src/lib/format';
-import { radius, spacing } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
 
@@ -60,7 +60,6 @@ export function ConversationCard({
   const { textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const listing = conversation.apartments ? localizedTitle(conversation.apartments, i18n.language) : '';
-  const listingPhoto = conversation.apartments?.photos?.[0];
 
   return (
     <View>
@@ -120,13 +119,6 @@ export function ConversationCard({
             {conversation.last_message || '—'}
           </Text>
         </View>
-        {listingPhoto ? (
-          <Image
-            source={{ uri: listingPhoto }}
-            style={[styles.listingPhoto, { backgroundColor: colors.surfaceMuted }]}
-            contentFit="cover"
-          />
-        ) : null}
       </Pressable>
       {children ? <View style={styles.actions}>{children}</View> : null}
     </View>
@@ -137,29 +129,28 @@ const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
     gap: 8,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
+    borderRadius: radius.md,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderWidth: 1,
   },
   pressed: { opacity: 0.92 },
   photo: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  initials: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },
-  body: { flex: 1, minWidth: 0, gap: 1 },
+  initials: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 12 },
+  body: { flex: 1, minWidth: 0, gap: 0 },
   top: { alignItems: 'center', gap: 4 },
-  title: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   titleUnread: { fontWeight: '800' },
-  when: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  when: { fontSize: 10, fontFamily: 'Cairo_400Regular' },
   listing: { fontSize: 11, fontFamily: 'Cairo_600SemiBold' },
   preview: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   previewUnread: { fontFamily: 'Cairo_700Bold', fontWeight: '700' },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  listingPhoto: { width: 40, height: 40, borderRadius: 10 },
-  actions: { marginTop: 6, gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  actions: { marginTop: 4, gap: 4 },
 });

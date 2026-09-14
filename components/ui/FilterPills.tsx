@@ -27,11 +27,17 @@ export function FilterPills<T extends string>({
   allowDeselect?: boolean;
   compact?: boolean;
 }) {
-  const { row } = useLayout();
+  const { isRtl } = useLayout();
   const colors = useColors();
 
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact, row]}>
+    <View
+      style={[
+        styles.wrap,
+        compact && styles.wrapCompact,
+        { justifyContent: isRtl ? 'flex-end' : 'flex-start' },
+      ]}
+    >
       {items.map((item) => {
         const on = values ? values.includes(item.value) : value === item.value;
         return (
@@ -49,14 +55,16 @@ export function FilterPills<T extends string>({
             style={[
               styles.pill,
               compact && styles.pillCompact,
-              row,
               {
                 backgroundColor: on ? colors.primary : colors.surface,
                 borderColor: on ? colors.primary : colors.border,
               },
             ]}
           >
-            <Text style={[styles.label, compact && styles.labelCompact, { color: on ? colors.white : colors.text }]}>
+            <Text
+              style={[styles.label, compact && styles.labelCompact, { color: on ? colors.white : colors.text }]}
+              numberOfLines={1}
+            >
               {item.label}
             </Text>
             {item.count != null ? (
@@ -72,22 +80,25 @@ export function FilterPills<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexWrap: 'wrap', gap: 8 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: '100%' },
   wrapCompact: { gap: 6 },
   pill: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
     borderRadius: radius.full,
     paddingVertical: 8,
     paddingHorizontal: 12,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   pillCompact: {
     gap: 6,
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  label: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  label: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', flexShrink: 1 },
   labelCompact: { fontSize: 12 },
   count: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   countCompact: { fontSize: 11 },

@@ -11,9 +11,10 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   pill?: boolean;
+  compact?: boolean;
 };
 
-export function Button({ title, onPress, variant = 'primary', disabled, loading, pill }: Props) {
+export function Button({ title, onPress, variant = 'primary', disabled, loading, pill, compact }: Props) {
   const { writingDirection } = useLayout();
   const colors = useColors();
   const palette = {
@@ -30,12 +31,14 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
       style={({ pressed }) => [
         styles.base,
         pill ? styles.pill : null,
+        compact ? styles.compact : null,
+        compact && pill ? styles.compactPill : null,
         { backgroundColor: palette.bg, borderColor: palette.border, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
       ]}>
       {loading ? (
         <ActivityIndicator color={palette.text} />
       ) : (
-        <Text style={[styles.label, { color: palette.text, writingDirection }]}>{title}</Text>
+        <Text style={[styles.label, compact && styles.compactLabel, { color: palette.text, writingDirection }]}>{title}</Text>
       )}
     </Pressable>
   );
@@ -56,4 +59,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_700Bold',
   },
   pill: { borderRadius: radius.full, minHeight: 54 },
+  compact: { minHeight: 36, paddingHorizontal: 12 },
+  compactPill: { minHeight: 36 },
+  compactLabel: { fontSize: 13 },
 });

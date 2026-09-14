@@ -19,7 +19,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
-import { bookingStatusLabel, localizedTitle } from '@/src/lib/format';
+import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { displayName } from '@/src/lib/name';
@@ -242,13 +242,6 @@ export default function StudentBookings() {
         ) : null}
       </View>
 
-      <HubRow
-        icon="hourglass-outline"
-        label={bookingStatusLabel('pending', t)}
-        hint={t('profile.itemCount', { count: counts.pending })}
-        dot={counts.pending > 0}
-        onPress={() => pickFilter('pending')}
-      />
       {needsReview.length > 0 ? (
         <HubRow
           icon="star-outline"
@@ -265,11 +258,6 @@ export default function StudentBookings() {
           }}
         />
       ) : null}
-      <HubRow
-        icon="search-outline"
-        label={t('booking.findPlace')}
-        onPress={() => router.push('/(student)/(tabs)/search')}
-      />
 
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
@@ -298,12 +286,37 @@ export default function StudentBookings() {
             highlighted={highlightId === booking.id}
             personIcon="home"
             personLabel={booking.profiles?.full_name ? `${t('listing.owner')}: ${booking.profiles.full_name}` : undefined}
-            warning={
+            nextAction={
               booking.status === 'pending'
-                ? t('booking.pendingExpireStudent', {
-                    hours: pendingExpireHoursLeft(booking.created_at) ?? 0,
-                  })
-                : undefined
+                ? t('booking.nextWaitOwner', { hours: pendingExpireHoursLeft(booking.created_at) ?? 0 })
+                : (booking.payment_method === 'visa' || booking.payment_method === 'pay_now') &&
+                    booking.payment_status === 'unpaid' &&
+                    booking.status !== 'cancelled'
+                  ? t('booking.nextPay')
+                  : canReviewStay(booking) && !myReview
+                    ? t('booking.nextReview')
+                    : booking.status === 'confirmed'
+                      ? t('booking.nextStay')
+                      : booking.status === 'cancelled'
+                        ? t('booking.nextCancelled')
+                        : booking.status === 'completed'
+                          ? t('booking.nextCompleted')
+                          : undefined
+            }
+            nextIcon={
+              booking.status === 'pending'
+                ? 'hourglass-outline'
+                : (booking.payment_method === 'visa' || booking.payment_method === 'pay_now') &&
+                    booking.payment_status === 'unpaid' &&
+                    booking.status !== 'cancelled'
+                  ? 'card-outline'
+                  : canReviewStay(booking) && !myReview
+                    ? 'star-outline'
+                    : booking.status === 'confirmed'
+                      ? 'checkmark-circle-outline'
+                      : booking.status === 'cancelled'
+                        ? 'close-circle-outline'
+                        : 'flag-outline'
             }
             note={
               booking.status === 'cancelled' && booking.cancel_reason
@@ -311,71 +324,85 @@ export default function StudentBookings() {
                 : undefined
             }
           >
-            {myReview ? (
-              <View style={[styles.myReview, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
-                <Text style={[styles.myReviewLabel, rtlText, { color: colors.primaryDark }]}>
-                  {t('review.yourReview')}
-                </Text>
-                <StarRow value={myReview.stars} size={16} />
-                <Text style={[styles.myReviewNote, rtlText, { color: colors.text }]} numberOfLines={3}>
-                  {myReview.note}
-                </Text>
-                <Button
-                  title={t('review.viewOnListing')}
-                  variant="secondary"
-                  pill
-                  onPress={() =>
-                    router.push({
-                      pathname: '/(student)/apartment/[id]',
-                      params: { id: booking.apartment_id, focus: 'reviews' },
-                    })
-                  }
-                />
-              </View>
-            ) : null}
-            {booking.apartment_id ? (
-              <Button
-                title={t('booking.viewListing')}
-                variant="secondary"
-                pill
-                onPress={() =>
-                  router.push({ pathname: '/(student)/apartment/[id]', params: { id: booking.apartment_id } })
-                }
-              />
-            ) : null}
-            <Button
-              title={t('booking.messageOwner')}
-              variant="ghost"
-              pill
-              loading={busyId === booking.id}
-              onPress={() => void messageOwner(booking)}
-            />
-            {phone ? (
-              <Button title={t('common.call')} variant="ghost" pill onPress={() => Linking.openURL(`tel:${phone}`)} />
-            ) : null}
-            {whatsapp ? (
-              <Button
-                title={t('profile.openWhatsapp')}
-                variant="ghost"
-                pill
-                onPress={() => Linking.openURL(whatsappLink(whatsapp))}
-              />
-            ) : null}
-            {(booking.payment_method === 'visa' || booking.payment_method === 'pay_now') &&
-            booking.payment_status === 'unpaid' &&
-            booking.status !== 'cancelled' ? (
-              <Button title={t('booking.payNow')} pill onPress={() => payVisa(booking.id)} />
-            ) : null}
-            {canReviewStay(booking) ? (
-              <Button
-                title={myReview ? t('review.edit') : t('review.write')}
-                pill
-                onPress={() => openReview(booking)}
-              />
-            ) : null}
-            {booking.status === 'pending' ? (
-              <Button title={t('booking.cancelRequest')} variant="danger" pill onPress={() => cancel(booking.id)} />
-            ) : null}
+            {(() => {
+              const unpaidVisa =
+                (booking.payment_method === 'visa' || booking.payment_method === 'pay_now') &&
+                booking.payment_status === 'unpaid' &&
+                booking.status !== 'cancelled';
+              const reviewable = canReviewStay(booking);
+              return (
+                <>
+                  {unpaidVisa ? (
+                    <Button title={t('booking.payNow')} compact pill onPress={() => payVisa(booking.id)} />
+                  ) : null}
+                  {reviewable ? (
+                    <Button
+                      title={myReview ? t('review.edit') : t('review.write')}
+                      compact
+                      pill
+                      onPress={() => openReview(booking)}
+                    />
+                  ) : null}
+                  <Button
+                    title={t('booking.messageOwner')}
+                    variant={unpaidVisa || reviewable ? 'ghost' : 'secondary'}
+                    compact
+                    pill
+                    loading={busyId === booking.id}
+                    onPress={() => void messageOwner(booking)}
+                  />
+                  {booking.apartment_id ? (
+                    <Button
+                      title={t('booking.viewListing')}
+                      variant="ghost"
+                      compact
+                      pill
+                      onPress={() =>
+                        router.push({ pathname: '/(student)/apartment/[id]', params: { id: booking.apartment_id } })
+                      }
+                    />
+                  ) : null}
+                  {phone ? (
+                    <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
+                  ) : null}
+                  {whatsapp ? (
+                    <Button
+                      title={t('profile.openWhatsapp')}
+                      variant="ghost"
+                      compact
+                      pill
+                      onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+                    />
+                  ) : null}
+                  {myReview ? (
+                    <View style={[styles.myReview, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
+                      <Text style={[styles.myReviewLabel, rtlText, { color: colors.primaryDark }]}>
+                        {t('review.yourReview')}
+                      </Text>
+                      <StarRow value={myReview.stars} size={14} />
+                      <Text style={[styles.myReviewNote, rtlText, { color: colors.text }]} numberOfLines={2}>
+                        {myReview.note}
+                      </Text>
+                      <Button
+                        title={t('review.viewOnListing')}
+                        variant="secondary"
+                        compact
+                        pill
+                        onPress={() =>
+                          router.push({
+                            pathname: '/(student)/apartment/[id]',
+                            params: { id: booking.apartment_id, focus: 'reviews' },
+                          })
+                        }
+                      />
+                    </View>
+                  ) : null}
+                  {booking.status === 'pending' ? (
+                    <Button title={t('booking.cancelRequest')} variant="danger" compact pill onPress={() => cancel(booking.id)} />
+                  ) : null}
+                </>
+              );
+            })()}
           </BookingCard>
         );
       })}
@@ -419,7 +446,7 @@ const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   countPill: {
     minWidth: 36,
     height: 36,
@@ -431,11 +458,12 @@ const styles = StyleSheet.create({
   },
   countText: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   myReview: {
+    width: '100%',
     borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: 8,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: 6,
   },
-  myReviewLabel: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
-  myReviewNote: { fontSize: 14, lineHeight: 21, fontFamily: 'Cairo_400Regular' },
+  myReviewLabel: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  myReviewNote: { fontSize: 13, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
 });

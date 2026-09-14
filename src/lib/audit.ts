@@ -16,7 +16,8 @@ export type AdminAuditAction =
   | 'report.update'
   | 'broadcast'
   | 'export.platform'
-  | 'settings.update';
+  | 'settings.update'
+  | 'ops.booking_run';
 
 export async function logAdminAction(
   action: AdminAuditAction,

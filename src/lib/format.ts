@@ -11,11 +11,14 @@ export function localizedName(
 }
 
 export function localizedTitle(
-  item: { title_ar: string; title_en: string } | null | undefined,
+  item: { title_ar?: string | null; title_en?: string | null } | null | undefined,
   lang: string,
 ) {
   if (!item) return '';
-  return lang.startsWith('ar') ? item.title_ar || item.title_en : item.title_en || item.title_ar;
+  const arabic = lang.startsWith('ar');
+  const primary = arabic ? item.title_ar : item.title_en;
+  const fallback = arabic ? item.title_en : item.title_ar;
+  return primary || fallback || '';
 }
 
 export function localizedDescription(

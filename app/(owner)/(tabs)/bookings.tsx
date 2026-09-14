@@ -11,7 +11,6 @@ import { EmptyState } from '@/components/EmptyState';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
-import { HubRow } from '@/components/ui/HubRow';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -171,19 +170,6 @@ export default function OwnerBookings() {
         ) : null}
       </View>
 
-      <HubRow
-        icon="hourglass-outline"
-        label={bookingStatusLabel('pending', t)}
-        hint={t('profile.itemCount', { count: counts.pending })}
-        dot={counts.pending > 0}
-        onPress={() => pickFilter('pending')}
-      />
-      <HubRow
-        icon="home-outline"
-        label={t('tabs.listings')}
-        onPress={() => router.push('/(owner)/(tabs)/listings')}
-      />
-
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
       {filtered.length === 0 ? (
@@ -322,15 +308,16 @@ export default function OwnerBookings() {
                     })}
                   </Text>
                 ) : null}
-                {booking.status === 'pending' ? (
+                  {booking.status === 'pending' ? (
                   <View style={styles.actions}>
                     <View style={styles.flex}>
-                      <Button title={t('admin.approve')} pill onPress={() => updateStatus(booking, 'confirmed')} />
+                      <Button title={t('admin.approve')} compact pill onPress={() => updateStatus(booking, 'confirmed')} />
                     </View>
                     <View style={styles.flex}>
                       <Button
                         title={t('admin.reject')}
                         variant="danger"
+                        compact
                         pill
                         onPress={() => {
                           setRejectNote('');
@@ -341,28 +328,30 @@ export default function OwnerBookings() {
                   </View>
                 ) : null}
                 {booking.status === 'confirmed' ? (
-                  <Button title={t('booking.complete')} pill onPress={() => updateStatus(booking, 'completed')} />
+                  <Button title={t('booking.complete')} compact pill onPress={() => updateStatus(booking, 'completed')} />
                 ) : null}
                 <Button
                   title={t(seekerMessageKey(role))}
                   variant="secondary"
+                  compact
                   pill
                   loading={busyId === booking.id}
                   onPress={() => void messageStudent(booking)}
                 />
                 {phone ? (
-                  <Button title={t('common.call')} variant="ghost" pill onPress={() => Linking.openURL(`tel:${phone}`)} />
+                  <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
                 ) : null}
                 {whatsapp ? (
                   <Button
                     title={t('profile.openWhatsapp')}
                     variant="ghost"
+                    compact
                     pill
                     onPress={() => Linking.openURL(whatsappLink(whatsapp))}
                   />
                 ) : null}
                 {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
-                  <Button title={t('profile.viewIdCards')} variant="ghost" pill onPress={() => setDocsFor(booking)} />
+                  <Button title={t('profile.viewIdCards')} variant="ghost" compact pill onPress={() => setDocsFor(booking)} />
                 ) : null}
               </View>
             ) : null}
@@ -416,7 +405,7 @@ const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   countPill: {
     minWidth: 36,
     height: 36,

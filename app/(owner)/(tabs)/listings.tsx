@@ -274,17 +274,9 @@ export default function OwnerListings() {
       ) : null}
 
       <HubRow icon="add-circle-outline" label={t('owner.addListing')} onPress={gateAdd} />
-      {counts.pending > 0 ? (
-        <HubRow
-          icon="time-outline"
-          label={t('status.pending')}
-          hint={t('profile.itemCount', { count: counts.pending })}
-          dot
-          onPress={() => setFilter('pending')}
-        />
-      ) : null}
 
       <FilterPills
+        compact
         value={filter}
         onChange={setFilter}
         items={filters.map((value) => ({
@@ -415,7 +407,7 @@ const styles = StyleSheet.create({
   top: { alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   count: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   warnBox: {
     flexDirection: 'row',

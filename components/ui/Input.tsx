@@ -128,9 +128,9 @@ export function Input({
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 6 },
+  wrap: { gap: 6, maxWidth: '100%' },
   wrapCompact: { gap: 4 },
-  field: {},
+  field: { maxWidth: '100%' },
   wrapValue: { height: undefined, minHeight: 52, paddingVertical: 10, fontSize: 14, textAlignVertical: 'center' },
   wrapValueCompact: {
     height: undefined,

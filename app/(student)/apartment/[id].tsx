@@ -5,9 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ApartmentView } from '@/components/ApartmentView';
 import { ListingCard } from '@/components/ListingCard';
-import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -51,10 +49,12 @@ export default function ApartmentDetails() {
   const [reporting, setReporting] = useState(false);
   const [reportBody, setReportBody] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
+  const [pendingReview, setPendingReview] = useState(false);
+  const [activeStay, setActiveStay] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data }, { data: others }] = await Promise.all([
+    const [{ data }, { data: others }, review, stay] = await Promise.all([
       supabase
         .from('apartments')
         .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, id_verify_status)')
@@ -66,6 +66,8 @@ export default function ApartmentDetails() {
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(40),
+      profile?.id ? loadPendingReview(profile.id) : Promise.resolve(null),
+      profile?.id ? loadActiveStay(profile.id) : Promise.resolve(null),
     ]);
     if (data) {
       setApartment(data as Apartment);
@@ -74,6 +76,8 @@ export default function ApartmentDetails() {
       setMissing(true);
     }
     setPool((others as Apartment[]) ?? []);
+    setPendingReview(Boolean(review));
+    setActiveStay(Boolean(stay));
     if (profile?.id) {
       try {
         const ids = await loadSavedApartmentIds(profile.id);
@@ -84,7 +88,11 @@ export default function ApartmentDetails() {
     }
   }, [id, profile?.id]);
 
-  const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], `apartment:${id ?? ''}`);
+  const { refreshing, refresh } = useLiveReload(
+    load,
+    ['apartments', 'saved_apartments', 'bookings', 'apartment_reviews'],
+    `apartment:${id ?? ''}`,
+  );
 
   useEffect(() => {
     if (!apartment?.id) return;
@@ -116,6 +124,22 @@ export default function ApartmentDetails() {
   const mismatch = Boolean(
     apartment && profile?.gender && !listingFitsStudent(apartment.gender_policy, profile.gender),
   );
+  const bookGate = useMemo(() => {
+    if (!profile || !apartment) return null;
+    if (!isStudentReady(profile)) {
+      return { kind: 'profile' as const, title: t('booking.needProfile'), body: t('profile.completeToBook') };
+    }
+    if (pendingReview) {
+      return { kind: 'review' as const, title: t('review.neededTitle'), body: t('review.neededBody') };
+    }
+    if (activeStay) {
+      return { kind: 'stay' as const, title: t('booking.activeStayTitle'), body: t('booking.activeStayBody') };
+    }
+    if (mismatch) {
+      return { kind: 'gender' as const, title: t('listing.genderMismatch'), body: t('listing.genderMismatchHint') };
+    }
+    return null;
+  }, [activeStay, apartment, mismatch, pendingReview, profile, t]);
   const similar = useMemo(
     () => (apartment ? similarNearCampus(apartment, pool, 4) : []),
     [apartment, pool],
@@ -142,46 +166,19 @@ export default function ApartmentDetails() {
       return;
     }
     if (!apartment) return;
-    if (!isStudentReady(profile)) {
-      alert(t('booking.needProfile'), t('profile.completeToBook'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('profile.title'),
-          onPress: () =>
-            router.push({
-              pathname: '/(student)/(tabs)/profile',
-              params: { resumeBook: apartment.id, tab: seekerProfileGapTab(profile) },
-            }),
-        },
-      ]);
+    if (bookGate?.kind === 'profile') {
+      router.push({
+        pathname: '/(student)/(tabs)/profile',
+        params: { resumeBook: apartment.id, tab: seekerProfileGapTab(profile) },
+      });
       return;
     }
-    void Promise.all([loadPendingReview(profile.id), loadActiveStay(profile.id)]).then(
-      ([pendingReview, activeStay]) => {
-        if (pendingReview) {
-          alert(t('review.neededTitle'), t('review.neededBody'), [
-            { text: t('common.cancel'), style: 'cancel' },
-            { text: t('review.goWrite'), onPress: () => router.push('/(student)/(tabs)/bookings') },
-          ]);
-          return;
-        }
-        if (activeStay) {
-          alert(t('booking.activeStayTitle'), t('booking.activeStayBody'), [
-            { text: t('common.cancel'), style: 'cancel' },
-            {
-              text: t('booking.myBookings'),
-              onPress: () => router.push('/(student)/(tabs)/bookings'),
-            },
-          ]);
-          return;
-        }
-        if (mismatch) {
-          alert(t('common.error'), t('listing.genderMismatch'));
-          return;
-        }
-        router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });
-      },
-    );
+    if (bookGate?.kind === 'review' || bookGate?.kind === 'stay') {
+      router.push('/(student)/(tabs)/bookings');
+      return;
+    }
+    if (bookGate?.kind === 'gender') return;
+    router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });
   };
 
   const sendListingReport = async () => {
@@ -218,6 +215,7 @@ export default function ApartmentDetails() {
         distance={distance}
         distancePlace={distancePlace}
         mismatch={mismatch}
+        bookGate={bookGate}
         saved={saved}
         saving={saving}
         busy={busy}
@@ -245,11 +243,7 @@ export default function ApartmentDetails() {
         onBook={goBook}
       >
         {profile ? (
-          <Card>
-            <SectionHead icon="flag-outline" title={t('listing.reportTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('listing.reportHint')}</Text>
-            <Button title={t('listing.reportListing')} variant="danger" pill onPress={() => setReporting(true)} />
-          </Card>
+          <Button title={t('listing.reportListing')} variant="ghost" compact pill onPress={() => setReporting(true)} />
         ) : null}
         {similar.length > 0 ? (
           <View style={styles.similar}>

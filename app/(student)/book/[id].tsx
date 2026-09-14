@@ -34,6 +34,8 @@ import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, Booking, PaymentMethod } from '@/src/types/database';
 
 const MONTHS = [1, 2, 3, 4, 6, 12];
+const BOOK_STEPS = ['stay', 'people', 'pay'] as const;
+type BookStep = (typeof BOOK_STEPS)[number];
 
 function isoDate(date: Date) {
   const year = date.getFullYear();
@@ -79,6 +81,7 @@ export default function BookScreen() {
   const [months, setMonths] = useState(1);
   const [occupants, setOccupants] = useState(1);
   const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [step, setStep] = useState<BookStep>('stay');
   const [loading, setLoading] = useState(false);
   const [pendingReview, setPendingReview] = useState<Pick<Booking, 'id'> | null>(null);
   const [activeStay, setActiveStay] = useState<Pick<Booking, 'id'> | null>(null);
@@ -126,6 +129,9 @@ export default function BookScreen() {
   const needsReview = Boolean(pendingReview);
   const hasActiveStay = Boolean(activeStay);
   const canSubmit = ready && !mismatch && !needsReview && !hasActiveStay;
+  const stepIndex = BOOK_STEPS.indexOf(step);
+  const stayOk = startDate >= today;
+  const canNext = step === 'stay' ? stayOk : true;
 
   const goProfile = () => {
     router.push({
@@ -313,7 +319,36 @@ export default function BookScreen() {
       onRefresh={() => void refresh()}
       footer={
         canSubmit ? (
-          <Button title={t('booking.submit')} onPress={() => void submit()} loading={loading} pill />
+          <View style={styles.checkoutFoot}>
+            <View style={[styles.footTotal, row]}>
+              <Text style={[styles.footTotalLabel, rtlText, { color: colors.textMuted }]}>{t('booking.total')}</Text>
+              <Text style={[styles.footTotalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+            </View>
+            <View style={[styles.footActions, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
+              {stepIndex > 0 ? (
+                <View style={styles.footBtn}>
+                  <Button
+                    title={t('common.previous')}
+                    variant="secondary"
+                    pill
+                    onPress={() => setStep(BOOK_STEPS[stepIndex - 1])}
+                  />
+                </View>
+              ) : null}
+              <View style={styles.footBtn}>
+                {step === 'pay' ? (
+                  <Button title={t('booking.submit')} onPress={() => void submit()} loading={loading} pill />
+                ) : (
+                  <Button
+                    title={t('common.next')}
+                    disabled={!canNext}
+                    pill
+                    onPress={() => setStep(BOOK_STEPS[stepIndex + 1])}
+                  />
+                )}
+              </View>
+            </View>
+          </View>
         ) : null
       }
     >
@@ -367,55 +402,94 @@ export default function BookScreen() {
 
       {canSubmit ? (
         <>
-          <Card>
-            <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.occupants')}</Text>
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.occupantsHint')}</Text>
-            <FilterPills
-              value={String(headcount)}
-              onChange={(next) => setOccupants(Number(next))}
-              items={people.map((value) => ({
-                value: String(value),
-                label: value === 1 ? t('booking.onePerson') : t('booking.people', { count: value }),
-              }))}
-            />
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
-            <FilterPills
-              value={String(months)}
-              onChange={(next) => setMonths(Number(next))}
-              items={MONTHS.map((value) => ({
-                value: String(value),
-                label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
-              }))}
-            />
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.method')}</Text>
-            <FilterPills
-              value={method}
-              onChange={setMethod}
-              items={PAYMENT_CHOICES.map((value) => ({
-                value,
-                label: t(paymentI18nKey(value)),
-              }))}
-            />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
-            <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
-          </Card>
+          <Text style={[styles.stepHint, rtlText, { color: colors.textMuted }]}>
+            {t('booking.stepOf', { step: stepIndex + 1, total: BOOK_STEPS.length })}
+          </Text>
+          <FilterPills
+            compact
+            value={step}
+            onChange={setStep}
+            items={[
+              { value: 'stay', label: t('booking.stepStay') },
+              { value: 'people', label: t('booking.stepPeople') },
+              { value: 'pay', label: t('booking.stepPay') },
+            ]}
+          />
 
-          <Card>
-            <SectionHead icon="receipt-outline" title={t('booking.summary')} />
-            <SummaryRow
-              label={t('booking.rent')}
-              value={`${formatIls(apartment.price_month, lang)} × ${months}`}
-            />
-            <SummaryRow
-              label={t('booking.occupants')}
-              value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
-            />
-            <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
-              <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
-              <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
-            </View>
-          </Card>
+          {step === 'stay' ? (
+            <Card>
+              <SectionHead icon="calendar-outline" title={t('booking.stepStay')} />
+              <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
+              {!stayOk ? (
+                <Text style={[styles.note, rtlText, { color: colors.danger }]}>{t('booking.pastDate')}</Text>
+              ) : null}
+              <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
+              <FilterPills
+                value={String(months)}
+                onChange={(next) => setMonths(Number(next))}
+                items={MONTHS.map((value) => ({
+                  value: String(value),
+                  label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
+                }))}
+              />
+            </Card>
+          ) : null}
+
+          {step === 'people' ? (
+            <Card>
+              <SectionHead icon="people-outline" title={t('booking.occupants')} />
+              <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('booking.occupantsHint')}</Text>
+              <FilterPills
+                value={String(headcount)}
+                onChange={(next) => setOccupants(Number(next))}
+                items={people.map((value) => ({
+                  value: String(value),
+                  label: value === 1 ? t('booking.onePerson') : t('booking.people', { count: value }),
+                }))}
+              />
+            </Card>
+          ) : null}
+
+          {step === 'pay' ? (
+            <>
+              <Card>
+                <SectionHead icon="card-outline" title={t('booking.method')} />
+                <FilterPills
+                  value={method}
+                  onChange={setMethod}
+                  items={PAYMENT_CHOICES.map((value) => ({
+                    value,
+                    label: t(paymentI18nKey(value)),
+                  }))}
+                />
+                <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
+                <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
+              </Card>
+              <Card>
+                <SectionHead icon="receipt-outline" title={t('booking.summary')} />
+                <SummaryRow
+                  label={t('booking.startDate')}
+                  value={startDate}
+                />
+                <SummaryRow
+                  label={t('booking.duration')}
+                  value={`${months} ${months === 1 ? t('common.month') : t('common.months')}`}
+                />
+                <SummaryRow
+                  label={t('booking.rent')}
+                  value={`${formatIls(apartment.price_month, lang)} × ${months}`}
+                />
+                <SummaryRow
+                  label={t('booking.occupants')}
+                  value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
+                />
+                <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
+                  <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
+                  <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+                </View>
+              </Card>
+            </>
+          ) : null}
         </>
       ) : null}
     </Screen>
@@ -467,4 +541,11 @@ const styles = StyleSheet.create({
   },
   totalLabel: { flex: 1, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   totalValue: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  stepHint: { fontSize: 12, fontFamily: 'Cairo_700Bold', marginBottom: -8 },
+  checkoutFoot: { gap: 8 },
+  footTotal: { alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  footTotalLabel: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  footTotalValue: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  footActions: { gap: 8 },
+  footBtn: { flex: 1 },
 });

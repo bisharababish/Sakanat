@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { paymentI18nKey } from '@/src/lib/booking';
 import { bookingStatusLabel, bookingTone, formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
-import { radius, spacing } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Booking } from '@/src/types/database';
 
@@ -22,27 +22,11 @@ type Props = {
   details?: string[];
   warning?: string;
   note?: string;
+  nextAction?: string;
+  nextIcon?: ComponentProps<typeof Ionicons>['name'];
   highlighted?: boolean;
   children?: ReactNode;
 };
-
-function Fact({
-  icon,
-  text,
-}: {
-  icon: ComponentProps<typeof Ionicons>['name'];
-  text: string;
-}) {
-  const colors = useColors();
-  return (
-    <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
-      <Ionicons name={icon} size={14} color={colors.primary} />
-      <Text style={[styles.factText, { color: colors.text }]} numberOfLines={1}>
-        {text}
-      </Text>
-    </View>
-  );
-}
 
 export function BookingCard({
   booking,
@@ -50,20 +34,29 @@ export function BookingCard({
   personLabel,
   personAvatar,
   extra,
-  extraIcon = 'pricetag-outline',
   details = [],
   warning,
   note,
+  nextAction,
+  nextIcon = 'flag-outline',
   highlighted,
   children,
 }: Props) {
   const { t, i18n } = useTranslation();
-  const { textAlign, writingDirection, lang, row, isRtl } = useLayout();
+  const { textAlign, writingDirection, lang, row } = useLayout();
   const colors = useColors();
   const photo = booking.apartments?.photos?.[0];
   const city = localizedName(booking.apartments?.cities, i18n.language);
   const monthsLabel = `${booking.months} ${booking.months === 1 ? t('common.month') : t('common.months')}`;
   const people = booking.occupants ?? 1;
+  const copy = { textAlign, writingDirection };
+  const facts = [
+    people === 1 ? t('booking.onePerson') : t('booking.people', { count: people }),
+    `${formatBookingDate(booking.start_date, i18n.language)} · ${monthsLabel}`,
+    extra,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <View
@@ -73,154 +66,103 @@ export function BookingCard({
           backgroundColor: colors.surface,
           borderColor: highlighted ? colors.primary : colors.border,
           borderWidth: highlighted ? 2 : 1,
-          shadowColor: colors.text,
         },
       ]}
     >
-      <View style={styles.coverWrap}>
+      <View style={[styles.head, row]}>
         {photo ? (
-          <Image source={{ uri: photo }} style={styles.cover} contentFit="cover" />
+          <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
         ) : (
-          <View style={[styles.cover, styles.coverFallback, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="home" size={32} color={colors.primary} />
+          <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="home" size={20} color={colors.primary} />
           </View>
         )}
-        <View style={[styles.badge, { alignItems: isRtl ? 'flex-end' : 'flex-start' }]}>
-          <StatusBadge overlay label={bookingStatusLabel(booking.status, t)} tone={bookingTone(booking.status)} />
-        </View>
-      </View>
-
-      <View style={styles.body}>
-        <Text style={[styles.title, { textAlign, writingDirection, color: colors.text }]} numberOfLines={2}>
-          {localizedTitle(booking.apartments, i18n.language)}
-        </Text>
-        {city ? (
-          <Text style={[styles.city, { textAlign, writingDirection, color: colors.textMuted }]} numberOfLines={1}>
-            {city}
-          </Text>
-        ) : null}
-
-        <View style={[styles.payRow, row]}>
-          <View>
-            <Text style={[styles.payLabel, { color: colors.textMuted }]}>{t('booking.rent')}</Text>
-            <Text style={[styles.payValue, { color: colors.primary }]}>{formatIls(booking.rent_amount, lang)}</Text>
-          </View>
-          <View style={[styles.payPill, { backgroundColor: colors.accentSoft }]}>
-            <Text style={[styles.payPillText, { color: colors.primaryDark }]}>
-              {t(paymentI18nKey(booking.payment_method))} · {t(`payment.${booking.payment_status}`)}
+        <View style={styles.headCopy}>
+          <View style={[styles.titleRow, row]}>
+            <Text style={[styles.title, copy, { color: colors.text }]} numberOfLines={1}>
+              {localizedTitle(booking.apartments, i18n.language)}
             </Text>
+            <StatusBadge label={bookingStatusLabel(booking.status, t)} tone={bookingTone(booking.status)} />
           </View>
+          <Text style={[styles.price, copy, { color: colors.primary }]} numberOfLines={1}>
+            {formatIls(booking.rent_amount, lang)}
+            {city ? ` · ${city}` : ''}
+          </Text>
+          <Text style={[styles.meta, copy, { color: colors.textMuted }]} numberOfLines={1}>
+            {facts}
+          </Text>
         </View>
-
-        {personLabel ? (
-          <View style={[styles.person, row, { backgroundColor: colors.surfaceMuted }]}>
-            {personAvatar ? (
-              <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
-            ) : (
-              <View style={[styles.personAvatar, styles.personFallback, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name={personIcon} size={18} color={colors.primary} />
-              </View>
-            )}
-            <View style={styles.personCopy}>
-              <Text style={[styles.personName, { textAlign, writingDirection, color: colors.text }]} numberOfLines={2}>
-                {personLabel}
-              </Text>
-              {details.map((item) => (
-                <Text
-                  key={item}
-                  style={[styles.personMeta, { textAlign, writingDirection, color: colors.textMuted }]}
-                  numberOfLines={1}
-                >
-                  {item}
-                </Text>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.facts}>
-          <Fact
-            icon="people-outline"
-            text={people === 1 ? t('booking.onePerson') : t('booking.people', { count: people })}
-          />
-          <Fact icon="calendar-outline" text={`${formatBookingDate(booking.start_date, i18n.language)} · ${monthsLabel}`} />
-          {extra ? <Fact icon={extraIcon} text={extra} /> : null}
-        </View>
-
-        {warning ? (
-          <View style={[styles.warn, { backgroundColor: colors.warningSoft }]}>
-            <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
-            <Text style={[styles.warnText, { color: colors.warning, textAlign, writingDirection }]}>{warning}</Text>
-          </View>
-        ) : null}
-        {note ? (
-          <Text style={[styles.note, { color: colors.textMuted, textAlign, writingDirection }]}>{note}</Text>
-        ) : null}
-
-        {children ? <View style={styles.actions}>{children}</View> : null}
       </View>
+
+      {nextAction ? (
+        <View style={[styles.next, row, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name={nextIcon} size={14} color={colors.primary} />
+          <Text style={[styles.nextText, copy, { color: colors.primaryDark }]} numberOfLines={2}>
+            {nextAction}
+          </Text>
+        </View>
+      ) : null}
+
+      <Text style={[styles.pay, copy, { color: colors.textMuted }]} numberOfLines={1}>
+        {t(paymentI18nKey(booking.payment_method))} · {t(`payment.${booking.payment_status}`)}
+      </Text>
+
+      {personLabel ? (
+        <View style={[styles.person, row]}>
+          {personAvatar ? (
+            <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
+          ) : (
+            <Ionicons name={personIcon} size={14} color={colors.primary} />
+          )}
+          <Text style={[styles.personName, copy, { color: colors.text }]} numberOfLines={1}>
+            {personLabel}
+          </Text>
+        </View>
+      ) : null}
+      {details.map((item) => (
+        <Text key={item} style={[styles.meta, copy, { color: colors.textMuted }]} numberOfLines={1}>
+          {item}
+        </Text>
+      ))}
+
+      {warning ? (
+        <Text style={[styles.warn, copy, { color: colors.warning }]}>{warning}</Text>
+      ) : null}
+      {note ? <Text style={[styles.note, copy, { color: colors.textMuted }]}>{note}</Text> : null}
+
+      {children ? <View style={styles.actions}>{children}</View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 28,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  coverWrap: { position: 'relative' },
-  cover: { width: '100%', height: 148 },
-  coverFallback: { alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: 12, left: 12, right: 12, alignItems: 'flex-start' },
-  body: { padding: spacing.md, gap: 10 },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    lineHeight: 26,
-  },
-  city: { fontSize: 13, fontFamily: 'Cairo_400Regular', marginTop: -6 },
-  payRow: { alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
-  payLabel: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
-  payValue: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  payPill: { borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 6, maxWidth: '52%' },
-  payPillText: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  person: {
-    alignItems: 'center',
-    gap: 10,
     borderRadius: radius.lg,
+    borderWidth: 1,
     padding: 10,
+    gap: 6,
   },
-  personAvatar: { width: 44, height: 44, borderRadius: 22 },
-  personFallback: { alignItems: 'center', justifyContent: 'center' },
-  personCopy: { flex: 1, minWidth: 0, gap: 2 },
-  personName: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  personMeta: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
-  facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  fact: {
-    flexDirection: 'row',
+  head: { alignItems: 'center', gap: 10 },
+  thumb: { width: 72, height: 72, borderRadius: 12 },
+  thumbFallback: { alignItems: 'center', justifyContent: 'center' },
+  headCopy: { flex: 1, minWidth: 0, gap: 2 },
+  titleRow: { alignItems: 'center', gap: 6 },
+  title: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  price: { fontSize: 13, fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  next: {
     alignItems: 'center',
     gap: 6,
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    maxWidth: '100%',
-  },
-  factText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
-  warn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
     borderRadius: radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
-  warnText: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_700Bold' },
-  note: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
-  actions: { gap: 8, marginTop: 4 },
+  nextText: { flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  pay: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  person: { alignItems: 'center', gap: 6 },
+  personAvatar: { width: 20, height: 20, borderRadius: 10 },
+  personName: { flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  warn: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  note: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 18 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
 });

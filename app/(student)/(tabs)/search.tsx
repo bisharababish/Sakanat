@@ -9,7 +9,6 @@ import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
-import { HubRow } from '@/components/ui/HubRow';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -286,35 +285,84 @@ export default function SearchScreen() {
     );
   };
 
-  const filterSummary = useMemo(() => {
-    const parts: string[] = [];
-    const city = cities.find((item) => item.id === cityId);
-    if (city) parts.push(localizedName(city, i18n.language));
-    if (!isRenter && universityId) {
+  const filterChips = useMemo(() => {
+    const chips: { key: string; label: string; onClear: () => void }[] = [];
+    if (query.trim()) chips.push({ key: 'query', label: query.trim(), onClear: () => setQuery('') });
+    if (cityId && cityId !== defaultCityId) {
+      const city = cities.find((item) => item.id === cityId);
+      chips.push({
+        key: 'city',
+        label: city ? localizedName(city, i18n.language) : t('common.city'),
+        onClear: () => setCityId(defaultCityId),
+      });
+    }
+    if (!isRenter && universityId && universityId !== defaultUniversityId) {
       const campus = universities.find((item) => item.id === universityId);
-      if (campus) parts.push(localizedName(campus, i18n.language));
+      chips.push({
+        key: 'uni',
+        label: campus ? localizedName(campus, i18n.language) : t('common.university'),
+        onClear: () => setUniversityId(defaultUniversityId),
+      });
     }
-    if (maxPrice) parts.push(`₪${maxPrice}`);
+    if (maxPrice) chips.push({ key: 'price', label: `₪${maxPrice}`, onClear: () => setMaxPrice('') });
     if (maxKm) {
-      parts.push(maxKm === String(UNDER_ONE_KM) ? t('common.under1km') : `${maxKm} ${t('common.km')}`);
+      chips.push({
+        key: 'km',
+        label: maxKm === String(UNDER_ONE_KM) ? t('common.under1km') : `${maxKm} ${t('common.km')}`,
+        onClear: () => setMaxKm(''),
+      });
     }
-    if (roomsFilter) parts.push(roomsFilter === '4' ? t('search.roomsPlus') : roomsFilter);
-    if (genderFilter === 'suitable') parts.push(t('search.suitable'));
-    else if (genderFilter === 'female' || genderFilter === 'male') parts.push(t(`gender.${genderFilter}`));
-    if (amenityFilter.length === 1) parts.push(t(`amenities.${amenityFilter[0]}`));
-    else if (amenityFilter.length > 1) parts.push(t('search.amenitiesCount', { count: amenityFilter.length }));
-    if (verifiedOnly) parts.push(t('search.verifiedOnly'));
-    if (sort === 'rating') parts.push(t('search.sortRating'));
-    return parts.join(' · ');
+    if (roomsFilter) {
+      chips.push({
+        key: 'rooms',
+        label: roomsFilter === '4' ? t('search.roomsPlus') : t('search.rooms') + ' ' + roomsFilter,
+        onClear: () => setRoomsFilter(''),
+      });
+    }
+    if (genderFilter !== defaultGender) {
+      chips.push({
+        key: 'gender',
+        label:
+          genderFilter === 'suitable'
+            ? t('search.suitable')
+            : genderFilter === 'female' || genderFilter === 'male'
+              ? t(`gender.${genderFilter}`)
+              : t('common.all'),
+        onClear: () => setGenderFilter(defaultGender),
+      });
+    }
+    amenityFilter.forEach((item) => {
+      chips.push({
+        key: `amenity-${item}`,
+        label: t(`amenities.${item}`),
+        onClear: () => setAmenityFilter((current) => current.filter((key) => key !== item)),
+      });
+    });
+    if (verifiedOnly) {
+      chips.push({ key: 'verified', label: t('search.verifiedOnly'), onClear: () => setVerifiedOnly(false) });
+    }
+    if (sort !== defaultSort) {
+      chips.push({
+        key: 'sort',
+        label: sort === 'rating' ? t('search.sortRating') : sort === 'distance' ? t('search.sortDistance') : t('search.sortPrice'),
+        onClear: () => setSort(defaultSort),
+      });
+    }
+    return chips;
   }, [
     amenityFilter,
     cities,
     cityId,
+    defaultCityId,
+    defaultGender,
+    defaultSort,
+    defaultUniversityId,
     genderFilter,
     i18n.language,
     isRenter,
     maxKm,
     maxPrice,
+    query,
     roomsFilter,
     sort,
     t,
@@ -322,21 +370,6 @@ export default function SearchScreen() {
     universityId,
     verifiedOnly,
   ]);
-
-  const alertSummary = useMemo(() => {
-    const parts: string[] = [];
-    const city = cities.find((item) => item.id === cityId);
-    if (city) parts.push(localizedName(city, i18n.language));
-    if (!isRenter && universityId) {
-      const campus = universities.find((item) => item.id === universityId);
-      if (campus) parts.push(localizedName(campus, i18n.language));
-    }
-    if (maxPrice) parts.push(`₪${maxPrice}`);
-    if (maxKm) {
-      parts.push(maxKm === String(UNDER_ONE_KM) ? t('common.under1km') : `${maxKm} ${t('common.km')}`);
-    }
-    return parts.join(' · ');
-  }, [cities, cityId, i18n.language, isRenter, maxKm, maxPrice, t, universities, universityId]);
 
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
   const genderItems = [
@@ -397,39 +430,75 @@ export default function SearchScreen() {
         ) : null}
       </View>
 
-      <View style={styles.hub}>
-        <HubRow
-          icon="options-outline"
-          label={t('search.filters')}
-          hint={filterSummary || t(filtersOpen ? 'search.hideFilters' : 'search.showFilters')}
+      <View style={[styles.tools, row]}>
+        <Pressable
           onPress={() => setFiltersOpen((open) => !open)}
-          trailing={
-            <Ionicons
-              name={filtersOpen ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.textMuted}
-            />
-          }
-        />
+          style={[
+            styles.tool,
+            row,
+            {
+              backgroundColor: filtersOpen || filtersOn ? colors.primarySoft : colors.surface,
+              borderColor: filtersOpen || filtersOn ? colors.primary : colors.border,
+            },
+          ]}
+        >
+          <Ionicons name="options-outline" size={16} color={colors.primary} />
+          <Text style={[styles.toolText, { color: colors.text }]}>{t('search.filters')}</Text>
+          {filtersOn ? (
+            <View style={[styles.toolBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.toolBadgeText, { color: colors.white }]}>{filterChips.length || '•'}</Text>
+            </View>
+          ) : null}
+        </Pressable>
         {profile ? (
-          <HubRow
-            icon={alertOn ? 'notifications' : 'notifications-outline'}
-            label={alertOn ? t('search.alertOn') : t('search.alertOff')}
-            hint={alertOn ? alertSummary || undefined : undefined}
+          <Pressable
             onPress={() => void toggleSearchAlert()}
-          />
+            style={[
+              styles.tool,
+              row,
+              {
+                backgroundColor: alertOn ? colors.primarySoft : colors.surface,
+                borderColor: alertOn ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <Ionicons name={alertOn ? 'notifications' : 'notifications-outline'} size={16} color={colors.primary} />
+            <Text style={[styles.toolText, { color: colors.text }]}>
+              {alertOn ? t('search.alertOnShort') : t('search.alertOffShort')}
+            </Text>
+          </Pressable>
         ) : null}
         {profile ? (
-          <HubRow
-            icon="heart-outline"
-            label={t('profile.tabSaved')}
-            hint={t('profile.itemCount', { count: savedIds.length })}
-            onPress={() =>
-              router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'saved' } })
-            }
-          />
+          <Pressable
+            onPress={() => router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'saved' } })}
+            style={[styles.tool, row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Ionicons name="heart-outline" size={16} color={colors.primary} />
+            <Text style={[styles.toolText, { color: colors.text }]}>{savedIds.length}</Text>
+          </Pressable>
         ) : null}
       </View>
+      {!filtersOpen && filterChips.length > 0 ? (
+        <View style={[styles.chips, chipAlign]}>
+          {filterChips.map((chip) => (
+            <Pressable
+              key={chip.key}
+              onPress={chip.onClear}
+              style={[styles.chip, row, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}
+            >
+              <Text style={[styles.chipText, { color: colors.primaryDark }]} numberOfLines={1}>
+                {chip.label}
+              </Text>
+              <Ionicons name="close" size={12} color={colors.primary} />
+            </Pressable>
+          ))}
+          {filtersOn ? (
+            <Pressable onPress={clearFilters} hitSlop={8} style={styles.chipClear}>
+              <Text style={[styles.clear, { color: colors.primary }]}>{t('search.clear')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       {filtersOpen ? (
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -568,14 +637,16 @@ export default function SearchScreen() {
 
       {loading ? (
         <View style={styles.skelWrap}>
-          {[0, 1, 2].map((index) => (
+          {[0, 1, 2, 3].map((index) => (
             <View
               key={index}
               style={[styles.skelCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
               <View style={[styles.skelCover, { backgroundColor: colors.surfaceMuted }]} />
-              <View style={[styles.skelLine, { backgroundColor: colors.surfaceMuted, width: '72%' }]} />
-              <View style={[styles.skelLine, { backgroundColor: colors.surfaceMuted, width: '44%' }]} />
+              <View style={styles.skelBody}>
+                <View style={[styles.skelLine, { backgroundColor: colors.surfaceMuted, width: '72%' }]} />
+                <View style={[styles.skelLine, { backgroundColor: colors.surfaceMuted, width: '44%' }]} />
+              </View>
             </View>
           ))}
         </View>
@@ -681,7 +752,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     paddingVertical: 6,
   },
-  hub: { gap: 8 },
+  tools: { flexWrap: 'wrap', gap: 8 },
+  tool: {
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  toolText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  toolBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  toolBadgeText: { fontSize: 10, fontFamily: 'Cairo_800ExtraBold' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    maxWidth: '100%',
+  },
+  chipText: { fontSize: 11, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
+  chipClear: { alignSelf: 'center', paddingHorizontal: 4 },
   alertRow: {
     alignItems: 'center',
     gap: 10,
@@ -713,12 +814,15 @@ const styles = StyleSheet.create({
   empty: { gap: spacing.sm },
   skelWrap: { gap: spacing.sm },
   skelCard: {
-    borderRadius: 28,
+    borderRadius: radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
+    flexDirection: 'row',
+    padding: 8,
+    gap: 10,
+    alignItems: 'center',
   },
-  skelCover: { height: 148, width: '100%' },
-  skelLine: { height: 12, borderRadius: 6, marginHorizontal: spacing.md },
+  skelCover: { height: 96, width: 96, borderRadius: 14 },
+  skelBody: { flex: 1, gap: 8 },
+  skelLine: { height: 10, borderRadius: 6 },
 });
