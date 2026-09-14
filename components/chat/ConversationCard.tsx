@@ -5,7 +5,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
+import { conversationPreview } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
+import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation } from '@/src/types/database';
@@ -59,7 +61,11 @@ export function ConversationCard({
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
-  const listing = conversation.apartments ? localizedTitle(conversation.apartments, i18n.language) : '';
+  const listing = conversation.apartments
+    ? [localizedTitle(conversation.apartments, i18n.language), listingPlaceLine(conversation.apartments, t)]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   return (
     <View>
@@ -116,7 +122,7 @@ export function ConversationCard({
             ]}
             numberOfLines={1}
           >
-            {conversation.last_message || '—'}
+            {conversationPreview(conversation.last_message) || '—'}
           </Text>
         </View>
       </Pressable>

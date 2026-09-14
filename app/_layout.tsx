@@ -100,7 +100,12 @@ function AppStack() {
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
       }}
-    />
+    >
+      <Stack.Screen name="(student)" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+      <Stack.Screen name="(owner)" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+      <Stack.Screen name="(admin)" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+      <Stack.Screen name="(guest)" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+    </Stack>
   );
 }
 

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ConversationList, useInbox, type InboxFilter } from '@/components/ConversationList';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -17,9 +18,9 @@ export default function OwnerChat() {
 
   return (
     <Screen onRefresh={() => void inbox.refresh()} refreshing={inbox.refreshing}>
+      <ProfileEnter scene="chat" enterOnMount>
       <OfflineBanner />
       <View style={styles.top}>
-        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('chat.title')}</Text>
       </View>
       <ConversationList
@@ -31,12 +32,12 @@ export default function OwnerChat() {
         filter={filter}
         onFilterChange={setFilter}
       />
+      </ProfileEnter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   top: { gap: 0 },
-  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -2 },
-  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
 });

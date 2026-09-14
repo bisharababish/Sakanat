@@ -7,6 +7,12 @@ export const SUPPORT_EMAIL = 'sakanatappatinfo@gmail.com';
 export const TRUST_EMAIL = (process.env.EXPO_PUBLIC_TRUST_EMAIL ?? '').trim() || SUPPORT_EMAIL;
 export const SUPPORT_PHONE = '+972594295100';
 export const ANDROID_PACKAGE = 'ps.sakanat.app';
+export const INSTAGRAM_HANDLE = 'sakanat.ps';
+export const COPYRIGHT_YEAR = 2026;
+
+export function instagramUrl() {
+  return `https://www.instagram.com/${INSTAGRAM_HANDLE}/`;
+}
 
 export function appVersion() {
   return Constants.expoConfig?.version ?? '1.0.0';

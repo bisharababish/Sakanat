@@ -5,11 +5,45 @@ import { supabase } from '@/src/lib/supabase';
 import type { Apartment, Conversation, Profile } from '@/src/types/database';
 
 const CONVERSATION_SELECT =
-  '*, apartments(id, title_ar, title_en, photos), student:profiles!student_id(id, full_name, avatar_url, role), owner:profiles!owner_id(id, full_name, avatar_url, role)';
+  '*, apartments(id, title_ar, title_en, photos, building_name, floor, unit_number), student:profiles!student_id(id, full_name, avatar_url, role), owner:profiles!owner_id(id, full_name, avatar_url, role)';
 
 export function personName(person?: Pick<Profile, 'full_name'> | null) {
   const name = (person?.full_name ?? '').trim();
   return name || '';
+}
+
+const PHOTO_MARKERS = new Set(['chat.photoMessage', '__photo__', 'Photo', 'صورة']);
+const VOICE_MARKERS = new Set(['chat.voiceMessage', '__voice__', 'Voice message', 'رسالة صوتية']);
+
+function looksLikeI18nKey(value: string) {
+  return /^[a-z][a-zA-Z]+\.[a-zA-Z]+$/.test(value);
+}
+
+export function isPhotoPlaceholder(body?: string | null) {
+  const value = (body ?? '').trim();
+  if (!value) return true;
+  if (PHOTO_MARKERS.has(value)) return true;
+  return value === i18n.t('chat.photoMessage');
+}
+
+export function isVoicePlaceholder(body?: string | null) {
+  const value = (body ?? '').trim();
+  if (!value) return true;
+  if (VOICE_MARKERS.has(value)) return true;
+  return value === i18n.t('chat.voiceMessage');
+}
+
+/** Inbox / bubble preview: never show raw keys like chat.voiceMessage. */
+export function conversationPreview(last?: string | null) {
+  const value = (last ?? '').trim();
+  if (!value) return '';
+  if (isVoicePlaceholder(value)) return i18n.t('chat.voiceMessage');
+  if (isPhotoPlaceholder(value)) return i18n.t('chat.photoMessage');
+  if (looksLikeI18nKey(value)) {
+    const translated = i18n.t(value);
+    if (translated && translated !== value) return translated;
+  }
+  return value;
 }
 
 function asPerson(value: unknown) {
@@ -85,7 +119,7 @@ export async function loadAllConversations() {
   const { data, error } = await supabase
     .from('conversations')
     .select(
-      '*, apartments(id, title_ar, title_en, photos), student:profiles!student_id(id, full_name, avatar_url, email, phone, role), owner:profiles!owner_id(id, full_name, avatar_url, email, phone)',
+      '*, apartments(id, title_ar, title_en, photos, building_name, floor, unit_number), student:profiles!student_id(id, full_name, avatar_url, email, phone, role), owner:profiles!owner_id(id, full_name, avatar_url, email, phone)',
     )
     .order('last_message_at', { ascending: false });
   if (error) throw error;
@@ -151,6 +185,8 @@ export function conversationSearchHaystack(item: Conversation, lang: string) {
     personName(owner),
     item.apartments?.title_ar,
     item.apartments?.title_en,
+    item.apartments?.building_name,
+    item.apartments?.unit_number,
     item.last_message,
   ]
     .filter(Boolean)
@@ -242,10 +278,12 @@ export async function sendMessage(
   senderId: string,
   body: string,
   imageUrl?: string | null,
+  audioUrl?: string | null,
 ) {
   const trimmed = body.trim().slice(0, MESSAGE_MAX);
   const image = (imageUrl ?? '').trim() || null;
-  if (!trimmed && !image) return;
+  const audio = (audioUrl ?? '').trim() || null;
+  if (!trimmed && !image && !audio) return;
   const { assertRateLimit, RATE, rateLimitMessage } = await import('@/src/lib/rateLimit');
   if (!(await assertRateLimit(`message:${senderId}`, RATE.messageMs))) {
     throw new Error(rateLimitMessage('RATE_MESSAGE', (key) => i18n.t(key)));
@@ -262,14 +300,20 @@ export async function sendMessage(
       throw new Error(i18n.t('chat.blockedSend'));
     }
   }
-  const preview = trimmed || (image ? i18n.t('chat.photoMessage') : '');
+  const preview = trimmed || (image ? i18n.t('chat.photoMessage') : audio ? i18n.t('chat.voiceMessage') : '');
   const { error } = await supabase.from('messages').insert({
     conversation_id: conversationId,
     sender_id: senderId,
-    body: trimmed || preview,
+    body: trimmed || (image ? '__photo__' : audio ? '__voice__' : ''),
     image_url: image,
+    audio_url: audio,
   });
-  if (error) throw error;
+  if (error) {
+    if (audio && /audio_url|column/i.test(error.message)) {
+      throw new Error(i18n.t('chat.voiceNeedsSql'));
+    }
+    throw error;
+  }
   const now = new Date().toISOString();
   const asOwner = convo?.owner_id === senderId;
   await supabase

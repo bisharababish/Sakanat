@@ -9,13 +9,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { REVIEW_NOTE_MAX, REVIEW_NOTE_MIN } from '@/src/lib/reviews';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -46,7 +46,7 @@ export function ReviewForm({
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const safe = useModalSafeArea();
 
   const close = () => {
     Keyboard.dismiss();
@@ -71,8 +71,8 @@ export function ReviewForm({
             {
               backgroundColor: colors.surface,
               borderColor: colors.border,
-              marginTop: Math.max(insets.top, spacing.md),
-              marginBottom: Math.max(insets.bottom, spacing.md),
+              marginTop: Math.max(safe.top, spacing.md),
+              marginBottom: Math.max(safe.bottom, spacing.md),
             },
           ]}
         >

@@ -291,6 +291,8 @@ export function ProfileSettingsFields({
           <View style={[styles.levelChip, row, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
             <Text style={[styles.levelText, rtlText, { color: colors.text }]} numberOfLines={1}>
+              {privacyLevel}
+            </Text>
           </View>
           <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.privacyIntro')}</Text>
 

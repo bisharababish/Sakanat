@@ -82,6 +82,8 @@ export function refineListings(apartments: Apartment[], filters: SearchFilters) 
         localizedTitle(entry.item, lang),
         localizedDescription(entry.item, lang),
         localizedName(entry.item.cities, lang),
+        entry.item.building_name,
+        entry.item.unit_number,
         ...(filters.isRenter ? [] : [localizedName(entry.item.universities, lang)]),
       ]
         .join(' ')

@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   copy: { flex: 1, minWidth: 0, gap: 2 },
-  label: { fontSize: 15, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  label: { fontSize: 15, fontFamily: 'Cairo_600SemiBold' },
   hint: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   trail: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },

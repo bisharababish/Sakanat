@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, Easing, StyleSheet } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { spacing } from '@/src/theme/colors';
@@ -22,12 +22,21 @@ export function ProfileEnter({
   useEffect(() => {
     const play = () => {
       progress.setValue(0);
-      Animated.spring(progress, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 72,
-      }).start();
+      if (reverse) {
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 160,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      } else {
+        Animated.spring(progress, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 9,
+          tension: 80,
+        }).start();
+      }
     };
     if (first.current) {
       first.current = false;
@@ -36,9 +45,10 @@ export function ProfileEnter({
       return;
     }
     play();
-  }, [enterOnMount, progress, scene]);
+  }, [enterOnMount, progress, reverse, scene]);
 
   const dir = (isRtl ? -1 : 1) * (reverse ? -1 : 1);
+  const from = reverse ? 16 : 28;
 
   return (
     <Animated.View
@@ -50,7 +60,7 @@ export function ProfileEnter({
             {
               translateX: progress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [28 * dir, 0],
+                outputRange: [from * dir, 0],
               }),
             },
           ],

@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectionHead } from '@/components/profile/SectionHead';
+import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ListingReviews } from '@/components/reviews/ListingReviews';
 import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
@@ -26,11 +27,16 @@ import { Card } from '@/components/ui/Card';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useCatalog } from '@/src/hooks/useCatalog';
+import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
 import { MAX_OCCUPANTS } from '@/src/lib/booking';
 import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
-import { formatIls, localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { formatIls, localizedDescription, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
 import { listingShareUrl } from '@/src/lib/pushRouting';
+import { listingPlaceLine } from '@/src/lib/listingPlace';
+import { displayName } from '@/src/lib/name';
+import { ownerPublicLines } from '@/src/lib/ownerPublic';
 import { whatsappLink } from '@/src/lib/phone';
 import { loadApartmentReviews } from '@/src/lib/reviews';
 import { radius, spacing } from '@/src/theme/colors';
@@ -113,6 +119,8 @@ export function ApartmentView({
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, lang, isRtl, row } = useLayout();
   const { profile } = useAuth();
+  const { cities } = useCatalog();
+  const today = useToday();
   const colors = useColors();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [viewer, setViewer] = useState(false);
@@ -332,6 +340,9 @@ export function ApartmentView({
         ) : null}
 
         <View style={[styles.facts, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
+          {listingPlaceLine(apartment, t) ? (
+            <Fact icon="business-outline" text={listingPlaceLine(apartment, t)} />
+          ) : null}
           <Fact icon="bed-outline" text={t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms })} />
           {apartment.area_m2 ? <Fact icon="resize-outline" text={t('listing.area', { area: apartment.area_m2 })} /> : null}
           <Fact icon="people-circle-outline" text={t('listing.fitsPeople', { count: MAX_OCCUPANTS })} />
@@ -354,6 +365,28 @@ export function ApartmentView({
           <Card>
             <SectionHead icon="document-text-outline" title={t('listing.details')} />
             <Text style={[styles.body, copy, { color: colors.text }]}>{localizedDescription(apartment, i18n.language)}</Text>
+          </Card>
+        ) : null}
+
+        {localizedPair(apartment.house_rules_ar, apartment.house_rules_en, i18n.language) ? (
+          <Card>
+            <SectionHead icon="clipboard-outline" title={t('listing.houseRules')} />
+            <Text style={[styles.body, copy, { color: colors.textMuted }]}>{t('listing.stayPublicHint')}</Text>
+            <Text style={[styles.body, copy, { color: colors.text }]}>
+              {localizedPair(apartment.house_rules_ar, apartment.house_rules_en, i18n.language)}
+            </Text>
+          </Card>
+        ) : null}
+
+        {localizedPair(apartment.check_in_notes_ar, apartment.check_in_notes_en, i18n.language) ? (
+          <Card>
+            <SectionHead icon="key-outline" title={t('listing.checkIn')} />
+            {!localizedPair(apartment.house_rules_ar, apartment.house_rules_en, i18n.language) ? (
+              <Text style={[styles.body, copy, { color: colors.textMuted }]}>{t('listing.stayPublicHint')}</Text>
+            ) : null}
+            <Text style={[styles.body, copy, { color: colors.text }]}>
+              {localizedPair(apartment.check_in_notes_ar, apartment.check_in_notes_en, i18n.language)}
+            </Text>
           </Card>
         ) : null}
 
@@ -408,33 +441,46 @@ export function ApartmentView({
           )}
         </Card>
 
-        <Card>
-          <SectionHead icon="person-outline" title={t('listing.owner')} />
-          <Text style={[styles.body, copy, { color: colors.text }]}>
-            {apartment.profiles?.full_name || t('listing.owner')}
-          </Text>
-          {apartment.profiles?.id_verify_status === 'approved' ? (
-            <Text style={[styles.muted, copy, { color: colors.primary }]}>{t('listing.verifiedOwner')}</Text>
-          ) : null}
-          {preview && signedIn && apartment.profiles?.phone ? (
-            <Button
-              title={t('common.call')}
-              variant="ghost"
-              pill
-              onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
-            />
-          ) : null}
-          {preview && signedIn && (apartment.profiles?.whatsapp || apartment.profiles?.phone) ? (
-            <Button
-              title={t('profile.openWhatsapp')}
-              variant="ghost"
-              pill
-              onPress={() =>
-                Linking.openURL(whatsappLink(apartment.profiles?.whatsapp || apartment.profiles?.phone || ''))
-              }
-            />
-          ) : null}
-        </Card>
+        <OwnerSeenCard
+          title={t('listing.owner')}
+          name={displayName(apartment.profiles, i18n.language) || t('listing.owner')}
+          avatarUrl={apartment.profiles?.avatar_url ?? null}
+          verifyStatus={apartment.profiles?.id_verify_status}
+          verifyRole="owner"
+          bio={apartment.profiles?.bio}
+          lines={ownerPublicLines(apartment.profiles, t, {
+            cityName: localizedName(
+              cities.find((item) => item.id === apartment.profiles?.city_id),
+              i18n.language,
+            ),
+            today,
+            buildings: apartment.building_name ? [apartment.building_name] : [],
+          })}
+          footer={
+            preview && signedIn ? (
+              <>
+                {apartment.profiles?.phone ? (
+                  <Button
+                    title={t('common.call')}
+                    variant="ghost"
+                    pill
+                    onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
+                  />
+                ) : null}
+                {apartment.profiles?.whatsapp || apartment.profiles?.phone ? (
+                  <Button
+                    title={t('profile.openWhatsapp')}
+                    variant="ghost"
+                    pill
+                    onPress={() =>
+                      Linking.openURL(whatsappLink(apartment.profiles?.whatsapp || apartment.profiles?.phone || ''))
+                    }
+                  />
+                ) : null}
+              </>
+            ) : null
+          }
+        />
         <View
           onLayout={(event) => {
             reviewsY.current = event.nativeEvent.layout.y;

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { Screen } from '@/components/ui/Screen';
@@ -42,6 +43,7 @@ export default function GuestAccount() {
             },
           ]}
         />
+        <AppBrandFooter />
       </ProfileEnter>
     </Screen>
   );

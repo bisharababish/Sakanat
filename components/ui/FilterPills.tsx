@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  label: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', flexShrink: 1 },
+  label: { fontSize: 13, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
   labelCompact: { fontSize: 12 },
   count: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   countCompact: { fontSize: 11 },

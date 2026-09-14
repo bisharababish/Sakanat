@@ -10,7 +10,7 @@ import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment } from '@/src/types/database';
 
 export default function EditListing() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const colors = useColors();
   const [apartment, setApartment] = useState<Apartment | null>(null);
 
@@ -30,5 +30,5 @@ export default function EditListing() {
     );
   }
 
-  return <ListingEditor apartment={apartment} />;
+  return <ListingEditor apartment={apartment} focus={typeof focus === 'string' ? focus : ''} />;
 }

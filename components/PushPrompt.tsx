@@ -6,6 +6,7 @@ import { useSegments } from 'expo-router';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import { getNotificationStatus, markPushPrompted, requestPushAndRegister, wasPushPrompted } from '@/src/lib/push';
 import { radius, spacing } from '@/src/theme/colors';
@@ -16,6 +17,7 @@ export function PushPrompt() {
   const { rtlText } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
+  const safe = useModalSafeArea();
   const segments = useSegments();
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,16 @@ export function PushPrompt() {
 
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => void finish(false)}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: colors.overlay,
+            paddingTop: Math.max(safe.top, spacing.lg),
+            paddingBottom: Math.max(safe.bottom, spacing.lg),
+          },
+        ]}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={() => void finish(false)} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>

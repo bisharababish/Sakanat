@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
   type KeyboardTypeOptions,
+  type LayoutChangeEvent,
   type TextInputProps,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,8 @@ type Props = {
   selectTextOnFocus?: boolean;
   autoComplete?: TextInputProps['autoComplete'];
   textContentType?: TextInputProps['textContentType'];
+  inputRef?: Ref<TextInput>;
+  onLayout?: (event: LayoutChangeEvent) => void;
 };
 
 export function Input({
@@ -57,6 +60,8 @@ export function Input({
   selectTextOnFocus,
   autoComplete,
   textContentType,
+  inputRef,
+  onLayout,
 }: Props) {
   const { t } = useTranslation();
   const layout = useLayout();
@@ -68,12 +73,13 @@ export function Input({
   const iconOnStart = Boolean(secureTextEntry) && layout.isRtl && !ltr;
 
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact]} onLayout={onLayout}>
       <Text style={[styles.label, compact && styles.labelCompact, layout.rtlText, { color: colors.text }]}>
         {label}
       </Text>
       <View style={[styles.field, ltr ? styles.ltr : null]}>
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

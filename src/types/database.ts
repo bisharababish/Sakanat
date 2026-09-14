@@ -153,9 +153,33 @@ export type Apartment = {
   review_avg?: number | null;
   review_count?: number | null;
   created_at: string;
+  building_name?: string | null;
+  floor?: number | null;
+  unit_number?: string | null;
+  house_rules_ar?: string | null;
+  house_rules_en?: string | null;
+  check_in_notes_ar?: string | null;
+  check_in_notes_en?: string | null;
   cities?: City;
   universities?: University | null;
-  profiles?: Pick<Profile, 'id' | 'full_name' | 'phone' | 'email' | 'whatsapp' | 'id_verify_status'>;
+  profiles?: Pick<
+    Profile,
+    | 'id'
+    | 'full_name'
+    | 'full_name_en'
+    | 'avatar_url'
+    | 'phone'
+    | 'email'
+    | 'whatsapp'
+    | 'id_verify_status'
+    | 'gender'
+    | 'date_of_birth'
+    | 'city_id'
+    | 'bio'
+    | 'spoken_languages'
+    | 'phone_visibility'
+    | 'whatsapp_visibility'
+  >;
 };
 
 export type Booking = {
@@ -202,6 +226,9 @@ export type Booking = {
     | 'last_seen_ip'
     | 'phone_visibility'
     | 'whatsapp_visibility'
+    | 'full_name_en'
+    | 'bio'
+    | 'spoken_languages'
   > & { universities?: Pick<University, 'id' | 'name_ar' | 'name_en'> | null };
   student?: Pick<
     Profile,
@@ -247,7 +274,10 @@ export type Conversation = {
   owner_muted?: boolean;
   student_archived_at?: string | null;
   owner_archived_at?: string | null;
-  apartments?: Pick<Apartment, 'id' | 'title_ar' | 'title_en' | 'photos'>;
+  apartments?: Pick<
+    Apartment,
+    'id' | 'title_ar' | 'title_en' | 'photos' | 'building_name' | 'floor' | 'unit_number'
+  >;
   student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
 };
@@ -272,6 +302,7 @@ export type Message = {
   body: string;
   created_at: string;
   image_url?: string | null;
+  audio_url?: string | null;
 };
 
 export type AppSettings = {

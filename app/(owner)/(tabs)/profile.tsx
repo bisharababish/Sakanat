@@ -1,16 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { OwnerOccupants } from '@/components/owner/OwnerOccupants';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
-import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
@@ -26,8 +27,10 @@ import { useAuth } from '@/src/lib/auth';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
+import { ownerPublicLines } from '@/src/lib/ownerPublic';
 import { regionPrefix, sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { pickIdCardPhoto, pickProfilePhoto } from '@/src/lib/pickImage';
+import { supabase } from '@/src/lib/supabase';
 import {
   accountVerification,
   fetchPublicIp,
@@ -38,12 +41,16 @@ import {
   nationalIdExpiryState,
   sanitizeNationalId,
 } from '@/src/lib/trust';
-import { supabase } from '@/src/lib/supabase';
+import {
+  loadOwnerOccupancy,
+  occupancyTotals,
+  type OccupancyBuilding,
+} from '@/src/lib/listingPlace';
 import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, Profile } from '@/src/types/database';
 
-type ProfileTab = 'menu' | 'account' | 'trust' | 'settings' | 'security';
+type ProfileTab = 'menu' | 'account' | 'trust' | 'settings' | 'security' | 'occupants';
 
 type FormSnap = {
   fullNameEn: string;
@@ -127,7 +134,7 @@ function snapFromProfile(next: Profile): FormSnap {
 
 export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { cities } = useCatalog();
@@ -158,6 +165,7 @@ export default function OwnerProfile() {
   const [emergencyRegion, setEmergencyRegion] = useState<PhoneRegion>('ps');
   const [emergencyLocal, setEmergencyLocal] = useState('');
   const [listingCount, setListingCount] = useState(0);
+  const [occupancy, setOccupancy] = useState<OccupancyBuilding[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
@@ -198,7 +206,7 @@ export default function OwnerProfile() {
   }, [profile, applyForm]);
 
   useEffect(() => {
-    if (tabParam === 'security' || tabParam === 'account' || tabParam === 'trust' || tabParam === 'settings') {
+    if (tabParam === 'security' || tabParam === 'account' || tabParam === 'trust' || tabParam === 'settings' || tabParam === 'occupants') {
       setTab(tabParam);
     }
   }, [tabParam]);
@@ -220,7 +228,12 @@ export default function OwnerProfile() {
       .select('id', { count: 'exact', head: true })
       .eq('owner_id', profile.id);
     setListingCount(count ?? 0);
-  }, [profile?.id]);
+    try {
+      setOccupancy(await loadOwnerOccupancy(profile.id, i18n.language, t('owner.untitledUnit')));
+    } catch {
+      setOccupancy([]);
+    }
+  }, [i18n.language, profile?.id, t]);
 
   const reloadAll = useCallback(async () => {
     await Promise.all([loadListings(), refreshProfile()]);
@@ -306,6 +319,7 @@ export default function OwnerProfile() {
   };
   const dirty = baseline.current != null && !snapsEqual(currentSnap, baseline.current);
   dirtyRef.current = dirty;
+  const occ = occupancyTotals(occupancy);
   const verification = accountVerification(profile);
   const trustIncomplete = Boolean(
     !isValidNationalId(nationalId) ||
@@ -526,12 +540,9 @@ export default function OwnerProfile() {
     { id: 'birth', label: t('profile.birthDate'), done: Boolean(birthDate) },
     { id: 'phone', label: t('common.phone'), done: Boolean(phoneLocal.trim()) },
     { id: 'whatsapp', label: t('profile.whatsapp'), done: Boolean(waLocal.trim()) },
-  ];
-  const trustProgress = [
     { id: 'nationalId', label: t('profile.nationalId'), done: isValidNationalId(nationalId) },
     { id: 'nationalExpiry', label: t('profile.nationalIdExpiry'), done: isValidNationalIdExpiry(nationalExpiresAt) },
     { id: 'nationalCard', label: t('profile.nationalCard'), done: Boolean(nationalIdUrl) && idDocsConsent },
-    { id: 'idVerified', label: t('profile.idVerified'), done: profile?.id_verify_status === 'approved' },
     { id: 'emergencyName', label: t('profile.emergencyName'), done: isValidEmergencyName(emergencyName) },
     {
       id: 'emergencyPhone',
@@ -578,12 +589,9 @@ export default function OwnerProfile() {
       }
     >
       <OfflineBanner />
-      <ProfileEnter scene={tab} reverse={tab === 'menu'}>
+      <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
       {tab === 'menu' ? (
         <>
-          <Text style={[{ fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' }, rtlText, { color: colors.accent }]}>
-            {t('profile.title')}
-          </Text>
           <ProfileHero
             name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
             avatarUrl={avatarUrl}
@@ -595,14 +603,65 @@ export default function OwnerProfile() {
                 ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
                 : []),
               ...(cityName ? [{ icon: 'location' as const, text: cityName }] : []),
+              ...(occ.buildings > 0
+                ? [{ icon: 'business-outline' as const, text: t('owner.buildingsCount', { count: occ.buildings }) }]
+                : []),
+              ...(occ.people > 0
+                ? [{ icon: 'people-outline' as const, text: t('owner.stayingCount', { count: occ.people }) }]
+                : []),
             ]}
             chip={t('roles.owner')}
             email={profile?.email}
             verifyStatus={profile?.id_verify_status}
             verifyRole="owner"
+            progressFilled={progressItems.filter((item) => item.done).length}
+            progressTotal={progressItems.length}
           />
           <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
-          <ProfileProgress items={progressItems} onJump={jumpTo} readyLabel={t('owner.profileReady')} />
+          <Card compact onPress={() => setTab('occupants')}>
+              <Text style={[styles.occTitle, rtlText, { color: colors.text }]}>{t('owner.occupantsTitle')}</Text>
+              <Text style={[styles.occHint, rtlText, { color: colors.textMuted }]}>
+                {occupancy.length > 0
+                  ? t('owner.occupantsSummary', {
+                      buildings: occ.buildings,
+                      people: occ.people,
+                      vacant: occ.vacant,
+                    })
+                  : t('owner.occupantsHintEmpty')}
+              </Text>
+              {occupancy.length > 0 ? (
+              <View style={[styles.gaps, row]}>
+                {occupancy.slice(0, 4).map((item) => (
+                  <View
+                    key={item.key}
+                    style={[styles.gapChip, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}
+                  >
+                    <Text style={[styles.gapChipText, { color: colors.primaryDark }]} numberOfLines={1}>
+                      {item.name} · {item.people}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              ) : null}
+            </Card>
+          {progressItems.some((item) => !item.done) ? (
+            <View style={[styles.gaps, row]}>
+              {progressItems
+                .filter((item) => !item.done)
+                .slice(0, 4)
+                .map((item) => (
+                  <Pressable
+                    key={item.id ?? item.label}
+                    onPress={() => item.id && jumpTo(item.id)}
+                    style={[styles.gapChip, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
+                  >
+                    <Text style={[styles.gapChipText, { color: colors.text }]} numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+          ) : null}
           <ProfileMenu
             onLogout={askLogout}
             links={[
@@ -623,6 +682,16 @@ export default function OwnerProfile() {
                 onPress: () => setTab('trust'),
               },
               {
+                key: 'occupants',
+                icon: 'people-outline',
+                label: t('owner.occupantsTitle'),
+                hint:
+                  occ.units > 0
+                    ? t('owner.occupantsHint', { people: occ.people, buildings: occ.buildings })
+                    : t('owner.occupantsHintEmpty'),
+                onPress: () => setTab('occupants'),
+              },
+              {
                 key: 'settings',
                 icon: 'options-outline',
                 label: t('profile.tabSettings'),
@@ -636,16 +705,19 @@ export default function OwnerProfile() {
               },
             ]}
           />
+          <AppBrandFooter />
         </>
       ) : (
-        <Text style={[{ fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' }, rtlText, { color: colors.accent }]}>
+        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>
           {tab === 'account'
             ? t('profile.personalTitle')
             : tab === 'trust'
               ? t('profile.tabTrust')
               : tab === 'settings'
                 ? t('profile.tabSettings')
-                : t('profile.tabSecurity')}
+                : tab === 'occupants'
+                  ? t('owner.occupantsTitle')
+                  : t('profile.tabSecurity')}
         </Text>
       )}
 
@@ -661,39 +733,27 @@ export default function OwnerProfile() {
             verifyStatus={profile?.id_verify_status}
             verifyRole="owner"
             bio={bio}
-            lines={[
-              ...(gender ? [{ icon: 'person-outline' as const, text: t(`profile.${gender}`) }] : []),
-              ...(ageLabel(birthDate, t, today)
-                ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
-                : []),
-              ...(cityName ? [{ icon: 'location-outline' as const, text: cityName }] : []),
-              ...(phoneLocal.trim()
-                ? [{ icon: 'call-outline' as const, text: `${regionPrefix(phoneRegion)} ${phoneLocal}` }]
-                : []),
-              ...(waLocal.trim()
-                ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
-                : []),
-              ...(spokenLanguages.length
-                ? [
-                    {
-                      icon: 'chatbubbles-outline' as const,
-                      text: spokenLanguages
-                        .map((code) =>
-                          code === 'ar'
-                            ? t('profile.langAr')
-                            : code === 'en'
-                              ? t('profile.langEn')
-                              : code === 'he'
-                                ? t('profile.langHe')
-                                : code,
-                        )
-                        .join(' · '),
-                    },
-                  ]
-                : []),
-            ].filter((item) => item.text)}
+            lines={ownerPublicLines(
+              {
+                gender,
+                date_of_birth: birthDate,
+                city_id: cityId,
+                spoken_languages: spokenLanguages,
+                phone_visibility: profile?.phone_visibility,
+                whatsapp_visibility: profile?.whatsapp_visibility,
+              },
+              t,
+              {
+                cityName,
+                today,
+                bookingStatus: 'pending',
+                phoneDisplay: phoneLocal.trim() ? `${regionPrefix(phoneRegion)} ${phoneLocal}` : '',
+                whatsappDisplay: waLocal.trim() ? `${regionPrefix(waRegion)} ${waLocal}` : '',
+                showContact: true,
+                buildings: occupancy.map((item) => item.name),
+              },
+            )}
           />
-          <ProfileProgress items={progressItems} onJump={jumpTo} readyLabel={t('owner.profileReady')} />
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -734,7 +794,6 @@ export default function OwnerProfile() {
 
       {tab === 'trust' ? (
         <>
-          <ProfileProgress items={trustProgress} onJump={jumpTo} readyLabel={t('owner.profileReady')} />
           <ProfileSafetyFields
             isStudent={false}
             nationalId={nationalId}
@@ -766,6 +825,8 @@ export default function OwnerProfile() {
         </>
       ) : null}
 
+      {tab === 'occupants' && profile?.id ? <OwnerOccupants ownerId={profile.id} /> : null}
+
       {tab === 'settings' && profile ? (
         <ProfileSettingsFields variant="owner" profile={profile} onSaved={() => void refreshProfile()} />
       ) : null}
@@ -775,3 +836,18 @@ export default function OwnerProfile() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  kicker: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
+  occTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  occHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 18, marginBottom: 6 },
+  gaps: { flexWrap: 'wrap', gap: 6 },
+  gapChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    maxWidth: '100%',
+  },
+  gapChipText: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
+});

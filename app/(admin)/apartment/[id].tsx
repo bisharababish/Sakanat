@@ -14,6 +14,7 @@ import { updateListingStatus } from '@/src/lib/listing';
 import { LISTING_REJECT_PRESETS } from '@/src/lib/listingQuality';
 import { notifyListingApproved, notifyListingRejected } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
+import { OWNER_PUBLIC_PROFILE } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment, ListingStatus } from '@/src/types/database';
 
@@ -31,7 +32,7 @@ export default function AdminApartmentReview() {
     if (!id) return;
     const { data } = await supabase
       .from('apartments')
-      .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, phone, email, whatsapp)')
+      .select(`*, cities(*), universities(*), profiles!owner_id(${OWNER_PUBLIC_PROFILE})`)
       .eq('id', id)
       .single();
     if (data) setApartment(data as Apartment);

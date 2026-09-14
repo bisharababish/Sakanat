@@ -15,14 +15,18 @@ import { Button } from '@/components/ui/Button';
 import { HubRow } from '@/components/ui/HubRow';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
+import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
+import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
-import { localizedTitle } from '@/src/lib/format';
+import { localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
+import { listingPlaceLine } from '@/src/lib/listingPlace';
+import { displayName } from '@/src/lib/name';
+import { OWNER_PUBLIC_PROFILE, ownerPublicLines } from '@/src/lib/ownerPublic';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
-import { displayName } from '@/src/lib/name';
 import { whatsappLink } from '@/src/lib/phone';
 import { canShowOwnerContact } from '@/src/lib/privacy';
 import { canReviewStay, isValidReview, loadMyReviews, submitApartmentReview } from '@/src/lib/reviews';
@@ -39,6 +43,8 @@ export default function StudentBookings() {
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
+  const { cities } = useCatalog();
+  const today = useToday();
   const { focus, review } = useLocalSearchParams<{ focus?: string; review?: string }>();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<ApartmentReview[]>([]);
@@ -56,7 +62,7 @@ export default function StudentBookings() {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
-      .select('*, apartments(*, cities(*)), profiles!owner_id(id, full_name, phone, whatsapp, phone_visibility, whatsapp_visibility)')
+      .select(`*, apartments(*, cities(*)), profiles!owner_id(${OWNER_PUBLIC_PROFILE})`)
       .eq('student_id', profile.id)
       .order('created_at', { ascending: false });
     setBookings((data as Booking[]) ?? []);
@@ -231,9 +237,8 @@ export default function StudentBookings() {
       <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
-          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.myBookings')}</Text>
-          <Text style={[styles.kicker, rtlText, { color: colors.textMuted }]}>{t('review.whereHint')}</Text>
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('review.whereHint')}</Text>
         </View>
         {counts.pending > 0 ? (
           <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
@@ -279,13 +284,46 @@ export default function StudentBookings() {
           ? booking.profiles?.whatsapp || (showPhone ? booking.profiles?.phone : null)
           : null;
         const myReview = reviewByBooking[booking.id];
+        const checkIn = localizedPair(
+          booking.apartments?.check_in_notes_ar,
+          booking.apartments?.check_in_notes_en,
+          i18n.language,
+        );
+        const houseRules = localizedPair(
+          booking.apartments?.house_rules_ar,
+          booking.apartments?.house_rules_en,
+          i18n.language,
+        );
+        const stayNote =
+          booking.status === 'confirmed' || booking.status === 'completed'
+            ? [
+                checkIn ? `${t('listing.checkIn')}\n${checkIn}` : '',
+                houseRules ? `${t('listing.houseRules')}\n${houseRules}` : '',
+              ]
+                .filter(Boolean)
+                .join('\n\n')
+            : '';
         return (
           <BookingCard
             key={booking.id}
             booking={booking}
             highlighted={highlightId === booking.id}
+            extra={listingPlaceLine(booking.apartments, t) || undefined}
             personIcon="home"
-            personLabel={booking.profiles?.full_name ? `${t('listing.owner')}: ${booking.profiles.full_name}` : undefined}
+            personAvatar={booking.profiles?.avatar_url}
+            personLabel={
+              booking.profiles
+                ? `${t('listing.owner')}: ${displayName(booking.profiles, i18n.language) || booking.profiles.full_name || ''}`
+                : undefined
+            }
+            details={ownerPublicLines(booking.profiles, t, {
+              cityName: localizedName(
+                cities.find((item) => item.id === booking.profiles?.city_id),
+                i18n.language,
+              ),
+              today,
+              buildings: booking.apartments?.building_name ? [booking.apartments.building_name] : [],
+            }).map((item) => item.text)}
             nextAction={
               booking.status === 'pending'
                 ? t('booking.nextWaitOwner', { hours: pendingExpireHoursLeft(booking.created_at) ?? 0 })
@@ -321,7 +359,10 @@ export default function StudentBookings() {
             note={
               booking.status === 'cancelled' && booking.cancel_reason
                 ? t('booking.cancelledNote', { note: booking.cancel_reason })
-                : undefined
+                : booking.status === 'pending'
+                  ? t('booking.pendingStayNotes')
+                  : stayNote ||
+                    (booking.status === 'confirmed' ? t('booking.waitCheckIn') : undefined)
             }
           >
             {(() => {
@@ -445,8 +486,8 @@ export default function StudentBookings() {
 const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
-  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
+  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   countPill: {
     minWidth: 36,
     height: 36,

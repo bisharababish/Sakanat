@@ -15,7 +15,9 @@ export default function AdminLayout() {
           gestureEnabled: true,
           fullScreenGestureEnabled: true,
         }}
-      />
+      >
+        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+      </Stack>
     </AdminPendingProvider>
   );
 }

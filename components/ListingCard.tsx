@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { formatKm, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
+import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, University } from '@/src/types/database';
@@ -41,11 +42,16 @@ export function ListingCard({
   const city = localizedName(apartment.cities, lang);
   const copy = { textAlign, writingDirection };
   const photoCount = apartment.photos?.filter(Boolean).length ?? 0;
-  const place = [city, university ? localizedName(university, lang) : ''].filter(Boolean).join(' · ');
+  const place = listingPlaceLine(apartment, t);
   const meta = [
+    place,
     t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms }),
     t(`gender.${apartment.gender_policy}`),
-    (apartment.review_count ?? 0) > 0 ? `${(apartment.review_avg ?? 0).toFixed(1)}★` : '',
+    distanceKm != null
+      ? formatKm(distanceKm, lang, distancePlace)
+      : university
+        ? localizedName(university, lang)
+        : city,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -70,7 +76,7 @@ export function ListingCard({
           <Image source={{ uri: photo }} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
         ) : (
           <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="home" size={22} color={colors.primary} />
+            <Ionicons name="home" size={24} color={colors.primary} />
           </View>
         )}
         {photoCount > 1 ? (
@@ -97,15 +103,9 @@ export function ListingCard({
             </Pressable>
           ) : null}
         </View>
-        <Text style={[styles.priceLine, copy, { color: colors.primary }]} numberOfLines={1}>
-          {formatIls(apartment.price_month, lang)}
-          {distanceKm != null ? ` · ${formatKm(distanceKm, lang, distancePlace)}` : ''}
-        </Text>
-        {place ? (
-          <Text style={[styles.meta, copy, { color: colors.textMuted }]} numberOfLines={1}>
-            {place}
-          </Text>
-        ) : null}
+        <View style={[styles.priceChip, { backgroundColor: colors.accentSoft }]}>
+          <Text style={[styles.priceText, { color: colors.primaryDark }]}>{formatIls(apartment.price_month, lang)}</Text>
+        </View>
         <Text style={[styles.meta, copy, { color: colors.textMuted }]} numberOfLines={1}>
           {meta}
         </Text>
@@ -121,15 +121,15 @@ export function ListingCard({
 
 const styles = StyleSheet.create({
   card: {
-    alignItems: 'stretch',
-    gap: 10,
+    alignItems: 'center',
+    gap: 12,
     borderRadius: radius.lg,
     borderWidth: 1,
     padding: 8,
   },
   pressed: { opacity: 0.94 },
   thumbWrap: { position: 'relative' },
-  thumb: { width: 96, height: 96, borderRadius: 14 },
+  thumb: { width: 108, height: 108, borderRadius: 16 },
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
   countPill: {
     position: 'absolute',
@@ -139,11 +139,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  countText: { fontSize: 10, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  body: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 2, paddingVertical: 2 },
+  countText: { fontSize: 10, fontFamily: 'Cairo_700Bold' },
+  body: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 6 },
   titleRow: { alignItems: 'center', gap: 6 },
-  title: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  priceLine: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { flex: 1, minWidth: 0, fontSize: 15, fontFamily: 'Cairo_700Bold' },
+  priceChip: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  priceText: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
   meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  badge: { alignSelf: 'flex-start', marginTop: 2 },
+  badge: { alignSelf: 'flex-start' },
 });

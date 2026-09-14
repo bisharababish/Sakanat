@@ -1,4 +1,4 @@
-import { type ComponentProps } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -22,6 +22,8 @@ type Props = {
   email?: string | null;
   verifyStatus?: IdVerifyStatus | null;
   verifyRole?: UserRole | null;
+  progressFilled?: number;
+  progressTotal?: number;
 };
 
 function initials(name?: string | null) {
@@ -31,6 +33,30 @@ function initials(name?: string | null) {
     .slice(0, 2)
     .map((part) => part[0])
     .join('');
+}
+
+function Ring({ percent, children }: { percent: number; children: ReactNode }) {
+  const p = Math.max(0, Math.min(100, percent));
+  const gold = 'rgba(196, 163, 90, 1)';
+  const track = 'rgba(255,255,255,0.22)';
+  return (
+    <View style={styles.ring}>
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ringArc,
+          {
+            borderColor: track,
+            borderTopColor: p >= 8 ? gold : track,
+            borderRightColor: p >= 35 ? gold : track,
+            borderBottomColor: p >= 65 ? gold : track,
+            borderLeftColor: p >= 92 ? gold : track,
+          },
+        ]}
+      />
+      {children}
+    </View>
+  );
 }
 
 export function ProfileHero({
@@ -43,11 +69,36 @@ export function ProfileHero({
   email,
   verifyStatus,
   verifyRole,
+  progressFilled,
+  progressTotal,
 }: Props) {
   const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const { t } = useTranslation();
   const shownMetas = metas.filter((item) => item.text).slice(0, 2);
+  const total = progressTotal ?? 0;
+  const filled = progressFilled ?? 0;
+  const percent = total > 0 ? Math.round((filled / total) * 100) : null;
+  const photo = (
+    <>
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatar} cachePolicy="none" recyclingKey={avatarUrl} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
+          <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
+        </View>
+      )}
+      <View
+        style={[
+          styles.cameraBadge,
+          isRtl ? styles.badgeStart : styles.badgeEnd,
+          { backgroundColor: colors.accent, borderColor: colors.primary },
+        ]}
+      >
+        <Ionicons name={uploading ? 'hourglass' : 'camera'} size={11} color={colors.white} />
+      </View>
+    </>
+  );
 
   return (
     <View style={[styles.hero, { backgroundColor: colors.primary }]}>
@@ -56,24 +107,9 @@ export function ProfileHero({
         <Pressable
           onPress={onChangePhoto}
           accessibilityLabel={avatarUrl ? t('profile.changePhoto') : t('profile.tapPhoto')}
-          style={styles.avatarWrap}
+          style={percent != null ? undefined : styles.avatarWrap}
         >
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} cachePolicy="none" recyclingKey={avatarUrl} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
-              <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
-            </View>
-          )}
-          <View
-            style={[
-              styles.cameraBadge,
-              isRtl ? styles.badgeStart : styles.badgeEnd,
-              { backgroundColor: colors.accent, borderColor: colors.primary },
-            ]}
-          >
-            <Ionicons name={uploading ? 'hourglass' : 'camera'} size={11} color={colors.white} />
-          </View>
+          {percent != null ? <Ring percent={percent}>{photo}</Ring> : <View style={styles.avatarWrap}>{photo}</View>}
         </Pressable>
         <View style={styles.heroInfo}>
           <View style={[styles.chipRow, row]}>
@@ -85,6 +121,7 @@ export function ProfileHero({
             {verifyStatus && verifyStatus !== 'none' ? (
               <IdVerifyBadge status={verifyStatus} compact role={verifyRole} />
             ) : null}
+            {percent != null ? <Text style={styles.pct}>{percent}%</Text> : null}
           </View>
           <Text style={[styles.heroName, rtlText]} numberOfLines={1}>
             {name}
@@ -127,6 +164,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm + 2,
   },
+  ring: {
+    width: 76,
+    height: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringArc: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 38,
+    borderWidth: 3,
+  },
   avatarWrap: { width: 64, height: 64 },
   avatar: {
     width: 64,
@@ -137,7 +185,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.85)',
   },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  initials: { fontSize: 20, fontFamily: 'Cairo_800ExtraBold' },
   cameraBadge: {
     position: 'absolute',
     width: 22,
@@ -155,19 +203,23 @@ const styles = StyleSheet.create({
   heroName: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
   },
   heroEmail: {
     color: 'rgba(255,255,255,0.78)',
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Cairo_400Regular',
   },
   metaLine: {
     color: 'rgba(244, 233, 207, 0.95)',
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Cairo_600SemiBold',
     marginTop: 2,
+  },
+  pct: {
+    color: 'rgba(244, 233, 207, 0.95)',
+    fontSize: 11,
+    fontFamily: 'Cairo_600SemiBold',
   },
   heroChip: {
     backgroundColor: 'rgba(255,255,255,0.16)',
@@ -178,7 +230,6 @@ const styles = StyleSheet.create({
   heroChipText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '700',
-    fontFamily: 'Cairo_700Bold',
+    fontFamily: 'Cairo_600SemiBold',
   },
 });

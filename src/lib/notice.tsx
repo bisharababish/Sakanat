@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import i18n from '@/src/i18n';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -104,9 +104,9 @@ function NoticeHost({
   onHideToast: () => void;
   onHideDialog: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const { isRtl, textAlign, writingDirection } = useLayout();
   const colors = useColors();
+  const safe = useModalSafeArea();
   const slide = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -135,7 +135,7 @@ function NoticeHost({
               style={[
                 styles.toastWrap,
                 {
-                  top: insets.top + 56,
+                  top: safe.top + 12,
                   opacity: slide,
                   transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
                 },
@@ -158,7 +158,16 @@ function NoticeHost({
       </Modal>
 
       <Modal visible={Boolean(dialog)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideDialog}>
-        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View
+          style={[
+            styles.overlay,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: Math.max(safe.top, spacing.lg),
+              paddingBottom: Math.max(safe.bottom, spacing.lg),
+            },
+          ]}
+        >
           <Pressable style={StyleSheet.absoluteFill} onPress={onHideDialog} />
           {dialog ? (
             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>

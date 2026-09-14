@@ -21,6 +21,7 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { UNDER_ONE_KM, listingDistanceKm } from '@/src/lib/distance';
 import { localizedName } from '@/src/lib/format';
+import { displayName } from '@/src/lib/name';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import {
   loadSearchAlertPrefs,
@@ -384,6 +385,14 @@ export default function SearchScreen() {
     { value: 'distance', label: t('search.sortDistance') },
     { value: 'rating', label: t('search.sortRating') },
   ];
+  const helloName = (displayName(profile, i18n.language) || '').trim().split(/\s+/).filter(Boolean)[0];
+  const campusName = selectedUniversity ? localizedName(selectedUniversity, i18n.language) : '';
+  const hello =
+    helloName && campusName
+      ? t('search.helloCampus', { name: helloName, campus: campusName })
+      : helloName
+        ? t('search.hello', { name: helloName })
+        : t('search.title');
 
   return (
     <Screen
@@ -395,10 +404,8 @@ export default function SearchScreen() {
       <ProfileEnter scene="search" enterOnMount>
       <OfflineBanner />
       <View style={styles.head}>
-        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.search')}</Text>
-        <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('search.title')}</Text>
-        <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>
-          {t(isRenter ? 'search.subtitleRenter' : 'search.subtitle')}
+        <Text style={[styles.title, rtlText, { color: colors.text }]} numberOfLines={1}>
+          {hello}
         </Text>
       </View>
 
@@ -733,10 +740,8 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { gap: 2 },
-  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  sub: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  head: { gap: 0 },
+  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
   searchBar: {
     alignItems: 'center',
     gap: 8,
@@ -761,7 +766,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  toolText: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  toolText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   toolBadge: {
     minWidth: 16,
     height: 16,
@@ -822,7 +827,7 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: 'center',
   },
-  skelCover: { height: 96, width: 96, borderRadius: 14 },
+  skelCover: { height: 108, width: 108, borderRadius: 16 },
   skelBody: { flex: 1, gap: 8 },
   skelLine: { height: 10, borderRadius: 6 },
 });

@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { SUPPORT_EMAIL } from '@/src/lib/support';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -21,7 +21,7 @@ export function LegalDocModal({
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const safe = useModalSafeArea();
   const title = kind === 'privacy' ? t('menu.privacy') : t('menu.terms');
   const body =
     kind === 'privacy'
@@ -30,7 +30,16 @@ export function LegalDocModal({
 
   return (
     <Modal visible={Boolean(kind)} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay, paddingTop: insets.top + spacing.md }]}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: colors.overlay,
+            paddingTop: Math.max(safe.top, spacing.lg),
+            paddingBottom: Math.max(safe.bottom, spacing.lg),
+          },
+        ]}
+      >
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.title, rtlText, { color: colors.primaryDark }]}>{title}</Text>
           <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { type ComponentProps, useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -15,6 +17,7 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { paymentBucket, paymentI18nKey } from '@/src/lib/booking';
 import { bookingStatusLabel, formatBookingDate, formatIls, localizedTitle } from '@/src/lib/format';
+import { buildingKey, listingPlaceLine, uniqueBuildings } from '@/src/lib/listingPlace';
 import { exportOwnerEarningsCsv } from '@/src/lib/dataExport';
 import { alert } from '@/src/lib/notice';
 import { EARNINGS_PAGE_SIZE } from '@/src/lib/page';
@@ -81,6 +84,7 @@ export default function OwnerEarnings() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [showHow, setShowHow] = useState(false);
   const [payFilter, setPayFilter] = useState<'all' | 'owed' | 'clear'>('all');
+  const [buildingFilter, setBuildingFilter] = useState('all');
   const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
@@ -89,7 +93,7 @@ export default function OwnerEarnings() {
       supabase
         .from('bookings')
         .select(
-          '*, apartments(title_ar, title_en), student:profiles!student_id(id, full_name, avatar_url)',
+          '*, apartments(title_ar, title_en, building_name, floor, unit_number), student:profiles!student_id(id, full_name, avatar_url)',
         )
         .eq('owner_id', profile.id)
         .in('status', ['confirmed', 'completed'])
@@ -115,16 +119,27 @@ export default function OwnerEarnings() {
     [bookings],
   );
   const monthBookings = useMemo(() => bookings.filter((item) => isThisMonth(item.created_at)), [bookings]);
-  const month = useMemo(() => money(monthBookings), [monthBookings]);
-  const all = useMemo(() => money(bookings), [bookings]);
-  const shown = period === 'month' ? month : all;
-  const periodList = period === 'month' ? monthBookings : bookings;
+  const buildings = useMemo(
+    () =>
+      uniqueBuildings(
+        bookings.flatMap((item) => (item.apartments ? [item.apartments] : [])),
+        i18n.language,
+        t('owner.untitledUnit'),
+      ),
+    [bookings, i18n.language, t],
+  );
+  const periodList = useMemo(() => {
+    const base = period === 'month' ? monthBookings : bookings;
+    if (buildingFilter === 'all') return base;
+    return base.filter((item) => item.apartments && buildingKey(item.apartments) === buildingFilter);
+  }, [bookings, buildingFilter, monthBookings, period]);
+  const shown = useMemo(() => money(periodList), [periodList]);
   const list = useMemo(() => {
     if (payFilter === 'owed') return periodList.filter((item) => item.payment_status !== 'paid');
     if (payFilter === 'clear') return periodList.filter((item) => item.payment_status === 'paid');
     return periodList;
   }, [periodList, payFilter]);
-  const paged = usePaged(list, EARNINGS_PAGE_SIZE, `${period}|${payFilter}`);
+  const paged = usePaged(list, EARNINGS_PAGE_SIZE, `${period}|${payFilter}|${buildingFilter}`);
   const keepShare = shown.rent > 0 ? Math.round((shown.keep / shown.rent) * 100) : 0;
   const feeShare = 100 - keepShare;
   const paySplit = useMemo(() => {
@@ -169,7 +184,12 @@ export default function OwnerEarnings() {
   }, [list, i18n.language, t]);
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      back={buildingFilter !== 'all'}
+      onBack={() => setBuildingFilter('all')}
+    >
       <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
@@ -236,6 +256,18 @@ export default function OwnerEarnings() {
           );
         })}
       </View>
+
+      {buildings.length > 1 ? (
+        <FilterPills
+          compact
+          value={buildingFilter}
+          onChange={setBuildingFilter}
+          items={[
+            { value: 'all', label: t('owner.allBuildings'), count: bookings.length },
+            ...buildings.map((item) => ({ value: item.key, label: item.name, count: item.count })),
+          ]}
+        />
+      ) : null}
 
       <View style={[styles.hero, { backgroundColor: colors.primary, shadowColor: colors.text }]}>
         <View style={[styles.orb, styles.orbOne]} />
@@ -446,12 +478,15 @@ export default function OwnerEarnings() {
                     {localizedTitle(booking.apartments, i18n.language)}
                   </Text>
                   <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
-                    {student ? `${student} · ` : ''}
-                    {formatBookingDate(booking.start_date, i18n.language)}
-                    {' · '}
-                    {people === 1 ? t('booking.onePerson') : t('booking.people', { count: people })}
-                    {' · '}
-                    {t(paymentI18nKey(booking.payment_method))}
+                    {[
+                      listingPlaceLine(booking.apartments, t),
+                      student,
+                      formatBookingDate(booking.start_date, i18n.language),
+                      people === 1 ? t('booking.onePerson') : t('booking.people', { count: people }),
+                      t(paymentI18nKey(booking.payment_method)),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
                   <View style={[styles.mini, { backgroundColor: colors.surfaceMuted }]}>
                     <View style={[styles.miniKeep, { width: `${keepPct}%`, backgroundColor: colors.primary }]} />
@@ -489,6 +524,18 @@ export default function OwnerEarnings() {
                       ? t('owner.payoutSettled')
                       : t('owner.payoutAwaiting')}
                   </Text>
+                  <Button
+                    title={t('owner.openBooking')}
+                    compact
+                    pill
+                    variant="ghost"
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(owner)/(tabs)/bookings',
+                        params: { focus: booking.id },
+                      })
+                    }
+                  />
                 </View>
               ) : null}
             </View>

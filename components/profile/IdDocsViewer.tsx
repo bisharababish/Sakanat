@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { idDocUrl } from '@/src/lib/upload';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -24,6 +25,7 @@ export function IdDocsViewer({
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
+  const safe = useModalSafeArea();
   const [national, setNational] = useState<string | null>(null);
   const [university, setUniversity] = useState<string | null>(null);
   const [viewer, setViewer] = useState<string[]>([]);
@@ -45,7 +47,16 @@ export function IdDocsViewer({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: colors.overlay,
+            paddingTop: Math.max(safe.top, spacing.lg),
+            paddingBottom: Math.max(safe.bottom, spacing.lg),
+          },
+        ]}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('profile.idCards')}</Text>

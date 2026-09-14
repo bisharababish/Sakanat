@@ -5,6 +5,7 @@ import { ApartmentView } from '@/components/ApartmentView';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { listingDistanceKm } from '@/src/lib/distance';
+import { OWNER_PUBLIC_PROFILE } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment } from '@/src/types/database';
 
@@ -18,7 +19,7 @@ export default function OwnerListingPreview() {
     if (!id) return;
     const { data } = await supabase
       .from('apartments')
-      .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, phone, email, whatsapp)')
+      .select(`*, cities(*), universities(*), profiles!owner_id(${OWNER_PUBLIC_PROFILE})`)
       .eq('id', id)
       .single();
     if (data) {

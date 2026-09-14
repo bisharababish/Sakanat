@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Card } from '@/components/ui/Card';
 import { useLayout } from '@/src/hooks/useLayout';
+import { listingNeedsStayNotes } from '@/src/lib/listingStay';
 import {
   LISTING_MIN_PHOTOS,
   listingQualityIssues,
@@ -18,6 +19,7 @@ function issueLabel(issue: ListingQualityIssue, t: (key: string, vars?: Record<s
   if (issue === 'description') return t('owner.qualityDescription');
   if (issue === 'amenities') return t('owner.qualityAmenities');
   if (issue === 'campus') return t('owner.qualityCampus');
+  if (issue === 'place') return t('owner.qualityPlace');
   if (issue === 'title') return t('admin.qualityTitle');
   if (issue === 'city') return t('admin.qualityCity');
   return t('admin.qualityPrice');
@@ -38,8 +40,11 @@ export function ListingQualityChecklist({ apartment }: { apartment: Apartment })
     amenities: apartment.amenities ?? [],
     universityId: apartment.nearest_university_id,
     campusKm: apartment.campus_distance_km,
+    buildingName: apartment.building_name,
+    floor: apartment.floor,
+    unitNumber: apartment.unit_number,
   });
-  const checks: { key: ListingQualityIssue | 'ok'; ok: boolean; label: string }[] = [
+  const checks: { key: ListingQualityIssue | 'ok' | 'stay'; ok: boolean; label: string }[] = [
     {
       key: 'photos',
       ok: !issues.includes('photos'),
@@ -59,6 +64,16 @@ export function ListingQualityChecklist({ apartment }: { apartment: Apartment })
       key: 'campus',
       ok: !issues.includes('campus'),
       label: t('admin.checkCampus'),
+    },
+    {
+      key: 'place',
+      ok: !issues.includes('place'),
+      label: t('owner.placeTitle'),
+    },
+    {
+      key: 'stay',
+      ok: !listingNeedsStayNotes(apartment),
+      label: t('owner.stayTitle'),
     },
     {
       key: 'title',
@@ -109,6 +124,9 @@ export function apartmentHasQualityIssues(apartment: Apartment) {
       amenities: apartment.amenities ?? [],
       universityId: apartment.nearest_university_id,
       campusKm: apartment.campus_distance_km,
+      buildingName: apartment.building_name,
+      floor: apartment.floor,
+      unitNumber: apartment.unit_number,
     }).length > 0
   );
 }

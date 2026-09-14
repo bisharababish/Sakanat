@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 
+import { stayEndDate } from '@/src/lib/booking';
 import type { BookingStatus, ListingStatus, OwnerStatus } from '@/src/types/database';
 
 export function localizedName(
@@ -29,6 +30,13 @@ export function localizedDescription(
   return lang.startsWith('ar')
     ? item.description_ar || item.description_en
     : item.description_en || item.description_ar;
+}
+
+export function localizedPair(ar?: string | null, en?: string | null, lang?: string) {
+  const arabic = (lang ?? '').startsWith('ar');
+  const a = (ar ?? '').trim();
+  const e = (en ?? '').trim();
+  return arabic ? a || e : e || a;
 }
 
 export function formatIls(amount: number, lang: string) {
@@ -82,12 +90,16 @@ export function bookingTone(status: BookingStatus) {
   return 'pending' as const;
 }
 
-export function formatBookingDate(iso: string, lang: string) {
-  const date = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return iso;
+export function formatBookingDate(value: string | Date, lang: string) {
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return typeof value === 'string' ? value : '';
   return date.toLocaleDateString(lang.startsWith('ar') ? 'ar' : 'en', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
+}
+
+export function formatStayRange(start: string, months: number, lang: string) {
+  return `${formatBookingDate(start, lang)} – ${formatBookingDate(stayEndDate({ start_date: start, months }), lang)}`;
 }

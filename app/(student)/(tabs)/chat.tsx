@@ -21,7 +21,6 @@ export default function StudentChat() {
       <ProfileEnter scene="chat" enterOnMount>
       <OfflineBanner />
       <View style={styles.top}>
-        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.chat')}</Text>
         <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('chat.title')}</Text>
       </View>
       <ConversationList
@@ -40,6 +39,5 @@ export default function StudentChat() {
 
 const styles = StyleSheet.create({
   top: { gap: 0 },
-  kicker: { fontSize: 11, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -2 },
-  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
 });

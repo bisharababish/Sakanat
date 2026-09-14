@@ -13,6 +13,8 @@ export default function GuestLayout() {
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
       }}
-    />
+    >
+      <Stack.Screen name="(tabs)" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+    </Stack>
   );
 }

@@ -8,7 +8,9 @@ import { useTranslation } from 'react-i18next';
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { Button } from '@/components/ui/Button';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useToday } from '@/src/hooks/useToday';
 import { majorLabel } from '@/src/data/majors';
 import { ageLabel, localizedName } from '@/src/lib/format';
@@ -121,6 +123,8 @@ export function ChatPeerSheet({
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
+  const safe = useModalSafeArea();
+  const edgeBack = useEdgeBack(visible, onClose);
   const { cities, universities } = useCatalog();
   const today = useToday();
   const [peer, setPeer] = useState<PeerProfile | null>(null);
@@ -229,7 +233,17 @@ export function ChatPeerSheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: colors.overlay,
+            paddingTop: Math.max(safe.top, spacing.lg),
+            paddingBottom: Math.max(safe.bottom, spacing.lg),
+          },
+        ]}
+        {...edgeBack}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.head, row]}>

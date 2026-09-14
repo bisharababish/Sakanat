@@ -11,6 +11,7 @@ import {
   BackHandler,
   Dimensions,
   PanResponder,
+  Platform,
   View,
   type GestureResponderHandlers,
 } from 'react-native';
@@ -18,8 +19,8 @@ import { router } from 'expo-router';
 
 import { goBack } from '@/components/ui/BackButton';
 
-const EDGE = 32;
-const MIN_DX = 52;
+const EDGE = 40;
+const MIN_DX = 48;
 
 type Entry = { id: number; run: () => void };
 
@@ -37,24 +38,32 @@ const EdgeBackContext = createContext<Api>({
 
 function edgeSwipe(dx: number, dy: number, x0: number) {
   const width = Dimensions.get('window').width;
-  const horizontal = Math.abs(dx) > Math.abs(dy) * 1.4;
+  const horizontal = Math.abs(dx) > Math.abs(dy) * 1.6;
   if (!horizontal) return false;
-  if (x0 <= EDGE && dx > 12) return true;
-  if (x0 >= width - EDGE && dx < -12) return true;
+  if (x0 <= EDGE && dx > 10) return true;
+  if (x0 >= width - EDGE && dx < -10) return true;
   return false;
 }
 
 function edgeCommit(dx: number, vx: number, x0: number) {
   const width = Dimensions.get('window').width;
-  if (x0 <= EDGE) return dx > MIN_DX || vx > 0.4;
-  if (x0 >= width - EDGE) return dx < -MIN_DX || vx < -0.4;
+  if (x0 <= EDGE) return dx > MIN_DX || vx > 0.35;
+  if (x0 >= width - EDGE) return dx < -MIN_DX || vx < -0.35;
   return false;
 }
 
-function makePan(canHandle: () => boolean, perform: () => boolean) {
+function makePan(
+  canHandle: () => boolean,
+  perform: () => boolean,
+  capture: () => boolean,
+) {
+  const should = (_: unknown, gesture: { dx: number; dy: number; x0: number }) =>
+    canHandle() && edgeSwipe(gesture.dx, gesture.dy, gesture.x0);
+
   return PanResponder.create({
-    onMoveShouldSetPanResponderCapture: (_, gesture) =>
-      canHandle() && edgeSwipe(gesture.dx, gesture.dy, gesture.x0),
+    onMoveShouldSetPanResponder: (event, gesture) => !capture() && should(event, gesture),
+    onMoveShouldSetPanResponderCapture: (event, gesture) => capture() && should(event, gesture),
+    onPanResponderTerminationRequest: () => false,
     onPanResponderRelease: (_, gesture) => {
       if (edgeCommit(gesture.dx, gesture.vx, gesture.x0)) perform();
     },
@@ -85,9 +94,16 @@ export function EdgeBackProvider({ children }: { children: ReactNode }) {
     stack.current = stack.current.filter((item) => item.id !== id);
   }, []);
 
-  const canHandle = useCallback(() => stack.current.length > 0 || router.canGoBack(), []);
+  const canHandle = useCallback(() => {
+    if (stack.current.length > 0) return true;
+    return Platform.OS !== 'ios' && router.canGoBack();
+  }, []);
 
-  const pan = useMemo(() => makePan(canHandle, perform), [canHandle, perform]);
+  const pan = useMemo(
+    () =>
+      makePan(canHandle, perform, () => stack.current.length > 0),
+    [canHandle, perform],
+  );
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => perform());
@@ -135,6 +151,7 @@ export function useEdgeBack(enabled: boolean, onBack?: () => void): GestureRespo
           go();
           return true;
         },
+        () => true,
       ),
     [enabled, go],
   );

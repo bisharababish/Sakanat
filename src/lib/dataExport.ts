@@ -236,7 +236,7 @@ export async function exportOwnerEarningsCsv(ownerId: string) {
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      'id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, commission_percent, created_at, student:profiles!student_id(full_name, email), apartments(title_ar, title_en)',
+      'id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, commission_percent, created_at, student:profiles!student_id(full_name, email), apartments(title_ar, title_en, building_name, floor, unit_number)',
     )
     .eq('owner_id', ownerId)
     .in('status', ['confirmed', 'completed'])
@@ -244,7 +244,13 @@ export async function exportOwnerEarningsCsv(ownerId: string) {
   if (error) throw error;
   const rows = ((data as Record<string, unknown>[]) ?? []).map((item) => {
     const student = item.student as { full_name?: string; email?: string } | null;
-    const apt = item.apartments as { title_ar?: string; title_en?: string } | null;
+    const apt = item.apartments as {
+      title_ar?: string;
+      title_en?: string;
+      building_name?: string | null;
+      floor?: number | null;
+      unit_number?: string | null;
+    } | null;
     const rent = Number(item.rent_amount) || 0;
     const fee = Number(item.commission_amount) || 0;
     return {
@@ -264,6 +270,9 @@ export async function exportOwnerEarningsCsv(ownerId: string) {
       student_email: student?.email,
       listing_ar: apt?.title_ar,
       listing_en: apt?.title_en,
+      building_name: apt?.building_name,
+      floor: apt?.floor,
+      unit_number: apt?.unit_number,
     };
   });
   const csv = rowsToCsv(rows) || 'id';

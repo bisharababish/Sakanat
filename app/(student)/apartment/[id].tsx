@@ -23,6 +23,7 @@ import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { similarNearCampus } from '@/src/lib/similarListings';
 import { isStudentReady, listingFitsStudent, seekerProfileGapTab } from '@/src/lib/studentProfile';
+import { OWNER_PUBLIC_PROFILE } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -57,7 +58,7 @@ export default function ApartmentDetails() {
     const [{ data }, { data: others }, review, stay] = await Promise.all([
       supabase
         .from('apartments')
-        .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, id_verify_status)')
+        .select(`*, cities(*), universities(*), profiles!owner_id(${OWNER_PUBLIC_PROFILE})`)
         .eq('id', id)
         .single(),
       supabase

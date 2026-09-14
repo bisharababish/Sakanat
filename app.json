@@ -68,7 +68,14 @@
       "expo-image",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "نحتاج إلى الميكروفون لإرسال رسائل صوتية في المحادثة.",
+          "recordAudioAndroid": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

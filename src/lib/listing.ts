@@ -20,6 +20,13 @@ export function apartmentWriteFields(apartment: Apartment, status: ListingStatus
     lat: apartment.lat,
     lng: apartment.lng,
     campus_distance_km: apartment.campus_distance_km,
+    building_name: apartment.building_name ?? null,
+    floor: apartment.floor ?? null,
+    unit_number: apartment.unit_number ?? null,
+    house_rules_ar: apartment.house_rules_ar ?? null,
+    house_rules_en: apartment.house_rules_en ?? null,
+    check_in_notes_ar: apartment.check_in_notes_ar ?? null,
+    check_in_notes_en: apartment.check_in_notes_en ?? null,
     status,
   };
 }

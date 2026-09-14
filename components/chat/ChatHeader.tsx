@@ -10,7 +10,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { MenuButton } from '@/components/menu/MenuButton';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useLayout } from '@/src/hooks/useLayout';
-import { useEdgeBack } from '@/src/hooks/useEdgeBack';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import {
   conversationParties,
@@ -21,6 +21,7 @@ import {
   setConversationMuted,
 } from '@/src/lib/chat';
 import { localizedTitle } from '@/src/lib/format';
+import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { alert } from '@/src/lib/notice';
 import { submitAppReport } from '@/src/lib/reports';
 import { seekerRoleLabel } from '@/src/lib/seeker';
@@ -58,7 +59,7 @@ export function ChatHeader({
   const { rtlText, row } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
-  useEdgeBack(true);
+  const safe = useModalSafeArea();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportBody, setReportBody] = useState('');
@@ -82,7 +83,11 @@ export function ChatHeader({
   const name = admin
     ? [personName(student) || seekerRoleLabel(student?.role, t), personName(owner) || t('roles.owner')].join(' · ')
     : personName(person) || t('chat.unknownPerson');
-  const listing = conversation?.apartments ? localizedTitle(conversation.apartments, i18n.language) : '';
+  const listing = conversation?.apartments
+    ? [localizedTitle(conversation.apartments, i18n.language), listingPlaceLine(conversation.apartments, t)]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
   const photo = admin ? student?.avatar_url || owner?.avatar_url : person?.avatar_url;
   const listingPhoto = conversation?.apartments?.photos?.[0];
   const asOwner = profile?.role === 'owner';
@@ -312,7 +317,16 @@ export function ChatHeader({
       />
 
       <Modal visible={adminPickOpen} transparent animationType="fade" onRequestClose={() => setAdminPickOpen(false)}>
-        <View style={[styles.pickOverlay, { backgroundColor: colors.overlay }]}>
+        <View
+          style={[
+            styles.pickOverlay,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: Math.max(safe.top, spacing.lg),
+              paddingBottom: Math.max(safe.bottom, spacing.lg),
+            },
+          ]}
+        >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setAdminPickOpen(false)} />
           <View style={[styles.pickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.pickTitle, rtlText, { color: colors.text }]}>{t('chat.peerProfile')}</Text>

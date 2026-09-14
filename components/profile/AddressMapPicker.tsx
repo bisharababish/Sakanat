@@ -2,12 +2,12 @@ import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { alert } from '@/src/lib/notice';
 import { isValidHomeAddress } from '@/src/lib/trust';
 import { spacing } from '@/src/theme/colors';
@@ -95,7 +95,7 @@ export function AddressMapPicker({
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const safe = useModalSafeArea();
   const mapRef = useRef<MapView>(null);
   const pinRef = useRef<Coords>({
     latitude: initial?.lat ?? FALLBACK_REGION.latitude,
@@ -198,7 +198,7 @@ export function AddressMapPicker({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.frame, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View style={[styles.frame, { backgroundColor: colors.background, paddingTop: safe.top }]}>
         <View style={[styles.head, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.close')}>
             <Ionicons name="close" size={22} color={colors.text} />
@@ -250,7 +250,7 @@ export function AddressMapPicker({
             {
               backgroundColor: colors.surface,
               borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, spacing.md),
+              paddingBottom: Math.max(safe.bottom, spacing.md),
             },
           ]}
         >

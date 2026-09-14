@@ -2,8 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusFilters } from '@/components/booking/StatusFilters';
@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
+import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -18,12 +19,15 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
 import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
-import { openConversation } from '@/src/lib/chat';
+import { openConversation, sendMessage } from '@/src/lib/chat';
 import { majorLabel } from '@/src/data/majors';
-import { ageLabel, bookingStatusLabel, bookingTone, formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
+import { ageLabel, bookingStatusLabel, bookingTone, formatIls, formatStayRange, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
+import { buildingKey, listingPlaceLine, uniqueBuildings } from '@/src/lib/listingPlace';
+import { listingHasCheckIn, loadCheckInSentIds, markCheckInSent, stayCheckInChatBody } from '@/src/lib/listingStay';
 import { seekerExtraIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
@@ -43,25 +47,44 @@ export default function OwnerBookings() {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
+  const safe = useModalSafeArea();
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
   const today = useToday();
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
+  const [buildingFilter, setBuildingFilter] = useState('all');
   const [page, setPage] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyKind, setBusyKind] = useState<'message' | 'checkin' | null>(null);
+  const [checkInSent, setCheckInSent] = useState<Set<string>>(new Set());
   const [rejecting, setRejecting] = useState<Booking | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejectingBusy, setRejectingBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const yById = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    void loadCheckInSentIds().then(setCheckInSent);
+  }, []);
 
   useEffect(() => {
     if (!focus) return;
-    setOpenId(String(focus));
+    const id = String(focus);
+    setOpenId(id);
     setFilter('all');
+    setBuildingFilter('all');
   }, [focus]);
+
+  useEffect(() => {
+    if (!focus) return;
+    const id = String(focus);
+    const index = bookings.findIndex((item) => item.id === id);
+    if (index >= 0) setPage(Math.floor(index / BOOKING_PAGE_SIZE));
+  }, [bookings, focus]);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -89,14 +112,45 @@ export default function OwnerBookings() {
     return next;
   }, [bookings]);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? bookings : bookings.filter((item) => item.status === filter)),
-    [bookings, filter],
+  const buildings = useMemo(
+    () =>
+      uniqueBuildings(
+        bookings.flatMap((item) => (item.apartments ? [item.apartments] : [])),
+        i18n.language,
+        t('owner.untitledUnit'),
+      ),
+    [bookings, i18n.language, t],
   );
+
+  const filtered = useMemo(() => {
+    const byStatus = filter === 'all' ? bookings : bookings.filter((item) => item.status === filter);
+    if (buildingFilter === 'all') return byStatus;
+    return byStatus.filter((item) => item.apartments && buildingKey(item.apartments) === buildingFilter);
+  }, [bookings, buildingFilter, filter]);
   const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
+
+  useEffect(() => {
+    if (!focus) return;
+    const id = String(focus);
+    let tries = 0;
+    const tick = () => {
+      const y = yById.current[id];
+      if (y != null) {
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+        return;
+      }
+      if (tries++ < 16) setTimeout(tick, 50);
+    };
+    tick();
+  }, [focus, page, visible]);
 
   const pickFilter = (next: Filter) => {
     setFilter(next);
+    setPage(0);
+  };
+
+  const pickBuilding = (next: string) => {
+    setBuildingFilter(next);
     setPage(0);
   };
 
@@ -145,6 +199,7 @@ export default function OwnerBookings() {
   const messageStudent = async (booking: Booking) => {
     if (!booking.apartments || !booking.student_id) return;
     setBusyId(booking.id);
+    setBusyKind('message');
     try {
       const conversationId = await openConversation(booking.apartments as Apartment, booking.student_id);
       router.push({ pathname: '/(owner)/conversation/[id]', params: { id: conversationId } });
@@ -152,11 +207,60 @@ export default function OwnerBookings() {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setBusyId(null);
+      setBusyKind(null);
+    }
+  };
+
+  const sendCheckIn = async (booking: Booking, force = false) => {
+    if (!profile || !booking.apartments || !booking.student_id) return;
+    if (!listingHasCheckIn(booking.apartments)) {
+      alert(t('owner.checkInMissing'), undefined, [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.edit'),
+          onPress: () =>
+            router.push({ pathname: '/(owner)/listing/[id]', params: { id: booking.apartments!.id } }),
+        },
+      ]);
+      return;
+    }
+    if (!force && checkInSent.has(booking.id)) {
+      alert(t('owner.checkInAlready'), undefined, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('owner.sendCheckInAgain'), onPress: () => void sendCheckIn(booking, true) },
+      ]);
+      return;
+    }
+    const body = stayCheckInChatBody(booking.apartments, t, i18n.language);
+    if (!body) return;
+    setBusyId(booking.id);
+    setBusyKind('checkin');
+    try {
+      const conversationId = await openConversation(booking.apartments as Apartment, booking.student_id);
+      await sendMessage(conversationId, profile.id, body);
+      await markCheckInSent(booking.id);
+      setCheckInSent((prev) => new Set(prev).add(booking.id));
+      alert(t('common.done'), t('owner.checkInSent'));
+      router.push({ pathname: '/(owner)/conversation/[id]', params: { id: conversationId } });
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setBusyId(null);
+      setBusyKind(null);
     }
   };
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      scrollRef={scrollRef}
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      back={filter !== 'pending' || buildingFilter !== 'all'}
+      onBack={() => {
+        setBuildingFilter('all');
+        pickFilter('pending');
+      }}
+    >
       <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
@@ -171,6 +275,17 @@ export default function OwnerBookings() {
       </View>
 
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
+      {buildings.length > 1 ? (
+        <FilterPills
+          compact
+          value={buildingFilter}
+          onChange={pickBuilding}
+          items={[
+            { value: 'all', label: t('owner.allBuildings'), count: bookings.length },
+            ...buildings.map((item) => ({ value: item.key, label: item.name, count: item.count })),
+          ]}
+        />
+      ) : null}
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -228,6 +343,7 @@ export default function OwnerBookings() {
           booking.status === 'pending' && overlappingBookings(booking, bookings, ['pending']).length > 0;
         const photo = booking.apartments?.photos?.[0];
         const title = localizedTitle(booking.apartments, i18n.language);
+        const place = listingPlaceLine(booking.apartments, t);
         const warning =
           booking.status === 'pending' && overlapConfirmed
             ? t('owner.overlapWarn')
@@ -237,6 +353,9 @@ export default function OwnerBookings() {
         return (
           <View
             key={booking.id}
+            onLayout={(event) => {
+              yById.current[booking.id] = event.nativeEvent.layout.y;
+            }}
             style={[
               styles.rowCard,
               {
@@ -263,7 +382,7 @@ export default function OwnerBookings() {
                   {personBits[0] || title}
                 </Text>
                 <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
-                  {title} · {formatIls(booking.rent_amount, i18n.language)}
+                  {[place, title, formatIls(booking.rent_amount, i18n.language)].filter(Boolean).join(' · ')}
                 </Text>
               </View>
               <StatusBadge label={bookingStatusLabel(booking.status, t)} tone={bookingTone(booking.status)} />
@@ -284,7 +403,7 @@ export default function OwnerBookings() {
                   </View>
                 ) : null}
                 <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
-                  {formatBookingDate(booking.start_date, i18n.language)} · {booking.months}{' '}
+                  {formatStayRange(booking.start_date, booking.months, i18n.language)} · {booking.months}{' '}
                   {booking.months === 1 ? t('common.month') : t('common.months')}
                 </Text>
                 {details.map((line) => (
@@ -298,6 +417,50 @@ export default function OwnerBookings() {
                 {booking.status === 'cancelled' && booking.cancel_reason ? (
                   <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
                     {t('booking.cancelledNote', { note: booking.cancel_reason })}
+                  </Text>
+                ) : null}
+                {localizedPair(
+                  booking.apartments?.check_in_notes_ar,
+                  booking.apartments?.check_in_notes_en,
+                  i18n.language,
+                ) ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.text }]}>
+                    {t('listing.checkIn')}
+                    {'\n'}
+                    {localizedPair(
+                      booking.apartments?.check_in_notes_ar,
+                      booking.apartments?.check_in_notes_en,
+                      i18n.language,
+                    )}
+                  </Text>
+                ) : null}
+                {localizedPair(
+                  booking.apartments?.house_rules_ar,
+                  booking.apartments?.house_rules_en,
+                  i18n.language,
+                ) ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.text }]}>
+                    {t('listing.houseRules')}
+                    {'\n'}
+                    {localizedPair(
+                      booking.apartments?.house_rules_ar,
+                      booking.apartments?.house_rules_en,
+                      i18n.language,
+                    )}
+                  </Text>
+                ) : null}
+                {localizedPair(
+                  booking.apartments?.check_in_notes_ar,
+                  booking.apartments?.check_in_notes_en,
+                  i18n.language,
+                ) ||
+                localizedPair(
+                  booking.apartments?.house_rules_ar,
+                  booking.apartments?.house_rules_en,
+                  i18n.language,
+                ) ? (
+                  <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {t('owner.stayStudentSees')}
                   </Text>
                 ) : null}
 
@@ -330,29 +493,41 @@ export default function OwnerBookings() {
                 {booking.status === 'confirmed' ? (
                   <Button title={t('booking.complete')} compact pill onPress={() => updateStatus(booking, 'completed')} />
                 ) : null}
-                <Button
-                  title={t(seekerMessageKey(role))}
-                  variant="secondary"
-                  compact
-                  pill
-                  loading={busyId === booking.id}
-                  onPress={() => void messageStudent(booking)}
-                />
-                {phone ? (
-                  <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
-                ) : null}
-                {whatsapp ? (
+                <View style={[styles.contact, row]}>
+                  {booking.status === 'pending' || booking.status === 'confirmed' ? (
+                    <Button
+                      title={checkInSent.has(booking.id) ? t('owner.checkInSent') : t('owner.sendCheckIn')}
+                      variant={checkInSent.has(booking.id) ? 'ghost' : 'secondary'}
+                      compact
+                      pill
+                      loading={busyId === booking.id && busyKind === 'checkin'}
+                      onPress={() => void sendCheckIn(booking)}
+                    />
+                  ) : null}
                   <Button
-                    title={t('profile.openWhatsapp')}
-                    variant="ghost"
+                    title={t(seekerMessageKey(role))}
+                    variant="secondary"
                     compact
                     pill
-                    onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+                    loading={busyId === booking.id && busyKind === 'message'}
+                    onPress={() => void messageStudent(booking)}
                   />
-                ) : null}
-                {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
-                  <Button title={t('profile.viewIdCards')} variant="ghost" compact pill onPress={() => setDocsFor(booking)} />
-                ) : null}
+                  {phone ? (
+                    <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
+                  ) : null}
+                  {whatsapp ? (
+                    <Button
+                      title={t('profile.openWhatsapp')}
+                      variant="ghost"
+                      compact
+                      pill
+                      onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+                    />
+                  ) : null}
+                  {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
+                    <Button title={t('profile.viewIdCards')} variant="ghost" compact pill onPress={() => setDocsFor(booking)} />
+                  ) : null}
+                </View>
               </View>
             ) : null}
           </View>
@@ -375,7 +550,16 @@ export default function OwnerBookings() {
         animationType="fade"
         onRequestClose={() => setRejecting(null)}
       >
-        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View
+          style={[
+            styles.overlay,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: Math.max(safe.top, spacing.lg),
+              paddingBottom: Math.max(safe.bottom, spacing.lg),
+            },
+          ]}
+        >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setRejecting(null)} />
           <View style={[styles.rejectCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.rejectTitle, rtlText, { color: colors.primaryDark }]}>{t('booking.rejectConfirm')}</Text>
@@ -417,6 +601,7 @@ const styles = StyleSheet.create({
   },
   countText: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   actions: { flexDirection: 'row', gap: 8 },
+  contact: { flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   flex: { flex: 1, minWidth: 0 },
   rowCard: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
   rowMain: { alignItems: 'center', gap: 10, padding: 10 },

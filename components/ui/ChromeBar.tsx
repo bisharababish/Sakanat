@@ -15,7 +15,7 @@ type Props = {
 };
 
 export function ChromeBar({ back = false, compactBack = false, showMenu = true, onBack, extra }: Props) {
-  useEdgeBack(back, onBack ?? goBack);
+  useEdgeBack(Boolean(back && onBack), onBack ?? goBack);
   if (!back && !showMenu && !extra) return null;
 
   return (

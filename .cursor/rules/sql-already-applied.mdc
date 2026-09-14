@@ -1,0 +1,8 @@
+---
+description: Owner already ran pending SQL — do not mention running SQL
+alwaysApply: true
+---
+
+# SQL already applied
+
+The owner has run the pending Supabase SQL (including listing place, stay notes, and chat voice). Do not tell them to run SQL, name SQL files to execute, or remind them to reload after SQL.

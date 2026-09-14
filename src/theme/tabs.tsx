@@ -10,6 +10,7 @@ export function useAppTabScreenOptions() {
     tabBarHideOnKeyboard: false,
     tabBarActiveTintColor: colors.primary,
     tabBarInactiveTintColor: colors.textMuted,
+    freezeOnBlur: true,
     animation: 'shift' as const,
     transitionSpec: {
       animation: 'spring' as const,

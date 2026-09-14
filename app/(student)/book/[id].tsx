@@ -315,6 +315,7 @@ export default function BookScreen() {
   return (
     <Screen
       back
+      onBack={stepIndex > 0 ? () => setStep(BOOK_STEPS[stepIndex - 1]) : undefined}
       refreshing={refreshing}
       onRefresh={() => void refresh()}
       footer={

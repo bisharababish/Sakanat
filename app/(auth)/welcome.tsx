@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius, spacing } from '@/src/theme/colors';
@@ -73,6 +74,7 @@ export default function WelcomeScreen() {
           ))}
         </View>
         <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeGuestNote')}</Text>
+        <AppBrandFooter />
       </AuthCard>
     </AuthScreen>
   );

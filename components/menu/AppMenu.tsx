@@ -3,17 +3,19 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Share, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import { loadActiveStay } from '@/src/lib/booking';
 import { localizedName } from '@/src/lib/format';
@@ -25,7 +27,7 @@ import { submitAppReport } from '@/src/lib/reports';
 import { homeHref, profileHref } from '@/src/lib/routes';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { loadSavedApartmentIds } from '@/src/lib/saved';
-import { appVersion, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
+import { appVersion, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
 import { accountVerification } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
@@ -59,8 +61,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const colors = useColors();
   const { preference, setPreference } = useTheme();
   const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0);
+  const { top: topInset } = useModalSafeArea();
   const [pushOn, setPushOn] = useState(true);
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('root');
@@ -686,6 +687,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
                 <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <MenuLink icon="logo-instagram" label={t('menu.instagram')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => openUrl(instagramUrl())} />
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="shield-checkmark-outline" label={t('menu.privacy')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('privacy')} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="document-text-outline" label={t('menu.terms')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('terms')} />
@@ -693,6 +696,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
                   {t('menu.version', { version: VERSION })}
                 </Text>
+                <AppBrandFooter />
               </ScrollView>
               {pane !== 'root' ? (
                 <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>

@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -15,14 +16,25 @@ import {
   View,
   AppState,
 } from 'react-native';
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ChatVoiceBubble } from '@/components/chat/ChatVoiceBubble';
+import { Button } from '@/components/ui/Button';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { useAuth } from '@/src/lib/auth';
-import { MESSAGE_MAX } from '@/src/lib/limits';
+import { MESSAGE_MAX, VOICE_MAX_MS } from '@/src/lib/limits';
 import { alert } from '@/src/lib/notice';
 import {
   loadConversation,
@@ -31,11 +43,13 @@ import {
   messageReceipt,
   deleteMessage,
   sendMessage,
+  isPhotoPlaceholder,
+  isVoicePlaceholder,
   type MessageReceipt,
 } from '@/src/lib/chat';
 import { enqueueChatOutbox, flushChatOutbox, subscribeOutboxCount } from '@/src/lib/chatOutbox';
 import { pickChatPhoto, takeChatPhoto } from '@/src/lib/pickImage';
-import { chatPhotoUrl, uploadChatPhoto } from '@/src/lib/upload';
+import { chatPhotoUrl, uploadChatAudio, uploadChatPhoto } from '@/src/lib/upload';
 import { isSeeker, isStudentReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { logAdminAction } from '@/src/lib/audit';
 import { supabase, uniqueChannel } from '@/src/lib/supabase';
@@ -43,13 +57,23 @@ import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Conversation, Message } from '@/src/types/database';
 
-function ChatBubbleImage({ pathOrUrl }: { pathOrUrl: string }) {
+function ChatBubbleImage({
+  pathOrUrl,
+  onOpen,
+  onLongPress,
+}: {
+  pathOrUrl: string;
+  onOpen: (uri: string) => void;
+  onLongPress?: () => void;
+}) {
   const colors = useColors();
-  const [uri, setUri] = useState<string | null>(pathOrUrl.startsWith('http') || pathOrUrl.startsWith('file:') ? pathOrUrl : null);
+  const [uri, setUri] = useState<string | null>(
+    pathOrUrl.startsWith('http') || pathOrUrl.startsWith('file:') ? pathOrUrl : null,
+  );
   useEffect(() => {
     let alive = true;
     void chatPhotoUrl(pathOrUrl).then((next) => {
-      if (alive) setUri(next);
+      if (alive && next) setUri(next);
     });
     return () => {
       alive = false;
@@ -58,7 +82,17 @@ function ChatBubbleImage({ pathOrUrl }: { pathOrUrl: string }) {
   if (!uri) {
     return <View style={[styles.bubbleImage, { backgroundColor: colors.surfaceMuted }]} />;
   }
-  return <Image source={{ uri }} style={styles.bubbleImage} contentFit="cover" />;
+  return (
+    <Pressable
+      onPress={() => onOpen(uri)}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      accessibilityRole="button"
+      style={styles.bubbleImage}
+    >
+      <Image source={{ uri }} style={styles.bubbleImageFill} contentFit="cover" pointerEvents="none" />
+    </Pressable>
+  );
 }
 
 function dayKey(iso: string) {
@@ -123,13 +157,21 @@ export function ChatThread({
   const { profile } = useAuth();
   const { textAlign, writingDirection, isRtl, row } = useLayout();
   const colors = useColors();
+  const safe = useModalSafeArea();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [outboxLeft, setOutboxLeft] = useState(0);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
   const listRef = useRef<FlatList<ThreadItem>>(null);
   const asOwner = profile?.role === 'owner';
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recState = useAudioRecorderState(recorder);
+  const recMsRef = useRef(0);
+  const finishingVoice = useRef(false);
 
   useEffect(() => {
     return subscribeOutboxCount((count) => setOutboxLeft(count));
@@ -178,7 +220,8 @@ export function ChatThread({
                   item.id.startsWith('temp-') &&
                   item.sender_id === next.sender_id &&
                   (item.body === next.body ||
-                    (item.image_url && next.image_url && item.image_url === next.image_url))
+                    (item.image_url && next.image_url && item.image_url === next.image_url) ||
+                    (item.audio_url && next.audio_url && item.audio_url === next.audio_url))
                 ),
             );
             return [...withoutTemp, next];
@@ -232,28 +275,34 @@ export function ChatThread({
     void markConversationRead(conversationId, profile.id, asOwner);
   }, [asOwner, conversationId, profile?.id, readOnly, messages.length]);
 
-  const deliver = async (body: string, imageUri?: string | null) => {
+  const deliver = async (body: string, imageUri?: string | null, audioUri?: string | null) => {
     if (readOnly || !profile || sending) return;
     const text = body.trim().slice(0, MESSAGE_MAX);
-    if (!text && !imageUri) return;
+    if (!text && !imageUri && !audioUri) return;
     const tempId = `temp-${Date.now()}`;
+    const placeholder = imageUri ? '__photo__' : audioUri ? '__voice__' : '';
     const temp: Message = {
       id: tempId,
       conversation_id: conversationId,
       sender_id: profile.id,
-      body: text || t('chat.photoMessage'),
+      body: text || placeholder,
       image_url: imageUri || null,
+      audio_url: audioUri || null,
       created_at: new Date().toISOString(),
     };
-    if (!imageUri) setDraft('');
+    if (!imageUri && !audioUri) setDraft('');
     setMessages((current) => [...current, temp]);
     setSending(true);
     try {
       let imageUrl: string | null = null;
+      let audioUrl: string | null = null;
       if (imageUri) {
         imageUrl = await uploadChatPhoto(profile.id, conversationId, imageUri);
       }
-      await sendMessage(conversationId, profile.id, text, imageUrl);
+      if (audioUri) {
+        audioUrl = await uploadChatAudio(profile.id, conversationId, audioUri);
+      }
+      await sendMessage(conversationId, profile.id, text, imageUrl, audioUrl);
       void loadMessages();
     } catch (err) {
       await enqueueChatOutbox({
@@ -262,6 +311,7 @@ export function ChatThread({
         senderId: profile.id,
         body: text,
         imageUri: imageUri || null,
+        audioUri: audioUri || null,
         createdAt: temp.created_at,
       });
       alert(
@@ -278,21 +328,74 @@ export function ChatThread({
     await deliver(draft);
   };
 
-  const sendPickedImage = async (uri: string | null) => {
+  const queuePickedImage = async (uri: string | null) => {
     if (!uri) return;
-    await deliver(draft, uri);
-    setDraft('');
+    setPendingPhoto(uri);
   };
 
   const onAttach = async () => {
-    await sendPickedImage(await pickChatPhoto());
+    await queuePickedImage(await pickChatPhoto());
   };
 
   const onTakePhoto = async () => {
-    await sendPickedImage(await takeChatPhoto());
+    await queuePickedImage(await takeChatPhoto());
   };
 
-  const canSend = Boolean(draft.trim()) && !sending;
+  const sendPendingPhoto = async () => {
+    if (!pendingPhoto || sending) return;
+    await deliver(draft, pendingPhoto);
+    setDraft('');
+    setPendingPhoto(null);
+  };
+
+  const canSend = Boolean(draft.trim()) && !sending && !recording && !pendingPhoto;
+
+  const startVoice = async () => {
+    if (readOnly || sending || recording) return;
+    try {
+      const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+      if (!granted) {
+        alert(t('common.error'), t('chat.voicePermission'));
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recMsRef.current = 0;
+      recorder.record();
+      setRecording(true);
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('chat.voicePermission'));
+    }
+  };
+
+  useEffect(() => {
+    recMsRef.current = recState.durationMillis ?? 0;
+  }, [recState.durationMillis]);
+
+  const finishVoice = async (send: boolean) => {
+    if (!recording || finishingVoice.current) return;
+    finishingVoice.current = true;
+    const ms = recMsRef.current;
+    setRecording(false);
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      const uri = recorder.uri;
+      if (send && uri && ms >= 800) {
+        await deliver('', null, uri);
+      }
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : t('chat.sendFailed'));
+    } finally {
+      finishingVoice.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (recording && recState.isRecording && recState.durationMillis >= VOICE_MAX_MS) {
+      void finishVoice(true);
+    }
+  }, [recording, recState.durationMillis, recState.isRecording]);
 
   const removeMessage = (item: Message) => {
     if (!readOnly || item.id.startsWith('temp-')) return;
@@ -353,7 +456,7 @@ export function ChatThread({
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         onContentSizeChange={() => {
           if (!refreshing) listRef.current?.scrollToEnd({ animated: true });
         }}
@@ -408,9 +511,7 @@ export function ChatThread({
                   {senderLabel}
                 </Text>
               ) : null}
-              <Pressable
-                onLongPress={readOnly ? () => removeMessage(item) : undefined}
-                delayLongPress={350}
+              <View
                 style={[
                   styles.bubble,
                   mine
@@ -429,26 +530,41 @@ export function ChatThread({
                       },
                 ]}
               >
-                {item.image_url ? <ChatBubbleImage pathOrUrl={item.image_url} /> : null}
-                {item.body && !(item.image_url && item.body === t('chat.photoMessage')) ? (
-                  <Text
-                    style={[
-                      styles.body,
-                      { writingDirection, color: mine ? colors.white : colors.text },
-                    ]}
-                  >
-                    {item.body}
-                  </Text>
+                {item.image_url ? (
+                  <ChatBubbleImage
+                    pathOrUrl={item.image_url}
+                    onOpen={(uri) => setViewer({ photos: [uri], index: 0 })}
+                    onLongPress={readOnly ? () => removeMessage(item) : undefined}
+                  />
+                ) : null}
+                {item.audio_url ? <ChatVoiceBubble pathOrUrl={item.audio_url} mine={mine} /> : null}
+                {item.body &&
+                !(item.image_url && isPhotoPlaceholder(item.body)) &&
+                !(item.audio_url && isVoicePlaceholder(item.body)) ? (
+                  <Pressable onLongPress={readOnly ? () => removeMessage(item) : undefined} delayLongPress={350}>
+                    <Text
+                      style={[
+                        styles.body,
+                        { writingDirection, color: mine ? colors.white : colors.text },
+                      ]}
+                    >
+                      {item.body}
+                    </Text>
+                  </Pressable>
                 ) : null}
                 {item.lastInGroup ? (
-                  <View style={[styles.meta, row]}>
+                  <Pressable
+                    onLongPress={readOnly ? () => removeMessage(item) : undefined}
+                    delayLongPress={350}
+                    style={[styles.meta, row]}
+                  >
                     <Text style={[styles.time, { color: mine ? 'rgba(255,255,255,0.72)' : colors.textMuted }]}>
                       {timeLabel(item.created_at, i18n.language)}
                     </Text>
                     {showTicks ? <ReceiptTick status={receipt} onMine={mine} /> : null}
-                  </View>
+                  </Pressable>
                 ) : null}
-              </Pressable>
+              </View>
             </View>
           );
         }}
@@ -459,7 +575,7 @@ export function ChatThread({
             styles.composer,
             row,
             {
-              paddingBottom: Math.max(insets.bottom, spacing.sm),
+              paddingBottom: Math.max(insets.bottom, 6),
               backgroundColor: colors.surface,
               borderTopColor: colors.border,
             },
@@ -467,47 +583,72 @@ export function ChatThread({
         >
           <Pressable
             onPress={() => void onTakePhoto()}
-            disabled={sending}
+            disabled={sending || recording || Boolean(pendingPhoto)}
             accessibilityRole="button"
             accessibilityLabel={t('chat.takePhoto')}
             style={[styles.attach, { backgroundColor: colors.surfaceMuted }]}
           >
-            <Ionicons name="camera-outline" size={20} color={colors.primary} />
+            <Ionicons name="camera-outline" size={18} color={colors.primary} />
           </Pressable>
           <Pressable
             onPress={() => void onAttach()}
-            disabled={sending}
+            disabled={sending || recording || Boolean(pendingPhoto)}
             accessibilityRole="button"
             accessibilityLabel={t('chat.attachPhoto')}
             style={[styles.attach, { backgroundColor: colors.surfaceMuted }]}
           >
-            <Ionicons name="image-outline" size={20} color={colors.primary} />
+            <Ionicons name="image-outline" size={18} color={colors.primary} />
           </Pressable>
-          <TextInput
-            value={draft}
-            onChangeText={(value) => setDraft(value.slice(0, MESSAGE_MAX))}
-            placeholder={t('chat.placeholder')}
-            placeholderTextColor={colors.textMuted}
-            multiline
-            maxLength={MESSAGE_MAX}
-            style={[
-              styles.input,
-              {
-                textAlign,
-                writingDirection,
-                backgroundColor: colors.surfaceMuted,
-                color: colors.text,
-              },
-            ]}
-          />
+          {recording ? (
+            <View style={[styles.recordBox, row, { backgroundColor: colors.dangerSoft }]}>
+              <Pressable
+                onPress={() => void finishVoice(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.cancel')}
+              >
+                <Ionicons name="close" size={18} color={colors.danger} />
+              </Pressable>
+              <View style={[styles.recDot, { backgroundColor: colors.danger }]} />
+              <Text style={[styles.recTime, { color: colors.danger }]}>
+                {Math.floor((recState.durationMillis ?? 0) / 1000)}s
+              </Text>
+            </View>
+          ) : (
+            <TextInput
+              value={draft}
+              onChangeText={(value) => setDraft(value.slice(0, MESSAGE_MAX))}
+              placeholder={t('chat.placeholder')}
+              placeholderTextColor={colors.textMuted}
+              multiline
+              maxLength={MESSAGE_MAX}
+              style={[
+                styles.input,
+                {
+                  textAlign,
+                  writingDirection,
+                  backgroundColor: colors.surfaceMuted,
+                  color: colors.text,
+                },
+              ]}
+            />
+          )}
           <Pressable
-            onPress={() => void onSend()}
-            disabled={!canSend}
+            onPress={() => (recording ? void finishVoice(true) : void startVoice())}
+            disabled={sending || Boolean(pendingPhoto)}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.voiceMessage')}
+            style={[styles.attach, { backgroundColor: recording ? colors.dangerSoft : colors.surfaceMuted }]}
+          >
+            <Ionicons name={recording ? 'stop' : 'mic-outline'} size={18} color={recording ? colors.danger : colors.primary} />
+          </Pressable>
+          <Pressable
+            onPress={() => (recording ? void finishVoice(true) : void onSend())}
+            disabled={recording ? sending : !canSend}
             accessibilityRole="button"
             accessibilityLabel={t('chat.send')}
             style={[
               styles.send,
-              { backgroundColor: canSend || sending ? colors.primary : colors.surfaceMuted },
+              { backgroundColor: recording || canSend || sending ? colors.primary : colors.surfaceMuted },
             ]}
           >
             {sending ? (
@@ -516,13 +657,61 @@ export function ChatThread({
               <Ionicons
                 name="send"
                 size={18}
-                color={canSend ? colors.white : colors.textMuted}
+                color={recording || canSend ? colors.white : colors.textMuted}
                 style={isRtl ? { transform: [{ scaleX: -1 }] } : undefined}
               />
             )}
           </Pressable>
         </View>
       )}
+      <Modal
+        visible={Boolean(pendingPhoto)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingPhoto(null)}
+      >
+        <View
+          style={[
+            styles.previewOverlay,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: Math.max(safe.top, spacing.md),
+              paddingBottom: Math.max(safe.bottom, spacing.md),
+            },
+          ]}
+        >
+          <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.previewTitle, { color: colors.primaryDark, textAlign }]}>
+              {t('chat.confirmPhoto')}
+            </Text>
+            {pendingPhoto ? (
+              <Image source={{ uri: pendingPhoto }} style={styles.previewImage} contentFit="contain" />
+            ) : null}
+            <Text style={[styles.previewHint, { color: colors.textMuted, textAlign }]}>
+              {t('chat.confirmPhotoBody')}
+            </Text>
+            <Button
+              title={t('chat.usePhoto')}
+              pill
+              loading={sending}
+              onPress={() => void sendPendingPhoto()}
+            />
+            <Button
+              title={t('common.cancel')}
+              variant="ghost"
+              pill
+              onPress={() => setPendingPhoto(null)}
+            />
+          </View>
+        </View>
+      </Modal>
+      <PhotoViewer
+        photos={viewer?.photos ?? []}
+        index={viewer?.index ?? 0}
+        visible={Boolean(viewer)}
+        onIndexChange={(index) => setViewer((current) => (current ? { ...current, index } : current))}
+        onClose={() => setViewer(null)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -570,7 +759,9 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 12,
     marginBottom: 4,
+    overflow: 'hidden',
   },
+  bubbleImageFill: { width: '100%', height: '100%' },
   body: { fontSize: 15, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
   meta: { alignItems: 'center', gap: 4, alignSelf: 'flex-end' },
   time: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
@@ -578,36 +769,65 @@ const styles = StyleSheet.create({
   senderMine: { alignSelf: 'flex-end' },
   senderTheirs: { alignSelf: 'flex-start' },
   composer: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: 8,
+    gap: 6,
     borderTopWidth: 1,
-    alignItems: 'flex-end',
+    alignItems: 'center',
   },
   attach: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordBox: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 20,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    gap: 8,
+  },
+  recDot: { width: 8, height: 8, borderRadius: 4 },
+  recTime: { fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  input: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontFamily: 'Cairo_400Regular',
+  },
+  send: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  input: {
+  previewOverlay: {
     flex: 1,
-    minHeight: 48,
-    maxHeight: 120,
-    borderRadius: 24,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontFamily: 'Cairo_400Regular',
-  },
-  send: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.md,
   },
+  previewCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  previewTitle: { fontSize: 18, fontFamily: 'Cairo_700Bold' },
+  previewImage: {
+    width: '100%',
+    height: 240,
+    borderRadius: radius.md,
+    backgroundColor: '#111',
+  },
+  previewHint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   outboxBanner: {
     alignItems: 'center',
     gap: 8,

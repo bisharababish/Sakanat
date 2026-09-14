@@ -88,5 +88,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderColor: 'transparent',
   },
-  label: { fontWeight: '800', fontSize: 12 },
+  label: { fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
 });

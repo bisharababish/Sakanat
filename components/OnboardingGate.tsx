@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
 import { isStudentReady } from '@/src/lib/studentProfile';
@@ -22,6 +23,7 @@ export function OnboardingGate() {
   const { rtlText } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
+  const safe = useModalSafeArea();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -67,7 +69,16 @@ export function OnboardingGate() {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: colors.overlay,
+            paddingTop: Math.max(safe.top, spacing.lg),
+            paddingBottom: Math.max(safe.bottom, spacing.lg),
+          },
+        ]}
+      >
         <View style={StyleSheet.absoluteFill} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('onboarding.welcome')}</Text>

@@ -1,6 +1,6 @@
 import i18n from '@/src/i18n';
 import { supabase } from '@/src/lib/supabase';
-import { PHOTO_MAX_BYTES, photoExt } from '@/src/lib/limits';
+import { AUDIO_MAX_BYTES, PHOTO_MAX_BYTES, photoExt } from '@/src/lib/limits';
 
 const ID_DOCS_BUCKET = 'id-docs';
 const PUBLIC_BUCKET = 'apartment-photos';
@@ -56,6 +56,32 @@ export async function uploadChatPhoto(userId: string, conversationId: string, ur
     // Fallback to public bucket if private bucket SQL not applied yet.
     if (/bucket|not found|row-level security/i.test(error.message)) {
       return uploadPublicImage(`chat/${conversationId}/${userId}-${Date.now()}.${ext}`, uri);
+    }
+    throw error;
+  }
+  return path;
+}
+
+export async function uploadChatAudio(userId: string, conversationId: string, uri: string) {
+  const response = await fetch(uri);
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > AUDIO_MAX_BYTES) {
+    throw new Error(i18n.t('chat.voiceTooLarge'));
+  }
+  const path = `${conversationId}/${userId}/${Date.now()}.m4a`;
+  const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, buffer, {
+    contentType: 'audio/mp4',
+    upsert: false,
+  });
+  if (error) {
+    if (/bucket|not found|row-level security/i.test(error.message)) {
+      const publicPath = `chat/${conversationId}/${userId}-${Date.now()}.m4a`;
+      const fallback = await supabase.storage.from(PUBLIC_BUCKET).upload(publicPath, buffer, {
+        contentType: 'audio/mp4',
+        upsert: false,
+      });
+      if (fallback.error) throw fallback.error;
+      return supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(publicPath).data.publicUrl;
     }
     throw error;
   }

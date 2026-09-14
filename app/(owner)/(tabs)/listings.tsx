@@ -9,7 +9,6 @@ import { EmptyState } from '@/components/EmptyState';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
-import { HubRow } from '@/components/ui/HubRow';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -18,7 +17,8 @@ import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { formatIls, listingBadgeTone, localizedTitle } from '@/src/lib/format';
-import { apartmentWriteFields, copyListingTitles } from '@/src/lib/listing';
+import { buildingKey, buildingTitle, compareListingPlace, listingPlaceLine, uniqueBuildings } from '@/src/lib/listingPlace';
+import { listingNeedsStayNotes } from '@/src/lib/listingStay';
 import { verifiedTotpFactor } from '@/src/lib/mfa';
 import { alert } from '@/src/lib/notice';
 import { OWNER_LISTING_PAGE_SIZE } from '@/src/lib/page';
@@ -33,7 +33,7 @@ type Filter = 'all' | ListingStatus;
 
 export default function OwnerListings() {
   const { t, i18n } = useTranslation();
-  const { rtlText, writingDirection, textAlign, row } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
   const [listings, setListings] = useState<Apartment[]>([]);
@@ -41,6 +41,7 @@ export default function OwnerListings() {
     Record<string, { views: number; saves: number; chats: number; bookings: number }>
   >({});
   const [filter, setFilter] = useState<Filter>('all');
+  const [buildingFilter, setBuildingFilter] = useState('all');
   const [openId, setOpenId] = useState<string | null>(null);
   const [mfaOn, setMfaOn] = useState(true);
 
@@ -105,11 +106,17 @@ export default function OwnerListings() {
     return next;
   }, [listings]);
 
-  const visible = useMemo(
-    () => (filter === 'all' ? listings : listings.filter((item) => item.status === filter)),
-    [filter, listings],
+  const buildings = useMemo(
+    () => uniqueBuildings(listings, i18n.language, t('owner.untitledUnit')),
+    [i18n.language, listings, t],
   );
-  const paged = usePaged(visible, OWNER_LISTING_PAGE_SIZE, filter);
+
+  const visible = useMemo(() => {
+    const list = filter === 'all' ? listings : listings.filter((item) => item.status === filter);
+    const placed = buildingFilter === 'all' ? list : list.filter((item) => buildingKey(item) === buildingFilter);
+    return [...placed].sort((a, b) => compareListingPlace(a, b, i18n.language));
+  }, [buildingFilter, filter, i18n.language, listings]);
+  const paged = usePaged(visible, OWNER_LISTING_PAGE_SIZE, `${filter}:${buildingFilter}`);
 
   const goProfileGap = () => {
     router.push({
@@ -119,40 +126,12 @@ export default function OwnerListings() {
   };
 
   const gateAdd = () => {
-    if (profile?.owner_status === 'pending') {
-      alert(t('common.error'), t('owner.listingNeedApproval'));
-      return;
-    }
-    if (profile?.owner_status === 'rejected') {
-      alert(t('common.error'), t('owner.listingSuspended'));
-      return;
-    }
-    if (!canList) {
-      alert(t('common.error'), t('owner.listingNeedVerify'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('profile.title'),
-          onPress: goProfileGap,
-        },
-      ]);
+    if (profile?.owner_status === 'pending') return;
+    if (profile?.owner_status === 'rejected' || !canList) {
+      goProfileGap();
       return;
     }
     router.push('/(owner)/listing/new');
-  };
-
-  const removeListing = (id: string) => {
-    alert(t('owner.deleteListing'), t('owner.confirmDelete'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('owner.deleteListing'),
-        style: 'destructive',
-        onPress: async () => {
-          const { error } = await supabase.from('apartments').delete().eq('id', id);
-          if (error) alert(t('common.error'), error.message);
-          else void load();
-        },
-      },
-    ]);
   };
 
   const hideListing = (id: string) => {
@@ -171,10 +150,7 @@ export default function OwnerListings() {
 
   const unhideListing = async (id: string) => {
     if (!canList) {
-      alert(t('common.error'), t('owner.listingNeedVerify'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('profile.title'), onPress: goProfileGap },
-      ]);
+      goProfileGap();
       return;
     }
     const { error } = await supabase.from('apartments').update({ status: 'approved' }).eq('id', id);
@@ -183,31 +159,6 @@ export default function OwnerListings() {
       return;
     }
     void load();
-  };
-
-  const duplicateListing = async (item: Apartment) => {
-    if (!canList) {
-      alert(t('common.error'), t('owner.listingNeedVerify'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('profile.title'), onPress: goProfileGap },
-      ]);
-      return;
-    }
-    const { data, error } = await supabase
-      .from('apartments')
-      .insert({
-        ...apartmentWriteFields(item),
-        ...copyListingTitles(item, t('owner.copySuffix')),
-      })
-      .select('id')
-      .single();
-    if (error) {
-      alert(t('common.error'), listingGateMessage(error.message, t) || error.message);
-      return;
-    }
-    alert(t('common.done'), t('owner.duplicated'));
-    if (data?.id) router.push({ pathname: '/(owner)/listing/[id]', params: { id: data.id } });
-    else void load();
   };
 
   const filters: Filter[] = ['all', 'pending', 'approved', 'hidden', 'rejected'];
@@ -248,7 +199,15 @@ export default function OwnerListings() {
             : null;
 
   return (
-    <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
+    <Screen
+      onRefresh={() => void refresh()}
+      refreshing={refreshing}
+      back={filter !== 'all' || buildingFilter !== 'all'}
+      onBack={() => {
+        if (filter !== 'all') setFilter('all');
+        else setBuildingFilter('all');
+      }}
+    >
       <OfflineBanner />
       <View style={[styles.top, row]}>
         <View style={styles.topCopy}>
@@ -258,6 +217,7 @@ export default function OwnerListings() {
             {t('owner.listingCount', { count: listings.length })}
           </Text>
         </View>
+        <Button title={t('owner.addListing')} onPress={gateAdd} pill compact />
       </View>
 
       {listingAlert ? (
@@ -267,13 +227,11 @@ export default function OwnerListings() {
           style={[styles.warnBox, { backgroundColor: listingAlert.bg }]}
         >
           <Ionicons name={listingAlert.icon} size={18} color={listingAlert.color} />
-          <Text style={[styles.warn, { writingDirection, textAlign, color: listingAlert.color }]}>
+          <Text style={[styles.warn, rtlText, { color: listingAlert.color }]}>
             {listingAlert.text}
           </Text>
         </Pressable>
       ) : null}
-
-      <HubRow icon="add-circle-outline" label={t('owner.addListing')} onPress={gateAdd} />
 
       <FilterPills
         compact
@@ -285,6 +243,17 @@ export default function OwnerListings() {
           count: counts[value],
         }))}
       />
+      {buildings.length > 1 ? (
+        <FilterPills
+          compact
+          value={buildingFilter}
+          onChange={setBuildingFilter}
+          items={[
+            { value: 'all', label: t('owner.allBuildings'), count: listings.length },
+            ...buildings.map((item) => ({ value: item.key, label: item.name, count: item.count })),
+          ]}
+        />
+      ) : null}
 
       {visible.length === 0 ? (
         <EmptyState
@@ -294,14 +263,22 @@ export default function OwnerListings() {
         />
       ) : null}
 
-      {paged.slice.map((item) => {
+      {paged.slice.map((item, index) => {
         const open = openId === item.id;
         const title = localizedTitle(item, i18n.language);
         const photo = item.photos?.[0];
         const tone = listingBadgeTone(item.status);
+        const prev = paged.slice[index - 1];
+        const showBuilding = !prev || buildingKey(prev) !== buildingKey(item);
+        const place = listingPlaceLine(item, t, { skipBuilding: true });
         return (
+          <View key={item.id}>
+            {showBuilding ? (
+              <Text style={[styles.group, rtlText, { color: colors.primary }]}>
+                {buildingTitle(item, i18n.language, t('owner.untitledUnit'))}
+              </Text>
+            ) : null}
           <View
-            key={item.id}
             style={[styles.rowCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
             <Pressable
@@ -317,15 +294,29 @@ export default function OwnerListings() {
                 </View>
               )}
               <View style={styles.rowCopy}>
-                <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
-                  {title}
-                </Text>
+                <View style={[styles.titleLine, row]}>
+                  <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  {listingNeedsStayNotes(item) ? (
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={16}
+                      color={colors.warning}
+                      accessibilityLabel={t('owner.needsStayNotes')}
+                    />
+                  ) : null}
+                </View>
                 <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
-                  {formatIls(item.price_month, i18n.language)} · {item.photos?.length ?? 0}{' '}
-                  {t('owner.photosShort')}
-                  {stats[item.id]
-                    ? ` · ${t('owner.insightsViews', { count: stats[item.id].views })} · ${t('owner.insightsSaves', { count: stats[item.id].saves })} · ${t('owner.insightsChats', { count: stats[item.id].chats })} · ${t('owner.insightsBookings', { count: stats[item.id].bookings })}`
-                    : ''}
+                  {[
+                    place,
+                    formatIls(item.price_month, i18n.language),
+                    stats[item.id]
+                      ? `${t('owner.insightsViews', { count: stats[item.id].views })} · ${t('owner.insightsBookings', { count: stats[item.id].bookings })}`
+                      : `${item.photos?.length ?? 0} ${t('owner.photosShort')}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Text>
               </View>
               <StatusBadge label={t(`status.${item.status}`)} tone={tone} />
@@ -338,6 +329,16 @@ export default function OwnerListings() {
 
             {open ? (
               <View style={styles.rowActions}>
+                {stats[item.id] ? (
+                  <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]}>
+                    {t('owner.insightsSaves', { count: stats[item.id].saves })} ·{' '}
+                    {t('owner.insightsChats', { count: stats[item.id].chats })} ·{' '}
+                    {item.photos?.length ?? 0} {t('owner.photosShort')}
+                  </Text>
+                ) : null}
+                {listingNeedsStayNotes(item) ? (
+                  <Text style={[styles.warn, rtlText, { color: colors.warning }]}>{t('owner.needsStayNotes')}</Text>
+                ) : null}
                 {item.status === 'rejected' && item.reject_reason ? (
                   <Text style={[styles.warn, rtlText, { color: colors.warning }]}>
                     {t('admin.rejectedNote', { note: item.reject_reason })}
@@ -356,12 +357,6 @@ export default function OwnerListings() {
                   >
                     <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.preview')}</Text>
                   </Pressable>
-                  <Pressable
-                    onPress={() => void duplicateListing(item)}
-                    style={[styles.action, { backgroundColor: colors.accentSoft }]}
-                  >
-                    <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.duplicate')}</Text>
-                  </Pressable>
                   {item.status === 'approved' ? (
                     <Pressable
                       onPress={() => hideListing(item.id)}
@@ -378,15 +373,10 @@ export default function OwnerListings() {
                       <Text style={[styles.actionText, { color: colors.primaryDark }]}>{t('owner.unhideListing')}</Text>
                     </Pressable>
                   ) : null}
-                  <Pressable
-                    onPress={() => removeListing(item.id)}
-                    style={[styles.action, { backgroundColor: colors.dangerSoft }]}
-                  >
-                    <Text style={[styles.actionDangerText, { color: colors.danger }]}>{t('owner.deleteListing')}</Text>
-                  </Pressable>
                 </View>
               </View>
             ) : null}
+          </View>
           </View>
         );
       })}
@@ -404,11 +394,12 @@ export default function OwnerListings() {
 }
 
 const styles = StyleSheet.create({
-  top: { alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   count: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  group: { fontSize: 12, fontFamily: 'Cairo_700Bold', marginTop: 6, marginBottom: 2 },
   warnBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -422,7 +413,8 @@ const styles = StyleSheet.create({
   thumb: { width: 52, height: 52, borderRadius: 12 },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
   rowCopy: { flex: 1, minWidth: 0, gap: 2 },
-  rowTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  titleLine: { alignItems: 'center', gap: 6 },
+  rowTitle: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
   rowMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   rowActions: { paddingHorizontal: 10, paddingBottom: 10, gap: 8 },
   actions: { flexWrap: 'wrap', alignItems: 'center', gap: 6 },

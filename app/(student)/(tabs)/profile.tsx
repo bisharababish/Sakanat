@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View, type ScrollView } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { ListingCard } from '@/components/ListingCard';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
@@ -11,7 +12,6 @@ import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
-import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { SectionHead } from '@/components/profile/SectionHead';
@@ -269,7 +269,7 @@ function degreeName(value: string, t: (key: string) => string) {
 
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { resumeBook, tab: tabParam, reportId } = useLocalSearchParams<{
@@ -914,7 +914,6 @@ export default function StudentProfileScreen() {
       <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
       {tab === 'menu' ? (
         <>
-          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('profile.title')}</Text>
           <View onLayout={(event) => { sectionY.current.hero = event.nativeEvent.layout.y; }}>
             <ProfileHero
               name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
@@ -926,6 +925,8 @@ export default function StudentProfileScreen() {
               email={profile?.email}
               verifyStatus={profile?.id_verify_status}
               verifyRole={profile?.role}
+              progressFilled={progressItems.filter((item) => item.done).length}
+              progressTotal={progressItems.length}
             />
           </View>
           {needsReview ? (
@@ -938,7 +939,24 @@ export default function StudentProfileScreen() {
           {bookingBanner ? (
             <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
           ) : null}
-          <ProfileProgress items={progressItems} onJump={jumpTo} />
+          {progressItems.some((item) => !item.done) ? (
+            <View style={[styles.gaps, row]}>
+              {progressItems
+                .filter((item) => !item.done)
+                .slice(0, 4)
+                .map((item) => (
+                  <Pressable
+                    key={item.id ?? item.label}
+                    onPress={() => item.id && jumpTo(item.id)}
+                    style={[styles.gapChip, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
+                  >
+                    <Text style={[styles.gapChipText, { color: colors.text }]} numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+          ) : null}
           <ProfileMenu
             onLogout={askLogout}
             links={[
@@ -981,6 +999,7 @@ export default function StudentProfileScreen() {
               },
             ]}
           />
+          <AppBrandFooter />
         </>
       ) : (
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>
@@ -1280,7 +1299,16 @@ export default function StudentProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  kicker: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
+  gaps: { flexWrap: 'wrap', gap: 6 },
+  gapChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    maxWidth: '100%',
+  },
+  gapChipText: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   denseBlock: { gap: spacing.xs },
   savedBlock: { gap: 8 },

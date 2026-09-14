@@ -4,6 +4,7 @@ import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
@@ -607,6 +608,7 @@ export default function AdminSettings() {
               },
             ]}
           />
+          <AppBrandFooter />
         </>
       ) : (
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>

@@ -14,6 +14,9 @@ export type ListingQualityInput = {
   amenities?: string[];
   universityId?: string | null;
   campusKm?: string | number | null;
+  buildingName?: string | null;
+  floor?: string | number | null;
+  unitNumber?: string | null;
 };
 
 export type ListingQualityIssue =
@@ -23,7 +26,8 @@ export type ListingQualityIssue =
   | 'title'
   | 'city'
   | 'price'
-  | 'campus';
+  | 'campus'
+  | 'place';
 
 export function listingQualityIssues(input: ListingQualityInput): ListingQualityIssue[] {
   const issues: ListingQualityIssue[] = [];
@@ -37,6 +41,14 @@ export function listingQualityIssues(input: ListingQualityInput): ListingQuality
   if ((input.amenities?.length ?? 0) < LISTING_MIN_AMENITIES) issues.push('amenities');
   if (input.universityId && (input.campusKm === '' || input.campusKm == null || Number.isNaN(Number(input.campusKm)))) {
     issues.push('campus');
+  }
+  const floorRaw = input.floor;
+  const floorMissing =
+    floorRaw === '' ||
+    floorRaw == null ||
+    (typeof floorRaw === 'number' ? Number.isNaN(floorRaw) : Number.isNaN(Number(String(floorRaw).trim())));
+  if (!(input.buildingName ?? '').trim() || floorMissing || !(input.unitNumber ?? '').trim()) {
+    issues.push('place');
   }
   return issues;
 }

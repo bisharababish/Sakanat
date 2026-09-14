@@ -4,8 +4,9 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useTranslation } from 'react-i18next';
 
 import { BackButton } from '@/components/ui/BackButton';
-import { useLayout } from '@/src/hooks/useLayout';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
+import { useLayout } from '@/src/hooks/useLayout';
+import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -40,6 +41,7 @@ export function Select({
   const { t } = useTranslation();
   const { rtlText, alignStart, isRtl, textAlign, writingDirection } = useLayout();
   const colors = useColors();
+  const safe = useModalSafeArea();
   const edgeBack = useEdgeBack(open, () => setOpen(false));
   const list =
     clearable && !options.some((option) => option.value === '')
@@ -82,7 +84,17 @@ export function Select({
         ) : null}
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <View style={[styles.overlay, { backgroundColor: colors.overlay }]} {...edgeBack}>
+        <View
+          style={[
+            styles.overlay,
+            {
+              backgroundColor: colors.overlay,
+              paddingTop: Math.max(safe.top, spacing.lg),
+              paddingBottom: Math.max(safe.bottom, spacing.lg),
+            },
+          ]}
+          {...edgeBack}
+        >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
           <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>

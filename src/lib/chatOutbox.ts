@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { sendMessage } from '@/src/lib/chat';
-import { uploadChatPhoto } from '@/src/lib/upload';
+import { uploadChatAudio, uploadChatPhoto } from '@/src/lib/upload';
 
 const KEY = 'sakanat.chatOutbox';
 
@@ -12,6 +12,8 @@ export type ChatOutboxItem = {
   body: string;
   imageUri?: string | null;
   imageUrl?: string | null;
+  audioUri?: string | null;
+  audioUrl?: string | null;
   createdAt: string;
 };
 
@@ -67,7 +69,11 @@ export async function flushChatOutbox(conversationId?: string) {
       if (!imageUrl && item.imageUri) {
         imageUrl = await uploadChatPhoto(item.senderId, item.conversationId, item.imageUri);
       }
-      await sendMessage(item.conversationId, item.senderId, item.body, imageUrl);
+      let audioUrl = item.audioUrl ?? null;
+      if (!audioUrl && item.audioUri) {
+        audioUrl = await uploadChatAudio(item.senderId, item.conversationId, item.audioUri);
+      }
+      await sendMessage(item.conversationId, item.senderId, item.body, imageUrl, audioUrl);
       sent += 1;
     } catch {
       remaining.push(item);
