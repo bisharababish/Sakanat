@@ -281,8 +281,6 @@ export default function StudentProfileScreen() {
   const { cities, universities } = useCatalog();
   const today = useToday();
   const [tab, setTab] = useState<ProfileTab>('menu');
-  const goHub = useCallback(() => setTab('menu'), []);
-  useHubTabBack(tab === 'menu', goHub);
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -360,6 +358,43 @@ export default function StudentProfileScreen() {
     });
     baseline.current = snap;
   }, []);
+
+  const goHub = useCallback(() => {
+    if (baseline.current) {
+      applySnap(baseline.current, {
+        fullNameEn: setFullNameEn,
+        fullNameAr: setFullNameAr,
+        phoneRegion: setPhoneRegion,
+        phoneLocal: setPhoneLocal,
+        studentId: setStudentId,
+        waLinked: setWaLinked,
+        waRegion: setWaRegion,
+        waLocal: setWaLocal,
+        major: setMajor,
+        degreeLevel: setDegreeLevel,
+        studyYear: setStudyYear,
+        gender: setGender,
+        birthDate: setBirthDate,
+        cityId: setCityId,
+        universityId: setUniversityId,
+        avatarUrl: setAvatarUrl,
+        homeAddress: setHomeAddress,
+        bio: setBio,
+        spokenLanguages: setSpokenLanguages,
+        graduationTerm: setGraduationTerm,
+        nationalId: setNationalId,
+        nationalExpiresAt: setNationalExpiresAt,
+        idDocsConsent: setIdDocsConsent,
+        nationalIdUrl: setNationalIdUrl,
+        universityCardUrl: setUniversityCardUrl,
+        emergencyName: setEmergencyName,
+        emergencyRegion: setEmergencyRegion,
+        emergencyLocal: setEmergencyLocal,
+      });
+    }
+    setTab('menu');
+  }, []);
+  useHubTabBack(tab === 'menu', goHub);
 
   useEffect(() => {
     if (!profile) return;
@@ -967,45 +1002,51 @@ export default function StudentProfileScreen() {
             </View>
           ) : null}
           <ProfileMenu
-            links={[
-              {
-                key: 'account',
-                icon: 'person-outline',
-                label: t('profile.personalTitle'),
-                hint: accountIncomplete ? t('profile.stillNeeded') : undefined,
-                dot: accountIncomplete,
-                onPress: () => setTab('account'),
-              },
-              {
-                key: 'trust',
-                icon: 'shield-checkmark-outline',
-                label: t('profile.tabTrust'),
-                hint: trustIncomplete ? t('profile.stillNeeded') : undefined,
-                dot: trustIncomplete,
-                onPress: () => setTab('trust'),
-              },
-              {
-                key: 'saved',
-                icon: 'heart-outline',
-                label: t('profile.tabSaved'),
-                hint: shouldShowSavedCount(profile)
-                  ? t('profile.itemCount', { count: savedListings.length })
-                  : undefined,
-                onPress: () => setTab('saved'),
-              },
-              {
-                key: 'settings',
-                icon: 'options-outline',
-                label: t('profile.tabSettings'),
-                onPress: () => setTab('settings'),
-              },
-              {
-                key: 'security',
-                icon: 'lock-closed-outline',
-                label: t('profile.tabSecurity'),
-                hint: mfaOn ? undefined : t('profile.mfaOptionalHint'),
-                onPress: () => setTab('security'),
-              },
+            groups={[
+              [
+                {
+                  key: 'account',
+                  icon: 'person-outline',
+                  label: t('profile.personalTitle'),
+                  hint: accountIncomplete ? t('profile.stillNeeded') : undefined,
+                  dot: accountIncomplete,
+                  onPress: () => setTab('account'),
+                },
+                {
+                  key: 'trust',
+                  icon: 'shield-checkmark-outline',
+                  label: t('profile.tabTrust'),
+                  hint: trustIncomplete ? t('profile.stillNeeded') : undefined,
+                  dot: trustIncomplete,
+                  onPress: () => setTab('trust'),
+                },
+              ],
+              [
+                {
+                  key: 'saved',
+                  icon: 'heart-outline',
+                  label: t('profile.tabSaved'),
+                  hint: shouldShowSavedCount(profile)
+                    ? t('profile.itemCount', { count: savedListings.length })
+                    : undefined,
+                  onPress: () => setTab('saved'),
+                },
+              ],
+              [
+                {
+                  key: 'settings',
+                  icon: 'options-outline',
+                  label: t('profile.tabSettings'),
+                  onPress: () => setTab('settings'),
+                },
+                {
+                  key: 'security',
+                  icon: 'lock-closed-outline',
+                  label: t('profile.tabSecurity'),
+                  hint: mfaOn ? undefined : t('profile.mfaOptionalHint'),
+                  onPress: () => setTab('security'),
+                },
+              ],
             ]}
           />
         </>

@@ -6,9 +6,10 @@ import { useTranslation } from 'react-i18next';
 
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
-import { radius, spacing } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -39,6 +40,7 @@ export default function WelcomeScreen() {
     <AuthScreen
       back={canGoBack}
       center={false}
+      scroll={false}
       footer={
         <>
           <Button title={t('auth.login')} onPress={() => router.push('/(auth)/login')} pill />
@@ -48,7 +50,9 @@ export default function WelcomeScreen() {
       }
     >
       <AuthCard compact>
-        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('auth.welcome')}</Text>
+        <View style={styles.logo}>
+          <BrandLogo iconOnly size={48} />
+        </View>
         <Text style={[styles.lead, rtlText, { color: colors.primaryDark }]}>{t('appNameLead')}</Text>
         <Text style={[styles.tail, rtlText, { color: colors.primary }]}>{t('appNameTail')}</Text>
         <Text style={[styles.tag, rtlText, { color: colors.textMuted }]}>{t('tagline')}</Text>
@@ -81,12 +85,7 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  kicker: {
-    fontSize: 12,
-    fontWeight: '800',
-    fontFamily: 'Cairo_700Bold',
-    textAlign: 'center',
-  },
+  logo: { alignItems: 'center' },
   lead: {
     fontSize: 24,
     fontWeight: '800',
@@ -100,7 +99,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_800ExtraBold',
     textAlign: 'center',
     lineHeight: 24,
-    marginTop: -4,
+    marginTop: -6,
   },
   tag: {
     fontSize: 13,
@@ -112,7 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   who: {
     flexDirection: 'row',
@@ -126,7 +125,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   whoText: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  points: { gap: spacing.sm },
+  points: { gap: 8 },
   point: { alignItems: 'flex-start', gap: 8 },
   iconWrap: {
     width: 30,
@@ -138,11 +137,11 @@ const styles = StyleSheet.create({
   },
   pointCopy: { flex: 1, minWidth: 0, gap: 1 },
   pointTitle: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  pointHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 18 },
+  pointHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 16 },
   note: {
     fontSize: 12,
     fontFamily: 'Cairo_400Regular',
-    lineHeight: 18,
+    lineHeight: 16,
     textAlign: 'center',
   },
 });

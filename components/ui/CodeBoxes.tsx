@@ -1,8 +1,10 @@
+import * as Clipboard from 'expo-clipboard';
 import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { radius, spacing } from '@/src/theme/colors';
+import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
@@ -12,17 +14,41 @@ type Props = {
   length?: number;
 };
 
+function codeFrom(text: string, length: number) {
+  return text.replace(/\D/g, '').slice(0, length);
+}
+
 export function CodeBoxes({ label, value, onChangeText, length = 6 }: Props) {
+  const { t } = useTranslation();
   const layout = useLayout();
   const colors = useColors();
   const inputRef = useRef<TextInput>(null);
-  const digits = value.replace(/\D/g, '').slice(0, length);
+  const digits = codeFrom(value, length);
   const compact = length > 6;
+
+  const applyCode = (next: string) => {
+    const code = codeFrom(next, length);
+    if (code) onChangeText(code);
+  };
+
+  const pasteCode = async () => {
+    try {
+      applyCode(await Clipboard.getStringAsync());
+    } catch {
+      // Keyboard entry still works.
+    }
+    inputRef.current?.focus();
+  };
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, layout.rtlText, { color: colors.text }]}>{label}</Text>
-      <Pressable onPress={() => inputRef.current?.focus()}>
+      <View style={styles.head}>
+        <Text style={[styles.label, layout.rtlText, { color: colors.text }]}>{label}</Text>
+        <Pressable onPress={() => void pasteCode()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.paste')}>
+          <Text style={[styles.paste, { color: colors.primary }]}>{t('common.paste')}</Text>
+        </Pressable>
+      </View>
+      <Pressable onPress={() => void pasteCode()}>
         <View style={[styles.row, compact ? styles.rowCompact : null]}>
           {Array.from({ length }, (_, index) => {
             const active = digits.length === index;
@@ -49,7 +75,7 @@ export function CodeBoxes({ label, value, onChangeText, length = 6 }: Props) {
         <TextInput
           ref={inputRef}
           value={digits}
-          onChangeText={(next) => onChangeText(next.replace(/\D/g, '').slice(0, length))}
+          onChangeText={(next) => applyCode(next)}
           keyboardType="number-pad"
           autoComplete="one-time-code"
           textContentType="oneTimeCode"
@@ -58,6 +84,7 @@ export function CodeBoxes({ label, value, onChangeText, length = 6 }: Props) {
           autoCorrect={false}
           autoCapitalize="none"
           importantForAutofill="yes"
+          pointerEvents="none"
           style={styles.hidden}
         />
       </Pressable>
@@ -67,7 +94,14 @@ export function CodeBoxes({ label, value, onChangeText, length = 6 }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
-  label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  label: { flex: 1, fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  paste: { fontSize: 14, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
   row: {
     flexDirection: 'row',
     direction: 'ltr',
@@ -92,11 +126,8 @@ const styles = StyleSheet.create({
   digitCompact: { fontSize: 18, lineHeight: 24 },
   hidden: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    opacity: 0.02,
-    color: 'transparent',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
 });

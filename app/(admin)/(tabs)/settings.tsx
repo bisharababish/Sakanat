@@ -149,8 +149,6 @@ export default function AdminSettings() {
   const pending = useAdminPendingCounts();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<ProfileTab>('menu');
-  const goHub = useCallback(() => setTab('menu'), []);
-  useHubTabBack(tab === 'menu', goHub);
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -216,6 +214,25 @@ export default function AdminSettings() {
     setCityId(snap.cityId);
     setAvatarUrl(snap.avatarUrl);
   }, []);
+
+  const goHub = useCallback(() => {
+    const snap = baseline.current;
+    if (snap) {
+      setFullNameEn(snap.fullNameEn);
+      setFullNameAr(snap.fullNameAr);
+      setPhoneRegion(snap.phoneRegion);
+      setPhoneLocal(snap.phoneLocal);
+      setWaLinked(snap.waLinked);
+      setWaRegion(snap.waRegion);
+      setWaLocal(snap.waLocal);
+      setGender(snap.gender);
+      setBirthDate(snap.birthDate);
+      setCityId(snap.cityId);
+      setAvatarUrl(snap.avatarUrl);
+    }
+    setTab('menu');
+  }, []);
+  useHubTabBack(tab === 'menu', goHub);
 
   useEffect(() => {
     if (!profile) return;
@@ -575,28 +592,32 @@ export default function AdminSettings() {
             readyLabel={t('admin.profileReady')}
           />
           <ProfileMenu
-            links={[
-              {
-                key: 'account',
-                icon: 'person-outline',
-                label: t('profile.personalTitle'),
-                dot: incomplete,
-                onPress: () => setTab('account'),
-              },
-              {
-                key: 'settings',
-                icon: 'options-outline',
-                label: t('profile.tabSettings'),
-                hint: pendingTotal > 0 ? String(pendingTotal) : undefined,
-                dot: pendingTotal > 0,
-                onPress: () => setTab('settings'),
-              },
-              {
-                key: 'security',
-                icon: 'lock-closed-outline',
-                label: t('profile.tabSecurity'),
-                onPress: () => setTab('security'),
-              },
+            groups={[
+              [
+                {
+                  key: 'account',
+                  icon: 'person-outline',
+                  label: t('profile.personalTitle'),
+                  dot: incomplete,
+                  onPress: () => setTab('account'),
+                },
+              ],
+              [
+                {
+                  key: 'settings',
+                  icon: 'options-outline',
+                  label: t('profile.tabSettings'),
+                  hint: pendingTotal > 0 ? String(pendingTotal) : undefined,
+                  dot: pendingTotal > 0,
+                  onPress: () => setTab('settings'),
+                },
+                {
+                  key: 'security',
+                  icon: 'lock-closed-outline',
+                  label: t('profile.tabSecurity'),
+                  onPress: () => setTab('security'),
+                },
+              ],
             ]}
           />
         </>

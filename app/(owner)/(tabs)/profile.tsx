@@ -142,8 +142,6 @@ export default function OwnerProfile() {
   const today = useToday();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<ProfileTab>('menu');
-  const goHub = useCallback(() => setTab('menu'), []);
-  useHubTabBack(tab === 'menu', goHub);
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
@@ -200,6 +198,34 @@ export default function OwnerProfile() {
     setEmergencyRegion(snap.emergencyRegion);
     setEmergencyLocal(snap.emergencyLocal);
   }, []);
+
+  const goHub = useCallback(() => {
+    const snap = baseline.current;
+    if (snap) {
+      setFullNameEn(snap.fullNameEn);
+      setFullNameAr(snap.fullNameAr);
+      setPhoneRegion(snap.phoneRegion);
+      setPhoneLocal(snap.phoneLocal);
+      setWaLinked(snap.waLinked);
+      setWaRegion(snap.waRegion);
+      setWaLocal(snap.waLocal);
+      setGender(snap.gender);
+      setBirthDate(snap.birthDate);
+      setCityId(snap.cityId);
+      setAvatarUrl(snap.avatarUrl);
+      setBio(snap.bio);
+      setSpokenLanguages(snap.spokenLanguages);
+      setNationalId(snap.nationalId);
+      setNationalExpiresAt(snap.nationalExpiresAt);
+      setIdDocsConsent(snap.idDocsConsent);
+      setNationalIdUrl(snap.nationalIdUrl);
+      setEmergencyName(snap.emergencyName);
+      setEmergencyRegion(snap.emergencyRegion);
+      setEmergencyLocal(snap.emergencyLocal);
+    }
+    setTab('menu');
+  }, []);
+  useHubTabBack(tab === 'menu', goHub);
 
   useEffect(() => {
     if (!profile) return;
@@ -695,53 +721,59 @@ export default function OwnerProfile() {
             </View>
           ) : null}
           <ProfileMenu
-            links={[
-              {
-                key: 'account',
-                icon: 'person-outline',
-                label: t('profile.personalTitle'),
-                hint: accountIncomplete ? t('profile.stillNeeded') : undefined,
-                dot: accountIncomplete,
-                onPress: () => setTab('account'),
-              },
-              {
-                key: 'trust',
-                icon: 'shield-checkmark-outline',
-                label: t('profile.tabTrust'),
-                hint: trustIncomplete ? t('profile.stillNeeded') : undefined,
-                dot: trustIncomplete,
-                onPress: () => setTab('trust'),
-              },
-              {
-                key: 'occupants',
-                icon: 'people-outline',
-                label: t('owner.occupantsTitle'),
-                hint:
-                  occ.units > 0
-                    ? t('owner.occupantsHint', { people: occ.people, buildings: occ.buildings })
-                    : t('owner.occupantsHintEmpty'),
-                onPress: () => setTab('occupants'),
-              },
-              {
-                key: 'earnings',
-                icon: 'cash-outline',
-                label: t('tabs.earnings'),
-                hint: t('owner.earningsMenuHint'),
-                onPress: () => router.push('/(owner)/(tabs)/earnings'),
-              },
-              {
-                key: 'settings',
-                icon: 'options-outline',
-                label: t('profile.tabSettings'),
-                onPress: () => setTab('settings'),
-              },
-              {
-                key: 'security',
-                icon: 'lock-closed-outline',
-                label: t('profile.tabSecurity'),
-                hint: mfaOn ? undefined : t('profile.mfaRequiredHint'),
-                onPress: () => setTab('security'),
-              },
+            groups={[
+              [
+                {
+                  key: 'account',
+                  icon: 'person-outline',
+                  label: t('profile.personalTitle'),
+                  hint: accountIncomplete ? t('profile.stillNeeded') : undefined,
+                  dot: accountIncomplete,
+                  onPress: () => setTab('account'),
+                },
+                {
+                  key: 'trust',
+                  icon: 'shield-checkmark-outline',
+                  label: t('profile.tabTrust'),
+                  hint: trustIncomplete ? t('profile.stillNeeded') : undefined,
+                  dot: trustIncomplete,
+                  onPress: () => setTab('trust'),
+                },
+              ],
+              [
+                {
+                  key: 'occupants',
+                  icon: 'people-outline',
+                  label: t('owner.occupantsTitle'),
+                  hint:
+                    occ.units > 0
+                      ? t('owner.occupantsHint', { people: occ.people, buildings: occ.buildings })
+                      : t('owner.occupantsHintEmpty'),
+                  onPress: () => setTab('occupants'),
+                },
+                {
+                  key: 'earnings',
+                  icon: 'cash-outline',
+                  label: t('tabs.earnings'),
+                  hint: t('owner.earningsMenuHint'),
+                  onPress: () => router.push('/(owner)/(tabs)/earnings'),
+                },
+              ],
+              [
+                {
+                  key: 'settings',
+                  icon: 'options-outline',
+                  label: t('profile.tabSettings'),
+                  onPress: () => setTab('settings'),
+                },
+                {
+                  key: 'security',
+                  icon: 'lock-closed-outline',
+                  label: t('profile.tabSecurity'),
+                  hint: mfaOn ? undefined : t('profile.mfaRequiredHint'),
+                  onPress: () => setTab('security'),
+                },
+              ],
             ]}
           />
         </>

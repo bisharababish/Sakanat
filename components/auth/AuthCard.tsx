@@ -31,7 +31,8 @@ const styles = StyleSheet.create({
   },
   compact: {
     borderRadius: 24,
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: 14,
+    gap: 8,
+    flexShrink: 1,
   },
 });

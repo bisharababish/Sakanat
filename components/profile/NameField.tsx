@@ -4,7 +4,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { NAME_WORD_MAX, nameWords } from '@/src/lib/name';
+import { NAME_WORD_MAX, cleanName, nameWords } from '@/src/lib/name';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -49,15 +49,22 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const inputs = useRef<Array<TextInput | null>>([]);
-  const partsRef = useRef(partsFromValue(value));
+  const [parts, setParts] = useState(() => partsFromValue(value));
+  const partsRef = useRef(parts);
+  partsRef.current = parts;
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [active, setActive] = useState(0);
   const [scriptError, setScriptError] = useState(false);
   const ltr = script === 'en';
   const lang = ltr ? 'en' : 'ar';
-  const parts = partsFromValue(value);
-  partsRef.current = parts;
   const errorText = t(ltr ? 'profile.nameNoArabic' : 'profile.nameNoEnglish');
+
+  useEffect(() => {
+    if (cleanName(value) === valueFromParts(partsRef.current)) return;
+    const next = partsFromValue(value);
+    partsRef.current = next;
+    setParts(next);
+  }, [value]);
 
   useEffect(
     () => () => {
@@ -84,6 +91,7 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
 
   const emit = (next: string[]) => {
     partsRef.current = next;
+    setParts(next);
     onChangeText(valueFromParts(next));
   };
 
@@ -210,7 +218,7 @@ const styles = StyleSheet.create({
   gridCompact: { gap: 6 },
   row: { flexDirection: 'row', gap: 8 },
   rowCompact: { gap: 6 },
-  slotWrap: { flex: 1, minWidth: 0 },
+  slotWrap: { flex: 1, minWidth: 0, overflow: 'hidden' },
   slot: {
     width: '100%',
     borderWidth: 1,
@@ -221,6 +229,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     textAlignVertical: 'center',
     includeFontPadding: false,
+    overflow: 'hidden',
   },
   slotCompact: {
     height: 40,

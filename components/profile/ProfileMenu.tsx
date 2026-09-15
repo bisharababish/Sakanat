@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { useColors } from '@/src/theme/ThemeProvider';
-import { radius } from '@/src/theme/colors';
+import { radius, spacing } from '@/src/theme/colors';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -53,7 +53,7 @@ function MenuRow({
     >
       <View style={[styles.rowInner, row]}>
         <View style={[styles.iconWrap, { backgroundColor: danger ? colors.dangerSoft : colors.primarySoft }]}>
-          <Ionicons name={icon} size={18} color={tint} />
+          <Ionicons name={icon} size={20} color={tint} />
         </View>
         <View style={styles.copy}>
           <Text style={[styles.label, rtlText, { color: danger ? colors.danger : colors.text }]}>{label}</Text>
@@ -72,49 +72,64 @@ function MenuRow({
   );
 }
 
-export function ProfileMenu({ links }: { links: ProfileMenuLink[] }) {
+export function ProfileMenu({
+  links,
+  groups,
+}: {
+  links?: ProfileMenuLink[];
+  groups?: ProfileMenuLink[][];
+}) {
   const colors = useColors();
+  const blocks = (groups ?? (links ? [links] : [])).filter((group) => group.length > 0);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      {links.map((item, index) => (
-        <MenuRow
-          key={item.key}
-          icon={item.icon}
-          label={item.label}
-          hint={item.hint}
-          dot={item.dot}
-          danger={item.danger}
-          last={index === links.length - 1}
-          onPress={item.onPress}
-        />
+    <View style={styles.stack}>
+      {blocks.map((group, blockIndex) => (
+        <View
+          key={group.map((item) => item.key).join('-') || String(blockIndex)}
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
+          {group.map((item, index) => (
+            <MenuRow
+              key={item.key}
+              icon={item.icon}
+              label={item.label}
+              hint={item.hint}
+              dot={item.dot}
+              danger={item.danger}
+              last={index === group.length - 1}
+              onPress={item.onPress}
+            />
+          ))}
+        </View>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  stack: { gap: spacing.md },
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   pressed: { opacity: 0.88 },
-  rowInner: { alignItems: 'center', gap: 10 },
+  rowInner: { alignItems: 'center', gap: 12 },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copy: { flex: 1, minWidth: 0, gap: 1 },
-  label: { fontSize: 15, fontFamily: 'Cairo_600SemiBold' },
-  hint: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  copy: { flex: 1, minWidth: 0, gap: 3 },
+  label: { fontSize: 16, fontFamily: 'Cairo_600SemiBold' },
+  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   trail: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
 });

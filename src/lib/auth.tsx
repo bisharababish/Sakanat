@@ -8,6 +8,7 @@ import { isValidEmail, studentEmailError } from '@/src/lib/eduEmail';
 import { isSuspended } from '@/src/lib/moderation';
 import { mfaNeedsChallenge, roleRequiresMfa, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
+import { takeGuestApartment } from '@/src/lib/guest';
 import { dismissNotices } from '@/src/lib/notice';
 import type { PersonGender, Profile, PublicSignupRole } from '@/src/types/database';
 
@@ -337,6 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loadGen.current += 1;
         setPasswordRecovery(false);
         dismissNotices();
+        takeGuestApartment();
         clearLocalAuth();
         try {
           await supabase.auth.signOut({ scope: 'local' });

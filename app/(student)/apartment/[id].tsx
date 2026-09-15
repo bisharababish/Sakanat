@@ -15,7 +15,7 @@ import { trackEvent } from '@/src/lib/analytics';
 import { openConversation } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedTitle } from '@/src/lib/format';
-import { rememberGuestApartment, requireAccount } from '@/src/lib/guest';
+import { requireAccount } from '@/src/lib/guest';
 import { loadActiveStay } from '@/src/lib/booking';
 import { alert } from '@/src/lib/notice';
 import { submitAppReport } from '@/src/lib/reports';
@@ -103,11 +103,6 @@ export default function ApartmentDetails() {
       profile?.id,
     );
   }, [apartment?.id, apartment?.nearest_university_id, profile?.id]);
-
-  useEffect(() => {
-    if (!id || profile) return;
-    rememberGuestApartment(id);
-  }, [id, profile]);
 
   const isRenter = profile?.role === 'renter';
   const useCity =

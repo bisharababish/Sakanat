@@ -12,24 +12,34 @@ type Props = {
   back?: boolean;
   onBack?: () => void;
   center?: boolean;
+  scroll?: boolean;
 };
 
-export function AuthScreen({ children, footer, back = false, onBack, center = true }: Props) {
+export function AuthScreen({ children, footer, back = false, onBack, center = true, scroll = true }: Props) {
   const colors = useColors();
+  const body = (
+    <>
+      {children}
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </>
+  );
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <ChromeBar back={back} showMenu={false} onBack={onBack} />
-      <ScrollView
-        style={styles.flex}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-        contentContainerStyle={[styles.content, center ? styles.center : styles.start]}
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </ScrollView>
+      {scroll ? (
+        <ScrollView
+          style={styles.flex}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          contentContainerStyle={[styles.content, center ? styles.center : styles.start]}
+          showsVerticalScrollIndicator={false}
+        >
+          {body}
+        </ScrollView>
+      ) : (
+        <View style={[styles.flex, styles.content, styles.fit, center ? styles.center : styles.fitStart]}>{body}</View>
+      )}
     </SafeAreaView>
   );
 }
@@ -45,6 +55,12 @@ const styles = StyleSheet.create({
   },
   center: { justifyContent: 'center' },
   start: { justifyContent: 'flex-start', paddingTop: spacing.sm },
+  fit: {
+    gap: spacing.sm,
+    paddingTop: 0,
+    paddingBottom: spacing.sm,
+  },
+  fitStart: { justifyContent: 'space-between' },
   footer: {
     gap: spacing.sm,
     paddingTop: spacing.sm,

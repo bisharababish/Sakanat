@@ -52,37 +52,43 @@ export default function GuestAccount() {
             </View>
           </Card>
           <ProfileMenu
-            links={[
-              {
-                key: 'login',
-                icon: 'log-in-outline',
-                label: t('auth.login'),
-                onPress: openLogin,
-              },
-              {
-                key: 'register',
-                icon: 'person-add-outline',
-                label: t('auth.register'),
-                onPress: openRegister,
-              },
-              {
-                key: 'faq',
-                icon: 'help-circle-outline',
-                label: t('menu.faqTitle'),
-                onPress: () => setPane('faq'),
-              },
-              {
-                key: 'terms',
-                icon: 'document-text-outline',
-                label: t('menu.terms'),
-                onPress: () => setLegal('terms'),
-              },
-              {
-                key: 'privacy',
-                icon: 'shield-outline',
-                label: t('menu.privacy'),
-                onPress: () => setLegal('privacy'),
-              },
+            groups={[
+              [
+                {
+                  key: 'login',
+                  icon: 'log-in-outline',
+                  label: t('auth.login'),
+                  onPress: openLogin,
+                },
+                {
+                  key: 'register',
+                  icon: 'person-add-outline',
+                  label: t('auth.register'),
+                  onPress: openRegister,
+                },
+              ],
+              [
+                {
+                  key: 'faq',
+                  icon: 'help-circle-outline',
+                  label: t('menu.faqTitle'),
+                  onPress: () => setPane('faq'),
+                },
+              ],
+              [
+                {
+                  key: 'terms',
+                  icon: 'document-text-outline',
+                  label: t('menu.terms'),
+                  onPress: () => setLegal('terms'),
+                },
+                {
+                  key: 'privacy',
+                  icon: 'shield-outline',
+                  label: t('menu.privacy'),
+                  onPress: () => setLegal('privacy'),
+                },
+              ],
             ]}
           />
         </ProfileEnter>

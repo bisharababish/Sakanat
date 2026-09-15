@@ -234,7 +234,9 @@ function SessionGuard({ children }: { children: ReactNode }) {
       if (seeker && guestApt && onSeekerListing) takeGuestApartment();
     } else if (!session) {
       if (!linkReady) return;
-      if (guestApt && !onGuestListing) {
+      if (inApp) {
+        dest = '/(auth)/welcome';
+      } else if (guestApt && !onGuestListing) {
         dest = { pathname: '/(guest)/apartment/[id]', params: { id: guestApt } };
       } else if (inGuest) {
         dest = null;
@@ -243,6 +245,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
       } else {
         dest = '/(auth)/welcome';
       }
+      if (onGuestListing && guestApt) takeGuestApartment();
     }
 
     if (!dest) {
