@@ -12,16 +12,25 @@ export default function MfaEnrollScreen() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { completeMfaEnroll, signOut } = useAuth();
+  const { completeMfaEnroll, signOut, profile } = useAuth();
+  const isOwner = profile?.role === 'owner';
 
   return (
     <AuthScreen
       center={false}
       footer={<Button title={t('auth.backToLogin')} variant="ghost" onPress={() => void signOut()} pill />}
     >
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('mfa.adminTitle')}</Text>
-      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('mfa.adminRequired')}</Text>
-      <MfaSetup required onEnabled={() => void completeMfaEnroll()} />
+      <Text style={[styles.title, rtlText, { color: colors.text }]}>
+        {t(isOwner ? 'mfa.ownerTitle' : 'mfa.adminTitle')}
+      </Text>
+      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+        {t(isOwner ? 'mfa.ownerRequired' : 'mfa.adminRequired')}
+      </Text>
+      <MfaSetup
+        required
+        requiredRole={isOwner ? 'owner' : 'admin'}
+        onEnabled={() => void completeMfaEnroll()}
+      />
     </AuthScreen>
   );
 }

@@ -6,10 +6,10 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ChatPeerSheet } from '@/components/chat/ChatPeerSheet';
-import { BackButton } from '@/components/ui/BackButton';
-import { MenuButton } from '@/components/menu/MenuButton';
+import { BackButton, goBack } from '@/components/ui/BackButton';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import {
@@ -60,6 +60,7 @@ export function ChatHeader({
   const { profile } = useAuth();
   const colors = useColors();
   const safe = useModalSafeArea();
+  useEdgeBack(true, goBack);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportBody, setReportBody] = useState('');
@@ -67,6 +68,8 @@ export function ChatHeader({
   const [peerOpen, setPeerOpen] = useState(false);
   const [peerPick, setPeerPick] = useState<PeerPick | null>(null);
   const [adminPickOpen, setAdminPickOpen] = useState(false);
+  const closeAdminPick = () => setAdminPickOpen(false);
+  const adminPickBack = useEdgeBack(adminPickOpen, closeAdminPick);
 
   const reload = useCallback(() => {
     void loadConversation(conversationId)
@@ -285,7 +288,6 @@ export function ChatHeader({
             <Ionicons name="hand-left-outline" size={20} color={colors.danger} />
           </Pressable>
         ) : null}
-        <MenuButton />
         {onDelete ? (
           <Pressable
             onPress={onDelete}
@@ -316,8 +318,9 @@ export function ChatHeader({
         }}
       />
 
-      <Modal visible={adminPickOpen} transparent animationType="fade" onRequestClose={() => setAdminPickOpen(false)}>
+      <Modal visible={adminPickOpen} transparent animationType="fade" onRequestClose={closeAdminPick}>
         <View
+          {...adminPickBack}
           style={[
             styles.pickOverlay,
             {
@@ -327,7 +330,7 @@ export function ChatHeader({
             },
           ]}
         >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAdminPickOpen(false)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeAdminPick} />
           <View style={[styles.pickCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.pickTitle, rtlText, { color: colors.text }]}>{t('chat.peerProfile')}</Text>
             <Text style={[styles.pickHint, rtlText, { color: colors.textMuted }]}>{t('admin.pickChatProfile')}</Text>

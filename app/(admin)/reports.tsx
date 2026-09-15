@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -61,9 +62,7 @@ export default function AdminReports() {
 
   return (
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.reportsTitle')}</Text>
-      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.reportsHint')}</Text>
+      <AdminPageHeader kicker={t('roles.admin')} title={t('admin.reportsTitle')} hint={t('admin.reportsHint')} />
 
       <FilterPills
         compact

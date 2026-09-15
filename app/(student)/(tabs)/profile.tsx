@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { ListingCard } from '@/components/ListingCard';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
@@ -34,6 +33,7 @@ import { useAuth } from '@/src/lib/auth';
 import { deleteOwnAccount } from '@/src/lib/moderation';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
+import { verifiedTotpFactor } from '@/src/lib/mfa';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
@@ -317,6 +317,7 @@ export default function StudentProfileScreen() {
   const [uploading, setUploading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [mfaOn, setMfaOn] = useState(true);
   const [needsReview, setNeedsReview] = useState(false);
   const [waLinked, setWaLinked] = useState(true);
   const hydratedId = useRef<string | null>(null);
@@ -611,6 +612,21 @@ export default function StudentProfileScreen() {
     ]);
   }, [reloadSaved, refreshProfile, profile?.id]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    let alive = true;
+    void verifiedTotpFactor()
+      .then((factor) => {
+        if (alive) setMfaOn(Boolean(factor));
+      })
+      .catch(() => {
+        if (alive) setMfaOn(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profile?.id]);
+
   const reloadPull = useCallback(async () => {
     const [, next] = await Promise.all([reloadSaved(), refreshProfile()]);
     if (!next) return;
@@ -838,13 +854,6 @@ export default function StudentProfileScreen() {
 
   const canDeleteAccount = profile?.role === 'student' || profile?.role === 'renter';
 
-  const askLogout = () => {
-    alert(t('common.logout'), t('common.confirmLogout'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.logout'), style: 'destructive', onPress: () => void signOut() },
-    ]);
-  };
-
   const removeAccount = () => {
     if (!canDeleteAccount) return;
     alert(t('profile.deleteAccountTitle'), t('profile.deleteAccountBody'), [
@@ -871,7 +880,7 @@ export default function StudentProfileScreen() {
     ? incomplete
       ? {
           icon: 'sparkles' as const,
-          text: t('profile.completeHint'),
+          text: t(isStudent ? 'profile.completeHint' : 'profile.completeHintRenter'),
           onPress: () => setTab(accountIncomplete ? 'account' : 'trust'),
         }
       : {
@@ -958,7 +967,6 @@ export default function StudentProfileScreen() {
             </View>
           ) : null}
           <ProfileMenu
-            onLogout={askLogout}
             links={[
               {
                 key: 'account',
@@ -995,11 +1003,11 @@ export default function StudentProfileScreen() {
                 key: 'security',
                 icon: 'lock-closed-outline',
                 label: t('profile.tabSecurity'),
+                hint: mfaOn ? undefined : t('profile.mfaOptionalHint'),
                 onPress: () => setTab('security'),
               },
             ]}
           />
-          <AppBrandFooter />
         </>
       ) : (
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>

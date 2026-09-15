@@ -15,10 +15,21 @@ import { PushPrompt } from '@/components/PushPrompt';
 import { IdleGuard } from '@/src/hooks/useIdleLogout';
 import { isSuspended } from '@/src/lib/moderation';
 import { syncPushToken } from '@/src/lib/push';
-import { routeFromAppUrl, routeFromPushData, type PushRouteData } from '@/src/lib/pushRouting';
+import {
+  apartmentIdFromAppUrl,
+  routeFromAppUrl,
+  routeFromPushData,
+  type PushRouteData,
+} from '@/src/lib/pushRouting';
 import { maybeRunBookingOps, syncSearchAlertOnLogin } from '@/src/lib/searchAlerts';
 import { flushChatOutbox } from '@/src/lib/chatOutbox';
 import { allowedAppGroup, homeHref } from '@/src/lib/routes';
+import {
+  hydrateGuestApartment,
+  rememberGuestApartment,
+  subscribeGuestApartment,
+  takeGuestApartment,
+} from '@/src/lib/guest';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 import { OnboardingGate } from '@/components/OnboardingGate';
 import * as Linking from 'expo-linking';
@@ -113,6 +124,8 @@ function SessionGuard({ children }: { children: ReactNode }) {
   const { session, profile, loading, passwordRecovery, mfaPending, mfaEnrollRequired, signOut } = useAuth();
   const segments = useSegments();
   const lastDest = useRef<string | null>(null);
+  const [guestApt, setGuestApt] = useState<string | null>(null);
+  const [linkReady, setLinkReady] = useState(false);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -137,6 +150,37 @@ function SessionGuard({ children }: { children: ReactNode }) {
     });
     return () => sub?.remove();
   }, [profile?.id, profile?.role]);
+
+  useEffect(() => subscribeGuestApartment(setGuestApt), []);
+
+  useEffect(() => {
+    void hydrateGuestApartment();
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      setLinkReady(true);
+      return;
+    }
+    let alive = true;
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (!alive) return;
+        const id = apartmentIdFromAppUrl(url);
+        if (id) rememberGuestApartment(id);
+      })
+      .finally(() => {
+        if (alive) setLinkReady(true);
+      });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      const id = apartmentIdFromAppUrl(url);
+      if (id) rememberGuestApartment(id);
+    });
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, [session]);
 
   useEffect(() => {
     if (!profile?.id || profile.role === 'admin') return;
@@ -170,8 +214,9 @@ function SessionGuard({ children }: { children: ReactNode }) {
     const inAuth = group === '(auth)';
     const inGuest = group === '(guest)';
     const inApp = group === '(student)' || group === '(owner)' || group === '(admin)';
+    const onGuestListing = inGuest && screen === 'apartment';
 
-    let dest: string | null = null;
+    let dest: string | { pathname: string; params: { id: string } } | null = null;
     if (passwordRecovery) {
       dest = screen === 'reset-password' ? null : '/(auth)/reset-password';
     } else if (mfaPending) {
@@ -179,32 +224,56 @@ function SessionGuard({ children }: { children: ReactNode }) {
     } else if (mfaEnrollRequired) {
       dest = screen === 'mfa-enroll' ? null : '/(auth)/mfa-enroll';
     } else if (session && profile) {
-      if (inApp && allowedAppGroup(profile.role, group)) dest = null;
-      else if (inAuth && screen === 'forgot-password') dest = null;
+      const seeker = profile.role === 'student' || profile.role === 'renter';
+      const onSeekerListing = group === '(student)' && screen === 'apartment';
+      if (seeker && guestApt && !onSeekerListing && !mfaPending && !mfaEnrollRequired) {
+        dest = { pathname: '/(student)/apartment/[id]', params: { id: guestApt } };
+      } else if (inApp && allowedAppGroup(profile.role, group)) dest = null;
+      else if (inAuth && (screen === 'forgot-password' || screen === 'confirmed')) dest = null;
       else dest = homeHref(profile.role);
-    } else if (!session && !inAuth && !inGuest) {
-      dest = '/(auth)/welcome';
+      if (seeker && guestApt && onSeekerListing) takeGuestApartment();
+    } else if (!session) {
+      if (!linkReady) return;
+      if (guestApt && !onGuestListing) {
+        dest = { pathname: '/(guest)/apartment/[id]', params: { id: guestApt } };
+      } else if (inGuest) {
+        dest = null;
+      } else if (inAuth && screen !== 'mfa' && screen !== 'mfa-enroll') {
+        dest = null;
+      } else {
+        dest = '/(auth)/welcome';
+      }
     }
 
     if (!dest) {
       lastDest.current = null;
       return;
     }
-    const token = `${dest}|${group}|${screen}`;
+    const destToken = typeof dest === 'string' ? dest : JSON.stringify(dest);
+    const token = `${destToken}|${group}|${screen}`;
     if (lastDest.current === token) return;
     lastDest.current = token;
     router.replace(dest as never);
-  }, [session, profile, loading, segments, passwordRecovery, mfaPending, mfaEnrollRequired]);
+  }, [session, profile, loading, segments, passwordRecovery, mfaPending, mfaEnrollRequired, guestApt, linkReady]);
 
   const group = String(segments[0] ?? '');
+  const screen = String(segments[1] ?? '');
   const inApp = group === '(student)' || group === '(owner)' || group === '(admin)';
+  const inGuest = group === '(guest)';
+  const inAuth = group === '(auth)';
+  const stayOnAuth = inAuth && (screen === 'confirmed' || screen === 'forgot-password');
   const covering =
     loading ||
+    (!session && inApp) ||
+    (!session && inAuth && (screen === 'mfa' || screen === 'mfa-enroll')) ||
+    (!session && !linkReady && !inGuest) ||
     (Boolean(session && profile) &&
       !passwordRecovery &&
       !mfaPending &&
       !mfaEnrollRequired &&
-      !inApp);
+      !inApp &&
+      !inGuest &&
+      !stayOnAuth);
 
   return (
     <IdleGuard>

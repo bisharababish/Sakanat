@@ -126,7 +126,10 @@ export default function OwnerListings() {
   };
 
   const gateAdd = () => {
-    if (profile?.owner_status === 'pending') return;
+    if (profile?.owner_status === 'pending') {
+      alert(t('common.error'), t('owner.listingNeedApproval'));
+      return;
+    }
     if (profile?.owner_status === 'rejected' || !canList) {
       goProfileGap();
       return;
@@ -217,7 +220,16 @@ export default function OwnerListings() {
             {t('owner.listingCount', { count: listings.length })}
           </Text>
         </View>
-        <Button title={t('owner.addListing')} onPress={gateAdd} pill compact />
+        <View style={styles.topActions}>
+          <Button title={t('owner.addListing')} onPress={gateAdd} pill compact />
+          <Button
+            title={t('tabs.earnings')}
+            variant="ghost"
+            onPress={() => router.push('/(owner)/(tabs)/earnings')}
+            pill
+            compact
+          />
+        </View>
       </View>
 
       {listingAlert ? (
@@ -396,6 +408,7 @@ export default function OwnerListings() {
 const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
+  topActions: { alignItems: 'stretch', gap: 8 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   count: { fontSize: 14, fontFamily: 'Cairo_400Regular' },

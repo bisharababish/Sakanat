@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
@@ -25,6 +26,7 @@ export function OnboardingGate() {
   const { profile } = useAuth();
   const safe = useModalSafeArea();
   const [visible, setVisible] = useState(false);
+  useEdgeBack(Boolean(profile && visible), () => {});
 
   useEffect(() => {
     if (!profile?.id) {
@@ -47,10 +49,23 @@ export function OnboardingGate() {
   if (!profile || !visible) return null;
 
   const isOwner = profile.role === 'owner';
+  const isRenter = profile.role === 'renter';
   const ready = isOwner ? ownerReadyForListing(profile) : isStudentReady(profile);
+  const title = isOwner
+    ? t('onboarding.ownerTitle')
+    : isRenter
+      ? t('onboarding.renterTitle')
+      : t('onboarding.studentTitle');
+  const hint = isOwner
+    ? t('onboarding.ownerHint')
+    : isRenter
+      ? t('onboarding.renterHint')
+      : t('onboarding.studentHint');
   const steps = isOwner
     ? [t('onboarding.ownerStepProfile'), t('onboarding.ownerStepId'), t('onboarding.ownerStepListing')]
-    : [t('onboarding.studentStepProfile'), t('onboarding.studentStepPrefs'), t('onboarding.studentStepSearch')];
+    : isRenter
+      ? [t('onboarding.renterStepProfile'), t('onboarding.renterStepPrefs'), t('onboarding.renterStepSearch')]
+      : [t('onboarding.studentStepProfile'), t('onboarding.studentStepPrefs'), t('onboarding.studentStepSearch')];
 
   const dismiss = async () => {
     await AsyncStorage.setItem(storageKey(profile.id), '1');
@@ -82,12 +97,8 @@ export function OnboardingGate() {
         <View style={StyleSheet.absoluteFill} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('onboarding.welcome')}</Text>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>
-            {isOwner ? t('onboarding.ownerTitle') : t('onboarding.studentTitle')}
-          </Text>
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-            {isOwner ? t('onboarding.ownerHint') : t('onboarding.studentHint')}
-          </Text>
+          <Text style={[styles.title, rtlText, { color: colors.text }]}>{title}</Text>
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{hint}</Text>
           {steps.map((step, index) => (
             <Text key={step} style={[styles.step, rtlText, { color: colors.text }]}>
               {index + 1}. {step}

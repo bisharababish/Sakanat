@@ -17,7 +17,7 @@ export default function StudentTabs() {
   const unreadChats = useUnreadChatCount();
 
   return (
-    <Tabs screenOptions={tabOptions}>
+    <Tabs detachInactiveScreens={false} screenOptions={tabOptions}>
       <Tabs.Screen
         name="search"
         options={{

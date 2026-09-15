@@ -1,5 +1,5 @@
--- Students and renters can delete their own account (login + app data).
--- Owners and admins cannot. Run once in the Supabase SQL editor.
+-- Students, renters, and owners can delete their own account (login + app data).
+-- Admins cannot. Run once in the Supabase SQL editor.
 
 create or replace function public.delete_own_account()
 returns void
@@ -14,7 +14,7 @@ begin
     raise exception 'not allowed';
   end if;
   select role into my_role from public.profiles where id = auth.uid();
-  if my_role is null or my_role not in ('student', 'renter') then
+  if my_role is null or my_role not in ('student', 'renter', 'owner') then
     raise exception 'not allowed';
   end if;
   delete from auth.users where id = auth.uid();

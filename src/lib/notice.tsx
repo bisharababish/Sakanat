@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import i18n from '@/src/i18n';
@@ -36,9 +37,14 @@ type NoticeApi = {
 const NoticeContext = createContext<NoticeApi>({ alert: () => {} });
 
 let bound: NoticeApi['alert'] | null = null;
+let boundHide: (() => void) | null = null;
 
 export function alert(title: string, message?: string, buttons?: AlertButton[]) {
   bound?.(title, message, buttons);
+}
+
+export function dismissNotices() {
+  boundHide?.();
 }
 
 function inferTone(title: string): Tone {
@@ -73,8 +79,14 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     bound = api.alert;
+    boundHide = () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      setToast(null);
+      setDialog(null);
+    };
     return () => {
       bound = null;
+      boundHide = null;
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, [api]);
@@ -125,11 +137,13 @@ function NoticeHost({
   }[toast?.tone ?? 'info'];
 
   const rtlText = { textAlign, writingDirection } as const;
+  const toastBack = useEdgeBack(Boolean(toast), onHideToast);
+  const dialogBack = useEdgeBack(Boolean(dialog), onHideDialog);
 
   return (
     <>
       <Modal visible={Boolean(toast)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideToast}>
-        <View pointerEvents="box-none" style={styles.host}>
+        <View style={styles.host} {...toastBack}>
           {toast ? (
             <Animated.View
               style={[
@@ -159,6 +173,7 @@ function NoticeHost({
 
       <Modal visible={Boolean(dialog)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideDialog}>
         <View
+          {...dialogBack}
           style={[
             styles.overlay,
             {

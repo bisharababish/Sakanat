@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { idDocUrl } from '@/src/lib/upload';
 import { radius, spacing } from '@/src/theme/colors';
@@ -26,6 +27,7 @@ export function IdDocsViewer({
   const { rtlText } = useLayout();
   const colors = useColors();
   const safe = useModalSafeArea();
+  const edgeBack = useEdgeBack(visible, onClose);
   const [national, setNational] = useState<string | null>(null);
   const [university, setUniversity] = useState<string | null>(null);
   const [viewer, setViewer] = useState<string[]>([]);
@@ -48,6 +50,7 @@ export function IdDocsViewer({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View
+        {...edgeBack}
         style={[
           styles.overlay,
           {

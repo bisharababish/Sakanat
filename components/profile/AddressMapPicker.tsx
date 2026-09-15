@@ -8,6 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { alert } from '@/src/lib/notice';
 import { isValidHomeAddress } from '@/src/lib/trust';
 import { spacing } from '@/src/theme/colors';
@@ -96,6 +97,7 @@ export function AddressMapPicker({
   const { rtlText } = useLayout();
   const colors = useColors();
   const safe = useModalSafeArea();
+  const edgeBack = useEdgeBack(visible, onClose);
   const mapRef = useRef<MapView>(null);
   const pinRef = useRef<Coords>({
     latitude: initial?.lat ?? FALLBACK_REGION.latitude,
@@ -198,7 +200,7 @@ export function AddressMapPicker({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.frame, { backgroundColor: colors.background, paddingTop: safe.top }]}>
+      <View {...edgeBack} style={[styles.frame, { backgroundColor: colors.background, paddingTop: safe.top }]}>
         <View style={[styles.head, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel={t('common.close')}>
             <Ionicons name="close" size={22} color={colors.text} />

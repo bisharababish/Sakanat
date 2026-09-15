@@ -6,8 +6,9 @@ import { router } from 'expo-router';
 import { changeAppLanguage } from '@/src/i18n';
 import { isValidEmail, studentEmailError } from '@/src/lib/eduEmail';
 import { isSuspended } from '@/src/lib/moderation';
-import { mfaNeedsChallenge, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
+import { mfaNeedsChallenge, roleRequiresMfa, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
+import { dismissNotices } from '@/src/lib/notice';
 import type { PersonGender, Profile, PublicSignupRole } from '@/src/types/database';
 
 function paramsFromAuthUrl(url: string) {
@@ -107,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mfaPending, setMfaPending] = useState(false);
   const [mfaEnrollRequired, setMfaEnrollRequired] = useState(false);
   const loadGen = useRef(0);
+  const signingOut = useRef(false);
 
   const clearLocalAuth = () => {
     setSession(null);
@@ -116,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadForSession = async (next: Session | null) => {
+    if (signingOut.current) return null;
     const mine = ++loadGen.current;
     if (!next?.user) {
       if (mine === loadGen.current) clearLocalAuth();
@@ -157,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(next);
     setProfile(nextProfile);
     setMfaPending(needsMfa);
-    setMfaEnrollRequired(nextProfile.role === 'admin' && !needsMfa && !totp);
+    setMfaEnrollRequired(roleRequiresMfa(nextProfile.role) && !needsMfa && !totp);
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
@@ -191,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (signingOut.current) return;
       if (event === 'INITIAL_SESSION') return;
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordRecovery(true);
@@ -206,17 +210,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleUrl = (url: string | null) => {
       if (!url) return;
       const recovery = url.includes('reset-password') || url.includes('recovery') || url.includes('type=recovery');
+      const confirmed =
+        /confirmed/i.test(url) || url.includes('type=signup') || url.includes('type=email');
       void applySessionFromUrl(url)
         .then((applied) => {
-          if (!applied) return;
           if (recovery) {
-            setPasswordRecovery(true);
-            router.replace('/(auth)/reset-password');
+            if (applied) {
+              setPasswordRecovery(true);
+              router.replace('/(auth)/reset-password');
+            }
             return;
+          }
+          if (confirmed) {
+            router.replace('/(auth)/confirmed');
           }
         })
         .catch(() => {
-          // Invalid or already-used link; the confirmed screen still explains next steps.
+          if (confirmed) router.replace('/(auth)/confirmed');
         });
     };
 
@@ -322,13 +332,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
       },
       signOut: async () => {
+        if (signingOut.current) return;
+        signingOut.current = true;
+        loadGen.current += 1;
         setPasswordRecovery(false);
-        await supabase.auth.signOut({ scope: 'local' });
+        dismissNotices();
+        clearLocalAuth();
         try {
-          await supabase.auth.signOut({ scope: 'global' });
+          await supabase.auth.signOut({ scope: 'local' });
         } catch {
           // Local sign-out is enough to leave the app.
         }
+        setTimeout(() => {
+          signingOut.current = false;
+        }, 800);
       },
       refreshProfile: async () => {
         if (!session?.user) return null;

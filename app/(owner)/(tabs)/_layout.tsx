@@ -19,7 +19,7 @@ export default function OwnerTabs() {
   const pendingBookings = usePendingBookingCount();
 
   return (
-    <Tabs screenOptions={tabOptions}>
+    <Tabs detachInactiveScreens={false} screenOptions={tabOptions}>
       <Tabs.Screen
         name="listings"
         options={{
@@ -50,8 +50,8 @@ export default function OwnerTabs() {
       <Tabs.Screen
         name="earnings"
         options={{
+          href: null,
           title: t('tabs.earnings'),
-          tabBarIcon: ({ focused }) => <TabIcon focused={focused} outline="cash-outline" filled="cash" />,
         }}
       />
       <Tabs.Screen

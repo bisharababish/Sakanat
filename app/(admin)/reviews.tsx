@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { StarRow } from '@/components/reviews/StarRow';
 import { SectionHead } from '@/components/profile/SectionHead';
@@ -16,7 +17,6 @@ import { logAdminAction } from '@/src/lib/audit';
 import { localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { ApartmentReview } from '@/src/types/database';
 
@@ -82,9 +82,7 @@ export default function AdminReviews() {
 
   return (
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.reviewsTitle')}</Text>
-      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.reviewsHint')}</Text>
+      <AdminPageHeader kicker={t('roles.admin')} title={t('admin.reviewsTitle')} hint={t('admin.reviewsHint')} />
       <Input compact label={t('admin.searchReviews')} value={query} onChangeText={setQuery} />
       {visible.length === 0 ? <EmptyState title={t('admin.reviewsEmpty')} /> : null}
       {visible.map((item) => (
@@ -130,9 +128,6 @@ export default function AdminReviews() {
 }
 
 const styles = StyleSheet.create({
-  kicker: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
-  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', marginBottom: spacing.xs },
   note: { fontSize: 14, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
   meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   actions: { flexWrap: 'wrap', gap: 8 },

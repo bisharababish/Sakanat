@@ -75,7 +75,7 @@ export function ownerPublicLines(
       phone_visibility: owner?.phone_visibility,
       whatsapp_visibility: owner?.whatsapp_visibility,
     };
-    const status = opts.bookingStatus ?? 'pending';
+    const status = opts.bookingStatus;
     if (opts.phoneDisplay) {
       lines.push({
         icon: 'call-outline',

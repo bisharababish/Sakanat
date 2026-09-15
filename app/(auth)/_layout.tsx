@@ -13,6 +13,9 @@ export default function AuthLayout() {
         gestureEnabled: true,
         fullScreenGestureEnabled: true,
       }}
-    />
+    >
+      <Stack.Screen name="mfa" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+      <Stack.Screen name="mfa-enroll" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+    </Stack>
   );
 }

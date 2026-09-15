@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   segLabel: {
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
   },

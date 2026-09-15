@@ -89,26 +89,31 @@ export function routeFromPushData(data: PushRouteData | null | undefined, role?:
   }
 }
 
-/** Handle sakanat://apartment/{id} (and exp://…/apartment/{id}) share links. */
-export function routeFromAppUrl(url: string | null | undefined, role?: UserRole | null) {
-  if (!url) return false;
+export function apartmentIdFromAppUrl(url: string | null | undefined) {
+  if (!url) return null;
   try {
     const parsed = Linking.parse(url);
     const parts = (parsed.path ?? '').split('/').filter(Boolean);
-    const aptIdx = parts.findIndex((p) => p === 'apartment');
-    if (aptIdx >= 0 && parts[aptIdx + 1]) {
-      const id = parts[aptIdx + 1];
-      if (role === 'owner') {
-        router.push({ pathname: '/(owner)/apartment/[id]', params: { id } });
-      } else if (role === 'admin') {
-        router.push({ pathname: '/(admin)/apartment/[id]', params: { id } });
-      } else {
-        router.push({ pathname: '/(student)/apartment/[id]', params: { id } });
-      }
-      return true;
-    }
+    const aptIdx = parts.findIndex((part) => part === 'apartment');
+    const id = aptIdx >= 0 ? parts[aptIdx + 1] : null;
+    return id || null;
   } catch {
-    return false;
+    return null;
   }
-  return false;
+}
+
+/** Handle sakanat://apartment/{id} (and exp://…/apartment/{id}) share links. */
+export function routeFromAppUrl(url: string | null | undefined, role?: UserRole | null) {
+  const id = apartmentIdFromAppUrl(url);
+  if (!id) return false;
+  if (role === 'owner') {
+    router.push({ pathname: '/(owner)/apartment/[id]', params: { id } });
+  } else if (role === 'admin') {
+    router.push({ pathname: '/(admin)/apartment/[id]', params: { id } });
+  } else if (role === 'student' || role === 'renter') {
+    router.push({ pathname: '/(student)/apartment/[id]', params: { id } });
+  } else {
+    router.push({ pathname: '/(guest)/apartment/[id]', params: { id } });
+  }
+  return true;
 }

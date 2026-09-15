@@ -30,6 +30,7 @@ import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ChatVoiceBubble } from '@/components/chat/ChatVoiceBubble';
 import { Button } from '@/components/ui/Button';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
@@ -165,9 +166,19 @@ export function ChatThread({
   const [outboxLeft, setOutboxLeft] = useState(0);
   const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
   const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  const closePendingPhoto = () => setPendingPhoto(null);
+  const pendingPhotoBack = useEdgeBack(Boolean(pendingPhoto), closePendingPhoto);
   const [recording, setRecording] = useState(false);
   const listRef = useRef<FlatList<ThreadItem>>(null);
   const asOwner = profile?.role === 'owner';
+  const profileBlocked = Boolean(!readOnly && profile && isSeeker(profile) && !isStudentReady(profile));
+  const goCompleteProfile = () => {
+    if (!profile) return;
+    router.push({
+      pathname: '/(student)/(tabs)/profile',
+      params: { tab: seekerProfileGapTab(profile) },
+    });
+  };
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recState = useAudioRecorderState(recorder);
   const recMsRef = useRef(0);
@@ -276,7 +287,7 @@ export function ChatThread({
   }, [asOwner, conversationId, profile?.id, readOnly, messages.length]);
 
   const deliver = async (body: string, imageUri?: string | null, audioUri?: string | null) => {
-    if (readOnly || !profile || sending) return;
+    if (readOnly || !profile || sending || profileBlocked) return;
     const text = body.trim().slice(0, MESSAGE_MAX);
     if (!text && !imageUri && !audioUri) return;
     const tempId = `temp-${Date.now()}`;
@@ -324,6 +335,10 @@ export function ChatThread({
   };
 
   const onSend = async () => {
+    if (profileBlocked) {
+      goCompleteProfile();
+      return;
+    }
     if (!draft.trim()) return;
     await deliver(draft);
   };
@@ -334,10 +349,18 @@ export function ChatThread({
   };
 
   const onAttach = async () => {
+    if (profileBlocked) {
+      goCompleteProfile();
+      return;
+    }
     await queuePickedImage(await pickChatPhoto());
   };
 
   const onTakePhoto = async () => {
+    if (profileBlocked) {
+      goCompleteProfile();
+      return;
+    }
     await queuePickedImage(await takeChatPhoto());
   };
 
@@ -348,9 +371,13 @@ export function ChatThread({
     setPendingPhoto(null);
   };
 
-  const canSend = Boolean(draft.trim()) && !sending && !recording && !pendingPhoto;
+  const canSend = Boolean(draft.trim()) && !sending && !recording && !pendingPhoto && !profileBlocked;
 
   const startVoice = async () => {
+    if (profileBlocked) {
+      goCompleteProfile();
+      return;
+    }
     if (readOnly || sending || recording) return;
     try {
       const { granted } = await AudioModule.requestRecordingPermissionsAsync();
@@ -617,8 +644,9 @@ export function ChatThread({
             <TextInput
               value={draft}
               onChangeText={(value) => setDraft(value.slice(0, MESSAGE_MAX))}
-              placeholder={t('chat.placeholder')}
+              placeholder={t(profileBlocked ? 'chat.completeToChat' : 'chat.placeholder')}
               placeholderTextColor={colors.textMuted}
+              editable={!profileBlocked}
               multiline
               maxLength={MESSAGE_MAX}
               style={[
@@ -668,9 +696,10 @@ export function ChatThread({
         visible={Boolean(pendingPhoto)}
         transparent
         animationType="fade"
-        onRequestClose={() => setPendingPhoto(null)}
+        onRequestClose={closePendingPhoto}
       >
         <View
+          {...pendingPhotoBack}
           style={[
             styles.previewOverlay,
             {
@@ -700,7 +729,7 @@ export function ChatThread({
               title={t('common.cancel')}
               variant="ghost"
               pill
-              onPress={() => setPendingPhoto(null)}
+              onPress={closePendingPhoto}
             />
           </View>
         </View>

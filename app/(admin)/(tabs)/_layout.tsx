@@ -21,7 +21,7 @@ export default function AdminTabs() {
   const settingsBadge = badge(pending.reports);
 
   return (
-    <Tabs screenOptions={tabOptions}>
+    <Tabs detachInactiveScreens={false} screenOptions={tabOptions}>
       <Tabs.Screen
         name="index"
         options={{

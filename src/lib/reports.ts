@@ -1,3 +1,6 @@
+import { logAdminAction } from '@/src/lib/audit';
+import i18n from '@/src/i18n';
+import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import type { AppReport, AppReportKind, AppReportStatus } from '@/src/types/database';
 
@@ -92,15 +95,31 @@ export async function updateAppReport(
   reportId: string,
   patch: { status: AppReportStatus; adminNote?: string | null },
 ) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('app_reports')
     .update({
       status: patch.status,
       admin_note: patch.adminNote?.trim() || null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', reportId);
+    .eq('id', reportId)
+    .select('reporter_id, status')
+    .maybeSingle();
   if (error) throw error;
+  void logAdminAction('report.update', {
+    targetId: reportId,
+    note: patch.adminNote?.trim() || null,
+    detail: { status: patch.status },
+  });
+  if (data?.reporter_id && patch.status === 'closed') {
+    void notifyUser(
+      data.reporter_id,
+      i18n.t('push.reportClosedTitle'),
+      i18n.t('push.reportClosedBody'),
+      'review',
+      { reportId },
+    );
+  }
 }
 
 export function reportStatusLabel(status: AppReportStatus, t: (key: string) => string) {

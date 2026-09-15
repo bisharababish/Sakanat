@@ -6,7 +6,7 @@ import { AuthHeading } from '@/components/auth/AuthHeading';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/src/lib/auth';
-import { homeHref } from '@/src/lib/routes';
+import { seekerHomeOrListing } from '@/src/lib/guest';
 
 export default function EmailConfirmedScreen() {
   const { t } = useTranslation();
@@ -14,7 +14,7 @@ export default function EmailConfirmedScreen() {
 
   const continueOn = () => {
     if (profile) {
-      router.replace(homeHref(profile.role) as never);
+      router.replace(seekerHomeOrListing(profile.role) as never);
       return;
     }
     router.replace('/(auth)/login');

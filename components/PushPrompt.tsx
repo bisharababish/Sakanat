@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useSegments } from 'expo-router';
 
 import { Button } from '@/components/ui/Button';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
@@ -56,11 +57,16 @@ export function PushPrompt() {
     }
   };
 
+  const edgeBack = useEdgeBack(visible, () => {
+    void finish(false);
+  });
+
   if (!visible) return null;
 
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={() => void finish(false)}>
       <View
+        {...edgeBack}
         style={[
           styles.overlay,
           {

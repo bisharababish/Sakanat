@@ -6,6 +6,7 @@ export type AdminAuditAction =
   | 'user.restore'
   | 'user.delete'
   | 'user.mfa_off'
+  | 'id.verify'
   | 'listing.approve'
   | 'listing.reject'
   | 'listing.delete'

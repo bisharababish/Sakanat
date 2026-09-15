@@ -1,4 +1,7 @@
 import { isValidStudentId, sanitizeStudentId, splitPhone, toE164 } from '@/src/lib/phone';
+import { logAdminAction } from '@/src/lib/audit';
+import i18n from '@/src/i18n';
+import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import type { IdVerifyStatus, Profile } from '@/src/types/database';
 
@@ -151,6 +154,7 @@ export function seekerTrustDetails(
         | 'id_verify_status'
         | 'hide_last_seen'
         | 'share_emergency'
+        | 'role'
       >
     | null
     | undefined,
@@ -161,7 +165,7 @@ export function seekerTrustDetails(
   const status = profile.id_verify_status ?? 'none';
   const statusLine =
     status === 'approved'
-      ? t('profile.verifiedStudent')
+      ? t(profile.role === 'renter' ? 'profile.verifiedRenter' : 'profile.verifiedStudent')
       : status === 'pending'
         ? t('profile.idPendingReview')
         : status === 'rejected'
@@ -262,5 +266,13 @@ export async function setIdVerifyStatus(
             id_verified_by: null as string | null,
           };
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  if (!error) {
+    void logAdminAction('id.verify', { targetUserId: userId, note: note?.trim() || null, detail: { status } });
+    if (status === 'approved') {
+      void notifyUser(userId, i18n.t('push.idApprovedTitle'), i18n.t('push.idApprovedBody'), 'listing');
+    } else if (status === 'rejected') {
+      void notifyUser(userId, i18n.t('push.idRejectedTitle'), i18n.t('push.idRejectedBody'), 'listing');
+    }
+  }
   return error;
 }

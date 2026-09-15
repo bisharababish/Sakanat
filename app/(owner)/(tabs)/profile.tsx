@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { OwnerOccupants } from '@/components/owner/OwnerOccupants';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
@@ -24,6 +23,8 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
+import { deleteOwnAccount } from '@/src/lib/moderation';
+import { verifiedTotpFactor } from '@/src/lib/mfa';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
@@ -169,6 +170,8 @@ export default function OwnerProfile() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [mfaOn, setMfaOn] = useState(true);
   const hydratedId = useRef<string | null>(null);
   const baseline = useRef<FormSnap | null>(null);
   const dirtyRef = useRef(false);
@@ -220,6 +223,21 @@ export default function OwnerProfile() {
       active = false;
     };
   }, [nationalIdUrl]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    let alive = true;
+    void verifiedTotpFactor()
+      .then((factor) => {
+        if (alive) setMfaOn(Boolean(factor));
+      })
+      .catch(() => {
+        if (alive) setMfaOn(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profile?.id]);
 
   const loadListings = useCallback(async () => {
     if (!profile?.id) return;
@@ -353,7 +371,7 @@ export default function OwnerProfile() {
     profile?.owner_status !== 'approved'
       ? { icon: 'hourglass' as const, text: statusLabel, onPress: () => setTab('account') }
       : accountIncomplete
-        ? { icon: 'person-outline' as const, text: t('profile.completeHint'), onPress: () => setTab('account') }
+        ? { icon: 'person-outline' as const, text: t('profile.completeHintOwner'), onPress: () => setTab('account') }
         : trustIncomplete
           ? { icon: 'shield-outline' as const, text: t('menu.verification'), onPress: () => setTab('trust') }
           : listingCount > 0
@@ -435,7 +453,7 @@ export default function OwnerProfile() {
       !waLocal.trim() && t('profile.whatsapp'),
     ].filter(Boolean) as string[];
     if (!profile || accountMissing.length > 0) {
-      alert(t('profile.stillNeeded'), accountMissing.join('\n') || t('profile.completeRequiredRenter'));
+      alert(t('profile.stillNeeded'), accountMissing.join('\n') || t('profile.completeRequiredOwner'));
       setTab('account');
       return;
     }
@@ -531,6 +549,27 @@ export default function OwnerProfile() {
     }
   };
 
+  const removeAccount = () => {
+    alert(t('profile.deleteAccountTitle'), t('profile.deleteAccountBodyOwner'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.deleteAccount'),
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteOwnAccount();
+            await signOut();
+          } catch {
+            alert(t('common.error'), t('profile.deleteAccountFailed'));
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  };
+
   const progressItems = [
     { id: 'photo', label: t('profile.photo'), done: Boolean(avatarUrl) },
     { id: 'nameEn', label: t('common.nameEn'), done: Boolean(fullNameEn.trim()) },
@@ -561,13 +600,6 @@ export default function OwnerProfile() {
       'emergencyPhone',
     ]);
     setTab(trustIds.has(id) ? 'trust' : 'account');
-  };
-
-  const askLogout = () => {
-    alert(t('common.logout'), t('common.confirmLogout'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.logout'), style: 'destructive', onPress: () => void signOut() },
-    ]);
   };
 
   return (
@@ -663,7 +695,6 @@ export default function OwnerProfile() {
             </View>
           ) : null}
           <ProfileMenu
-            onLogout={askLogout}
             links={[
               {
                 key: 'account',
@@ -692,6 +723,13 @@ export default function OwnerProfile() {
                 onPress: () => setTab('occupants'),
               },
               {
+                key: 'earnings',
+                icon: 'cash-outline',
+                label: t('tabs.earnings'),
+                hint: t('owner.earningsMenuHint'),
+                onPress: () => router.push('/(owner)/(tabs)/earnings'),
+              },
+              {
                 key: 'settings',
                 icon: 'options-outline',
                 label: t('profile.tabSettings'),
@@ -701,11 +739,11 @@ export default function OwnerProfile() {
                 key: 'security',
                 icon: 'lock-closed-outline',
                 label: t('profile.tabSecurity'),
+                hint: mfaOn ? undefined : t('profile.mfaRequiredHint'),
                 onPress: () => setTab('security'),
               },
             ]}
           />
-          <AppBrandFooter />
         </>
       ) : (
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>
@@ -831,7 +869,9 @@ export default function OwnerProfile() {
         <ProfileSettingsFields variant="owner" profile={profile} onSaved={() => void refreshProfile()} />
       ) : null}
 
-      {tab === 'security' ? <ProfileSecurity mfaRequired /> : null}
+      {tab === 'security' ? (
+        <ProfileSecurity mfaRequired onDelete={removeAccount} deleting={deleting} />
+      ) : null}
       </ProfileEnter>
     </Screen>
   );

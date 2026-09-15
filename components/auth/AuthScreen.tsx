@@ -10,14 +10,15 @@ type Props = {
   children: ReactNode;
   footer?: ReactNode;
   back?: boolean;
+  onBack?: () => void;
   center?: boolean;
 };
 
-export function AuthScreen({ children, footer, back = false, center = true }: Props) {
+export function AuthScreen({ children, footer, back = false, onBack, center = true }: Props) {
   const colors = useColors();
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-      <ChromeBar back={back} />
+      <ChromeBar back={back} showMenu={false} onBack={onBack} />
       <ScrollView
         style={styles.flex}
         keyboardShouldPersistTaps="handled"

@@ -67,6 +67,10 @@ export async function verifiedTotpFactor() {
   return factors.find((item) => item.status === 'verified') ?? null;
 }
 
+export function roleRequiresMfa(role?: string | null) {
+  return role === 'admin' || role === 'owner';
+}
+
 export async function enrollTotp() {
   await assertMfaCooldown();
   const pending = await listAllFactors();

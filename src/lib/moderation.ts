@@ -11,6 +11,7 @@ export function isSuspended(profile: Pick<Profile, 'account_status'> | null | un
 export async function setSuspended(
   user: Pick<Profile, 'id' | 'role'>,
   suspended: boolean,
+  reason?: string,
 ) {
   const patch: Record<string, unknown> = {
     account_status: suspended ? 'suspended' : 'active',
@@ -21,7 +22,11 @@ export async function setSuspended(
   const { error } = await supabase.from('profiles').update(patch).eq('id', user.id);
   if (error) throw error;
 
-  void logAdminAction(suspended ? 'user.suspend' : 'user.restore', { targetUserId: user.id });
+  void logAdminAction(suspended ? 'user.suspend' : 'user.restore', {
+    targetUserId: user.id,
+    note: reason?.trim() || null,
+    detail: reason?.trim() ? { reason: reason.trim() } : {},
+  });
 
   if (user.role !== 'owner') return;
   if (suspended) {

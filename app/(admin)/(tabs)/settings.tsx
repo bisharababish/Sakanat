@@ -4,7 +4,6 @@ import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
@@ -144,7 +143,7 @@ export default function AdminSettings() {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
-  const { profile, refreshProfile, signOut } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
   const today = useToday();
   const pending = useAdminPendingCounts();
@@ -325,7 +324,7 @@ export default function AdminSettings() {
 
   const saveProfile = async () => {
     if (!profile || !fullNameEn.trim() || !fullNameAr.trim() || !phoneLocal.trim() || !waLocal.trim() || !gender || !cityId || !birthDate || !avatarUrl) {
-      alert(t('common.error'), t('profile.completeRequiredRenter'));
+      alert(t('common.error'), t('profile.completeRequiredOwner'));
       return;
     }
     if (!isValidEnglishName(fullNameEn)) {
@@ -532,13 +531,6 @@ export default function AdminSettings() {
             onPress: () => setTab('settings'),
           };
 
-  const askLogout = () => {
-    alert(t('common.logout'), t('common.confirmLogout'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.logout'), style: 'destructive', onPress: () => void signOut() },
-    ]);
-  };
-
   return (
     <Screen
       onRefresh={() => void refresh()}
@@ -583,7 +575,6 @@ export default function AdminSettings() {
             readyLabel={t('admin.profileReady')}
           />
           <ProfileMenu
-            onLogout={askLogout}
             links={[
               {
                 key: 'account',
@@ -608,7 +599,6 @@ export default function AdminSettings() {
               },
             ]}
           />
-          <AppBrandFooter />
         </>
       ) : (
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>

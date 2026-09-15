@@ -516,8 +516,7 @@ export function ApartmentView({
         <SafeAreaView edges={['bottom']} style={[styles.footer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
           {bookGate ? (
             <Pressable
-              onPress={bookGate.kind === 'gender' ? undefined : onBook}
-              disabled={bookGate.kind === 'gender'}
+              onPress={onBook}
               style={[
                 styles.gate,
                 row,
@@ -552,7 +551,9 @@ export function ApartmentView({
                 </Text>
                 <Text style={[styles.gateBody, copy, { color: colors.textMuted }]}>{bookGate.body}</Text>
               </View>
-              {bookGate.kind === 'gender' ? null : (
+              {bookGate.kind === 'gender' ? (
+                <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.danger} />
+              ) : (
                 <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.warning} />
               )}
             </Pressable>
@@ -582,11 +583,12 @@ export function ApartmentView({
                         ? t('review.goWrite')
                         : bookGate?.kind === 'stay'
                           ? t('booking.myBookings')
-                          : t('listing.book')
+                          : bookGate?.kind === 'gender'
+                            ? t('booking.findPlace')
+                            : t('listing.book')
                 }
                 onPress={onBook}
                 pill
-                disabled={bookGate?.kind === 'gender'}
               />
             </View>
           </View>

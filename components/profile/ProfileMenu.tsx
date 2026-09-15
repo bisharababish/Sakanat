@@ -1,11 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { type ComponentProps, type ReactNode } from 'react';
+import { type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
 
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { useLayout } from '@/src/hooks/useLayout';
-import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
+import { useColors } from '@/src/theme/ThemeProvider';
 import { radius } from '@/src/theme/colors';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -26,7 +24,6 @@ function MenuRow({
   hint,
   dot,
   danger,
-  trailing,
   last,
   onPress,
 }: {
@@ -35,7 +32,6 @@ function MenuRow({
   hint?: string;
   dot?: boolean;
   danger?: boolean;
-  trailing?: ReactNode;
   last?: boolean;
   onPress?: () => void;
 }) {
@@ -67,43 +63,21 @@ function MenuRow({
             </Text>
           ) : null}
         </View>
-        {trailing ?? (
-          <View style={styles.trail}>
-            {dot ? <View style={[styles.dot, { backgroundColor: colors.danger }]} /> : null}
-            {onPress ? <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textMuted} /> : null}
-          </View>
-        )}
+        <View style={styles.trail}>
+          {dot ? <View style={[styles.dot, { backgroundColor: colors.danger }]} /> : null}
+          {onPress ? <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textMuted} /> : null}
+        </View>
       </View>
     </Pressable>
   );
 }
 
-export function ProfileMenu({
-  links,
-  onLogout,
-}: {
-  links: ProfileMenuLink[];
-  onLogout?: () => void;
-}) {
-  const { t } = useTranslation();
-  const { lang } = useLayout();
+export function ProfileMenu({ links }: { links: ProfileMenuLink[] }) {
   const colors = useColors();
-  const { preference, setPreference, scheme } = useTheme();
-
-  const themeHint =
-    preference === 'system'
-      ? `${t('menu.system')} · ${scheme === 'dark' ? t('menu.dark') : t('menu.light')}`
-      : t(`menu.${preference}` as const);
-
-  const cycleTheme = () => {
-    const order: ThemePreference[] = ['light', 'dark', 'system'];
-    const next = order[(order.indexOf(preference) + 1) % order.length];
-    setPreference(next);
-  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      {links.map((item) => (
+      {links.map((item, index) => (
         <MenuRow
           key={item.key}
           icon={item.icon}
@@ -111,26 +85,10 @@ export function ProfileMenu({
           hint={item.hint}
           dot={item.dot}
           danger={item.danger}
+          last={index === links.length - 1}
           onPress={item.onPress}
         />
       ))}
-      <MenuRow
-        icon="globe-outline"
-        label={t('common.language')}
-        hint={lang === 'ar' ? t('common.arabic') : t('common.english')}
-        trailing={<LanguageToggle />}
-        last={false}
-      />
-      <MenuRow
-        icon={preference === 'dark' || (preference === 'system' && scheme === 'dark') ? 'moon' : 'sunny'}
-        label={t('menu.appearance')}
-        hint={themeHint}
-        last={!onLogout}
-        onPress={cycleTheme}
-      />
-      {onLogout ? (
-        <MenuRow icon="log-out-outline" label={t('common.logout')} danger last onPress={onLogout} />
-      ) : null}
     </View>
   );
 }

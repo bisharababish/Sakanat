@@ -14,16 +14,17 @@ type Props = {
   extra?: ReactNode;
 };
 
-export function ChromeBar({ back = false, compactBack = false, showMenu = true, onBack, extra }: Props) {
-  useEdgeBack(Boolean(back && onBack), onBack ?? goBack);
-  if (!back && !showMenu && !extra) return null;
+export function ChromeBar({ back = false, compactBack = false, showMenu, onBack, extra }: Props) {
+  const menu = showMenu ?? !back;
+  useEdgeBack(Boolean(back), onBack ?? goBack);
+  if (!back && !menu && !extra) return null;
 
   return (
     <View style={[styles.bar, back ? styles.spread : styles.end]}>
       {back ? <BackButton compact={compactBack} onPress={onBack} /> : null}
       <View style={styles.trail}>
         {extra}
-        {showMenu ? <MenuButton /> : null}
+        {menu ? <MenuButton /> : null}
       </View>
     </View>
   );

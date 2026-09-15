@@ -38,7 +38,7 @@ export function PhotoViewer({
   const colors = useColors();
   const { width, height } = useWindowDimensions();
   const safe = useModalSafeArea();
-  useEdgeBack(visible, onClose);
+  const edgeBack = useEdgeBack(visible, onClose);
   const scroller = useRef<ScrollView>(null);
   const indexRef = useRef(index);
   indexRef.current = index;
@@ -79,7 +79,7 @@ export function PhotoViewer({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
+      <View {...edgeBack} style={styles.backdrop}>
         <ScrollView
           ref={scroller}
           horizontal

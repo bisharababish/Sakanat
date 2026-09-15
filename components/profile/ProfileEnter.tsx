@@ -1,3 +1,4 @@
+import { useIsFocused } from '@react-navigation/native';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet } from 'react-native';
 
@@ -16,8 +17,15 @@ export function ProfileEnter({
   children: ReactNode;
 }) {
   const { isRtl } = useLayout();
+  const focused = useIsFocused();
   const progress = useRef(new Animated.Value(enterOnMount ? 0 : 1)).current;
   const first = useRef(true);
+
+  useEffect(() => {
+    if (focused) return;
+    progress.stopAnimation();
+    progress.setValue(1);
+  }, [focused, progress]);
 
   useEffect(() => {
     const play = () => {

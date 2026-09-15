@@ -187,8 +187,14 @@ export default function OwnerEarnings() {
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
-      back={buildingFilter !== 'all'}
-      onBack={() => setBuildingFilter('all')}
+      back
+      onBack={() => {
+        if (buildingFilter !== 'all') {
+          setBuildingFilter('all');
+          return;
+        }
+        router.push('/(owner)/(tabs)/profile');
+      }}
     >
       <OfflineBanner />
       <View style={[styles.top, row]}>

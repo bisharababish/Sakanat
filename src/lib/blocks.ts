@@ -35,6 +35,24 @@ export async function blockUser(blockerId: string, blockedId: string) {
   if (error) throw error;
 }
 
+export async function loadBlocksForUser(userId: string) {
+  const { data, error } = await supabase
+    .from('user_blocks')
+    .select(
+      'blocker_id, blocked_id, created_at, blocked:profiles!blocked_id(id, full_name, avatar_url, email, role), blocker:profiles!blocker_id(id, full_name, email, role)',
+    )
+    .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Array<{
+    blocker_id: string;
+    blocked_id: string;
+    created_at: string;
+    blocked?: { id: string; full_name: string; email: string; role: string } | null;
+    blocker?: { id: string; full_name: string; email: string; role: string } | null;
+  }>;
+}
+
 export async function unblockUser(blockerId: string, blockedId: string) {
   const { error } = await supabase
     .from('user_blocks')

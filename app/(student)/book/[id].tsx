@@ -22,7 +22,7 @@ import {
   paymentHintKey,
   paymentI18nKey,
 } from '@/src/lib/booking';
-import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
+import { formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
 import { trackEvent } from '@/src/lib/analytics';
@@ -59,12 +59,13 @@ function SummaryRow({
   value: string;
   strong?: boolean;
 }) {
-  const { rtlText, row } = useLayout();
+  const { textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
+  const copy = { textAlign, writingDirection };
   return (
     <View style={[styles.summaryRow, row]}>
-      <Text style={[styles.summaryLabel, rtlText, { color: strong ? colors.primary : colors.textMuted }]}>{label}</Text>
-      <Text style={[styles.summaryValue, { color: strong ? colors.primary : colors.text }]}>{value}</Text>
+      <Text style={[styles.summaryLabel, copy, { color: strong ? colors.primary : colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.summaryValue, copy, { color: strong ? colors.primary : colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -72,7 +73,8 @@ function SummaryRow({
 export default function BookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { rtlText, isRtl, lang, row } = useLayout();
+  const { rtlText, isRtl, lang, row, textAlign, writingDirection } = useLayout();
+  const rowCopy = { textAlign, writingDirection };
   const colors = useColors();
   const { profile } = useAuth();
   const [apartment, setApartment] = useState<Apartment | null>(null);
@@ -322,8 +324,8 @@ export default function BookScreen() {
         canSubmit ? (
           <View style={styles.checkoutFoot}>
             <View style={[styles.footTotal, row]}>
-              <Text style={[styles.footTotalLabel, rtlText, { color: colors.textMuted }]}>{t('booking.total')}</Text>
-              <Text style={[styles.footTotalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+              <Text style={[styles.footTotalLabel, rowCopy, { color: colors.textMuted }]}>{t('booking.total')}</Text>
+              <Text style={[styles.footTotalValue, rowCopy, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
             </View>
             <View style={[styles.footActions, { flexDirection: isRtl ? 'row-reverse' : 'row' }]}>
               {stepIndex > 0 ? (
@@ -470,7 +472,7 @@ export default function BookScreen() {
                 <SectionHead icon="receipt-outline" title={t('booking.summary')} />
                 <SummaryRow
                   label={t('booking.startDate')}
-                  value={startDate}
+                  value={formatBookingDate(startDate, i18n.language)}
                 />
                 <SummaryRow
                   label={t('booking.duration')}
@@ -478,15 +480,15 @@ export default function BookScreen() {
                 />
                 <SummaryRow
                   label={t('booking.rent')}
-                  value={`${formatIls(apartment.price_month, lang)} × ${months}`}
+                  value={formatIls(total, lang)}
                 />
                 <SummaryRow
                   label={t('booking.occupants')}
                   value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
                 />
                 <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
-                  <Text style={[styles.totalLabel, rtlText, { color: colors.primary }]}>{t('booking.total')}</Text>
-                  <Text style={[styles.totalValue, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+                  <Text style={[styles.totalLabel, rowCopy, { color: colors.primary }]}>{t('booking.total')}</Text>
+                  <Text style={[styles.totalValue, rowCopy, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
                 </View>
               </Card>
             </>
@@ -529,8 +531,8 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
   hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20, marginTop: -4 },
   summaryRow: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  summaryLabel: { flex: 1, fontSize: 14, fontFamily: 'Cairo_400Regular' },
-  summaryValue: { fontSize: 14, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  summaryLabel: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Cairo_400Regular' },
+  summaryValue: { flexShrink: 0, fontSize: 14, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
   totalBar: {
     marginTop: 4,
     borderRadius: radius.lg,
@@ -540,13 +542,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  totalLabel: { flex: 1, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  totalValue: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  totalLabel: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  totalValue: { flexShrink: 0, fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   stepHint: { fontSize: 12, fontFamily: 'Cairo_700Bold', marginBottom: -8 },
   checkoutFoot: { gap: 8 },
   footTotal: { alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
-  footTotalLabel: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
-  footTotalValue: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  footTotalLabel: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  footTotalValue: { flexShrink: 0, fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   footActions: { gap: 8 },
   footBtn: { flex: 1 },
 });

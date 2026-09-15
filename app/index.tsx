@@ -1,16 +1,48 @@
 import { BrandLoader } from '@/components/BrandLoader';
-import { Redirect } from 'expo-router';
+import { Redirect, type Href } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { apartmentIdFromAppUrl } from '@/src/lib/pushRouting';
+import { rememberGuestApartment, seekerHomeOrListing } from '@/src/lib/guest';
 import { colors, spacing } from '@/src/theme/colors';
 
 export default function Gate() {
   const { t } = useTranslation();
   const { textAlign } = useLayout();
   const { configured, loading, session, profile } = useAuth();
+  const [href, setHref] = useState<Href | null>(null);
+
+  useEffect(() => {
+    if (!configured || loading || (session && !profile)) {
+      setHref(null);
+      return;
+    }
+    if (session && profile) {
+      setHref(seekerHomeOrListing(profile.role) as Href);
+      return;
+    }
+    let alive = true;
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (!alive) return;
+        const id = apartmentIdFromAppUrl(url);
+        if (id) {
+          rememberGuestApartment(id);
+          setHref({ pathname: '/(guest)/apartment/[id]', params: { id } });
+        } else setHref('/(auth)/welcome');
+      })
+      .catch(() => {
+        if (alive) setHref('/(auth)/welcome');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [configured, loading, session, profile]);
 
   if (!configured) {
     return (
@@ -21,17 +53,11 @@ export default function Gate() {
     );
   }
 
-  if (loading || (session && !profile)) {
+  if (loading || (session && !profile) || !href) {
     return <BrandLoader />;
   }
 
-  if (!session || !profile) {
-    return <Redirect href="/(auth)/welcome" />;
-  }
-
-  if (profile.role === 'admin') return <Redirect href="/(admin)/(tabs)" />;
-  if (profile.role === 'owner') return <Redirect href="/(owner)/(tabs)/listings" />;
-  return <Redirect href="/(student)/(tabs)/search" />;
+  return <Redirect href={href} />;
 }
 
 const styles = StyleSheet.create({

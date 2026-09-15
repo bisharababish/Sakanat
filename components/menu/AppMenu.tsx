@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
@@ -17,17 +16,14 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
-import { loadActiveStay } from '@/src/lib/booking';
 import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
-import { shouldShowSavedCount } from '@/src/lib/privacy';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
 import { submitAppReport } from '@/src/lib/reports';
-import { homeHref, profileHref } from '@/src/lib/routes';
+import { profileHref } from '@/src/lib/routes';
 import { loadPendingReview } from '@/src/lib/reviews';
-import { loadSavedApartmentIds } from '@/src/lib/saved';
-import { appVersion, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
+import { appVersion, COPYRIGHT_YEAR, INSTAGRAM_HANDLE, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
 import { accountVerification } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
@@ -57,7 +53,8 @@ function initials(name?: string | null) {
 export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const { isRtl, row, textAlign, writingDirection } = useLayout();
-  const { profile, signOut } = useAuth();
+  const { session, profile, signOut } = useAuth();
+  const signedIn = Boolean(session && profile);
   const colors = useColors();
   const { preference, setPreference } = useTheme();
   const { width } = useWindowDimensions();
@@ -66,13 +63,10 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('root');
   const [askLogout, setAskLogout] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
   const [needsReview, setNeedsReview] = useState(false);
-  const [hasActiveStay, setHasActiveStay] = useState(false);
   const [reportKind, setReportKind] = useState<'tech' | 'safety'>('safety');
   const [reportBody, setReportBody] = useState('');
   const [sendingReport, setSendingReport] = useState(false);
-  const pendingSignOut = useRef(false);
   const rootScroll = useRef<ScrollView>(null);
   const rootY = useRef(0);
   const progress = useSharedValue(0);
@@ -82,28 +76,20 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const university = localizedName(profile?.universities, i18n.language);
   const city = localizedName(profile?.cities, i18n.language);
   const verification = accountVerification(profile);
-  const isSeeker = profile?.role === 'student' || profile?.role === 'renter';
-  const isOwner = profile?.role === 'owner';
+  const isSeeker = signedIn && (profile?.role === 'student' || profile?.role === 'renter');
+  const isOwner = signedIn && profile?.role === 'owner';
 
   useEffect(() => {
     if (!visible) return;
     void getPushEnabled().then(setPushOn);
-    if (!profile || !isSeeker) {
-      setSavedCount(0);
+    if (!signedIn || !profile || !isSeeker) {
       setNeedsReview(false);
-      setHasActiveStay(false);
       return;
     }
-    void loadSavedApartmentIds(profile.id)
-      .then((ids) => setSavedCount(ids.length))
-      .catch(() => setSavedCount(0));
     void loadPendingReview(profile.id)
       .then((pending) => setNeedsReview(Boolean(pending)))
       .catch(() => setNeedsReview(false));
-    void loadActiveStay(profile.id)
-      .then((stay) => setHasActiveStay(Boolean(stay)))
-      .catch(() => setHasActiveStay(false));
-  }, [visible, profile, isSeeker]);
+  }, [visible, profile, isSeeker, signedIn]);
 
   useEffect(() => {
     if (visible) {
@@ -122,12 +108,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
       if (finished && !visible) runOnJS(setOpen)(false);
     });
   }, [open, progress, visible]);
-
-  useEffect(() => {
-    if (open || !pendingSignOut.current) return;
-    pendingSignOut.current = false;
-    void signOut();
-  }, [open, signOut]);
 
   useEffect(() => {
     if (pane !== 'root') return;
@@ -153,37 +133,17 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   };
 
   const goProfile = (tab?: 'account' | 'trust' | 'settings' | 'saved' | 'security') => {
-    if (!profile) return;
+    if (!signedIn || !profile) return;
     onClose();
     router.push(profileHref(profile.role, tab) as never);
   };
 
   const goBookings = () => {
-    if (!profile) return;
+    if (!signedIn || !profile) return;
     onClose();
     if (profile.role === 'student' || profile.role === 'renter') {
       router.push('/(student)/(tabs)/bookings');
-      return;
     }
-    if (profile.role === 'owner') {
-      router.push('/(owner)/(tabs)/bookings');
-      return;
-    }
-    router.push(homeHref(profile.role) as never);
-  };
-
-  const goChats = () => {
-    if (!profile) return;
-    onClose();
-    if (profile.role === 'student' || profile.role === 'renter') {
-      router.push('/(student)/(tabs)/chat');
-      return;
-    }
-    if (profile.role === 'owner') {
-      router.push('/(owner)/(tabs)/chat');
-      return;
-    }
-    router.push('/(admin)/(tabs)/chat');
   };
 
   const openUrl = (url: string) => {
@@ -201,13 +161,13 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   };
 
   const report = async (kind: 'tech' | 'safety', details?: string) => {
-    const role = profile ? t(`roles.${profile.role}`) : t('menu.guest');
+    const role = signedIn && profile ? t(`roles.${profile.role}`) : t('menu.guest');
     const vars = { role, version: VERSION };
     const subject = kind === 'safety' ? t('menu.reportSafetySubject') : t('menu.reportTechSubject');
     const template = kind === 'safety' ? t('menu.reportSafetyBody', vars) : t('menu.reportTechBody', vars);
     const note = (details ?? '').trim();
     const body = note ? `${template}\n${note}` : template;
-    if (profile) {
+    if (signedIn && profile) {
       if (note.length < 12) {
         alert(t('common.error'), t('profile.reportBodyShort'));
         return;
@@ -253,8 +213,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   };
 
   const confirmLogout = () => {
-    pendingSignOut.current = true;
     onClose();
+    void signOut();
   };
 
   const onEdgeBack = useCallback(() => {
@@ -343,7 +303,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   rootY.current = event.nativeEvent.contentOffset.y;
                 }}
               >
-                {profile ? (
+                {signedIn && profile ? (
                   <>
                     {isSeeker || isOwner ? (
                       <Text style={[styles.section, copy, { color: colors.textMuted, marginTop: 0 }]}>
@@ -499,102 +459,16 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                         </View>
                       </Pressable>
                     ) : null}
-                    {isSeeker || isOwner ? (
+                    {isSeeker && needsReview ? (
                       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <MenuLink
-                          icon="chatbubbles-outline"
-                          label={t('tabs.chat')}
-                          colors={colors}
-                          copy={copy}
-                          row={row}
-                          isRtl={isRtl}
-                          onPress={goChats}
-                        />
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <MenuLink
-                          icon="calendar-outline"
-                          label={
-                            isSeeker
-                              ? needsReview
-                                ? t('menu.writeReview')
-                                : hasActiveStay
-                                  ? t('menu.activeStay')
-                                  : t('menu.bookings')
-                              : t('tabs.bookings')
-                          }
+                          icon="star-outline"
+                          label={t('menu.writeReview')}
                           colors={colors}
                           copy={copy}
                           row={row}
                           isRtl={isRtl}
                           onPress={goBookings}
-                        />
-                        {isSeeker ? (
-                          <>
-                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                            <MenuLink
-                              icon="heart-outline"
-                              label={
-                                savedCount > 0 && shouldShowSavedCount(profile)
-                                  ? t('menu.savedCount', { count: savedCount })
-                                  : t('menu.saved')
-                              }
-                              colors={colors}
-                              copy={copy}
-                              row={row}
-                              isRtl={isRtl}
-                              onPress={() => goProfile('saved')}
-                            />
-                          </>
-                        ) : null}
-                        {isOwner ? (
-                          <>
-                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                            <MenuLink
-                              icon="home-outline"
-                              label={t('tabs.listings')}
-                              colors={colors}
-                              copy={copy}
-                              row={row}
-                              isRtl={isRtl}
-                              onPress={() => {
-                                onClose();
-                                router.push('/(owner)/(tabs)/listings');
-                              }}
-                            />
-                            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                            <MenuLink
-                              icon="cash-outline"
-                              label={t('tabs.earnings')}
-                              colors={colors}
-                              copy={copy}
-                              row={row}
-                              isRtl={isRtl}
-                              onPress={() => {
-                                onClose();
-                                router.push('/(owner)/(tabs)/earnings');
-                              }}
-                            />
-                          </>
-                        ) : null}
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <MenuLink
-                          icon="options-outline"
-                          label={t('profile.tabSettings')}
-                          colors={colors}
-                          copy={copy}
-                          row={row}
-                          isRtl={isRtl}
-                          onPress={() => goProfile('settings')}
-                        />
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <MenuLink
-                          icon="lock-closed-outline"
-                          label={t('profile.tabSecurity')}
-                          colors={colors}
-                          copy={copy}
-                          row={row}
-                          isRtl={isRtl}
-                          onPress={() => goProfile('security')}
                         />
                       </View>
                     ) : null}
@@ -609,6 +483,15 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       onPress={() => {
                         onClose();
                         router.push('/(auth)/login');
+                      }}
+                    />
+                    <Button
+                      title={t('auth.register')}
+                      variant="secondary"
+                      pill
+                      onPress={() => {
+                        onClose();
+                        router.push('/(auth)/register');
                       }}
                     />
                   </View>
@@ -649,7 +532,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                     })}
                   </View>
 
-                  {profile ? (
+                  {signedIn && profile ? (
                     <>
                       <View style={[styles.divider, { backgroundColor: colors.border }]} />
                       <View style={[styles.row, row]}>
@@ -687,7 +570,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.about')}</Text>
                 <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <MenuLink icon="logo-instagram" label={t('menu.instagram')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => openUrl(instagramUrl())} />
+                  <MenuLink icon="logo-instagram" label={`@${INSTAGRAM_HANDLE}`} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => openUrl(instagramUrl())} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                   <MenuLink icon="shield-checkmark-outline" label={t('menu.privacy')} colors={colors} copy={copy} row={row} isRtl={isRtl} onPress={() => setPane('privacy')} />
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -695,8 +578,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 </View>
                 <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
                   {t('menu.version', { version: VERSION })}
+                  {' · '}
+                  {t('menu.copyright', { year: COPYRIGHT_YEAR })}
                 </Text>
-                <AppBrandFooter />
               </ScrollView>
               {pane !== 'root' ? (
                 <ScrollView style={styles.flex} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -735,7 +619,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                         ]}
                       />
                       <Button
-                        title={profile ? t('profile.sendReport') : t('menu.contact')}
+                        title={signedIn && profile ? t('profile.sendReport') : t('menu.contact')}
                         loading={sendingReport}
                         pill
                         onPress={() => void report(reportKind, reportBody)}
@@ -749,7 +633,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
             </View>
             {pane === 'root' ? (
               <View style={[styles.logoutBar, { borderTopColor: colors.border, backgroundColor: colors.surface }]}>
-                {profile ? (
+                {signedIn && profile ? (
                   askLogout ? (
                     <View style={styles.confirmBox}>
                       <Text style={[styles.confirmText, copy, { color: colors.text }]}>{t('common.confirmLogout')}</Text>

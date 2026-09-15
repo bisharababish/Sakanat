@@ -30,7 +30,7 @@ import {
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
 import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings';
-import { isStudentReady } from '@/src/lib/studentProfile';
+import { isStudentReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { alert } from '@/src/lib/notice';
@@ -123,6 +123,10 @@ export default function SearchScreen() {
   const selectedUniversity = useMemo(
     () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
     [isRenter, universities, universityId],
+  );
+  const selectedCity = useMemo(
+    () => cities.find((item) => item.id === cityId) ?? null,
+    [cities, cityId],
   );
   const distancePlace = selectedUniversity ? ('campus' as const) : ('city' as const);
 
@@ -387,12 +391,18 @@ export default function SearchScreen() {
   ];
   const helloName = (displayName(profile, i18n.language) || '').trim().split(/\s+/).filter(Boolean)[0];
   const campusName = selectedUniversity ? localizedName(selectedUniversity, i18n.language) : '';
+  const cityName = selectedCity ? localizedName(selectedCity, i18n.language) : '';
   const hello =
     helloName && campusName
       ? t('search.helloCampus', { name: helloName, campus: campusName })
-      : helloName
-        ? t('search.hello', { name: helloName })
-        : t('search.title');
+      : helloName && cityName && (isRenter || !profile)
+        ? t('search.helloCity', { name: helloName, city: cityName })
+        : helloName
+          ? t('search.hello', { name: helloName })
+          : t('search.title');
+  const subtitle = campusName
+    ? null
+    : t(isRenter || !profile ? 'search.subtitleRenter' : 'search.subtitle');
 
   return (
     <Screen
@@ -407,6 +417,9 @@ export default function SearchScreen() {
         <Text style={[styles.title, rtlText, { color: colors.text }]} numberOfLines={1}>
           {hello}
         </Text>
+        {subtitle ? (
+          <Text style={[styles.subtitle, rtlText, { color: colors.textMuted }]}>{subtitle}</Text>
+        ) : null}
       </View>
 
       {!profile ? (
@@ -414,8 +427,13 @@ export default function SearchScreen() {
       ) : !isStudentReady(profile) ? (
         <ProfileBanner
           icon="sparkles"
-          text={t('profile.completeHint')}
-          onPress={() => router.push('/(student)/(tabs)/profile')}
+          text={t(isRenter ? 'profile.completeHintRenter' : 'profile.completeHint')}
+          onPress={() =>
+            router.push({
+              pathname: '/(student)/(tabs)/profile',
+              params: { tab: seekerProfileGapTab(profile) },
+            })
+          }
         />
       ) : null}
 
@@ -670,7 +688,7 @@ export default function SearchScreen() {
         <View style={styles.empty}>
           <EmptyState
             title={t('search.empty')}
-            hint={filtersOn ? t('search.emptyHint') : undefined}
+            hint={filtersOn ? t('search.emptyHint') : isRenter ? t('search.emptyRenter') : undefined}
             actionTitle={filtersOn ? t('search.clear') : undefined}
             onAction={filtersOn ? clearFilters : undefined}
           />
@@ -694,7 +712,7 @@ export default function SearchScreen() {
           saved={savedIds.includes(item.id)}
           onToggleSave={() => {
             if (!profile) {
-              requireAccount();
+              requireAccount(item.id);
               return;
             }
             const currently = savedIds.includes(item.id);
@@ -740,7 +758,8 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: { gap: 0 },
+  head: { gap: 4 },
+  subtitle: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 18 },
   title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
   searchBar: {
     alignItems: 'center',

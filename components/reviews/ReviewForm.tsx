@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { REVIEW_NOTE_MAX, REVIEW_NOTE_MIN } from '@/src/lib/reviews';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -53,6 +54,8 @@ export function ReviewForm({
     onClose();
   };
 
+  const edgeBack = useEdgeBack(visible, close);
+
   const submit = () => {
     Keyboard.dismiss();
     onConfirm();
@@ -61,6 +64,7 @@ export function ReviewForm({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <KeyboardAvoidingView
+        {...edgeBack}
         style={[styles.overlay, { backgroundColor: colors.overlay }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >

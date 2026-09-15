@@ -11,7 +11,6 @@ import {
   BackHandler,
   Dimensions,
   PanResponder,
-  Platform,
   View,
   type GestureResponderHandlers,
 } from 'react-native';
@@ -19,7 +18,7 @@ import { router } from 'expo-router';
 
 import { goBack } from '@/components/ui/BackButton';
 
-const EDGE = 40;
+const EDGE = 72;
 const MIN_DX = 48;
 
 type Entry = { id: number; run: () => void };
@@ -94,14 +93,10 @@ export function EdgeBackProvider({ children }: { children: ReactNode }) {
     stack.current = stack.current.filter((item) => item.id !== id);
   }, []);
 
-  const canHandle = useCallback(() => {
-    if (stack.current.length > 0) return true;
-    return Platform.OS !== 'ios' && router.canGoBack();
-  }, []);
+  const canHandle = useCallback(() => stack.current.length > 0, []);
 
   const pan = useMemo(
-    () =>
-      makePan(canHandle, perform, () => stack.current.length > 0),
+    () => makePan(canHandle, perform, () => stack.current.length > 0),
     [canHandle, perform],
   );
 

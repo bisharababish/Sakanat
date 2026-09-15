@@ -17,8 +17,9 @@ export function canShowSeekerContact(
       ? seeker?.phone_visibility ?? 'booking'
       : seeker?.whatsapp_visibility ?? 'booking';
   if (visibility === 'none') return false;
-  if (visibility === 'booking') return true;
   const status = opts?.bookingStatus;
+  if (!status || status === 'cancelled') return false;
+  if (visibility === 'booking') return true;
   return status === 'confirmed' || status === 'completed';
 }
 

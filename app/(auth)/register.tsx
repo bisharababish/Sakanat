@@ -30,10 +30,11 @@ import type { PersonGender, PublicSignupRole } from '@/src/types/database';
 
 export default function RegisterScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText } = useLayout();
+  const { rtlText, row } = useLayout();
   const colors = useColors();
   const { signUp } = useAuth();
   const { cities, universities } = useCatalog();
+  const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<PublicSignupRole>('student');
   const [fullNameEn, setFullNameEn] = useState('');
   const [fullNameAr, setFullNameAr] = useState('');
@@ -79,6 +80,29 @@ export default function RegisterScreen() {
     setKind(next);
     setError('');
     if (next === 'renter') setUniversityId('');
+  };
+
+  const goNext = () => {
+    setError('');
+    const missingUniversity = isStudent && !universityId;
+    if (!fullNameEn || !fullNameAr || !gender || !phoneLocal.trim() || !cityId || missingUniversity) {
+      setError(t('auth.missingFields'));
+      return;
+    }
+    if (!isValidEnglishName(fullNameEn)) {
+      setError(t('auth.invalidNameEn'));
+      return;
+    }
+    if (!isValidArabicName(fullNameAr)) {
+      setError(t('auth.invalidNameAr'));
+      return;
+    }
+    const cleanPhone = toE164(phoneRegion, phoneLocal);
+    if (!cleanPhone) {
+      setError(t('phone.invalid'));
+      return;
+    }
+    setStep(2);
   };
 
   const onSubmit = async () => {
@@ -148,10 +172,25 @@ export default function RegisterScreen() {
   return (
     <AuthScreen
       back
+      onBack={
+        step === 2
+          ? () => {
+              setError('');
+              setStep(1);
+            }
+          : undefined
+      }
       center={false}
       footer={
         <>
-          <Button title={t('auth.register')} onPress={() => void onSubmit()} loading={loading} pill />
+          {step === 1 ? (
+            <Button title={t('common.next')} onPress={goNext} pill />
+          ) : (
+            <Button title={t('auth.register')} onPress={() => void onSubmit()} loading={loading} pill />
+          )}
+          {step === 2 ? (
+            <Button title={t('common.previous')} variant="secondary" onPress={() => { setError(''); setStep(1); }} pill />
+          ) : null}
           <Pressable onPress={() => router.push('/(auth)/login')} style={styles.footer}>
             <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
               {t('auth.hasAccount')} <Text style={[styles.link, { color: colors.primary }]}>{t('auth.login')}</Text>
@@ -161,88 +200,101 @@ export default function RegisterScreen() {
       }
     >
       <AuthCard>
-        <AuthHeading title={t('auth.registerTitle')} hint={t('auth.registerHint')} />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
-        <FilterPills
-          value={kind}
-          onChange={pickKind}
-          items={[
-            { value: 'student', label: t('auth.accountStudent') },
-            { value: 'renter', label: t('auth.accountRenter') },
-          ]}
+        <AuthHeading
+          title={t('auth.registerTitle')}
+          hint={step === 1 ? t('auth.registerHint') : t('auth.registerStep2')}
         />
-        <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-        <FilterPills
-          value={gender}
-          onChange={setGender}
-          items={[
-            { value: 'male', label: t('profile.male') },
-            { value: 'female', label: t('profile.female') },
-          ]}
-        />
-        <NameField
-          label={t('common.nameEn')}
-          value={fullNameEn}
-          onChangeText={setFullNameEn}
-          script="en"
-          soft
-        />
-        <NameField
-          label={t('common.nameAr')}
-          value={fullNameAr}
-          onChangeText={setFullNameAr}
-          script="ar"
-          soft
-        />
-        <PhoneField
-          label={t('common.phone')}
-          region={phoneRegion}
-          local={phoneLocal}
-          onRegionChange={setPhoneRegion}
-          onLocalChange={setPhoneLocal}
-          soft
-        />
-        <Select
-          label={t('auth.homeCity')}
-          value={cityId}
-          placeholder={t('common.select')}
-          options={cityOptions}
-          onChange={setCityId}
-          soft
-        />
-        {isStudent ? (
-          <SearchSelect
-            label={t('auth.studyUniversity')}
-            value={universityId}
-            placeholder={t('common.select')}
-            options={universityOptions}
-            onChange={setUniversityId}
-          />
-        ) : null}
-        <Input
-          label={isStudent ? t('auth.studentEmail') : t('common.email')}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          ltr
-          hint={isStudent ? studentEmailHint : t('auth.renterEmailHint')}
-          soft
-        />
-        <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
-        <Input
-          label={t('profile.confirmPassword')}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          soft
-        />
-        <PasswordChecks password={password} confirm={confirmPassword} />
-        <LegalAcceptRow accepted={accepted} onToggle={() => setAccepted((value) => !value)} onOpen={setLegal} />
+        <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>
+          {t('booking.stepOf', { step, total: 2 })}
+        </Text>
+        {step === 1 ? (
+          <>
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
+            <FilterPills
+              value={kind}
+              onChange={pickKind}
+              items={[
+                { value: 'student', label: t('auth.accountStudent') },
+                { value: 'renter', label: t('auth.accountRenter') },
+              ]}
+            />
+            <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
+            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
+            <FilterPills
+              value={gender}
+              onChange={setGender}
+              items={[
+                { value: 'male', label: t('profile.male') },
+                { value: 'female', label: t('profile.female') },
+              ]}
+            />
+            <NameField
+              label={t('common.nameEn')}
+              value={fullNameEn}
+              onChangeText={setFullNameEn}
+              script="en"
+              soft
+            />
+            <NameField
+              label={t('common.nameAr')}
+              value={fullNameAr}
+              onChangeText={setFullNameAr}
+              script="ar"
+              soft
+            />
+            <PhoneField
+              label={t('common.phone')}
+              region={phoneRegion}
+              local={phoneLocal}
+              onRegionChange={setPhoneRegion}
+              onLocalChange={setPhoneLocal}
+              soft
+            />
+            <Select
+              label={t('auth.homeCity')}
+              value={cityId}
+              placeholder={t('common.select')}
+              options={cityOptions}
+              onChange={setCityId}
+              soft
+            />
+            {isStudent ? (
+              <SearchSelect
+                label={t('auth.studyUniversity')}
+                value={universityId}
+                placeholder={t('common.select')}
+                options={universityOptions}
+                onChange={setUniversityId}
+              />
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Input
+              label={isStudent ? t('auth.studentEmail') : t('common.email')}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              ltr
+              hint={isStudent ? studentEmailHint : t('auth.renterEmailHint')}
+              soft
+            />
+            <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
+            <Input
+              label={t('profile.confirmPassword')}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              soft
+            />
+            <PasswordChecks password={password} confirm={confirmPassword} />
+            <LegalAcceptRow accepted={accepted} onToggle={() => setAccepted((value) => !value)} onOpen={setLegal} />
+          </>
+        )}
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
-        <View style={styles.lockRow}>
+        <View style={[styles.lockRow, row]}>
           <Ionicons name="lock-closed" size={14} color={colors.primary} />
           <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
         </View>
@@ -262,3 +314,4 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 15, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
   link: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
 });
+

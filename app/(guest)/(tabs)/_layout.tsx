@@ -13,7 +13,7 @@ export default function GuestTabs() {
   const tabOptions = useAppTabScreenOptions();
 
   return (
-    <Tabs screenOptions={tabOptions}>
+    <Tabs detachInactiveScreens={false} screenOptions={tabOptions}>
       <Tabs.Screen
         name="search"
         options={{

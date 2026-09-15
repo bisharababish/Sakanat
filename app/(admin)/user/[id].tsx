@@ -26,6 +26,7 @@ import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { useAuth } from '@/src/lib/auth';
+import { loadBlocksForUser } from '@/src/lib/blocks';
 import { localizedName } from '@/src/lib/format';
 import { deleteUserAccount, setSuspended, unenrollUserMfa } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
@@ -38,7 +39,7 @@ import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { OwnerStatus, PersonGender, Profile, UserRole } from '@/src/types/database';
 
-type EditTab = 'profile' | 'access' | 'actions';
+type EditTab = 'profile' | 'access' | 'activity' | 'actions';
 
 function initials(name?: string | null) {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -84,6 +85,12 @@ export default function AdminUserEdit() {
   const [saving, setSaving] = useState(false);
   const [clearingMfa, setClearingMfa] = useState(false);
   const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
+  const [suspendReason, setSuspendReason] = useState('');
+  const [activity, setActivity] = useState<{
+    bookings: { id: string; status: string; start_date: string }[];
+    reports: number;
+    blocks: Awaited<ReturnType<typeof loadBlocksForUser>>;
+  }>({ bookings: [], reports: 0, blocks: [] });
 
   const applyUser = useCallback((next: Profile | null) => {
     setUser(next);
@@ -125,6 +132,24 @@ export default function AdminUserEdit() {
       .eq('id', id)
       .single();
     applyUser((data as Profile) ?? null);
+    const [{ data: bookings }, reportsRes, blocks] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('id, status, start_date')
+        .or(`student_id.eq.${id},owner_id.eq.${id}`)
+        .order('created_at', { ascending: false })
+        .limit(8),
+      supabase
+        .from('app_reports')
+        .select('id', { count: 'exact', head: true })
+        .or(`reporter_id.eq.${id},target_user_id.eq.${id}`),
+      loadBlocksForUser(id).catch(() => []),
+    ]);
+    setActivity({
+      bookings: (bookings as { id: string; status: string; start_date: string }[]) ?? [],
+      reports: reportsRes.count ?? 0,
+      blocks,
+    });
   }, [id, applyUser]);
 
   const { refreshing, refresh } = usePullRefresh(load);
@@ -234,7 +259,8 @@ export default function AdminUserEdit() {
           style: next ? 'destructive' : 'default',
           onPress: async () => {
             try {
-              await setSuspended(user, next);
+              await setSuspended(user, next, next ? suspendReason : undefined);
+              setSuspendReason('');
               setAccountStatus(next ? 'suspended' : 'active');
               setUser({ ...user, account_status: next ? 'suspended' : 'active' });
               if (user.role === 'owner') setOwnerStatus(next ? 'rejected' : 'approved');
@@ -372,6 +398,7 @@ export default function AdminUserEdit() {
         tabs={[
           { key: 'profile', icon: 'person', label: t('admin.editTabProfile') },
           { key: 'access', icon: 'shield', label: t('admin.editTabAccess'), dot: showIdReview },
+          { key: 'activity', icon: 'pulse-outline', label: t('admin.editTabActivity') },
           { key: 'actions', icon: 'hammer', label: t('admin.editTabActions') },
         ]}
       />
@@ -561,12 +588,63 @@ export default function AdminUserEdit() {
         </>
       ) : null}
 
+      {tab === 'activity' ? (
+        <>
+          <Card compact>
+            <SectionHead compact icon="pulse-outline" title={t('admin.editTabActivity')} />
+            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+              {t('admin.activityBookings', { count: activity.bookings.length })}
+            </Text>
+            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+              {t('admin.activityReports', { count: activity.reports })}
+            </Text>
+            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
+              {t('admin.activityBlocks', { count: activity.blocks.length })}
+            </Text>
+          </Card>
+          {activity.bookings.length ? (
+            <Card compact>
+              <SectionHead compact icon="calendar-outline" title={t('tabs.bookings')} />
+              {activity.bookings.map((item) => (
+                <Text key={item.id} style={[styles.meta, rtlText, { color: colors.text }]}>
+                  {item.start_date} · {t(`bookingStatus.${item.status}`)}
+                </Text>
+              ))}
+            </Card>
+          ) : null}
+          {activity.blocks.length ? (
+            <Card compact>
+              <SectionHead compact icon="hand-left-outline" title={t('profile.blockedTitle')} />
+              {activity.blocks.map((row) => {
+                const other = row.blocker_id === user.id ? row.blocked : row.blocker;
+                const name = other?.full_name || other?.email || row.blocked_id;
+                return (
+                  <Text key={`${row.blocker_id}-${row.blocked_id}`} style={[styles.meta, rtlText, { color: colors.text }]}>
+                    {row.blocker_id === user.id
+                      ? t('admin.blockedByUser', { name })
+                      : t('admin.blockedUser', { name })}
+                  </Text>
+                );
+              })}
+            </Card>
+          ) : null}
+        </>
+      ) : null}
+
       {tab === 'actions' ? (
         <>
           <UserDataExport compact userId={user.id} titleKey="admin.exportUserData" />
           {canModerate ? (
             <Card compact>
               <SectionHead compact icon="warning-outline" title={t('admin.dangerZone')} />
+              {accountStatus !== 'suspended' ? (
+                <Input
+                  compact
+                  label={t('admin.suspendReason')}
+                  value={suspendReason}
+                  onChangeText={setSuspendReason}
+                />
+              ) : null}
               <View style={styles.actions}>
                 <Button
                   title={t('admin.disableMfa')}

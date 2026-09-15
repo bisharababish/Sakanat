@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthScreen } from '@/components/auth/AuthScreen';
-import { AppBrandFooter } from '@/components/brand/AppBrandFooter';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius, spacing } from '@/src/theme/colors';
@@ -20,7 +19,7 @@ const POINTS: { icon: IconName; title: string; hint: string }[] = [
   { icon: 'wallet-outline', title: 'welcomePoint3', hint: 'welcomePoint3Hint' },
 ];
 
-const WHO = ['student', 'renter', 'owner'] as const;
+const WHO = ['student', 'renter'] as const;
 
 export default function WelcomeScreen() {
   const { t } = useTranslation();
@@ -53,6 +52,7 @@ export default function WelcomeScreen() {
         <Text style={[styles.lead, rtlText, { color: colors.primaryDark }]}>{t('appNameLead')}</Text>
         <Text style={[styles.tail, rtlText, { color: colors.primary }]}>{t('appNameTail')}</Text>
         <Text style={[styles.tag, rtlText, { color: colors.textMuted }]}>{t('tagline')}</Text>
+        <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeBody')}</Text>
         <View style={styles.who}>
           {WHO.map((role) => (
             <View key={role} style={[styles.whoChip, { backgroundColor: colors.primarySoft }]}>
@@ -60,6 +60,7 @@ export default function WelcomeScreen() {
             </View>
           ))}
         </View>
+        <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.ownersInvited')}</Text>
         <View style={styles.points}>
           {POINTS.map((item) => (
             <View key={item.title} style={[styles.point, row]}>
@@ -74,7 +75,6 @@ export default function WelcomeScreen() {
           ))}
         </View>
         <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeGuestNote')}</Text>
-        <AppBrandFooter />
       </AuthCard>
     </AuthScreen>
   );
@@ -107,6 +107,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  body: {
+    fontSize: 13,
+    fontFamily: 'Cairo_400Regular',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   who: {
     flexDirection: 'row',

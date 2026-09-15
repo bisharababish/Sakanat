@@ -2,13 +2,13 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePullRefresh } from '@/src/hooks/usePullRefresh';
 import { loadAdminAuditLog } from '@/src/lib/audit';
-import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type AuditRow = {
@@ -39,9 +39,7 @@ export default function AdminAudit() {
 
   return (
     <Screen back refreshing={refreshing} onRefresh={() => void refresh()}>
-      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.auditTitle')}</Text>
-      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.auditHint')}</Text>
+      <AdminPageHeader kicker={t('roles.admin')} title={t('admin.auditTitle')} hint={t('admin.auditHint')} />
       {rows.length === 0 ? <EmptyState title={t('admin.auditEmpty')} /> : null}
       {rows.map((item) => (
         <Card key={item.id} compact>
@@ -70,9 +68,6 @@ export default function AdminAudit() {
 }
 
 const styles = StyleSheet.create({
-  kicker: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
-  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', marginBottom: spacing.xs },
   action: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
   meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   note: { fontSize: 13, fontFamily: 'Cairo_400Regular', marginTop: 2 },

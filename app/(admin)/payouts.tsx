@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +16,6 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { formatIls } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { supabase } from '@/src/lib/supabase';
-import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type OwnerRow = {
@@ -113,9 +113,7 @@ export default function AdminPayouts() {
 
   return (
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.payoutsTitle')}</Text>
-      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsHint')}</Text>
+      <AdminPageHeader kicker={t('roles.admin')} title={t('admin.payoutsTitle')} hint={t('admin.payoutsHint')} />
       <Input compact label={t('admin.searchUsers')} value={query} onChangeText={setQuery} />
       <FilterPills
         compact
@@ -168,9 +166,6 @@ export default function AdminPayouts() {
 }
 
 const styles = StyleSheet.create({
-  kicker: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  title: { fontSize: 22, fontFamily: 'Cairo_800ExtraBold' },
-  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', marginBottom: spacing.xs },
   meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   metrics: { flexWrap: 'wrap', gap: 10 },
   metric: { fontSize: 13, fontFamily: 'Cairo_700Bold' },

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
@@ -262,9 +263,7 @@ export default function AdminCatalog() {
 
   return (
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.catalog')}</Text>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.catalogTitle')}</Text>
-      <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
+      <AdminPageHeader kicker={t('tabs.catalog')} title={t('admin.catalogTitle')} hint={t('admin.catalogHint')} />
       <FilterPills
         value={pane}
         onChange={setPane}
@@ -363,9 +362,6 @@ export default function AdminCatalog() {
 }
 
 const styles = StyleSheet.create({
-  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22, marginTop: -8 },
   name: { fontSize: 17, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   meta: { fontFamily: 'Cairo_400Regular' },
 });

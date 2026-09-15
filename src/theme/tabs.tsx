@@ -10,7 +10,7 @@ export function useAppTabScreenOptions() {
     tabBarHideOnKeyboard: false,
     tabBarActiveTintColor: colors.primary,
     tabBarInactiveTintColor: colors.textMuted,
-    freezeOnBlur: true,
+    freezeOnBlur: false,
     animation: 'shift' as const,
     transitionSpec: {
       animation: 'spring' as const,
@@ -22,10 +22,6 @@ export function useAppTabScreenOptions() {
       current: { progress: Animated.AnimatedInterpolation<number> };
     }) => ({
       sceneStyle: {
-        opacity: current.progress.interpolate({
-          inputRange: [-1, 0, 1],
-          outputRange: [0, 1, 0],
-        }),
         transform: [
           {
             translateX: current.progress.interpolate({

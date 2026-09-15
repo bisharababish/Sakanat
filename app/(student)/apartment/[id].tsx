@@ -15,7 +15,7 @@ import { trackEvent } from '@/src/lib/analytics';
 import { openConversation } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedTitle } from '@/src/lib/format';
-import { requireAccount } from '@/src/lib/guest';
+import { rememberGuestApartment, requireAccount } from '@/src/lib/guest';
 import { loadActiveStay } from '@/src/lib/booking';
 import { alert } from '@/src/lib/notice';
 import { submitAppReport } from '@/src/lib/reports';
@@ -104,6 +104,11 @@ export default function ApartmentDetails() {
     );
   }, [apartment?.id, apartment?.nearest_university_id, profile?.id]);
 
+  useEffect(() => {
+    if (!id || profile) return;
+    rememberGuestApartment(id);
+  }, [id, profile]);
+
   const isRenter = profile?.role === 'renter';
   const useCity =
     isRenter || from === 'city' || (from !== 'campus' && !universityId && profile?.role !== 'student');
@@ -148,7 +153,7 @@ export default function ApartmentDetails() {
 
   const startChat = async () => {
     if (!profile) {
-      requireAccount();
+      requireAccount(apartment?.id);
       return;
     }
     if (!apartment) return;
@@ -163,7 +168,7 @@ export default function ApartmentDetails() {
 
   const goBook = () => {
     if (!profile) {
-      requireAccount();
+      requireAccount(apartment?.id);
       return;
     }
     if (!apartment) return;
@@ -178,7 +183,10 @@ export default function ApartmentDetails() {
       router.push('/(student)/(tabs)/bookings');
       return;
     }
-    if (bookGate?.kind === 'gender') return;
+    if (bookGate?.kind === 'gender') {
+      router.push('/(student)/(tabs)/search');
+      return;
+    }
     router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });
   };
 
@@ -224,10 +232,10 @@ export default function ApartmentDetails() {
         refreshing={refreshing}
         onRefresh={() => void refresh()}
         focusReviews={focus === 'reviews'}
-        onRequireAccount={requireAccount}
+        onRequireAccount={() => requireAccount(apartment?.id)}
         onToggleSave={() => {
           if (!profile) {
-            requireAccount();
+            requireAccount(apartment?.id);
             return;
           }
           if (!apartment) return;
@@ -248,7 +256,9 @@ export default function ApartmentDetails() {
         ) : null}
         {similar.length > 0 ? (
           <View style={styles.similar}>
-            <Text style={[styles.similarTitle, rtlText, { color: colors.text }]}>{t('listing.similarTitle')}</Text>
+            <Text style={[styles.similarTitle, rtlText, { color: colors.text }]}>
+              {t(useCity ? 'listing.similarTitleCity' : 'listing.similarTitle')}
+            </Text>
             <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('listing.similarHint')}</Text>
             {similar.map((item) => (
               <ListingCard

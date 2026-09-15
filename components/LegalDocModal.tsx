@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { SUPPORT_EMAIL } from '@/src/lib/support';
 import { radius, spacing } from '@/src/theme/colors';
@@ -22,6 +23,7 @@ export function LegalDocModal({
   const { rtlText } = useLayout();
   const colors = useColors();
   const safe = useModalSafeArea();
+  const edgeBack = useEdgeBack(Boolean(kind), onClose);
   const title = kind === 'privacy' ? t('menu.privacy') : t('menu.terms');
   const body =
     kind === 'privacy'
@@ -31,6 +33,7 @@ export function LegalDocModal({
   return (
     <Modal visible={Boolean(kind)} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <View
+        {...edgeBack}
         style={[
           styles.overlay,
           {

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 import { IdApproveChecklist, idApproveReady, type IdApproveChecks } from '@/components/profile/IdApproveChecklist';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
@@ -87,7 +88,7 @@ export default function AdminVerifyIds() {
 
   return (
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.idReviewTitle')}</Text>
+      <AdminPageHeader kicker={t('roles.admin')} title={t('admin.idReviewTitle')} />
       <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.idReviewHint')}</Text>
 
       {users.length === 0 ? <EmptyState title={t('admin.idReviewEmpty')} /> : null}

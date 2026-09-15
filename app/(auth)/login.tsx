@@ -13,7 +13,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { sanitizeEmail } from '@/src/lib/eduEmail';
-import { homeHref } from '@/src/lib/routes';
+import { seekerHomeOrListing } from '@/src/lib/guest';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function LoginScreen() {
@@ -37,14 +37,14 @@ export default function LoginScreen() {
     setError('');
     setNeedsVerify(false);
     if (!cleanEmail || !password) {
-      setError(t('auth.missingEmailOrPhone'));
+      setError(t('auth.missingEmail'));
       return;
     }
     setLoading(true);
     try {
       const next = await signIn(cleanEmail, password);
       if (next) {
-        router.replace(homeHref(next.role) as never);
+        router.replace(seekerHomeOrListing(next.role) as never);
         return;
       }
     } catch (err) {

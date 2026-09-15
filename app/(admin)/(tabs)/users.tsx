@@ -34,6 +34,7 @@ import type { OwnerStatus, Profile, UserRole } from '@/src/types/database';
 
 type RoleFilter = UserRole | 'all';
 type OwnerFilter = OwnerStatus | 'all';
+type AccountFilter = 'all' | 'suspended';
 
 export default function AdminUsers() {
   const { t, i18n } = useTranslation();
@@ -47,6 +48,7 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [role, setRole] = useState<RoleFilter>('all');
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');
+  const [accountFilter, setAccountFilter] = useState<AccountFilter>('all');
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -186,6 +188,7 @@ export default function AdminUsers() {
     const needle = query.trim().toLowerCase();
     return users.filter((user) => {
       if (role !== 'all' && user.role !== role) return false;
+      if (accountFilter === 'suspended' && !isSuspended(user)) return false;
       if (role === 'owner' && ownerFilter !== 'all' && user.owner_status !== ownerFilter) return false;
       if (!needle) return true;
       const hay = [user.full_name, user.email, user.phone, user.whatsapp, user.student_id_number]
@@ -194,8 +197,8 @@ export default function AdminUsers() {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [users, role, ownerFilter, query]);
-  const paged = usePaged(visible, USER_PAGE_SIZE, `${role}|${ownerFilter}|${query}`);
+  }, [users, role, ownerFilter, accountFilter, query]);
+  const paged = usePaged(visible, USER_PAGE_SIZE, `${role}|${ownerFilter}|${accountFilter}|${query}`);
   const roleCounts = useMemo(() => {
     const next = { all: users.length, student: 0, renter: 0, owner: 0, admin: 0 };
     for (const user of users) next[user.role] += 1;
@@ -212,6 +215,7 @@ export default function AdminUsers() {
     for (const user of owners) next[user.owner_status] += 1;
     return next;
   }, [users]);
+  const suspendedCount = useMemo(() => users.filter((user) => isSuspended(user)).length, [users]);
 
   const ownerTone = (status: OwnerStatus) =>
     status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'pending';
@@ -294,6 +298,15 @@ export default function AdminUsers() {
           { value: 'renter', label: t('roles.renter'), count: roleCounts.renter },
           { value: 'owner', label: t('roles.owner'), count: roleCounts.owner },
           { value: 'admin', label: t('roles.admin'), count: roleCounts.admin },
+        ]}
+      />
+      <FilterPills
+        compact
+        value={accountFilter}
+        onChange={setAccountFilter}
+        items={[
+          { value: 'all', label: t('common.all'), count: users.length },
+          { value: 'suspended', label: t('admin.suspendedFilter'), count: suspendedCount },
         ]}
       />
       {role === 'owner' ? (

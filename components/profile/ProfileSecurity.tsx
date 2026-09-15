@@ -30,7 +30,7 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, signOut } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -87,7 +87,7 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
     }
     const phone = recoveryLocal.trim() ? toE164(recoveryRegion, recoveryLocal) : null;
     if (recoveryLocal.trim() && !phone) {
-      alert(t('common.error'), t('auth.invalidPhone'));
+      alert(t('common.error'), t('profile.recoveryPhoneInvalid'));
       return;
     }
     setSavingRecovery(true);
@@ -176,7 +176,9 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
       {onDelete ? (
         <Card compact>
           <SectionHead compact icon="trash-outline" title={t('profile.deleteAccount')} />
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.deleteAccountHint')}</Text>
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+            {t(profile?.role === 'owner' ? 'profile.deleteAccountHintOwner' : 'profile.deleteAccountHint')}
+          </Text>
           <Button
             title={t('profile.deleteAccount')}
             variant="danger"
@@ -186,6 +188,21 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
           />
         </Card>
       ) : null}
+      <Card compact>
+        <SectionHead compact icon="log-out-outline" title={t('common.logout')} />
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.logoutHint')}</Text>
+        <Button
+          title={t('common.logout')}
+          variant="ghost"
+          onPress={() =>
+            alert(t('common.logout'), t('common.confirmLogout'), [
+              { text: t('common.no'), style: 'cancel' },
+              { text: t('common.yes'), style: 'destructive', onPress: () => void signOut() },
+            ])
+          }
+          pill
+        />
+      </Card>
     </>
   );
 }

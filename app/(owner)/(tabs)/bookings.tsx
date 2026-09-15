@@ -17,6 +17,7 @@ import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
@@ -64,6 +65,8 @@ export default function OwnerBookings() {
   const [rejectingBusy, setRejectingBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const closeReject = () => setRejecting(null);
+  const rejectBack = useEdgeBack(Boolean(rejecting), closeReject);
   const scrollRef = useRef<ScrollView>(null);
   const yById = useRef<Record<string, number>>({});
 
@@ -548,9 +551,10 @@ export default function OwnerBookings() {
         visible={Boolean(rejecting)}
         transparent
         animationType="fade"
-        onRequestClose={() => setRejecting(null)}
+        onRequestClose={closeReject}
       >
         <View
+          {...rejectBack}
           style={[
             styles.overlay,
             {
@@ -560,7 +564,7 @@ export default function OwnerBookings() {
             },
           ]}
         >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setRejecting(null)} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeReject} />
           <View style={[styles.rejectCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.rejectTitle, rtlText, { color: colors.primaryDark }]}>{t('booking.rejectConfirm')}</Text>
             <Input
@@ -571,7 +575,7 @@ export default function OwnerBookings() {
               multiline
             />
             <Button title={t('admin.reject')} variant="danger" pill loading={rejectingBusy} onPress={() => void submitReject()} />
-            <Button title={t('common.cancel')} variant="ghost" pill onPress={() => setRejecting(null)} />
+            <Button title={t('common.cancel')} variant="ghost" pill onPress={closeReject} />
           </View>
         </View>
       </Modal>
