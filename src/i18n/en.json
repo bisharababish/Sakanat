@@ -198,6 +198,9 @@
     "heating": "Heating",
     "ac": "Air conditioning",
     "washing_machine": "Washing machine",
+    "solar_heater": "Solar water heater",
+    "elevator": "Elevator",
+    "study_desk": "Study desk",
     "near_transport": "Near transport",
     "balcony": "Balcony",
     "parking": "Parking"
@@ -366,6 +369,8 @@
     "whoFor": "Who can live here",
     "rooms": "Rooms",
     "roomsPlus": "4+",
+    "baths": "Bathrooms",
+    "bathsPlus": "3+",
     "suitable": "Fits me",
     "placeholder": "Apartment, city, or university",
     "placeholderRenter": "Apartment or city",
@@ -756,7 +761,12 @@
     "reportUser": "Report this chat",
     "reportHint": "Describe what {{name}} did. This goes to trust and safety with this chat linked.",
     "reportPrefill": "Reported user: {{name}}\nListing: {{listing}}",
-    "blockLeft": "Blocked. You will leave this chat."
+    "blockLeft": "Blocked. You will leave this chat.",
+    "deleteMessage": "Delete message",
+    "confirmDeleteMessage": "Remove this message from the chat?",
+    "introHello": "Hi, I'm asking about this listing.",
+    "introListing": "Listing",
+    "introAbout": "About me"
   },
   "admin": {
     "overview": "Admin dashboard",

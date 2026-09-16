@@ -276,9 +276,35 @@ export type Conversation = {
   owner_archived_at?: string | null;
   apartments?: Pick<
     Apartment,
-    'id' | 'title_ar' | 'title_en' | 'photos' | 'building_name' | 'floor' | 'unit_number'
+    | 'id'
+    | 'title_ar'
+    | 'title_en'
+    | 'photos'
+    | 'building_name'
+    | 'floor'
+    | 'unit_number'
+    | 'price_month'
+    | 'rooms'
+    | 'bathrooms'
+    | 'city_id'
   >;
-  student?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
+  student?: Pick<
+    Profile,
+    | 'id'
+    | 'full_name'
+    | 'full_name_en'
+    | 'avatar_url'
+    | 'email'
+    | 'phone'
+    | 'role'
+    | 'gender'
+    | 'date_of_birth'
+    | 'major'
+    | 'study_year'
+    | 'degree_level'
+    | 'university_id'
+    | 'city_id'
+  > | null;
   owner?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email' | 'phone' | 'role'> | null;
 };
 
@@ -319,7 +345,9 @@ export const AMENITIES = [
   'heating',
   'ac',
   'washing_machine',
-  'near_transport',
+  'solar_heater',
+  'elevator',
+  'study_desk',
   'balcony',
   'parking',
 ] as const;

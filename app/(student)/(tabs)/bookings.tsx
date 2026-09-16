@@ -21,11 +21,11 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
-import { openConversation } from '@/src/lib/chat';
+import { openListingChat } from '@/src/lib/chat';
 import { formatStayRange, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
 import { notifyUser } from '@/src/lib/push';
 import { submitAppReport } from '@/src/lib/reports';
-import { bookingCopyText, postBookingChat } from '@/src/lib/stayActions';
+import { bookingCopyText, detachCancelledStayChat, postBookingChat } from '@/src/lib/stayActions';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { displayName } from '@/src/lib/name';
 import { OWNER_PUBLIC_PROFILE, ownerPublicLines } from '@/src/lib/ownerPublic';
@@ -152,7 +152,10 @@ export default function StudentBookings() {
         onPress: async () => {
           const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
           if (error) alert(t('common.error'), error.message);
-          else void load();
+          else {
+            void detachCancelledStayChat(booking);
+            void load();
+          }
         },
       },
     ]);
@@ -231,12 +234,12 @@ export default function StudentBookings() {
           .update({ status: 'cancelled', cancel_reason: body })
           .eq('id', noteBooking.id);
         if (error) throw error;
-        await postBookingChat(noteBooking, profile.id, `${t('booking.cancelStay')}: ${body}`);
         if (noteBooking.owner_id) {
           void notifyUser(noteBooking.owner_id, t('booking.cancelStay'), body, 'booking', {
             bookingId: noteBooking.id,
           });
         }
+        await detachCancelledStayChat(noteBooking);
         void load();
       } else {
         await submitAppReport(profile.id, {
@@ -263,7 +266,7 @@ export default function StudentBookings() {
     if (!profile || !booking.apartments) return;
     setBusyId(booking.id);
     try {
-      const conversationId = await openConversation(booking.apartments as Apartment, profile.id);
+      const conversationId = await openListingChat(booking.apartments as Apartment, profile);
       router.push({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
     } catch (err) {
       const message = err instanceof Error ? err.message : '';

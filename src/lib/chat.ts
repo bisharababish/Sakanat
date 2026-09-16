@@ -1,11 +1,19 @@
 import i18n from '@/src/i18n';
+import {
+  deletedMessageIds,
+  pinListingContext,
+  rememberDeletedMessage,
+  unpinListingContext,
+  isListingContextPinned,
+} from '@/src/lib/chatDeleted';
+import { listingChatIntro } from '@/src/lib/chatIntro';
 import { MESSAGE_MAX } from '@/src/lib/limits';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment, Conversation, Profile } from '@/src/types/database';
 
 const CONVERSATION_SELECT =
-  '*, apartments(id, title_ar, title_en, photos, building_name, floor, unit_number), student:profiles!student_id(id, full_name, avatar_url, role), owner:profiles!owner_id(id, full_name, avatar_url, role)';
+  '*, apartments(id, title_ar, title_en, photos, building_name, floor, unit_number, price_month, rooms, bathrooms, city_id), student:profiles!student_id(id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, major, study_year, degree_level, university_id, city_id), owner:profiles!owner_id(id, full_name, avatar_url, role)';
 
 export function personName(person?: Pick<Profile, 'full_name'> | null) {
   const name = (person?.full_name ?? '').trim();
@@ -57,7 +65,7 @@ export function otherPerson(conversation: Conversation | null | undefined, myId?
   return asPerson(conversation.owner);
 }
 
-export async function openConversation(apartment: Apartment, studentId: string) {
+async function openConversationState(apartment: Apartment, studentId: string) {
   const { isBlockedEitherWay } = await import('@/src/lib/blocks');
   if (await isBlockedEitherWay(studentId, apartment.owner_id)) {
     throw new Error(i18n.t('chat.blockedOpen'));
@@ -73,7 +81,7 @@ export async function openConversation(apartment: Apartment, studentId: string) 
     void import('@/src/lib/analytics').then(({ trackEvent }) =>
       trackEvent('chat_open', { apartmentId: apartment.id }, studentId),
     );
-    return existing.id as string;
+    return { id: existing.id as string, created: false };
   }
 
   const { data, error } = await supabase
@@ -85,11 +93,130 @@ export async function openConversation(apartment: Apartment, studentId: string) 
     })
     .select('id')
     .single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505') {
+      const { data: raced } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('apartment_id', apartment.id)
+        .eq('student_id', studentId)
+        .maybeSingle();
+      if (raced?.id) return { id: raced.id as string, created: false };
+    }
+    throw error;
+  }
   void import('@/src/lib/analytics').then(({ trackEvent }) =>
     trackEvent('chat_open', { apartmentId: apartment.id }, studentId),
   );
-  return data.id as string;
+  return { id: data.id as string, created: true };
+}
+
+export async function openConversation(apartment: Apartment, studentId: string) {
+  const { id } = await openConversationState(apartment, studentId);
+  return id;
+}
+
+export async function openListingChat(apartment: Apartment, profile: Profile) {
+  const { id, created } = await openConversationState(apartment, profile.id);
+  await supabase
+    .from('conversations')
+    .update({ student_archived_at: null, owner_archived_at: null })
+    .eq('id', id);
+  await pinListingContext(id);
+  const [{ data: rows }, gone] = await Promise.all([
+    supabase.from('messages').select('id').eq('conversation_id', id),
+    deletedMessageIds(id),
+  ]);
+  const visible = (rows ?? []).filter((row) => !gone.has(row.id as string));
+  if (!created && visible.length > 0) return id;
+  const body = listingChatIntro(apartment, profile, i18n.t.bind(i18n), profile.language || i18n.language);
+  if (body) {
+    try {
+      await sendMessage(id, profile.id, body);
+    } catch {
+      // Still open the thread if the intro could not send.
+    }
+  }
+  return id;
+}
+
+export function conversationListingKey(conversation: Pick<Conversation, 'apartment_id' | 'student_id'>) {
+  return `${conversation.apartment_id}:${conversation.student_id}`;
+}
+
+export async function listingContextHidden(
+  apartmentId?: string | null,
+  studentId?: string | null,
+  conversationId?: string | null,
+) {
+  if (conversationId && (await isListingContextPinned(conversationId))) return false;
+  if (!apartmentId || !studentId) return false;
+  const { data } = await supabase
+    .from('bookings')
+    .select('status')
+    .eq('apartment_id', apartmentId)
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+    .limit(12);
+  const rows = data ?? [];
+  if (rows.some((row) => row.status !== 'cancelled')) return false;
+  return rows.some((row) => row.status === 'cancelled');
+}
+
+export async function hiddenListingChatKeys(userId: string, asOwner: boolean) {
+  const column = asOwner ? 'owner_id' : 'student_id';
+  const { data } = await supabase.from('bookings').select('apartment_id, student_id, status').eq(column, userId);
+  const active = new Set<string>();
+  const cancelled = new Set<string>();
+  for (const row of data ?? []) {
+    const key = `${row.apartment_id}:${row.student_id}`;
+    if (row.status === 'cancelled') cancelled.add(key);
+    else if (row.status === 'pending' || row.status === 'confirmed' || row.status === 'completed') active.add(key);
+  }
+  const hide = new Set<string>();
+  for (const key of cancelled) {
+    if (!active.has(key)) hide.add(key);
+  }
+  return hide;
+}
+
+export async function hideListingConversation(apartmentId: string, studentId: string) {
+  const { data: open } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('apartment_id', apartmentId)
+    .eq('student_id', studentId)
+    .in('status', ['pending', 'confirmed', 'completed'])
+    .limit(1)
+    .maybeSingle();
+  if (open?.id) return;
+  const { data } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('apartment_id', apartmentId)
+    .eq('student_id', studentId)
+    .maybeSingle();
+  if (!data?.id) return;
+  await unpinListingContext(data.id);
+  const now = new Date().toISOString();
+  await supabase
+    .from('conversations')
+    .update({ student_archived_at: now, owner_archived_at: now })
+    .eq('id', data.id);
+  const { data: first } = await supabase
+    .from('messages')
+    .select('id, body, sender_id')
+    .eq('conversation_id', data.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const intro = first?.body ?? '';
+  if (
+    first?.sender_id === studentId &&
+    (intro.includes(i18n.t('chat.introListing')) || intro.includes('Listing') || intro.includes('السكن'))
+  ) {
+    await deleteMessage(first.id);
+  }
 }
 
 export async function loadConversations(column: 'student_id' | 'owner_id', userId: string) {
@@ -162,8 +289,34 @@ export async function deleteConversation(id: string) {
 }
 
 export async function deleteMessage(id: string) {
-  const { error } = await supabase.from('messages').delete().eq('id', id);
+  const { data: row } = await supabase
+    .from('messages')
+    .select('id, conversation_id')
+    .eq('id', id)
+    .maybeSingle();
+  const { error } = await supabase.from('messages').delete().eq('id', id).select('id');
   if (error) throw error;
+  if (!row?.conversation_id) return;
+  await rememberDeletedMessage(row.conversation_id, id);
+  const { data: last } = await supabase
+    .from('messages')
+    .select('body, image_url, audio_url, created_at')
+    .eq('conversation_id', row.conversation_id)
+    .neq('id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const preview = last
+    ? last.body?.trim() ||
+      (last.image_url ? i18n.t('chat.photoMessage') : last.audio_url ? i18n.t('chat.voiceMessage') : '')
+    : '';
+  await supabase
+    .from('conversations')
+    .update({
+      last_message: preview || null,
+      last_message_at: last?.created_at ?? new Date().toISOString(),
+    })
+    .eq('id', row.conversation_id);
 }
 
 export function isConversationMuted(conversation: Conversation, myId?: string | null) {
@@ -339,6 +492,8 @@ export async function sendMessage(
     .update({
       last_message: preview,
       last_message_at: now,
+      student_archived_at: null,
+      owner_archived_at: null,
       ...(asOwner
         ? { owner_last_read_at: now, owner_delivered_at: now }
         : { student_last_read_at: now, student_delivered_at: now }),

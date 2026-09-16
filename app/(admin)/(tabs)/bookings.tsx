@@ -23,6 +23,7 @@ import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { notifyUser } from '@/src/lib/push';
+import { detachCancelledStayChat } from '@/src/lib/stayActions';
 import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
@@ -77,7 +78,7 @@ export default function AdminBookings() {
       }
       if (status === 'cancelled' && booking?.student_id) {
         void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'), 'booking');
-
+        void detachCancelledStayChat(booking);
       }
       setRejecting(null);
       setRejectNote('');

@@ -15,10 +15,12 @@ import { useAuth } from '@/src/lib/auth';
 import {
   conversationIdsMatchingMessage,
   conversationSearchHaystack,
+  conversationListingKey,
   isConversationArchived,
   isConversationMuted,
   isConversationUnread,
   loadConversations,
+  hiddenListingChatKeys,
   markInboxDelivered,
   otherPerson,
   personName,
@@ -26,6 +28,7 @@ import {
   setConversationMuted,
 } from '@/src/lib/chat';
 import { alert } from '@/src/lib/notice';
+import { pinnedListingConversationIds } from '@/src/lib/chatDeleted';
 import { CHAT_PAGE_SIZE } from '@/src/lib/page';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -113,6 +116,33 @@ function ConversationPages({
   const filter = filterProp ?? internalFilter;
   const setFilter = onFilterChange ?? setInternalFilter;
   const [messageHits, setMessageHits] = useState<string[]>([]);
+  const [hiddenListings, setHiddenListings] = useState<Set<string>>(new Set());
+  const [pinnedListings, setPinnedListings] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!profileId) {
+      setHiddenListings(new Set());
+      setPinnedListings(new Set());
+      return;
+    }
+    let cancelled = false;
+    void Promise.all([hiddenListingChatKeys(profileId, Boolean(isOwner)), pinnedListingConversationIds()])
+      .then(([hidden, pinned]) => {
+        if (!cancelled) {
+          setHiddenListings(hidden);
+          setPinnedListings(pinned);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHiddenListings(new Set());
+          setPinnedListings(new Set());
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId, isOwner, items]);
 
   useEffect(() => {
     const needle = query.trim();
@@ -271,6 +301,9 @@ function ConversationPages({
                 unread={isConversationUnread(item, profileId)}
                 muted={isConversationMuted(item, profileId)}
                 archived={isConversationArchived(item, profileId)}
+                hideListing={
+                  hiddenListings.has(conversationListingKey(item)) && !pinnedListings.has(item.id)
+                }
                 onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
                 onLongPress={() => manage(item)}
               />

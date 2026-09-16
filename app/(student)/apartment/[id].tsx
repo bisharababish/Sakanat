@@ -12,7 +12,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
-import { openConversation } from '@/src/lib/chat';
+import { openListingChat } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { requireAccount } from '@/src/lib/guest';
 import { loadActiveStay, loadOccupiedStays, listingOccupiedStay, occupiedUntil, type OccupiedStay } from '@/src/lib/booking';
@@ -165,7 +165,7 @@ export default function ApartmentDetails() {
     if (!apartment) return;
     setBusy(true);
     try {
-      const conversationId = await openConversation(apartment, profile.id);
+      const conversationId = await openListingChat(apartment, profile);
       router.push({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
     } catch (err) {
       const message = err instanceof Error ? err.message : '';

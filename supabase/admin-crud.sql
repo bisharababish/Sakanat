@@ -19,7 +19,7 @@ create policy conversations_delete on public.conversations
 drop policy if exists messages_delete on public.messages;
 create policy messages_delete on public.messages
   for delete to authenticated
-  using (public.is_admin());
+  using (sender_id = auth.uid() or public.is_admin());
 
 drop policy if exists saved_apartments_delete on public.saved_apartments;
 create policy saved_apartments_delete on public.saved_apartments

@@ -14,7 +14,15 @@ function formatMs(ms: number) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-export function ChatVoiceBubble({ pathOrUrl, mine }: { pathOrUrl: string; mine: boolean }) {
+export function ChatVoiceBubble({
+  pathOrUrl,
+  mine,
+  onLongPress,
+}: {
+  pathOrUrl: string;
+  mine: boolean;
+  onLongPress?: () => void;
+}) {
   const colors = useColors();
   const { row } = useLayout();
   const [uri, setUri] = useState<string | null>(
@@ -58,6 +66,8 @@ export function ChatVoiceBubble({ pathOrUrl, mine }: { pathOrUrl: string; mine: 
           player.play();
         });
       }}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       accessibilityRole="button"
       style={[styles.row, row]}
     >

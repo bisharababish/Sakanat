@@ -27,7 +27,7 @@ import {
   paymentI18nKey,
   type OccupiedStay,
 } from '@/src/lib/booking';
-import { openConversation } from '@/src/lib/chat';
+import { openListingChat } from '@/src/lib/chat';
 import { formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
@@ -249,7 +249,7 @@ export default function BookScreen() {
             onPress: () => {
               void (async () => {
                 try {
-                  const conversationId = await openConversation(apartment, profile.id);
+                  const conversationId = await openListingChat(apartment, profile);
                   router.replace({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
                 } catch {
                   router.replace('/(student)/(tabs)/bookings');

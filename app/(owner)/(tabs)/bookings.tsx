@@ -30,7 +30,7 @@ import { ageLabel, bookingStatusLabel, bookingTone, formatIls, formatStayRange, 
 import { buildingKey, listingPlaceLine, uniqueBuildings } from '@/src/lib/listingPlace';
 import { listingHasCheckIn, loadCheckInSentIds, markCheckInSent, stayCheckInChatBody } from '@/src/lib/listingStay';
 import { seekerExtraIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
-import { applyStayExtension, bookingCopyText, postBookingChat } from '@/src/lib/stayActions';
+import { applyStayExtension, bookingCopyText, detachCancelledStayChat, postBookingChat } from '@/src/lib/stayActions';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { canShowSeekerContact } from '@/src/lib/privacy';
@@ -185,7 +185,7 @@ export default function OwnerBookings() {
     }
     if (status === 'cancelled' && booking.student_id) {
       void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'), 'booking');
-
+      void detachCancelledStayChat(booking);
     }
     void load();
   };

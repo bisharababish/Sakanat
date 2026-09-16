@@ -20,13 +20,14 @@ import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
-import { submitAppReport } from '@/src/lib/reports';
+import { loadMyReports, reportStatusLabel, submitAppReport } from '@/src/lib/reports';
 import { profileHref, type ProfileTab } from '@/src/lib/routes';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { appVersion, COPYRIGHT_YEAR, INSTAGRAM_HANDLE, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
 import { accountVerification } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors, useTheme, type ThemePreference } from '@/src/theme/ThemeProvider';
+import type { AppReport } from '@/src/types/database';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type Pane = 'root' | 'faq' | 'privacy' | 'terms' | 'report';
@@ -67,6 +68,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const [reportKind, setReportKind] = useState<'tech' | 'safety'>('safety');
   const [reportBody, setReportBody] = useState('');
   const [sendingReport, setSendingReport] = useState(false);
+  const [myReports, setMyReports] = useState<AppReport[]>([]);
   const rootScroll = useRef<ScrollView>(null);
   const rootY = useRef(0);
   const progress = useSharedValue(0);
@@ -101,6 +103,24 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     setReportBody('');
     setReportKind('safety');
   }, [visible]);
+
+  useEffect(() => {
+    if (pane !== 'report' || !signedIn || !profile) {
+      if (pane !== 'report') setMyReports([]);
+      return;
+    }
+    let alive = true;
+    void loadMyReports(profile.id)
+      .then((rows) => {
+        if (alive) setMyReports(rows);
+      })
+      .catch(() => {
+        if (alive) setMyReports([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [pane, signedIn, profile]);
 
   useEffect(() => {
     if (!open) return;
@@ -180,8 +200,8 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
       try {
         await submitAppReport(profile.id, { kind, subject, body });
         setReportBody('');
+        setMyReports(await loadMyReports(profile.id));
         alert(t('common.done'), t('profile.reportSent'));
-        setPane('root');
       } catch (err) {
         alert(t('common.error'), err instanceof Error ? err.message : t('profile.reportFailed'));
         openUrl(kind === 'safety' ? mailTo(subject, body, TRUST_EMAIL) : mailTo(subject, body));
@@ -664,6 +684,45 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                         pill
                         onPress={() => void report(reportKind, reportBody)}
                       />
+                      {signedIn ? (
+                        myReports.length === 0 ? (
+                          <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                            {t('profile.reportsEmpty')}
+                          </Text>
+                        ) : (
+                          myReports.map((item) => (
+                            <View
+                              key={item.id}
+                              style={[
+                                styles.reportRow,
+                                { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                              ]}
+                            >
+                              <View style={[styles.reportHead, row]}>
+                                <Text style={[styles.reportKind, copy, { color: colors.primary }]} numberOfLines={1}>
+                                  {item.kind === 'safety' ? t('menu.reportSafety') : t('menu.reportTech')}
+                                </Text>
+                                <Text style={[styles.reportStatus, { color: colors.textMuted }]}>
+                                  {reportStatusLabel(item.status, t)}
+                                </Text>
+                              </View>
+                              <Text style={[styles.hint, copy, { color: colors.text }]} numberOfLines={3}>
+                                {item.body}
+                              </Text>
+                              <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                                {new Date(item.created_at).toLocaleDateString(
+                                  i18n.language.startsWith('ar') ? 'ar' : 'en',
+                                )}
+                              </Text>
+                              {item.admin_note ? (
+                                <Text style={[styles.hint, copy, { color: colors.text }]}>
+                                  {t('profile.reportAdminNote')}: {item.admin_note}
+                                </Text>
+                              ) : null}
+                            </View>
+                          ))
+                        )
+                      ) : null}
                     </View>
                   ) : (
                     <Text style={[styles.article, copy, { color: colors.text }]}>{paneBody}</Text>
@@ -842,6 +901,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: 'Cairo_400Regular',
   },
+  reportRow: {
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    gap: 4,
+  },
+  reportHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  reportKind: { flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'Cairo_800ExtraBold' },
+  reportStatus: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', flexShrink: 0 },
   growth: { justifyContent: 'center', alignItems: 'center', gap: 8, paddingTop: 4 },
   growthText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   growthDot: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },

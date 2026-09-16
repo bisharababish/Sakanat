@@ -273,10 +273,9 @@ export default function StudentProfileScreen() {
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
-  const { resumeBook, tab: tabParam, reportId } = useLocalSearchParams<{
+  const { resumeBook, tab: tabParam } = useLocalSearchParams<{
     resumeBook?: string;
     tab?: string;
-    reportId?: string;
   }>();
   const resumeId = typeof resumeBook === 'string' ? resumeBook : undefined;
   const { cities, universities } = useCatalog();
@@ -1024,17 +1023,6 @@ export default function StudentProfileScreen() {
               ],
               [
                 {
-                  key: 'saved',
-                  icon: 'heart-outline',
-                  label: t('profile.tabSaved'),
-                  hint: shouldShowSavedCount(profile)
-                    ? t('profile.itemCount', { count: savedListings.length })
-                    : undefined,
-                  onPress: () => setTab('saved'),
-                },
-              ],
-              [
-                {
                   key: 'settings',
                   icon: 'options-outline',
                   label: t('profile.tabSettings'),
@@ -1046,6 +1034,29 @@ export default function StudentProfileScreen() {
                   label: t('profile.tabSecurity'),
                   hint: mfaOn ? undefined : t('profile.mfaOptionalHint'),
                   onPress: () => setTab('security'),
+                },
+              ],
+              [
+                {
+                  key: 'saved',
+                  icon: 'heart-outline',
+                  label: t('profile.tabSaved'),
+                  hint: shouldShowSavedCount(profile)
+                    ? t('profile.itemCount', { count: savedListings.length })
+                    : undefined,
+                  onPress: () => setTab('saved'),
+                },
+                {
+                  key: 'bookings',
+                  icon: 'calendar-outline',
+                  label: t('tabs.bookings'),
+                  hint: needsReview
+                    ? t('review.neededTitle')
+                    : resumeId
+                      ? t('profile.continueBooking')
+                      : undefined,
+                  dot: needsReview || Boolean(resumeId),
+                  onPress: () => router.push('/(student)/(tabs)/bookings'),
                 },
               ],
             ]}
@@ -1263,7 +1274,6 @@ export default function StudentProfileScreen() {
       {tab === 'settings' && profile ? (
         <ProfileSettingsFields
           profile={profile}
-          highlightReportId={reportId ? String(reportId) : null}
           onSaved={async () => {
             await refreshProfile();
           }}

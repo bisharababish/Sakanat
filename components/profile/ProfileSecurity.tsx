@@ -30,7 +30,7 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { profile, refreshProfile, signOut } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -188,21 +188,6 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
           />
         </Card>
       ) : null}
-      <Card compact>
-        <SectionHead compact icon="log-out-outline" title={t('common.logout')} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.logoutHint')}</Text>
-        <Button
-          title={t('common.logout')}
-          variant="ghost"
-          onPress={() =>
-            alert(t('common.logout'), t('common.confirmLogout'), [
-              { text: t('common.no'), style: 'cancel' },
-              { text: t('common.yes'), style: 'destructive', onPress: () => void signOut() },
-            ])
-          }
-          pill
-        />
-      </Card>
     </>
   );
 }

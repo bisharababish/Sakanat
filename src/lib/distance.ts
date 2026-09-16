@@ -33,19 +33,9 @@ export function haversineKm(
 export function listingDistanceKm(
   apartment: Apartment,
   university?: University | null,
-  city?: Pick<City, 'lat' | 'lng'> | null,
+  _city?: Pick<City, 'lat' | 'lng'> | null,
 ) {
-  if (university?.lat && university?.lng && apartment.lat && apartment.lng) {
-    const computed = haversineKm(apartment, university);
-    if (computed >= 0.15) return Number(computed.toFixed(1));
-  }
-  if (!university && city?.lat != null && city?.lng != null && apartment.lat && apartment.lng) {
-    return Number(haversineKm(apartment, city).toFixed(1));
-  }
-  if (!university) return apartment.campus_distance_km;
-  if (apartment.nearest_university_id === university.id && apartment.campus_distance_km != null) {
-    return apartment.campus_distance_km;
-  }
+  if (!university || apartment.nearest_university_id !== university.id) return null;
   return apartment.campus_distance_km;
 }
 

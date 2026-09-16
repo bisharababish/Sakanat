@@ -44,6 +44,7 @@ export function ConversationCard({
   unread,
   muted,
   archived,
+  hideListing,
   onPress,
   onLongPress,
   children,
@@ -54,6 +55,7 @@ export function ConversationCard({
   unread?: boolean;
   muted?: boolean;
   archived?: boolean;
+  hideListing?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
   children?: ReactNode;
@@ -61,11 +63,12 @@ export function ConversationCard({
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
-  const listing = conversation.apartments
-    ? [localizedTitle(conversation.apartments, i18n.language), listingPlaceLine(conversation.apartments, t)]
-        .filter(Boolean)
-        .join(' · ')
-    : '';
+  const listing =
+    hideListing || !conversation.apartments
+      ? ''
+      : [localizedTitle(conversation.apartments, i18n.language), listingPlaceLine(conversation.apartments, t)]
+          .filter(Boolean)
+          .join(' · ');
 
   return (
     <View>

@@ -9,6 +9,7 @@ alwaysApply: false
 Keep quiet unless the user asks. Do not pitch these in normal work:
 
 - Owner map pin + real campus distance
+- Real apartment / university map locations (search must work from city + nearest campus tag until then)
 - EAS production builds
 - Real card payments (or removing simulated Visa)
 

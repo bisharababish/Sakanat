@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import type { Apartment, Booking } from '@/src/types/database';
 
 import { extendedStayPatch } from '@/src/lib/booking';
+import { hideListingConversation } from '@/src/lib/chat';
 import { formatIls, formatStayRange, localizedTitle } from '@/src/lib/format';
 import { supabase } from '@/src/lib/supabase';
 
@@ -33,6 +34,11 @@ export async function postBookingChat(booking: Booking, senderId: string, body: 
   const conversationId = await openConversation(booking.apartments as Apartment, booking.student_id);
   await sendMessage(conversationId, senderId, body);
   return conversationId;
+}
+
+export async function detachCancelledStayChat(booking: Pick<Booking, 'apartment_id' | 'student_id'>) {
+  if (!booking.apartment_id || !booking.student_id) return;
+  await hideListingConversation(booking.apartment_id, booking.student_id);
 }
 
 export async function applyStayExtension(booking: Booking, extraMonths: number) {

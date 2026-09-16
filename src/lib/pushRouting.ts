@@ -97,10 +97,11 @@ export function routeFromPushData(data: PushRouteData | null | undefined, role?:
   }
 
   if (kind === 'report') {
-    router.push({
-      pathname: '/(student)/(tabs)/profile',
-      params: { tab: 'settings', reportId: data.reportId || '' },
-    });
+    if (role === 'owner') {
+      router.push('/(owner)/(tabs)/profile');
+      return;
+    }
+    router.push('/(student)/(tabs)/profile');
   }
 }
 

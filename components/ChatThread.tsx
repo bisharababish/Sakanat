@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
+import { ChatContextCard } from '@/components/chat/ChatContextCard';
 import { ChatVoiceBubble } from '@/components/chat/ChatVoiceBubble';
 import { Button } from '@/components/ui/Button';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
@@ -46,8 +47,10 @@ import {
   sendMessage,
   isPhotoPlaceholder,
   isVoicePlaceholder,
+  listingContextHidden,
   type MessageReceipt,
 } from '@/src/lib/chat';
+import { deletedMessageIds } from '@/src/lib/chatDeleted';
 import { enqueueChatOutbox, flushChatOutbox, subscribeOutboxCount } from '@/src/lib/chatOutbox';
 import { pickChatPhoto, takeChatPhoto } from '@/src/lib/pickImage';
 import { chatPhotoUrl, uploadChatAudio, uploadChatPhoto } from '@/src/lib/upload';
@@ -161,6 +164,7 @@ export function ChatThread({
   const safe = useModalSafeArea();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [showListing, setShowListing] = useState(true);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [outboxLeft, setOutboxLeft] = useState(0);
@@ -171,6 +175,19 @@ export function ChatThread({
   const [recording, setRecording] = useState(false);
   const listRef = useRef<FlatList<ThreadItem>>(null);
   const asOwner = profile?.role === 'owner';
+  const openListing = () => {
+    const listingId = conversation?.apartment_id;
+    if (!listingId) return;
+    if (readOnly) {
+      router.push({ pathname: '/(admin)/apartment/[id]', params: { id: listingId } });
+      return;
+    }
+    if (asOwner) {
+      router.push({ pathname: '/(owner)/apartment/[id]', params: { id: listingId } });
+      return;
+    }
+    router.push({ pathname: '/(student)/apartment/[id]', params: { id: listingId } });
+  };
   const profileBlocked = Boolean(!readOnly && profile && isSeeker(profile) && !isStudentReady(profile));
   const goCompleteProfile = () => {
     if (!profile) return;
@@ -189,12 +206,11 @@ export function ChatThread({
   }, []);
 
   const loadMessages = useCallback(async () => {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-    setMessages((data as Message[]) ?? []);
+    const [{ data }, gone] = await Promise.all([
+      supabase.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true }),
+      deletedMessageIds(conversationId),
+    ]);
+    setMessages(((data as Message[]) ?? []).filter((row) => !gone.has(row.id)));
   }, [conversationId]);
 
   const { refreshing, refresh } = usePullRefresh(loadMessages);
@@ -211,6 +227,9 @@ export function ChatThread({
     void loadConversation(conversationId)
       .then((row) => {
         if (mounted) setConversation(row);
+        void listingContextHidden(row.apartment_id, row.student_id, row.id).then((hidden) => {
+          if (mounted) setShowListing(!hidden);
+        });
       })
       .catch(() => {
         if (mounted) setConversation(null);
@@ -223,20 +242,32 @@ export function ChatThread({
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const next = payload.new as Message;
-          setMessages((current) => {
-            if (current.some((item) => item.id === next.id)) return current;
-            const withoutTemp = current.filter(
-              (item) =>
-                !(
-                  item.id.startsWith('temp-') &&
-                  item.sender_id === next.sender_id &&
-                  (item.body === next.body ||
-                    (item.image_url && next.image_url && item.image_url === next.image_url) ||
-                    (item.audio_url && next.audio_url && item.audio_url === next.audio_url))
-                ),
-            );
-            return [...withoutTemp, next];
+          void deletedMessageIds(conversationId).then((gone) => {
+            if (gone.has(next.id)) return;
+            setMessages((current) => {
+              if (current.some((item) => item.id === next.id)) return current;
+              const withoutTemp = current.filter(
+                (item) =>
+                  !(
+                    item.id.startsWith('temp-') &&
+                    item.sender_id === next.sender_id &&
+                    (item.body === next.body ||
+                      (item.image_url && next.image_url && item.image_url === next.image_url) ||
+                      (item.audio_url && next.audio_url && item.audio_url === next.audio_url))
+                  ),
+              );
+              return [...withoutTemp, next];
+            });
           });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const gone = (payload.old as { id?: string } | null)?.id;
+          if (gone) setMessages((current) => current.filter((item) => item.id !== gone));
+          else void loadMessages();
         },
       )
       .on(
@@ -425,8 +456,10 @@ export function ChatThread({
   }, [recording, recState.durationMillis, recState.isRecording]);
 
   const removeMessage = (item: Message) => {
-    if (!readOnly || item.id.startsWith('temp-')) return;
-    alert(t('admin.deleteMessage'), t('admin.confirmDeleteMessage'), [
+    if (item.id.startsWith('temp-')) return;
+    const mine = item.sender_id === profile?.id;
+    if (!readOnly && !mine) return;
+    alert(t(readOnly ? 'admin.deleteMessage' : 'chat.deleteMessage'), t(readOnly ? 'admin.confirmDeleteMessage' : 'chat.confirmDeleteMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -435,7 +468,7 @@ export function ChatThread({
           try {
             await deleteMessage(item.id);
             setMessages((current) => current.filter((row) => row.id !== item.id));
-            void logAdminAction('message.delete', { targetId: item.id });
+            if (readOnly) void logAdminAction('message.delete', { targetId: item.id });
           } catch (err) {
             alert(t('common.error'), err instanceof Error ? err.message : '');
           }
@@ -462,6 +495,12 @@ export function ChatThread({
           }
         />
       ) : null}
+      <ChatContextCard
+        conversation={conversation}
+        asOwner={asOwner || readOnly}
+        showListing={showListing}
+        onOpenListing={openListing}
+      />
       {!readOnly && outboxLeft > 0 ? (
         <Pressable
           onPress={() => {
@@ -518,6 +557,8 @@ export function ChatThread({
           const pending = item.id.startsWith('temp-');
           const receipt = messageReceipt(item, conversation);
           const showTicks = item.lastInGroup && (readOnly || mine);
+          const canRemove = !pending && (readOnly || mine);
+          const onRemove = canRemove ? () => removeMessage(item) : undefined;
           return (
             <View style={{ marginTop: item.showDay ? 4 : item.grouped ? 3 : 10 }}>
               {item.showDay ? (
@@ -561,14 +602,14 @@ export function ChatThread({
                   <ChatBubbleImage
                     pathOrUrl={item.image_url}
                     onOpen={(uri) => setViewer({ photos: [uri], index: 0 })}
-                    onLongPress={readOnly ? () => removeMessage(item) : undefined}
+                    onLongPress={onRemove}
                   />
                 ) : null}
-                {item.audio_url ? <ChatVoiceBubble pathOrUrl={item.audio_url} mine={mine} /> : null}
+                {item.audio_url ? <ChatVoiceBubble pathOrUrl={item.audio_url} mine={mine} onLongPress={onRemove} /> : null}
                 {item.body &&
                 !(item.image_url && isPhotoPlaceholder(item.body)) &&
                 !(item.audio_url && isVoicePlaceholder(item.body)) ? (
-                  <Pressable onLongPress={readOnly ? () => removeMessage(item) : undefined} delayLongPress={350}>
+                  <Pressable onLongPress={onRemove} delayLongPress={350}>
                     <Text
                       style={[
                         styles.body,
@@ -581,7 +622,7 @@ export function ChatThread({
                 ) : null}
                 {item.lastInGroup ? (
                   <Pressable
-                    onLongPress={readOnly ? () => removeMessage(item) : undefined}
+                    onLongPress={onRemove}
                     delayLongPress={350}
                     style={[styles.meta, row]}
                   >

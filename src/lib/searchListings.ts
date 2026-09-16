@@ -13,6 +13,7 @@ export type SearchFilters = {
   gender?: 'suitable' | 'all' | GenderPolicy;
   profileGender?: 'male' | 'female' | null;
   rooms?: string;
+  bathrooms?: string;
   amenities?: Amenity[];
   query?: string;
   maxKm?: number | null;
@@ -37,6 +38,8 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
   }
   if (filters.rooms === '4') query = query.gte('rooms', 4);
   else if (filters.rooms) query = query.eq('rooms', Number(filters.rooms));
+  if (filters.bathrooms === '3') query = query.gte('bathrooms', 3);
+  else if (filters.bathrooms) query = query.eq('bathrooms', Number(filters.bathrooms));
 
   if (filters.gender && filters.gender !== 'all') {
     if (filters.gender === 'suitable' && filters.profileGender) {
@@ -52,13 +55,11 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
 
   if (filters.sort === 'rating') {
     query = query.order('review_avg', { ascending: false, nullsFirst: false }).order('price_month');
-  } else if (filters.sort !== 'distance') {
-    query = query.order('price_month');
   } else {
     query = query.order('price_month');
   }
 
-  const { data, error } = await query.limit(250);
+  const { data, error } = await query.limit(400);
   if (error) throw error;
   let rows = (data as Apartment[]) ?? [];
   try {
@@ -83,6 +84,10 @@ export function refineListings(apartments: Apartment[], filters: SearchFilters) 
     distance: listingDistanceKm(item, uni, uni ? null : item.cities),
   }));
 
+  if (filters.maxKm != null && Number.isFinite(filters.maxKm)) {
+    rows = rows.filter((entry) => entry.distance == null || entry.distance <= Number(filters.maxKm));
+  }
+
   if (filters.verifiedOnly) {
     rows = rows.filter((entry) => entry.item.profiles?.id_verify_status === 'approved');
   }
@@ -101,10 +106,6 @@ export function refineListings(apartments: Apartment[], filters: SearchFilters) 
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }
-
-  if (filters.maxKm != null && Number.isFinite(filters.maxKm)) {
-    rows = rows.filter((entry) => entry.distance != null && entry.distance <= Number(filters.maxKm));
   }
 
   const sort = filters.sort ?? 'price';

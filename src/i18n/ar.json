@@ -198,6 +198,9 @@
     "heating": "تدفئة",
     "ac": "تكييف",
     "washing_machine": "غسالة",
+    "solar_heater": "سخان شمسي",
+    "elevator": "مصعد",
+    "study_desk": "مكتب دراسة",
     "near_transport": "قرب المواصلات",
     "balcony": "شرفة",
     "parking": "موقف سيارات"
@@ -366,6 +369,8 @@
     "whoFor": "لمن السكن",
     "rooms": "الغرف",
     "roomsPlus": "+٤",
+    "baths": "الحمامات",
+    "bathsPlus": "+٣",
     "suitable": "مناسب لي",
     "placeholder": "اسم الشقة أو المدينة أو الجامعة",
     "placeholderRenter": "اسم الشقة أو المدينة",
@@ -756,7 +761,12 @@
     "reportUser": "الإبلاغ عن هذه المحادثة",
     "reportHint": "صف ما فعله {{name}}. يُرسل لفريق الأمان مع ربط هذه المحادثة.",
     "reportPrefill": "المُبلَغ عنه: {{name}}\nالشقة: {{listing}}",
-    "blockLeft": "تم الحظر. ستغادر هذه المحادثة."
+    "blockLeft": "تم الحظر. ستغادر هذه المحادثة.",
+    "deleteMessage": "حذف الرسالة",
+    "confirmDeleteMessage": "حذف هذه الرسالة من المحادثة؟",
+    "introHello": "مرحبا، أسأل عن هذا السكن.",
+    "introListing": "السكن",
+    "introAbout": "عني"
   },
   "admin": {
     "overview": "لوحة المدير",

@@ -1,4 +1,5 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
@@ -38,23 +39,50 @@ export function NoteModal({
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const safe = useModalSafeArea();
-  const edgeBack = useEdgeBack(visible, onClose);
+  const [kb, setKb] = useState(0);
+
+  const close = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
+  const submit = () => {
+    Keyboard.dismiss();
+    onConfirm();
+  };
+
+  const edgeBack = useEdgeBack(visible, close);
+
+  useEffect(() => {
+    if (!visible) {
+      setKb(0);
+      return;
+    }
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (event) => {
+      setKb(event.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKb(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [visible]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
       <View
+        {...edgeBack}
         style={[
           styles.overlay,
           {
             backgroundColor: colors.overlay,
-            paddingTop: Math.max(safe.top, spacing.lg),
-            paddingBottom: Math.max(safe.bottom, spacing.lg),
+            paddingTop: Math.max(safe.top, spacing.md),
+            paddingBottom: kb > 0 ? Math.max(kb, spacing.sm) : Math.max(safe.bottom, spacing.md),
           },
         ]}
-        {...edgeBack}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Pressable style={styles.dismiss} onPress={Keyboard.dismiss} accessibilityRole="button" />
+        <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.title, rtlText, { color: colors.primaryDark }]}>{title}</Text>
           {presets && presets.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.presets, row]}>
@@ -80,9 +108,17 @@ export function NoteModal({
               })}
             </ScrollView>
           ) : null}
-          <Input label={label} value={value} onChangeText={onChange} hint={hint} multiline />
-          <Button title={confirmTitle} variant="danger" pill loading={loading} onPress={onConfirm} />
-          <Button title={t('common.cancel')} variant="ghost" pill onPress={onClose} />
+          <ScrollView
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            style={styles.noteScroll}
+          >
+            <Input label={label} value={value} onChangeText={onChange} hint={hint} multiline />
+          </ScrollView>
+          <Button title={confirmTitle} variant="danger" pill loading={loading} onPress={submit} />
+          <Button title={t('common.cancel')} variant="ghost" pill onPress={close} />
         </View>
       </View>
     </Modal>
@@ -92,19 +128,21 @@ export function NoteModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'center',
-    padding: spacing.lg,
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
   },
-  card: {
+  dismiss: { flex: 1 },
+  sheet: {
     borderRadius: radius.xl,
     padding: spacing.lg,
     gap: spacing.sm,
     borderWidth: 1,
     zIndex: 1,
-    maxHeight: '90%',
+    maxHeight: '86%',
   },
   title: { fontSize: 20, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   presets: { gap: 8, paddingVertical: 2 },
+  noteScroll: { flexGrow: 0, maxHeight: 180 },
   chip: {
     borderWidth: 1,
     borderRadius: radius.full,

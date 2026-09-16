@@ -17,6 +17,7 @@ import {
   isConversationMuted,
   loadConversation,
   loadSharedBooking,
+  listingContextHidden,
   otherPerson,
   personName,
   setConversationMuted,
@@ -69,6 +70,7 @@ export function ChatHeader({
   const [peerOpen, setPeerOpen] = useState(false);
   const [peerPick, setPeerPick] = useState<PeerPick | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [showListing, setShowListing] = useState(true);
   const [adminPickOpen, setAdminPickOpen] = useState(false);
   const closeAdminPick = () => setAdminPickOpen(false);
   const adminPickBack = useEdgeBack(adminPickOpen, closeAdminPick);
@@ -86,6 +88,7 @@ export function ChatHeader({
   useEffect(() => {
     if (!conversation?.apartment_id || !conversation.student_id) {
       setBookingId(null);
+      setShowListing(true);
       return;
     }
     let alive = true;
@@ -96,23 +99,27 @@ export function ChatHeader({
     }).then((row) => {
       if (alive) setBookingId(row?.id ?? null);
     });
+    void listingContextHidden(conversation.apartment_id, conversation.student_id, conversation.id).then((hidden) => {
+      if (alive) setShowListing(!hidden);
+    });
     return () => {
       alive = false;
     };
-  }, [conversation?.apartment_id, conversation?.student_id, conversation?.owner_id]);
+  }, [conversation?.id, conversation?.apartment_id, conversation?.student_id, conversation?.owner_id]);
 
   const { student, owner } = conversationParties(conversation);
   const person = admin ? student : otherPerson(conversation, profile?.id);
   const name = admin
     ? [personName(student) || seekerRoleLabel(student?.role, t), personName(owner) || t('roles.owner')].join(' · ')
     : personName(person) || t('chat.unknownPerson');
-  const listing = conversation?.apartments
-    ? [localizedTitle(conversation.apartments, i18n.language), listingPlaceLine(conversation.apartments, t)]
-        .filter(Boolean)
-        .join(' · ')
-    : '';
+  const listing =
+    showListing && conversation?.apartments
+      ? [localizedTitle(conversation.apartments, i18n.language), listingPlaceLine(conversation.apartments, t)]
+          .filter(Boolean)
+          .join(' · ')
+      : '';
   const photo = admin ? student?.avatar_url || owner?.avatar_url : person?.avatar_url;
-  const listingPhoto = conversation?.apartments?.photos?.[0];
+  const listingPhoto = showListing ? conversation?.apartments?.photos?.[0] : undefined;
   const asOwner = profile?.role === 'owner';
   const muted = conversation && profile ? isConversationMuted(conversation, profile.id) : false;
 
