@@ -10,7 +10,8 @@ export type BookingGateCode =
   | 'BOOKING_NEED_REVIEW'
   | 'BOOKING_GENDER_MISMATCH'
   | 'BOOKING_ACCOUNT_SUSPENDED'
-  | 'BOOKING_ACTIVE_STAY';
+  | 'BOOKING_ACTIVE_STAY'
+  | 'BOOKING_LISTING_OCCUPIED';
 
 export function bookingGateCode(error: unknown): BookingGateCode | null {
   const message =
@@ -24,6 +25,7 @@ export function bookingGateCode(error: unknown): BookingGateCode | null {
   if (message.includes('BOOKING_GENDER_MISMATCH')) return 'BOOKING_GENDER_MISMATCH';
   if (message.includes('BOOKING_ACCOUNT_SUSPENDED')) return 'BOOKING_ACCOUNT_SUSPENDED';
   if (message.includes('BOOKING_ACTIVE_STAY')) return 'BOOKING_ACTIVE_STAY';
+  if (message.includes('BOOKING_LISTING_OCCUPIED')) return 'BOOKING_LISTING_OCCUPIED';
   return null;
 }
 
@@ -122,4 +124,60 @@ export function overlappingBookings(
 
 export function hasConfirmedOverlap(booking: Booking, all: Booking[]) {
   return overlappingBookings(booking, all, ['confirmed']).length > 0;
+}
+
+export type OccupiedStay = {
+  apartment_id: string;
+  start_date: string;
+  months: number;
+};
+
+export async function loadOccupiedStays(): Promise<OccupiedStay[]> {
+  try {
+    const { data, error } = await supabase.rpc('occupied_listing_ids');
+    if (error || !Array.isArray(data)) return [];
+    return (data as OccupiedStay[]).filter((row) => row.apartment_id);
+  } catch {
+    return [];
+  }
+}
+
+export function occupiedUntil(stay: Pick<OccupiedStay, 'start_date' | 'months'>) {
+  return stayEndDate(stay);
+}
+
+export function listingOccupiedStay(apartmentId: string, stays: OccupiedStay[]) {
+  const mine = stays.filter((item) => item.apartment_id === apartmentId);
+  if (!mine.length) return null;
+  const today = new Date();
+  const covering = mine.find((item) => {
+    const start = bookingStart(item.start_date);
+    const end = bookingEnd(item.start_date, item.months);
+    return start <= today && today < end;
+  });
+  if (covering) return covering;
+  return [...mine].sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+}
+
+export function occupiedOverlap(
+  booking: Pick<OccupiedStay, 'start_date' | 'months'>,
+  stays: OccupiedStay[],
+) {
+  return stays.find((item) => bookingsOverlap(booking, item)) ?? null;
+}
+
+export function monthlyRent(booking: Pick<Booking, 'rent_amount' | 'months' | 'apartments'>) {
+  const listed = Number(booking.apartments?.price_month);
+  if (Number.isFinite(listed) && listed > 0) return listed;
+  if (booking.months > 0) return Number(booking.rent_amount) / booking.months;
+  return Number(booking.rent_amount) || 0;
+}
+
+export function extendedStayPatch(booking: Booking, extraMonths: number) {
+  const extra = Math.max(1, Math.round(extraMonths));
+  const months = booking.months + extra;
+  return {
+    months,
+    rent_amount: Math.round(monthlyRent(booking) * months),
+  };
 }

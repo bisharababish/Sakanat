@@ -21,7 +21,7 @@ import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
 import { submitAppReport } from '@/src/lib/reports';
-import { profileHref } from '@/src/lib/routes';
+import { profileHref, type ProfileTab } from '@/src/lib/routes';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { appVersion, COPYRIGHT_YEAR, INSTAGRAM_HANDLE, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
 import { accountVerification } from '@/src/lib/trust';
@@ -132,7 +132,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     await setPushEnabled(next, profile?.id);
   };
 
-  const goProfile = (tab?: 'account' | 'trust' | 'settings' | 'saved' | 'security') => {
+  const goProfile = (tab?: ProfileTab) => {
     if (!signedIn || !profile) return;
     onClose();
     router.push(profileHref(profile.role, tab) as never);
@@ -141,6 +141,10 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const goBookings = () => {
     if (!signedIn || !profile) return;
     onClose();
+    if (profile.role === 'owner') {
+      router.push('/(owner)/(tabs)/bookings');
+      return;
+    }
     if (profile.role === 'student' || profile.role === 'renter') {
       router.push('/(student)/(tabs)/bookings');
     }
@@ -356,6 +360,42 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       </View>
                       <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
                     </Pressable>
+                    {isOwner ? (
+                      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <MenuLink
+                          icon="calendar-outline"
+                          label={t('tabs.bookings')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={goBookings}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                        <MenuLink
+                          icon="people-outline"
+                          label={t('owner.occupantsTitle')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={() => goProfile('occupants')}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                        <MenuLink
+                          icon="wallet-outline"
+                          label={t('tabs.earnings')}
+                          colors={colors}
+                          copy={copy}
+                          row={row}
+                          isRtl={isRtl}
+                          onPress={() => {
+                            onClose();
+                            router.push('/(owner)/(tabs)/earnings');
+                          }}
+                        />
+                      </View>
+                    ) : null}
                     {isOwner && profile.owner_status === 'pending' ? (
                       <View
                         style={[

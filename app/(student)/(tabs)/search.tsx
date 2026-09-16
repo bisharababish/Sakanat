@@ -33,6 +33,7 @@ import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings'
 import { isStudentReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
+import { supabase } from '@/src/lib/supabase';
 import { alert } from '@/src/lib/notice';
 import { trackEvent } from '@/src/lib/analytics';
 import { radius, spacing } from '@/src/theme/colors';
@@ -64,6 +65,7 @@ export default function SearchScreen() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [alertOn, setAlertOn] = useState(false);
+  const [pendingBooking, setPendingBooking] = useState(false);
   const [loadError, setLoadError] = useState('');
   const alertHydrated = useRef(false);
 
@@ -119,6 +121,27 @@ export default function SearchScreen() {
     profile?.pref_budget_max,
     profile?.pref_gender_policy,
   ]);
+
+  useEffect(() => {
+    if (!profile?.id) {
+      setPendingBooking(false);
+      return;
+    }
+    let alive = true;
+    void supabase
+      .from('bookings')
+      .select('id')
+      .eq('student_id', profile.id)
+      .eq('status', 'pending')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (alive) setPendingBooking(Boolean(data?.id));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profile?.id]);
 
   const selectedUniversity = useMemo(
     () => (isRenter ? null : universities.find((item) => item.id === universityId) ?? null),
@@ -230,7 +253,12 @@ export default function SearchScreen() {
     });
     if (next) {
       await saveSeenListingIds(apartments.map((item) => item.id));
+      if (profile.id) {
+        void supabase.from('profiles').update({ notify_listing: true }).eq('id', profile.id);
+      }
       alert(t('common.done'), t('search.alertEnabled'));
+    } else if (profile.id) {
+      void supabase.from('profiles').update({ notify_listing: false }).eq('id', profile.id);
     }
   };
 
@@ -434,6 +462,12 @@ export default function SearchScreen() {
               params: { tab: seekerProfileGapTab(profile) },
             })
           }
+        />
+      ) : pendingBooking ? (
+        <ProfileBanner
+          icon="calendar-outline"
+          text={t('search.pendingBanner')}
+          onPress={() => router.push('/(student)/(tabs)/bookings')}
         />
       ) : null}
 

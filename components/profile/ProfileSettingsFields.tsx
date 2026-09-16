@@ -13,6 +13,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { alert } from '@/src/lib/notice';
 import { contactVisibilityLabel } from '@/src/lib/privacy';
 import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
+import { loadSearchAlertPrefs, saveSearchAlertPrefs } from '@/src/lib/searchAlerts';
 import { loadMyReports, reportStatusLabel, submitAppReport } from '@/src/lib/reports';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -78,9 +79,6 @@ export function ProfileSettingsFields({
   const [phoneVisibility, setPhoneVisibility] = useState<ContactVisibility>(
     profile.phone_visibility ?? 'booking',
   );
-  const [whatsappVisibility, setWhatsappVisibility] = useState<ContactVisibility>(
-    profile.whatsapp_visibility ?? 'booking',
-  );
   const [hideLastSeen, setHideLastSeen] = useState(Boolean(profile.hide_last_seen));
   const [hideSavedCount, setHideSavedCount] = useState(Boolean(profile.hide_saved_count));
   const [shareEmergency, setShareEmergency] = useState(profile.share_emergency !== false);
@@ -129,13 +127,11 @@ export function ProfileSettingsFields({
   // Privacy can auto-save and refresh `profile` — only sync those fields from the server.
   useEffect(() => {
     setPhoneVisibility(profile.phone_visibility ?? 'booking');
-    setWhatsappVisibility(profile.whatsapp_visibility ?? 'booking');
     setHideLastSeen(Boolean(profile.hide_last_seen));
     setHideSavedCount(Boolean(profile.hide_saved_count));
     setShareEmergency(profile.share_emergency !== false);
   }, [
     profile.phone_visibility,
-    profile.whatsapp_visibility,
     profile.hide_last_seen,
     profile.hide_saved_count,
     profile.share_emergency,
@@ -153,15 +149,21 @@ export function ProfileSettingsFields({
     setNotifyChat(profile.notify_chat !== false);
     setNotifyListing(profile.notify_listing !== false);
     setNotifyReview(profile.notify_review !== false);
+    if (profile.role !== 'owner') {
+      void loadSearchAlertPrefs().then((prefs) => setNotifyListing(Boolean(prefs.enabled)));
+    }
   }, [profile.id]);
 
   const persistPrivacy = async (
     patch: Partial<{
       phone_visibility: ContactVisibility;
-      whatsapp_visibility: ContactVisibility;
       hide_last_seen: boolean;
       hide_saved_count: boolean;
       share_emergency: boolean;
+      notify_booking: boolean;
+      notify_chat: boolean;
+      notify_listing: boolean;
+      notify_review: boolean;
     }>,
     revert: () => void,
   ) => {
@@ -181,10 +183,40 @@ export function ProfileSettingsFields({
     void persistPrivacy({ phone_visibility: next }, () => setPhoneVisibility(prev));
   };
 
-  const setWhatsappVisibilityLive = (next: ContactVisibility) => {
-    const prev = whatsappVisibility;
-    setWhatsappVisibility(next);
-    void persistPrivacy({ whatsapp_visibility: next }, () => setWhatsappVisibility(prev));
+  const setNotifyBookingLive = (next: boolean) => {
+    setNotifyBooking(next);
+    void persistPrivacy({ notify_booking: next }, () => setNotifyBooking(!next));
+  };
+
+  const setNotifyChatLive = (next: boolean) => {
+    setNotifyChat(next);
+    void persistPrivacy({ notify_chat: next }, () => setNotifyChat(!next));
+  };
+
+  const setNotifyReviewLive = (next: boolean) => {
+    setNotifyReview(next);
+    void persistPrivacy({ notify_review: next }, () => setNotifyReview(!next));
+  };
+
+  const setNotifyListingLive = (next: boolean) => {
+    setNotifyListing(next);
+    void persistPrivacy({ notify_listing: next }, () => setNotifyListing(!next));
+    if (!isOwner) {
+      void (async () => {
+        const prefs = await loadSearchAlertPrefs();
+        await saveSearchAlertPrefs({
+          ...prefs,
+          enabled: next,
+          universityId: prefs.universityId || profile.university_id || undefined,
+          cityId: prefs.cityId || profile.city_id || undefined,
+        });
+      })();
+    }
+  };
+
+  const setPushMasterLive = (next: boolean) => {
+    setPushMaster(next);
+    void setPushEnabled(next, profile.id);
   };
 
   const setShareEmergencyLive = (next: boolean) => {
@@ -224,14 +256,14 @@ export function ProfileSettingsFields({
         .from('profiles')
         .update({
           phone_visibility: phoneVisibility,
-          whatsapp_visibility: whatsappVisibility,
           hide_last_seen: hideLastSeen,
           share_emergency: shareEmergency,
           notify_booking: notifyBooking,
           notify_chat: notifyChat,
           notify_review: notifyReview,
+          notify_listing: notifyListing,
           ...(isOwner
-            ? { notify_listing: notifyListing }
+            ? {}
             : {
                 hide_saved_count: hideSavedCount,
                 pref_budget_max: budgetNum,
@@ -277,9 +309,9 @@ export function ProfileSettingsFields({
   };
 
   const privacyLevel =
-    phoneVisibility === 'none' && whatsappVisibility === 'none'
+    phoneVisibility === 'none'
       ? t('profile.privacyLevelStrict')
-      : phoneVisibility === 'confirmed' || whatsappVisibility === 'confirmed'
+      : phoneVisibility === 'confirmed'
         ? t('profile.privacyLevelCareful')
         : t('profile.privacyLevelOpen');
 
@@ -294,23 +326,15 @@ export function ProfileSettingsFields({
               {privacyLevel}
             </Text>
           </View>
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.privacyIntro')}</Text>
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+            {t(isOwner ? 'profile.privacyIntroOwner' : 'profile.privacyIntro')}
+          </Text>
+          <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>{t('profile.privacyChatHint')}</Text>
 
           <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('common.phone')}</Text>
           <FilterPills compact value={phoneVisibility} onChange={setPhoneVisibilityLive} items={visibilityItems} />
           <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>
             {contactVisibilityLabel(phoneVisibility, t)}
-          </Text>
-
-          <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.whatsapp')}</Text>
-          <FilterPills
-            compact
-            value={whatsappVisibility}
-            onChange={setWhatsappVisibilityLive}
-            items={visibilityItems}
-          />
-          <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>
-            {contactVisibilityLabel(whatsappVisibility, t)}
           </Text>
 
           <ToggleRow
@@ -399,33 +423,40 @@ export function ProfileSettingsFields({
             label={t('menu.notifications')}
             hint={t('profile.notifyMasterHint')}
             value={pushMaster}
-            onChange={setPushMaster}
+            onChange={setPushMasterLive}
           />
           <ToggleRow
             label={t('profile.notifyBooking')}
             hint={t('profile.notifyBookingHint')}
             value={notifyBooking}
-            onChange={setNotifyBooking}
+            onChange={setNotifyBookingLive}
           />
           <ToggleRow
             label={t('profile.notifyChat')}
             hint={t('profile.notifyChatHint')}
             value={notifyChat}
-            onChange={setNotifyChat}
+            onChange={setNotifyChatLive}
           />
           {isOwner ? (
             <ToggleRow
               label={t('profile.notifyListing')}
               hint={t('profile.notifyListingHint')}
               value={notifyListing}
-              onChange={setNotifyListing}
+              onChange={setNotifyListingLive}
             />
-          ) : null}
+          ) : (
+            <ToggleRow
+              label={t('profile.notifySearch')}
+              hint={t('profile.notifySearchHint')}
+              value={notifyListing}
+              onChange={setNotifyListingLive}
+            />
+          )}
           <ToggleRow
             label={t('profile.notifyReview')}
             hint={t('profile.notifyReviewHint')}
             value={notifyReview}
-            onChange={setNotifyReview}
+            onChange={setNotifyReviewLive}
           />
         </View>
       </Card>

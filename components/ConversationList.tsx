@@ -62,6 +62,7 @@ export function ConversationList({
   onReload,
   filter,
   onFilterChange,
+  apartmentId,
 }: {
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
   items: Conversation[] | null;
@@ -70,11 +71,13 @@ export function ConversationList({
   onReload?: () => void | Promise<void>;
   filter?: InboxFilter;
   onFilterChange?: (next: InboxFilter) => void;
+  apartmentId?: string;
 }) {
   if (!items) return null;
+  const scoped = apartmentId ? items.filter((item) => item.apartment_id === apartmentId) : items;
   return (
     <ConversationPages
-      items={items}
+      items={scoped}
       roleHref={roleHref}
       profileId={profileId}
       isOwner={isOwner}

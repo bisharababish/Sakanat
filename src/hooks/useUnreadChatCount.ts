@@ -14,7 +14,16 @@ export function useUnreadChatCount() {
       setCount(0);
       return;
     }
-    const column = profile.role === 'owner' ? 'owner_id' : 'student_id';
+    const column = profile.role === 'owner' ? 'owner_id' : profile.role === 'admin' ? null : 'student_id';
+    if (!column) {
+      const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .gte('last_message_at', since);
+      setCount(error ? 0 : data?.length ?? 0);
+      return;
+    }
     const { data, error } = await supabase
       .from('conversations')
       .select(

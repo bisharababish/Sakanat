@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -30,18 +31,29 @@ export function PushPrompt() {
       return;
     }
     let alive = true;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      void (async () => {
+      const check = async () => {
         const status = await getNotificationStatus();
         if (!alive) return;
         if (status !== 'undetermined') return;
         if (await wasPushPrompted()) return;
+        const role = profile.role;
+        if (role === 'student' || role === 'renter' || role === 'owner') {
+          const done = await AsyncStorage.getItem(`sakanat.onboarded.${profile.id}`);
+          if (done !== '1') {
+            retry = setTimeout(() => void check(), 1600);
+            return;
+          }
+        }
         setVisible(true);
-      })();
+      };
+      void check();
     }, 700);
     return () => {
       alive = false;
       clearTimeout(timer);
+      if (retry) clearTimeout(retry);
     };
   }, [profile?.id, inApp]);
 

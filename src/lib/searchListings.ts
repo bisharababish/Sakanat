@@ -1,5 +1,6 @@
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
+import { loadOccupiedStays } from '@/src/lib/booking';
 import { supabase } from '@/src/lib/supabase';
 import type { Amenity, Apartment, GenderPolicy, University } from '@/src/types/database';
 
@@ -59,7 +60,17 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
 
   const { data, error } = await query.limit(250);
   if (error) throw error;
-  return refineListings((data as Apartment[]) ?? [], filters);
+  let rows = (data as Apartment[]) ?? [];
+  try {
+    const occupied = await loadOccupiedStays();
+    if (occupied.length) {
+      const taken = new Set(occupied.map((item) => item.apartment_id));
+      rows = rows.filter((item) => !taken.has(item.id));
+    }
+  } catch {
+    // Occupancy RPC is optional; search still works.
+  }
+  return refineListings(rows, filters);
 }
 
 export function refineListings(apartments: Apartment[], filters: SearchFilters) {

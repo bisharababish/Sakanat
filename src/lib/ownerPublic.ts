@@ -49,7 +49,6 @@ export function ownerPublicLines(
     today?: Date;
     bookingStatus?: BookingStatus | null;
     phoneDisplay?: string;
-    whatsappDisplay?: string;
     showContact?: boolean;
     buildings?: string[];
   },
@@ -82,14 +81,6 @@ export function ownerPublicLines(
         text: canShowOwnerContact(vis, 'phone', { bookingStatus: status })
           ? opts.phoneDisplay
           : `${t('common.phone')} · ${contactVisibilityLabel(owner?.phone_visibility, t)}`,
-      });
-    }
-    if (opts.whatsappDisplay) {
-      lines.push({
-        icon: 'logo-whatsapp',
-        text: canShowOwnerContact(vis, 'whatsapp', { bookingStatus: status })
-          ? opts.whatsappDisplay
-          : `WhatsApp · ${contactVisibilityLabel(owner?.whatsapp_visibility, t)}`,
       });
     }
   }

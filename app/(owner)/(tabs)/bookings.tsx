@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Share, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusFilters } from '@/components/booking/StatusFilters';
@@ -23,16 +23,16 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
-import { hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
+import { bookingGateCode, hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation, sendMessage } from '@/src/lib/chat';
 import { majorLabel } from '@/src/data/majors';
 import { ageLabel, bookingStatusLabel, bookingTone, formatIls, formatStayRange, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
 import { buildingKey, listingPlaceLine, uniqueBuildings } from '@/src/lib/listingPlace';
 import { listingHasCheckIn, loadCheckInSentIds, markCheckInSent, stayCheckInChatBody } from '@/src/lib/listingStay';
 import { seekerExtraIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
+import { applyStayExtension, bookingCopyText, postBookingChat } from '@/src/lib/stayActions';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
-import { whatsappLink } from '@/src/lib/phone';
 import { canShowSeekerContact } from '@/src/lib/privacy';
 import { notifyUser } from '@/src/lib/push';
 import { pendingExpireHoursLeft } from '@/src/lib/searchAlerts';
@@ -52,7 +52,7 @@ export default function OwnerBookings() {
   const { profile } = useAuth();
   const { cities, universities } = useCatalog();
   const today = useToday();
-  const { focus } = useLocalSearchParams<{ focus?: string }>();
+  const { focus, listing } = useLocalSearchParams<{ focus?: string; listing?: string }>();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [buildingFilter, setBuildingFilter] = useState('all');
@@ -65,6 +65,7 @@ export default function OwnerBookings() {
   const [rejectingBusy, setRejectingBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [listingFilter, setListingFilter] = useState<string | null>(null);
   const closeReject = () => setRejecting(null);
   const rejectBack = useEdgeBack(Boolean(rejecting), closeReject);
   const scrollRef = useRef<ScrollView>(null);
@@ -80,7 +81,15 @@ export default function OwnerBookings() {
     setOpenId(id);
     setFilter('all');
     setBuildingFilter('all');
+    setListingFilter(null);
   }, [focus]);
+
+  useEffect(() => {
+    if (!listing) return;
+    setListingFilter(String(listing));
+    setFilter('all');
+    setBuildingFilter('all');
+  }, [listing]);
 
   useEffect(() => {
     if (!focus) return;
@@ -127,9 +136,10 @@ export default function OwnerBookings() {
 
   const filtered = useMemo(() => {
     const byStatus = filter === 'all' ? bookings : bookings.filter((item) => item.status === filter);
-    if (buildingFilter === 'all') return byStatus;
-    return byStatus.filter((item) => item.apartments && buildingKey(item.apartments) === buildingFilter);
-  }, [bookings, buildingFilter, filter]);
+    const byListing = listingFilter ? byStatus.filter((item) => item.apartment_id === listingFilter) : byStatus;
+    if (buildingFilter === 'all') return byListing;
+    return byListing.filter((item) => item.apartments && buildingKey(item.apartments) === buildingFilter);
+  }, [bookings, buildingFilter, filter, listingFilter]);
   const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
 
   useEffect(() => {
@@ -162,7 +172,11 @@ export default function OwnerBookings() {
     if (status === 'cancelled') patch.cancel_reason = cancelReason?.trim() || null;
     const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id);
     if (error) {
-      alert(t('common.error'), error.message);
+      if (bookingGateCode(error) === 'BOOKING_LISTING_OCCUPIED') {
+        alert(t('booking.occupiedTitle'), t('owner.overlapBody'));
+      } else {
+        alert(t('common.error'), error.message);
+      }
       return;
     }
     if (status === 'confirmed' && booking.student_id) {
@@ -178,10 +192,7 @@ export default function OwnerBookings() {
 
   const updateStatus = (booking: Booking, status: BookingStatus) => {
     if (status === 'confirmed' && hasConfirmedOverlap(booking, bookings)) {
-      alert(t('owner.overlapTitle'), t('owner.overlapBody'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('owner.approveAnyway'), onPress: () => void applyStatus(booking, 'confirmed') },
-      ]);
+      alert(t('booking.occupiedTitle'), t('owner.overlapBody'));
       return;
     }
     void applyStatus(booking, status);
@@ -196,6 +207,53 @@ export default function OwnerBookings() {
       setRejectNote('');
     } finally {
       setRejectingBusy(false);
+    }
+  };
+
+  const shareStay = async (booking: Booking) => {
+    try {
+      await Share.share({ message: bookingCopyText(booking, t, i18n.language) });
+    } catch {
+      // dismissed
+    }
+  };
+
+  const extendStay = (booking: Booking) => {
+    alert(t('booking.extendStay'), t('booking.extendStayAsk'), [
+      { text: t('booking.extendMonths', { count: 1 }), onPress: () => void applyExtend(booking, 1) },
+      { text: t('booking.extendMonths', { count: 2 }), onPress: () => void applyExtend(booking, 2) },
+      { text: t('booking.extendMonths', { count: 3 }), onPress: () => void applyExtend(booking, 3) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
+  const applyExtend = async (booking: Booking, extra: number) => {
+    if (!profile) return;
+    setBusyId(booking.id);
+    setBusyKind('message');
+    try {
+      const next = await applyStayExtension(booking, extra);
+      await postBookingChat(
+        { ...booking, ...next },
+        profile.id,
+        `${t('booking.extendStayDone')} · ${formatStayRange(next.start_date, next.months, i18n.language)}`,
+      );
+      if (booking.student_id) {
+        void notifyUser(booking.student_id, t('booking.extendStay'), t('booking.extendStayDone'), 'booking', {
+          bookingId: booking.id,
+        });
+      }
+      alert(t('common.done'), t('booking.extendStayDone'));
+      void load();
+    } catch (err) {
+      if (bookingGateCode(err) === 'BOOKING_LISTING_OCCUPIED') {
+        alert(t('booking.occupiedTitle'), t('owner.overlapBody'));
+      } else {
+        alert(t('common.error'), err instanceof Error ? err.message : '');
+      }
+    } finally {
+      setBusyId(null);
+      setBusyKind(null);
     }
   };
 
@@ -258,9 +316,19 @@ export default function OwnerBookings() {
       scrollRef={scrollRef}
       onRefresh={() => void refresh()}
       refreshing={refreshing}
-      back={filter !== 'pending' || buildingFilter !== 'all'}
+      back={filter !== 'pending' || buildingFilter !== 'all' || Boolean(focus) || Boolean(listingFilter)}
       onBack={() => {
+        if (focus) {
+          const row = bookings.find((item) => item.id === String(focus));
+          setOpenId(null);
+          setBuildingFilter('all');
+          setListingFilter(null);
+          pickFilter(row?.status ?? 'all');
+          router.setParams({ focus: undefined, listing: undefined });
+          return;
+        }
         setBuildingFilter('all');
+        setListingFilter(null);
         pickFilter('pending');
       }}
     >
@@ -270,6 +338,13 @@ export default function OwnerBookings() {
           <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
           <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.incoming')}</Text>
         </View>
+        <Button
+          title={t('owner.occupantsTitle')}
+          variant="ghost"
+          compact
+          pill
+          onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'occupants' } })}
+        />
         {counts.pending > 0 ? (
           <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
             <Text style={[styles.countText, { color: colors.warning }]}>{counts.pending}</Text>
@@ -299,13 +374,7 @@ export default function OwnerBookings() {
       {visible.map((booking) => {
         const open = openId === booking.id;
         const showPhone = canShowSeekerContact(booking.profiles, 'phone', { bookingStatus: booking.status });
-        const showWhatsapp = canShowSeekerContact(booking.profiles, 'whatsapp', {
-          bookingStatus: booking.status,
-        });
         const phone = showPhone ? booking.profiles?.phone : null;
-        const whatsapp = showWhatsapp
-          ? booking.profiles?.whatsapp || (showPhone ? booking.profiles?.phone : null)
-          : null;
         const gender = booking.profiles?.gender;
         const role = booking.profiles?.role;
         const university = universities.find((item) => item.id === booking.profiles?.university_id);
@@ -494,7 +563,10 @@ export default function OwnerBookings() {
                   </View>
                 ) : null}
                 {booking.status === 'confirmed' ? (
-                  <Button title={t('booking.complete')} compact pill onPress={() => updateStatus(booking, 'completed')} />
+                  <>
+                    <Button title={t('booking.complete')} compact pill onPress={() => updateStatus(booking, 'completed')} />
+                    <Button title={t('booking.extendStay')} variant="secondary" compact pill onPress={() => extendStay(booking)} />
+                  </>
                 ) : null}
                 <View style={[styles.contact, row]}>
                   {booking.status === 'pending' || booking.status === 'confirmed' ? (
@@ -515,17 +587,17 @@ export default function OwnerBookings() {
                     loading={busyId === booking.id && busyKind === 'message'}
                     onPress={() => void messageStudent(booking)}
                   />
-                  {phone ? (
-                    <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
-                  ) : null}
-                  {whatsapp ? (
+                  {booking.status === 'pending' || booking.status === 'confirmed' ? (
                     <Button
-                      title={t('profile.openWhatsapp')}
+                      title={t('booking.shareStay')}
                       variant="ghost"
                       compact
                       pill
-                      onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+                      onPress={() => void shareStay(booking)}
                     />
+                  ) : null}
+                  {phone ? (
+                    <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
                   ) : null}
                   {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
                     <Button title={t('profile.viewIdCards')} variant="ghost" compact pill onPress={() => setDocsFor(booking)} />

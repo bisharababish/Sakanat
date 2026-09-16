@@ -28,6 +28,21 @@ export function routeFromPushData(data: PushRouteData | null | undefined, role?:
       router.push('/(admin)/reports');
       return;
     }
+    if (data.kind === 'chat' && data.conversationId) {
+      router.push({ pathname: '/(admin)/conversation/[id]', params: { id: data.conversationId } });
+      return;
+    }
+    if (data.kind === 'booking') {
+      router.push('/(admin)/(tabs)/bookings');
+      return;
+    }
+    if ((data.kind === 'listing' || data.kind === 'review') && data.apartmentId) {
+      router.push({ pathname: '/(admin)/apartment/[id]', params: { id: data.apartmentId } });
+      return;
+    }
+    if (data.kind === 'chat') {
+      router.push('/(admin)/(tabs)/chat');
+    }
     return;
   }
 

@@ -818,7 +818,6 @@ export default function OwnerProfile() {
                 today,
                 bookingStatus: 'pending',
                 phoneDisplay: phoneLocal.trim() ? `${regionPrefix(phoneRegion)} ${phoneLocal}` : '',
-                whatsappDisplay: waLocal.trim() ? `${regionPrefix(waRegion)} ${waLocal}` : '',
                 showContact: true,
                 buildings: occupancy.map((item) => item.name),
               },

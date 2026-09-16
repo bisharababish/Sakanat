@@ -1,3 +1,4 @@
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -15,9 +16,16 @@ export default function OwnerChat() {
   const colors = useColors();
   const inbox = useInbox();
   const [filter, setFilter] = useState<InboxFilter>('inbox');
+  const { apartmentId } = useLocalSearchParams<{ apartmentId?: string }>();
+  const listingId = typeof apartmentId === 'string' ? apartmentId : undefined;
 
   return (
-    <Screen onRefresh={() => void inbox.refresh()} refreshing={inbox.refreshing}>
+    <Screen
+      onRefresh={() => void inbox.refresh()}
+      refreshing={inbox.refreshing}
+      back={Boolean(listingId)}
+      onBack={() => router.setParams({ apartmentId: undefined })}
+    >
       <ProfileEnter scene="chat" enterOnMount>
       <OfflineBanner />
       <View style={styles.top}>
@@ -31,6 +39,7 @@ export default function OwnerChat() {
         onReload={inbox.reload}
         filter={filter}
         onFilterChange={setFilter}
+        apartmentId={listingId}
       />
       </ProfileEnter>
     </Screen>

@@ -229,6 +229,13 @@ export default function OwnerListings() {
             pill
             compact
           />
+          <Button
+            title={t('owner.occupantsTitle')}
+            variant="ghost"
+            onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'occupants' } })}
+            pill
+            compact
+          />
         </View>
       </View>
 
@@ -342,11 +349,43 @@ export default function OwnerListings() {
             {open ? (
               <View style={styles.rowActions}>
                 {stats[item.id] ? (
-                  <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]}>
-                    {t('owner.insightsSaves', { count: stats[item.id].saves })} ·{' '}
-                    {t('owner.insightsChats', { count: stats[item.id].chats })} ·{' '}
-                    {item.photos?.length ?? 0} {t('owner.photosShort')}
-                  </Text>
+                  <View style={[styles.actions, row]}>
+                    <Pressable
+                      onPress={() =>
+                        router.push({ pathname: '/(owner)/(tabs)/chat', params: { apartmentId: item.id } })
+                      }
+                      style={[styles.action, { backgroundColor: colors.primarySoft }]}
+                    >
+                      <Text style={[styles.actionText, { color: colors.primary }]}>
+                        {t('owner.insightsChats', { count: stats[item.id].chats })}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() =>
+                        router.push({ pathname: '/(owner)/(tabs)/bookings', params: { listing: item.id } })
+                      }
+                      style={[styles.action, { backgroundColor: colors.accentSoft }]}
+                    >
+                      <Text style={[styles.actionText, { color: colors.primaryDark }]}>
+                        {t('owner.insightsBookings', { count: stats[item.id].bookings })}
+                      </Text>
+                    </Pressable>
+                    {(item.review_count ?? 0) > 0 ? (
+                      <Pressable
+                        onPress={() =>
+                          router.push({
+                            pathname: '/(owner)/apartment/[id]',
+                            params: { id: item.id, focus: 'reviews' },
+                          })
+                        }
+                        style={[styles.action, { backgroundColor: colors.accentSoft }]}
+                      >
+                        <Text style={[styles.actionText, { color: colors.primaryDark }]}>
+                          {t('review.count', { count: item.review_count })}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 ) : null}
                 {listingNeedsStayNotes(item) ? (
                   <Text style={[styles.warn, rtlText, { color: colors.warning }]}>{t('owner.needsStayNotes')}</Text>

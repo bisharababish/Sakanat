@@ -17,11 +17,17 @@ import { useAuth } from '@/src/lib/auth';
 import {
   bookingGateCode,
   loadActiveStay,
+  loadOccupiedStays,
+  listingOccupiedStay,
   occupantChoices,
+  occupiedOverlap,
+  occupiedUntil,
   PAYMENT_CHOICES,
   paymentHintKey,
   paymentI18nKey,
+  type OccupiedStay,
 } from '@/src/lib/booking';
+import { openConversation } from '@/src/lib/chat';
 import { formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
@@ -87,6 +93,7 @@ export default function BookScreen() {
   const [loading, setLoading] = useState(false);
   const [pendingReview, setPendingReview] = useState<Pick<Booking, 'id'> | null>(null);
   const [activeStay, setActiveStay] = useState<Pick<Booking, 'id'> | null>(null);
+  const [occupiedStays, setOccupiedStays] = useState<OccupiedStay[]>([]);
   const prefsApplied = useRef(false);
 
   useEffect(() => {
@@ -99,10 +106,11 @@ export default function BookScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data }, review, stay] = await Promise.all([
+    const [{ data }, review, stay, occupied] = await Promise.all([
       supabase.from('apartments').select('*, cities(*)').eq('id', id).single(),
       profile?.id ? loadPendingReview(profile.id) : Promise.resolve(null),
       profile?.id ? loadActiveStay(profile.id) : Promise.resolve(null),
+      loadOccupiedStays(),
     ]);
     if (data) {
       const next = data as Apartment;
@@ -114,6 +122,7 @@ export default function BookScreen() {
     }
     setPendingReview(review ? { id: review.id } : null);
     setActiveStay(stay ? { id: stay.id } : null);
+    setOccupiedStays(occupied.filter((item) => item.apartment_id === id));
   }, [id, profile?.id]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'bookings', 'apartment_reviews'], `book:${id ?? ''}`);
@@ -130,10 +139,17 @@ export default function BookScreen() {
   );
   const needsReview = Boolean(pendingReview);
   const hasActiveStay = Boolean(activeStay);
+  const occupiedStay = listingOccupiedStay(id ?? '', occupiedStays);
+  const clash = occupiedOverlap({ start_date: startDate, months }, occupiedStays);
+  const datesTaken = Boolean(clash);
+  const occupiedMarker = clash ?? occupiedStay;
+  const occupiedUntilLabel = occupiedMarker
+    ? formatBookingDate(occupiedUntil(occupiedMarker), i18n.language)
+    : '';
   const canSubmit = ready && !mismatch && !needsReview && !hasActiveStay;
   const stepIndex = BOOK_STEPS.indexOf(step);
   const stayOk = startDate >= today;
-  const canNext = step === 'stay' ? stayOk : true;
+  const canNext = step === 'stay' ? stayOk && !datesTaken : true;
 
   const goProfile = () => {
     router.push({
@@ -186,6 +202,18 @@ export default function BookScreen() {
       alert(t('common.error'), t('booking.pastDate'));
       return;
     }
+    const latestOccupied = occupiedStays.length
+      ? occupiedStays
+      : (await loadOccupiedStays()).filter((item) => item.apartment_id === apartment.id);
+    const taken = occupiedOverlap({ start_date: startDate, months }, latestOccupied);
+    if (taken) {
+      setOccupiedStays(latestOccupied);
+      alert(t('booking.occupiedTitle'), t('booking.occupiedBody', { date: formatBookingDate(occupiedUntil(taken), i18n.language) }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('booking.findPlace'), onPress: () => router.replace('/(student)/(tabs)/search') },
+      ]);
+      return;
+    }
     const place = async () => {
       setLoading(true);
       try {
@@ -216,7 +244,20 @@ export default function BookScreen() {
 
         const visa = method === 'visa' || method === 'pay_now';
         alert(t('booking.success'), visa ? t('booking.successVisa') : t('booking.successBody'), [
-          { text: t('common.done'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
+          {
+            text: t('booking.messageOwner'),
+            onPress: () => {
+              void (async () => {
+                try {
+                  const conversationId = await openConversation(apartment, profile.id);
+                  router.replace({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
+                } catch {
+                  router.replace('/(student)/(tabs)/bookings');
+                }
+              })();
+            },
+          },
+          { text: t('booking.myBookings'), onPress: () => router.replace('/(student)/(tabs)/bookings') },
         ]);
       } catch (err) {
         const gate = bookingGateCode(err);
@@ -246,6 +287,11 @@ export default function BookScreen() {
               text: t('booking.myBookings'),
               onPress: () => router.replace('/(student)/(tabs)/bookings'),
             },
+          ]);
+        } else if (gate === 'BOOKING_LISTING_OCCUPIED') {
+          alert(t('booking.occupiedTitle'), t('booking.occupiedBody', { date: occupiedUntilLabel || t('booking.occupiedTitle') }), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('booking.findPlace'), onPress: () => router.replace('/(student)/(tabs)/search') },
           ]);
         } else {
           const message =
@@ -340,7 +386,7 @@ export default function BookScreen() {
               ) : null}
               <View style={styles.footBtn}>
                 {step === 'pay' ? (
-                  <Button title={t('booking.submit')} onPress={() => void submit()} loading={loading} pill />
+                  <Button title={t('booking.submit')} onPress={() => void submit()} loading={loading} disabled={datesTaken} pill />
                 ) : (
                   <Button
                     title={t('common.next')}
@@ -425,6 +471,13 @@ export default function BookScreen() {
               <DateField label={t('booking.startDate')} value={startDate} onChange={setStartDate} kind="booking" />
               {!stayOk ? (
                 <Text style={[styles.note, rtlText, { color: colors.danger }]}>{t('booking.pastDate')}</Text>
+              ) : null}
+              {occupiedStay ? (
+                <Text style={[styles.note, rtlText, { color: datesTaken ? colors.danger : colors.warning }]}>
+                  {datesTaken
+                    ? t('booking.occupiedBody', { date: occupiedUntilLabel })
+                    : t('booking.occupiedUntil', { date: occupiedUntilLabel })}
+                </Text>
               ) : null}
               <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('booking.duration')}</Text>
               <FilterPills

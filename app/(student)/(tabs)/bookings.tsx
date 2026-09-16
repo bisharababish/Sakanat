@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { BookingCard } from '@/components/booking/BookingCard';
@@ -13,6 +13,7 @@ import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { StarRow } from '@/components/reviews/StarRow';
 import { Button } from '@/components/ui/Button';
 import { HubRow } from '@/components/ui/HubRow';
+import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
@@ -21,13 +22,15 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
 import { openConversation } from '@/src/lib/chat';
-import { localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
+import { formatStayRange, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
+import { notifyUser } from '@/src/lib/push';
+import { submitAppReport } from '@/src/lib/reports';
+import { bookingCopyText, postBookingChat } from '@/src/lib/stayActions';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { displayName } from '@/src/lib/name';
 import { OWNER_PUBLIC_PROFILE, ownerPublicLines } from '@/src/lib/ownerPublic';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
-import { whatsappLink } from '@/src/lib/phone';
 import { canShowOwnerContact } from '@/src/lib/privacy';
 import { canReviewStay, isValidReview, loadMyReviews, submitApartmentReview } from '@/src/lib/reviews';
 import { pendingExpireHoursLeft } from '@/src/lib/searchAlerts';
@@ -57,6 +60,10 @@ export default function StudentBookings() {
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [noteKind, setNoteKind] = useState<'cancelStay' | 'issue' | null>(null);
+  const [noteBooking, setNoteBooking] = useState<Booking | null>(null);
+  const [note, setNote] = useState('');
+  const [noteBusy, setNoteBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -130,19 +137,126 @@ export default function StudentBookings() {
     setPage(0);
   };
 
-  const cancel = (id: string) => {
+  const cancel = (booking: Booking) => {
+    if (booking.status === 'confirmed') {
+      setNoteBooking(booking);
+      setNote('');
+      setNoteKind('cancelStay');
+      return;
+    }
     alert(t('booking.cancelRequest'), t('booking.confirmCancel'), [
       { text: t('common.no'), style: 'cancel' },
       {
         text: t('common.yes'),
         style: 'destructive',
         onPress: async () => {
-          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
+          const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id);
           if (error) alert(t('common.error'), error.message);
           else void load();
         },
       },
     ]);
+  };
+
+  const shareStay = async (booking: Booking) => {
+    try {
+      await Share.share({ message: bookingCopyText(booking, t, i18n.language) });
+    } catch {
+      // dismissed
+    }
+  };
+
+  const agreeStay = async (booking: Booking) => {
+    if (!profile) return;
+    setBusyId(booking.id);
+    try {
+      const body = `${t('booking.agreeStay')}\n\n${bookingCopyText(booking, t, i18n.language)}`;
+      await postBookingChat(booking, profile.id, body);
+      alert(t('common.done'), t('booking.agreeStaySent'));
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const requestExtend = (booking: Booking) => {
+    alert(t('booking.extendStay'), t('booking.extendStayAsk'), [
+      { text: t('booking.extendMonths', { count: 1 }), onPress: () => void sendExtendAsk(booking, 1) },
+      { text: t('booking.extendMonths', { count: 2 }), onPress: () => void sendExtendAsk(booking, 2) },
+      { text: t('booking.extendMonths', { count: 3 }), onPress: () => void sendExtendAsk(booking, 3) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
+  const sendExtendAsk = async (booking: Booking, extra: number) => {
+    if (!profile) return;
+    setBusyId(booking.id);
+    try {
+      await postBookingChat(
+        booking,
+        profile.id,
+        t('booking.extendStayAsk') +
+          ` ${t('booking.extendMonths', { count: extra })} · ${formatStayRange(booking.start_date, booking.months, i18n.language)}`,
+      );
+      if (booking.owner_id) {
+        void notifyUser(booking.owner_id, t('booking.extendStay'), t('booking.extendStaySent'), 'booking', {
+          bookingId: booking.id,
+        });
+      }
+      alert(t('common.done'), t('booking.extendStaySent'));
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const submitNote = async () => {
+    if (!profile || !noteBooking || !noteKind) return;
+    const body = note.trim();
+    if (noteKind === 'cancelStay' && body.length < 4) {
+      alert(t('common.error'), t('booking.cancelStayReason'));
+      return;
+    }
+    if (noteKind === 'issue' && body.length < 8) {
+      alert(t('common.error'), t('listing.reportShort'));
+      return;
+    }
+    setNoteBusy(true);
+    try {
+      if (noteKind === 'cancelStay') {
+        const { error } = await supabase
+          .from('bookings')
+          .update({ status: 'cancelled', cancel_reason: body })
+          .eq('id', noteBooking.id);
+        if (error) throw error;
+        await postBookingChat(noteBooking, profile.id, `${t('booking.cancelStay')}: ${body}`);
+        if (noteBooking.owner_id) {
+          void notifyUser(noteBooking.owner_id, t('booking.cancelStay'), body, 'booking', {
+            bookingId: noteBooking.id,
+          });
+        }
+        void load();
+      } else {
+        await submitAppReport(profile.id, {
+          kind: 'safety',
+          subject: t('booking.stayIssue'),
+          body,
+          targetApartmentId: noteBooking.apartment_id,
+          targetUserId: noteBooking.owner_id,
+        });
+        await postBookingChat(noteBooking, profile.id, `${t('booking.stayIssue')}: ${body}`);
+        alert(t('common.done'), t('booking.stayIssueSent'));
+      }
+      setNoteKind(null);
+      setNoteBooking(null);
+      setNote('');
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setNoteBusy(false);
+    }
   };
 
   const messageOwner = async (booking: Booking) => {
@@ -152,7 +266,18 @@ export default function StudentBookings() {
       const conversationId = await openConversation(booking.apartments as Apartment, profile.id);
       router.push({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
     } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
+      const message = err instanceof Error ? err.message : '';
+      if (message === t('chat.blockedOpen')) {
+        alert(t('common.error'), message, [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('chat.blockedManage'),
+            onPress: () => router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'security' } }),
+          },
+        ]);
+      } else {
+        alert(t('common.error'), message);
+      }
     } finally {
       setBusyId(null);
     }
@@ -276,13 +401,7 @@ export default function StudentBookings() {
 
       {visible.map((booking) => {
         const showPhone = canShowOwnerContact(booking.profiles, 'phone', { bookingStatus: booking.status });
-        const showWhatsapp = canShowOwnerContact(booking.profiles, 'whatsapp', {
-          bookingStatus: booking.status,
-        });
         const phone = showPhone ? booking.profiles?.phone : null;
-        const whatsapp = showWhatsapp
-          ? booking.profiles?.whatsapp || (showPhone ? booking.profiles?.phone : null)
-          : null;
         const myReview = reviewByBooking[booking.id];
         const checkIn = localizedPair(
           booking.apartments?.check_in_notes_ar,
@@ -374,7 +493,12 @@ export default function StudentBookings() {
               return (
                 <>
                   {unpaidVisa ? (
-                    <Button title={t('booking.payNow')} compact pill onPress={() => payVisa(booking.id)} />
+                    <>
+                      <Text style={[styles.myReviewNote, rtlText, { color: colors.textMuted }]}>
+                        {t('payment.simulated')}
+                      </Text>
+                      <Button title={t('booking.payNow')} compact pill onPress={() => payVisa(booking.id)} />
+                    </>
                   ) : null}
                   {reviewable ? (
                     <Button
@@ -406,14 +530,44 @@ export default function StudentBookings() {
                   {phone ? (
                     <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
                   ) : null}
-                  {whatsapp ? (
+                  {booking.status === 'pending' || booking.status === 'confirmed' ? (
                     <Button
-                      title={t('profile.openWhatsapp')}
+                      title={t('booking.shareStay')}
                       variant="ghost"
                       compact
                       pill
-                      onPress={() => Linking.openURL(whatsappLink(whatsapp))}
+                      onPress={() => void shareStay(booking)}
                     />
+                  ) : null}
+                  {booking.status === 'confirmed' ? (
+                    <>
+                      <Button
+                        title={t('booking.agreeStay')}
+                        variant="secondary"
+                        compact
+                        pill
+                        loading={busyId === booking.id}
+                        onPress={() => void agreeStay(booking)}
+                      />
+                      <Button
+                        title={t('booking.extendStay')}
+                        variant="ghost"
+                        compact
+                        pill
+                        onPress={() => requestExtend(booking)}
+                      />
+                      <Button
+                        title={t('booking.stayIssue')}
+                        variant="ghost"
+                        compact
+                        pill
+                        onPress={() => {
+                          setNoteBooking(booking);
+                          setNote('');
+                          setNoteKind('issue');
+                        }}
+                      />
+                    </>
                   ) : null}
                   {myReview ? (
                     <View style={[styles.myReview, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
@@ -439,7 +593,10 @@ export default function StudentBookings() {
                     </View>
                   ) : null}
                   {booking.status === 'pending' ? (
-                    <Button title={t('booking.cancelRequest')} variant="danger" compact pill onPress={() => cancel(booking.id)} />
+                    <Button title={t('booking.cancelRequest')} variant="danger" compact pill onPress={() => cancel(booking)} />
+                  ) : null}
+                  {booking.status === 'confirmed' ? (
+                    <Button title={t('booking.cancelStay')} variant="danger" compact pill onPress={() => cancel(booking)} />
                   ) : null}
                 </>
               );
@@ -477,6 +634,23 @@ export default function StudentBookings() {
         }}
         onConfirm={() => void saveReview()}
         onClose={closeReview}
+      />
+      <NoteModal
+        visible={Boolean(noteKind)}
+        title={noteKind === 'issue' ? t('booking.stayIssue') : t('booking.cancelStay')}
+        label={noteKind === 'issue' ? t('profile.reportDetails') : t('booking.cancelStayReason')}
+        hint={noteKind === 'issue' ? t('booking.stayIssueHint') : t('booking.confirmCancelStay')}
+        value={note}
+        confirmTitle={noteKind === 'issue' ? t('booking.stayIssue') : t('booking.cancelStay')}
+        loading={noteBusy}
+        onChange={setNote}
+        onConfirm={() => void submitNote()}
+        onClose={() => {
+          if (noteBusy) return;
+          setNoteKind(null);
+          setNoteBooking(null);
+          setNote('');
+        }}
       />
       </ProfileEnter>
     </Screen>

@@ -14,9 +14,9 @@ import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
 import { openConversation } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
-import { localizedTitle } from '@/src/lib/format';
 import { requireAccount } from '@/src/lib/guest';
-import { loadActiveStay } from '@/src/lib/booking';
+import { loadActiveStay, loadOccupiedStays, listingOccupiedStay, occupiedUntil, type OccupiedStay } from '@/src/lib/booking';
+import { formatBookingDate, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { submitAppReport } from '@/src/lib/reports';
 import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
@@ -52,10 +52,11 @@ export default function ApartmentDetails() {
   const [reportBusy, setReportBusy] = useState(false);
   const [pendingReview, setPendingReview] = useState(false);
   const [activeStay, setActiveStay] = useState(false);
+  const [occupiedStay, setOccupiedStay] = useState<OccupiedStay | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data }, { data: others }, review, stay] = await Promise.all([
+    const [{ data }, { data: others }, review, stay, occupied] = await Promise.all([
       supabase
         .from('apartments')
         .select(`*, cities(*), universities(*), profiles!owner_id(${OWNER_PUBLIC_PROFILE})`)
@@ -69,6 +70,7 @@ export default function ApartmentDetails() {
         .limit(40),
       profile?.id ? loadPendingReview(profile.id) : Promise.resolve(null),
       profile?.id ? loadActiveStay(profile.id) : Promise.resolve(null),
+      loadOccupiedStays(),
     ]);
     if (data) {
       setApartment(data as Apartment);
@@ -76,7 +78,9 @@ export default function ApartmentDetails() {
     } else {
       setMissing(true);
     }
-    setPool((others as Apartment[]) ?? []);
+    const taken = new Set(occupied.map((item) => item.apartment_id));
+    setOccupiedStay(listingOccupiedStay(id, occupied));
+    setPool(((others as Apartment[]) ?? []).filter((item) => !taken.has(item.id)));
     setPendingReview(Boolean(review));
     setActiveStay(Boolean(stay));
     if (profile?.id) {
@@ -126,21 +130,28 @@ export default function ApartmentDetails() {
     apartment && profile?.gender && !listingFitsStudent(apartment.gender_policy, profile.gender),
   );
   const bookGate = useMemo(() => {
-    if (!profile || !apartment) return null;
-    if (!isStudentReady(profile)) {
+    if (!apartment) return null;
+    if (profile && !isStudentReady(profile)) {
       return { kind: 'profile' as const, title: t('booking.needProfile'), body: t('profile.completeToBook') };
     }
-    if (pendingReview) {
+    if (profile && pendingReview) {
       return { kind: 'review' as const, title: t('review.neededTitle'), body: t('review.neededBody') };
     }
-    if (activeStay) {
+    if (profile && activeStay) {
       return { kind: 'stay' as const, title: t('booking.activeStayTitle'), body: t('booking.activeStayBody') };
+    }
+    if (occupiedStay) {
+      return {
+        kind: 'occupied' as const,
+        title: t('booking.occupiedTitle'),
+        body: t('booking.occupiedBody', { date: formatBookingDate(occupiedUntil(occupiedStay), i18n.language) }),
+      };
     }
     if (mismatch) {
       return { kind: 'gender' as const, title: t('listing.genderMismatch'), body: t('listing.genderMismatchHint') };
     }
     return null;
-  }, [activeStay, apartment, mismatch, pendingReview, profile, t]);
+  }, [activeStay, apartment, i18n.language, mismatch, occupiedStay, pendingReview, profile, t]);
   const similar = useMemo(
     () => (apartment ? similarNearCampus(apartment, pool, 4) : []),
     [apartment, pool],
@@ -156,17 +167,35 @@ export default function ApartmentDetails() {
     try {
       const conversationId = await openConversation(apartment, profile.id);
       router.push({ pathname: '/(student)/conversation/[id]', params: { id: conversationId } });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (message === t('chat.blockedOpen')) {
+        alert(t('common.error'), message, [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('chat.blockedManage'),
+            onPress: () =>
+              router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'security' } }),
+          },
+        ]);
+      } else if (message) {
+        alert(t('common.error'), message);
+      }
     } finally {
       setBusy(false);
     }
   };
 
   const goBook = () => {
-    if (!profile) {
-      requireAccount(apartment?.id);
+    if (!apartment) return;
+    if (bookGate?.kind === 'gender') {
+      router.push('/(student)/(tabs)/search');
       return;
     }
-    if (!apartment) return;
+    if (!profile) {
+      requireAccount(apartment.id);
+      return;
+    }
     if (bookGate?.kind === 'profile') {
       router.push({
         pathname: '/(student)/(tabs)/profile',
@@ -176,10 +205,6 @@ export default function ApartmentDetails() {
     }
     if (bookGate?.kind === 'review' || bookGate?.kind === 'stay') {
       router.push('/(student)/(tabs)/bookings');
-      return;
-    }
-    if (bookGate?.kind === 'gender') {
-      router.push('/(student)/(tabs)/search');
       return;
     }
     router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });

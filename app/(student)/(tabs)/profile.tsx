@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View, type ScrollView } from 'react-native
 import { useTranslation } from 'react-i18next';
 
 import { ListingCard } from '@/components/ListingCard';
+import { EmptyState } from '@/components/EmptyState';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
@@ -1281,17 +1282,11 @@ export default function StudentProfileScreen() {
             }
           />
           {savedListings.length === 0 ? (
-            <View style={[styles.emptyBox, { backgroundColor: colors.surfaceMuted }]}>
-              <View style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="home-outline" size={28} color={colors.primary} />
-              </View>
-              <Text style={[styles.emptyText, rtlText, { color: colors.textMuted }]}>{t('profile.savedEmpty')}</Text>
-              <Button
-                title={t('profile.browseListings')}
-                onPress={() => router.push('/(student)/(tabs)/search')}
-                pill
-              />
-            </View>
+            <EmptyState
+              title={t('profile.savedEmpty')}
+              actionTitle={t('profile.browseListings')}
+              onAction={() => router.push('/(student)/(tabs)/search')}
+            />
           ) : (
             savedPaged.slice.map((item) => (
               <View key={item.id} style={styles.savedBlock}>

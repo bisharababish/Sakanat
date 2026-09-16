@@ -37,7 +37,6 @@ import { listingShareUrl } from '@/src/lib/pushRouting';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { displayName } from '@/src/lib/name';
 import { ownerPublicLines } from '@/src/lib/ownerPublic';
-import { whatsappLink } from '@/src/lib/phone';
 import { loadApartmentReviews } from '@/src/lib/reviews';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -46,7 +45,7 @@ import type { Apartment, ApartmentReview, University } from '@/src/types/databas
 const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 
 export type ListingBookGate = {
-  kind: 'profile' | 'review' | 'stay' | 'gender';
+  kind: 'profile' | 'review' | 'stay' | 'gender' | 'occupied';
   title: string;
   body: string;
 };
@@ -467,16 +466,6 @@ export function ApartmentView({
                     onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
                   />
                 ) : null}
-                {apartment.profiles?.whatsapp || apartment.profiles?.phone ? (
-                  <Button
-                    title={t('profile.openWhatsapp')}
-                    variant="ghost"
-                    pill
-                    onPress={() =>
-                      Linking.openURL(whatsappLink(apartment.profiles?.whatsapp || apartment.profiles?.phone || ''))
-                    }
-                  />
-                ) : null}
               </>
             ) : null
           }
@@ -534,7 +523,9 @@ export function ApartmentView({
                       ? 'star-outline'
                       : bookGate.kind === 'stay'
                         ? 'home-outline'
-                        : 'warning-outline'
+                        : bookGate.kind === 'occupied'
+                          ? 'calendar-outline'
+                          : 'warning-outline'
                 }
                 size={18}
                 color={bookGate.kind === 'gender' ? colors.danger : colors.warning}

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { type ComponentProps, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -12,6 +13,7 @@ import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useToday } from '@/src/hooks/useToday';
+import { useAuth } from '@/src/lib/auth';
 import { majorLabel } from '@/src/data/majors';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
@@ -127,14 +129,17 @@ export function ChatPeerSheet({
   const edgeBack = useEdgeBack(visible, onClose);
   const { cities, universities } = useCatalog();
   const today = useToday();
+  const { profile: viewer } = useAuth();
   const [peer, setPeer] = useState<PeerProfile | null>(null);
   const [bookingStatus, setBookingStatus] = useState<BookingStatus | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!visible || !userId) {
       setPeer(null);
       setBookingStatus(null);
+      setBookingId(null);
       return;
     }
     let alive = true;
@@ -148,7 +153,7 @@ export function ChatPeerSheet({
           viewerId
             ? supabase
                 .from('bookings')
-                .select('status')
+                .select('id, status')
                 .eq('student_id', viewerId)
                 .eq('owner_id', userId)
                 .in('status', ['pending', 'confirmed', 'completed'])
@@ -159,7 +164,7 @@ export function ChatPeerSheet({
           viewerId
             ? supabase
                 .from('bookings')
-                .select('status')
+                .select('id, status')
                 .eq('student_id', userId)
                 .eq('owner_id', viewerId)
                 .in('status', ['pending', 'confirmed', 'completed'])
@@ -173,11 +178,13 @@ export function ChatPeerSheet({
         else if (seed?.id === userId) setPeer(seedAsPeer(seed));
         else setPeer(null);
         setBookingStatus(((a.data?.status ?? b.data?.status) as BookingStatus | undefined) ?? null);
+        setBookingId((a.data?.id ?? b.data?.id) as string | undefined ?? null);
       } catch {
         if (!alive) return;
         if (seed?.id === userId) setPeer(seedAsPeer(seed));
         else setPeer(null);
         setBookingStatus(null);
+        setBookingId(null);
       } finally {
         if (alive) setLoading(false);
       }
@@ -300,8 +307,12 @@ export function ChatPeerSheet({
               {peer.home_address && !isOwnerPeer ? (
                 <Row icon="home-outline" text={peer.home_address} />
               ) : null}
-              {showPhone && peer.phone ? <Row icon="call-outline" text={peer.phone} /> : null}
-              {showWhatsapp && (peer.whatsapp || peer.phone) ? (
+              {showPhone && peer.phone ? (
+                <Pressable onPress={() => Linking.openURL(`tel:${peer.phone}`)} accessibilityRole="button">
+                  <Row icon="call-outline" text={peer.phone} />
+                </Pressable>
+              ) : null}
+              {adminReview && showWhatsapp && (peer.whatsapp || peer.phone) ? (
                 <Row icon="logo-whatsapp" text={peer.whatsapp || peer.phone || ''} />
               ) : null}
               {showEmergency && peer.emergency_name ? (
@@ -316,6 +327,20 @@ export function ChatPeerSheet({
             </ScrollView>
           )}
 
+          {bookingId && !adminReview ? (
+            <Button
+              title={t('chat.viewBooking')}
+              pill
+              onPress={() => {
+                onClose();
+                if (viewer?.role === 'owner') {
+                  router.push({ pathname: '/(owner)/(tabs)/bookings', params: { focus: bookingId } });
+                } else {
+                  router.push({ pathname: '/(student)/(tabs)/bookings', params: { focus: bookingId } });
+                }
+              }}
+            />
+          ) : null}
           {adminReview && peer?.id ? (
             <Button
               title={t('admin.editUser')}

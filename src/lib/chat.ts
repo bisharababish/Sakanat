@@ -102,6 +102,24 @@ export async function loadConversations(column: 'student_id' | 'owner_id', userI
   return (data as Conversation[]) ?? [];
 }
 
+export async function loadSharedBooking(opts: {
+  apartmentId?: string | null;
+  studentId?: string | null;
+  ownerId?: string | null;
+}) {
+  let query = supabase
+    .from('bookings')
+    .select('id, status, apartment_id')
+    .in('status', ['pending', 'confirmed', 'completed'])
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (opts.apartmentId) query = query.eq('apartment_id', opts.apartmentId);
+  if (opts.studentId) query = query.eq('student_id', opts.studentId);
+  if (opts.ownerId) query = query.eq('owner_id', opts.ownerId);
+  const { data } = await query.maybeSingle();
+  return (data as { id: string; status: string; apartment_id: string } | null) ?? null;
+}
+
 export async function loadConversation(id: string) {
   const { data, error } = await supabase.from('conversations').select(CONVERSATION_SELECT).eq('id', id).single();
   if (error) throw error;

@@ -6,7 +6,7 @@ export function homeHref(role: UserRole) {
   return '/(student)/(tabs)/search';
 }
 
-export type ProfileTab = 'account' | 'trust' | 'settings' | 'saved' | 'security';
+export type ProfileTab = 'account' | 'trust' | 'settings' | 'saved' | 'security' | 'occupants';
 
 export function profileHref(role: UserRole, tab?: ProfileTab) {
   if (role === 'admin') {

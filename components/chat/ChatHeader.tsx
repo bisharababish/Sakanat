@@ -16,6 +16,7 @@ import {
   conversationParties,
   isConversationMuted,
   loadConversation,
+  loadSharedBooking,
   otherPerson,
   personName,
   setConversationMuted,
@@ -67,6 +68,7 @@ export function ChatHeader({
   const [reporting, setReporting] = useState(false);
   const [peerOpen, setPeerOpen] = useState(false);
   const [peerPick, setPeerPick] = useState<PeerPick | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
   const [adminPickOpen, setAdminPickOpen] = useState(false);
   const closeAdminPick = () => setAdminPickOpen(false);
   const adminPickBack = useEdgeBack(adminPickOpen, closeAdminPick);
@@ -80,6 +82,24 @@ export function ChatHeader({
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (!conversation?.apartment_id || !conversation.student_id) {
+      setBookingId(null);
+      return;
+    }
+    let alive = true;
+    void loadSharedBooking({
+      apartmentId: conversation.apartment_id,
+      studentId: conversation.student_id,
+      ownerId: conversation.owner_id,
+    }).then((row) => {
+      if (alive) setBookingId(row?.id ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [conversation?.apartment_id, conversation?.student_id, conversation?.owner_id]);
 
   const { student, owner } = conversationParties(conversation);
   const person = admin ? student : otherPerson(conversation, profile?.id);
@@ -135,6 +155,19 @@ export function ChatHeader({
       pathname: '/(student)/apartment/[id]',
       params: { id: conversation.apartment_id },
     });
+  };
+
+  const openBooking = () => {
+    if (!bookingId) return;
+    if (admin) {
+      router.push('/(admin)/(tabs)/bookings');
+      return;
+    }
+    if (asOwner) {
+      router.push({ pathname: '/(owner)/(tabs)/bookings', params: { focus: bookingId } });
+      return;
+    }
+    router.push({ pathname: '/(student)/(tabs)/bookings', params: { focus: bookingId } });
   };
 
   const toggleMute = () => {
@@ -249,6 +282,17 @@ export function ChatHeader({
               style={[styles.listingPhoto, { backgroundColor: colors.surfaceMuted }]}
               contentFit="cover"
             />
+          </Pressable>
+        ) : null}
+        {bookingId && !admin ? (
+          <Pressable
+            onPress={openBooking}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.viewBooking')}
+            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="calendar-outline" size={20} color={colors.primary} />
           </Pressable>
         ) : null}
         {!admin ? (
