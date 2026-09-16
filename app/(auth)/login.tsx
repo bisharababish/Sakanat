@@ -13,7 +13,6 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { sanitizeEmail } from '@/src/lib/eduEmail';
-import { seekerHomeOrListing } from '@/src/lib/guest';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function LoginScreen() {
@@ -42,11 +41,8 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const next = await signIn(cleanEmail, password);
-      if (next) {
-        router.replace(seekerHomeOrListing(next.role) as never);
-        return;
-      }
+      await signIn(cleanEmail, password);
+      return;
     } catch (err) {
       const message = authErrorMessage(err, t);
       const raw = `${(err as { code?: string })?.code ?? ''} ${err instanceof Error ? err.message : ''}`;

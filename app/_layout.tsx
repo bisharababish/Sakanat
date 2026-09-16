@@ -128,7 +128,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
   const [linkReady, setLinkReady] = useState(false);
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (!profile?.id || mfaPending || mfaEnrollRequired) return;
     if (isSuspended(profile)) {
       void signOut();
       return;
@@ -137,7 +137,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
     void maybeRunBookingOps();
     void flushChatOutbox();
     void syncSearchAlertOnLogin();
-  }, [profile, signOut]);
+  }, [profile, mfaPending, mfaEnrollRequired, signOut]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -269,6 +269,10 @@ function SessionGuard({ children }: { children: ReactNode }) {
     loading ||
     (!session && inApp) ||
     (!session && inAuth && (screen === 'mfa' || screen === 'mfa-enroll')) ||
+    (Boolean(session) &&
+      (mfaPending || mfaEnrollRequired) &&
+      screen !== 'mfa' &&
+      screen !== 'mfa-enroll') ||
     (!session && !linkReady && !inGuest) ||
     (Boolean(session && profile) &&
       !passwordRecovery &&

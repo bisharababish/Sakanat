@@ -30,13 +30,23 @@ export function sanitizeNameInput(raw: string) {
   return sanitizeEnglishName(sanitizeArabicName(raw));
 }
 
+export function sanitizeNamePart(raw: string, script: 'en' | 'ar') {
+  if (script === 'en') return raw.replace(/[^A-Za-z'\-]/g, '');
+  return raw.replace(/[^\p{Script=Arabic}\p{M}'\-]/gu, '');
+}
+
+export function nameParts(raw: string) {
+  const words = nameWords(raw).slice(0, NAME_WORD_MAX);
+  return [0, 1, 2, 3].map((index) => words[index] ?? '');
+}
+
 function lettersOnly(word: string) {
   return word.replace(/['\-]/g, '').replace(/\p{M}/gu, '');
 }
 
 export function isValidEnglishName(raw: string) {
   const words = nameWords(raw);
-  if (words.length < 2 || words.length > NAME_WORD_MAX) return false;
+  if (words.length !== NAME_WORD_MAX) return false;
   return words.every((word) => {
     if (lettersOnly(word).length < NAME_MIN) return false;
     return /^[A-Za-z]+(?:['\-][A-Za-z]+)*$/.test(word);
@@ -45,7 +55,7 @@ export function isValidEnglishName(raw: string) {
 
 export function isValidArabicName(raw: string) {
   const words = nameWords(raw);
-  if (words.length < 2 || words.length > NAME_WORD_MAX) return false;
+  if (words.length !== NAME_WORD_MAX) return false;
   return words.every((word) => {
     if (lettersOnly(word).length < NAME_MIN) return false;
     return /^[\p{Script=Arabic}\p{M}]+(?:['\-][\p{Script=Arabic}\p{M}]+)*$/u.test(word);

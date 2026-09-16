@@ -45,9 +45,10 @@ export async function markMfaChanged() {
 }
 
 export async function mfaNeedsChallenge() {
-  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error || !data) return false;
-  return data.nextLevel === 'aal2' && data.currentLevel !== 'aal2';
+  const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (data?.currentLevel === 'aal2') return false;
+  if (data?.nextLevel === 'aal2') return true;
+  return Boolean(await verifiedTotpFactor());
 }
 
 export async function listTotpFactors() {

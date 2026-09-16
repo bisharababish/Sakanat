@@ -23,13 +23,17 @@ export function OnboardingGate() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { profile } = useAuth();
+  const { profile, mfaPending, mfaEnrollRequired } = useAuth();
   const safe = useModalSafeArea();
   const [visible, setVisible] = useState(false);
   useEdgeBack(Boolean(profile && visible), () => {});
 
   useEffect(() => {
     if (!profile?.id) {
+      setVisible(false);
+      return;
+    }
+    if (mfaPending || mfaEnrollRequired) {
       setVisible(false);
       return;
     }
@@ -44,7 +48,7 @@ export function OnboardingGate() {
     return () => {
       cancelled = true;
     };
-  }, [profile?.id, profile?.role]);
+  }, [profile?.id, profile?.role, mfaPending, mfaEnrollRequired]);
 
   if (!profile || !visible) return null;
 

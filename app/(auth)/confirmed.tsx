@@ -10,9 +10,17 @@ import { seekerHomeOrListing } from '@/src/lib/guest';
 
 export default function EmailConfirmedScreen() {
   const { t } = useTranslation();
-  const { profile } = useAuth();
+  const { profile, mfaPending, mfaEnrollRequired } = useAuth();
 
   const continueOn = () => {
+    if (mfaPending) {
+      router.replace('/(auth)/mfa');
+      return;
+    }
+    if (mfaEnrollRequired) {
+      router.replace('/(auth)/mfa-enroll');
+      return;
+    }
     if (profile) {
       router.replace(seekerHomeOrListing(profile.role) as never);
       return;

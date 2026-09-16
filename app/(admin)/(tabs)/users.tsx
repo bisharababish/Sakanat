@@ -24,7 +24,7 @@ import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { localizedName } from '@/src/lib/format';
 import { isSuspended, setSuspended } from '@/src/lib/moderation';
 import { alert } from '@/src/lib/notice';
-import { cleanName, isValidArabicName } from '@/src/lib/name';
+import { cleanName, isValidArabicName, isValidEnglishName } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
 import { USER_PAGE_SIZE } from '@/src/lib/page';
 import { toE164, whatsappLink, type PhoneRegion } from '@/src/lib/phone';
@@ -52,6 +52,7 @@ export default function AdminUsers() {
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [fullNameEn, setFullNameEn] = useState('');
   const [email, setEmail] = useState('');
   const [phoneRegion, setPhoneRegion] = useState<PhoneRegion>('ps');
   const [phoneLocal, setPhoneLocal] = useState('');
@@ -117,12 +118,16 @@ export default function AdminUsers() {
 
   const createOwner = async () => {
     const cleanEmail = sanitizeEmail(email);
-    if (!fullName.trim() || !cleanEmail || !password) {
+    if (!fullName.trim() || !fullNameEn.trim() || !cleanEmail || !password) {
       alert(t('common.error'), t('auth.missingFields'));
       return;
     }
     if (!isValidArabicName(fullName)) {
       alert(t('common.error'), t('auth.invalidNameAr'));
+      return;
+    }
+    if (!isValidEnglishName(fullNameEn)) {
+      alert(t('common.error'), t('auth.invalidNameEn'));
       return;
     }
     if (!isValidEmail(cleanEmail)) {
@@ -148,6 +153,7 @@ export default function AdminUsers() {
           emailRedirectTo: AUTH_REDIRECT_URL,
           data: {
             full_name: cleanName(fullName),
+            full_name_en: cleanName(fullNameEn),
             phone: cleanPhone,
             role: 'owner',
             language: 'ar',
@@ -162,6 +168,7 @@ export default function AdminUsers() {
             role: 'owner',
             owner_status: 'approved',
             full_name: cleanName(fullName),
+            full_name_en: cleanName(fullNameEn),
             phone: cleanPhone,
             email: cleanEmail,
           })
@@ -169,6 +176,7 @@ export default function AdminUsers() {
       }
       alert(t('common.done'), t('admin.ownerCreated'));
       setFullName('');
+      setFullNameEn('');
       setEmail('');
       setPhoneLocal('');
       setPassword('');
@@ -249,6 +257,7 @@ export default function AdminUsers() {
         </Pressable>
         {createOpen ? (
           <>
+            <NameField compact label={t('common.nameEn')} value={fullNameEn} onChangeText={setFullNameEn} script="en" />
             <NameField compact label={t('common.nameAr')} value={fullName} onChangeText={setFullName} script="ar" />
             <Input
               compact

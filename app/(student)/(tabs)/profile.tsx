@@ -67,7 +67,7 @@ function englishNameOk(raw: string) {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-  return words.length >= 2 && words.length <= 4;
+  return words.length === 4;
 }
 
 function arabicNameOk(raw: string) {
@@ -76,7 +76,7 @@ function arabicNameOk(raw: string) {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
-  return words.length >= 2 && words.length <= 4;
+  return words.length === 4;
 }
 
 async function fetchPublicIp() {

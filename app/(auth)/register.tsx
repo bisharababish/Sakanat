@@ -199,8 +199,9 @@ export default function RegisterScreen() {
         </>
       }
     >
-      <AuthCard>
+      <AuthCard compact>
         <AuthHeading
+          compact
           title={t('auth.registerTitle')}
           hint={step === 1 ? t('auth.registerHint') : t('auth.registerStep2')}
         />
@@ -211,6 +212,7 @@ export default function RegisterScreen() {
           <>
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
             <FilterPills
+              compact
               value={kind}
               onChange={pickKind}
               items={[
@@ -221,6 +223,7 @@ export default function RegisterScreen() {
             <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
             <FilterPills
+              compact
               value={gender}
               onChange={setGender}
               items={[
@@ -229,6 +232,7 @@ export default function RegisterScreen() {
               ]}
             />
             <NameField
+              compact
               label={t('common.nameEn')}
               value={fullNameEn}
               onChangeText={setFullNameEn}
@@ -236,6 +240,7 @@ export default function RegisterScreen() {
               soft
             />
             <NameField
+              compact
               label={t('common.nameAr')}
               value={fullNameAr}
               onChangeText={setFullNameAr}
@@ -243,6 +248,7 @@ export default function RegisterScreen() {
               soft
             />
             <PhoneField
+              compact
               label={t('common.phone')}
               region={phoneRegion}
               local={phoneLocal}
@@ -251,6 +257,7 @@ export default function RegisterScreen() {
               soft
             />
             <Select
+              dense
               label={t('auth.homeCity')}
               value={cityId}
               placeholder={t('common.select')}
@@ -260,6 +267,7 @@ export default function RegisterScreen() {
             />
             {isStudent ? (
               <SearchSelect
+                dense
                 label={t('auth.studyUniversity')}
                 value={universityId}
                 placeholder={t('common.select')}
@@ -271,6 +279,7 @@ export default function RegisterScreen() {
         ) : (
           <>
             <Input
+              compact
               label={isStudent ? t('auth.studentEmail') : t('common.email')}
               value={email}
               onChangeText={setEmail}
@@ -281,8 +290,9 @@ export default function RegisterScreen() {
               hint={isStudent ? studentEmailHint : t('auth.renterEmailHint')}
               soft
             />
-            <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
+            <Input compact label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
             <Input
+              compact
               label={t('profile.confirmPassword')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -305,13 +315,13 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 14 },
-  roleHint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
+  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 13 },
+  roleHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 17 },
   error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   lock: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  footer: { alignItems: 'center', paddingVertical: 8, paddingBottom: 16 },
-  footerText: { fontSize: 15, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
+  footer: { alignItems: 'center', paddingVertical: 4 },
+  footerText: { fontSize: 14, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
   link: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
 });
 

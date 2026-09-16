@@ -13,7 +13,6 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
 import { sanitizeEmail } from '@/src/lib/eduEmail';
-import { seekerHomeOrListing } from '@/src/lib/guest';
 import { EMAIL_OTP_LENGTH } from '@/src/lib/supabase';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -40,11 +39,11 @@ export default function VerifyEmailScreen() {
     setLoading(true);
     try {
       const profile = await verifyEmail(cleanEmail, code);
-      if (profile) {
-        router.replace(seekerHomeOrListing(profile.role) as never);
+      if (!profile) {
+        router.replace('/(auth)/login');
         return;
       }
-      router.replace('/(auth)/login');
+      return;
     } catch (err) {
       setError(authErrorMessage(err, t));
     } finally {

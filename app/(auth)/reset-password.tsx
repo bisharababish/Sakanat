@@ -21,7 +21,7 @@ export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { updatePassword, profile } = useAuth();
+  const { updatePassword, profile, mfaPending, mfaEnrollRequired } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -51,6 +51,14 @@ export default function ResetPasswordScreen() {
   };
 
   const continueOn = () => {
+    if (mfaPending) {
+      router.replace('/(auth)/mfa');
+      return;
+    }
+    if (mfaEnrollRequired) {
+      router.replace('/(auth)/mfa-enroll');
+      return;
+    }
     if (profile) {
       router.replace(homeHref(profile.role) as never);
       return;

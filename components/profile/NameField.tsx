@@ -4,14 +4,14 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { NAME_WORD_MAX, cleanName, nameWords } from '@/src/lib/name';
+import { NAME_WORD_MAX, nameParts, sanitizeNamePart } from '@/src/lib/name';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
-const PARTS = ['nameFirst', 'nameSecond', 'nameThird', 'nameLast'] as const;
 const ARABIC_CHAR =
   /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const LATIN_CHAR = /[A-Za-z]/;
+const PART_KEYS = ['nameFirst', 'nameSecond', 'nameThird', 'nameLast'] as const;
 
 type Props = {
   label: string;
@@ -22,26 +22,13 @@ type Props = {
   compact?: boolean;
 };
 
-function sanitizePart(raw: string, script: 'en' | 'ar') {
-  if (script === 'en') return raw.replace(/[^A-Za-z'\-]/g, '');
-  return raw.replace(
-    /[^\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF'\-]/g,
-    '',
-  );
-}
-
-function partsFromValue(value: string) {
-  const words = nameWords(value);
-  return PARTS.map((_, index) => words[index] ?? '');
-}
-
-function valueFromParts(parts: string[]) {
-  return parts.map((part) => part.trim()).filter(Boolean).join(' ');
-}
-
 function wrongScript(raw: string, script: 'en' | 'ar') {
   if (!raw) return false;
   return script === 'en' ? ARABIC_CHAR.test(raw) : LATIN_CHAR.test(raw);
+}
+
+function emitParts(parts: string[]) {
+  return parts.filter(Boolean).join(' ');
 }
 
 export function NameField({ label, value, onChangeText, script, soft, compact }: Props) {
@@ -49,22 +36,14 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const inputs = useRef<Array<TextInput | null>>([]);
-  const [parts, setParts] = useState(() => partsFromValue(value));
-  const partsRef = useRef(parts);
-  partsRef.current = parts;
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [active, setActive] = useState(0);
+  const [focused, setFocused] = useState<number | null>(null);
   const [scriptError, setScriptError] = useState(false);
   const ltr = script === 'en';
   const lang = ltr ? 'en' : 'ar';
   const errorText = t(ltr ? 'profile.nameNoArabic' : 'profile.nameNoEnglish');
-
-  useEffect(() => {
-    if (cleanName(value) === valueFromParts(partsRef.current)) return;
-    const next = partsFromValue(value);
-    partsRef.current = next;
-    setParts(next);
-  }, [value]);
+  const parts = nameParts(value);
+  const filled = Boolean(value.trim());
 
   useEffect(
     () => () => {
@@ -84,104 +63,36 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
   };
 
   const focusAt = (index: number) => {
-    const next = Math.max(0, Math.min(index, NAME_WORD_MAX - 1));
-    inputs.current[next]?.focus();
-    setActive(next);
+    if (index < 0 || index >= NAME_WORD_MAX) return;
+    requestAnimationFrame(() => inputs.current[index]?.focus());
   };
 
-  const emit = (next: string[]) => {
-    partsRef.current = next;
-    setParts(next);
-    onChangeText(valueFromParts(next));
-  };
-
-  const apply = (index: number, raw: string) => {
+  const applySlot = (index: number, raw: string) => {
     noteIncoming(raw);
-    const next = [...partsRef.current];
-    if (/\s/.test(raw)) {
-      const chunks = raw
-        .split(/\s+/)
-        .map((chunk) => sanitizePart(chunk, script))
-        .filter(Boolean);
-      if (chunks.length === 0) {
-        next[index] = '';
-        emit(next);
-        return;
-      }
-      chunks.forEach((chunk, offset) => {
-        const slot = index + offset;
-        if (slot < NAME_WORD_MAX) next[slot] = chunk;
-      });
-      emit(next);
-      focusAt(index + chunks.length);
+    const next = nameParts(value);
+    const jump = /\s/.test(raw);
+    const chunks = raw
+      .split(/\s+/)
+      .map((chunk) => sanitizeNamePart(chunk, script))
+      .filter(Boolean);
+
+    if (!jump) {
+      next[index] = sanitizeNamePart(raw, script);
+      onChangeText(emitParts(next));
       return;
     }
-    next[index] = sanitizePart(raw, script);
-    emit(next);
-  };
 
-  const renderSlot = (index: number) => {
-    const focused = active === index;
-    const filled = Boolean(parts[index]);
-    return (
-      <View key={PARTS[index]} style={styles.slotWrap}>
-        <TextInput
-          ref={(node) => {
-            inputs.current[index] = node;
-          }}
-          value={parts[index]}
-          onChangeText={(raw) => apply(index, raw)}
-          // Android often skips onChangeText for stripped characters.
-          {...{
-            onTextInput: (event: { nativeEvent: { text: string } }) => noteIncoming(event.nativeEvent.text),
-          }}
-          onFocus={() => {
-            const firstEmpty = partsRef.current.findIndex((part) => !part);
-            if (firstEmpty >= 0 && firstEmpty < index && !partsRef.current[index]) {
-              focusAt(firstEmpty);
-              return;
-            }
-            setActive(index);
-          }}
-          onKeyPress={({ nativeEvent }) => {
-            if (nativeEvent.key === 'Backspace' && !partsRef.current[index] && index > 0) {
-              focusAt(index - 1);
-              return;
-            }
-            noteIncoming(nativeEvent.key);
-          }}
-          onSubmitEditing={() => {
-            if (index < NAME_WORD_MAX - 1) focusAt(index + 1);
-          }}
-          placeholder={t(`profile.${PARTS[index]}`, { lng: lang })}
-          placeholderTextColor={colors.textMuted}
-          autoCapitalize={ltr ? 'words' : 'none'}
-          autoCorrect={false}
-          autoComplete="off"
-          returnKeyType={index === NAME_WORD_MAX - 1 ? 'done' : 'next'}
-          blurOnSubmit={index === NAME_WORD_MAX - 1}
-          maxLength={24}
-          textAlign={ltr ? 'left' : 'right'}
-          style={[
-            styles.slot,
-            soft ? styles.soft : null,
-            compact ? styles.slotCompact : null,
-            {
-              writingDirection: ltr ? 'ltr' : 'rtl',
-              backgroundColor: scriptError && focused ? colors.dangerSoft : focused ? colors.primarySoft : soft ? colors.surfaceMuted : colors.surface,
-              borderColor: scriptError
-                ? colors.danger
-                : focused || filled
-                  ? colors.primary
-                  : soft
-                    ? 'transparent'
-                    : colors.border,
-              color: colors.text,
-            },
-          ]}
-        />
-      </View>
-    );
+    if (!chunks.length) {
+      if (next[index]) focusAt(index + 1);
+      return;
+    }
+
+    chunks.slice(0, NAME_WORD_MAX - index).forEach((chunk, offset) => {
+      next[index + offset] = chunk;
+    });
+    onChangeText(emitParts(next));
+    const lastFilled = index + Math.min(chunks.length, NAME_WORD_MAX - index) - 1;
+    focusAt(/\s$/.test(raw) ? lastFilled + 1 : lastFilled);
   };
 
   return (
@@ -195,53 +106,132 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
           </Text>
         </View>
       ) : null}
-      <View style={[styles.grid, compact && styles.gridCompact, { direction: ltr ? 'ltr' : 'rtl' }]}>
-        <View style={[styles.row, compact && styles.rowCompact]}>
-          {renderSlot(0)}
-          {renderSlot(1)}
-        </View>
-        <View style={[styles.row, compact && styles.rowCompact]}>
-          {renderSlot(2)}
-          {renderSlot(3)}
-        </View>
+      <View
+        style={[
+          styles.field,
+          soft ? styles.soft : null,
+          compact ? styles.fieldCompact : null,
+          ltr ? styles.ltr : styles.rtl,
+          {
+            backgroundColor: scriptError && focused != null ? colors.dangerSoft : focused != null ? colors.primarySoft : soft ? colors.surfaceMuted : colors.surface,
+            borderColor: scriptError
+              ? colors.danger
+              : focused != null || filled
+                ? colors.primary
+                : soft
+                  ? 'transparent'
+                  : colors.border,
+          },
+        ]}
+      >
+        {PART_KEYS.map((key, index) => {
+          const active = focused === index;
+          const slotFilled = Boolean(parts[index]);
+          return (
+            <View
+              key={key}
+              style={[
+                styles.slot,
+                compact && styles.slotCompact,
+                {
+                  backgroundColor: active ? colors.surface : soft ? colors.surface : colors.surfaceMuted,
+                  borderColor: scriptError && active ? colors.danger : active ? colors.primary : slotFilled ? colors.border : 'transparent',
+                },
+              ]}
+            >
+              <TextInput
+                ref={(node) => {
+                  inputs.current[index] = node;
+                }}
+                value={parts[index]}
+                onChangeText={(text) => applySlot(index, text)}
+                {...{
+                  onTextInput: (event: { nativeEvent: { text: string } }) => noteIncoming(event.nativeEvent.text),
+                }}
+                onFocus={() => setFocused(index)}
+                onBlur={() => setFocused((current) => (current === index ? null : current))}
+                onSubmitEditing={() => focusAt(index + 1)}
+                onKeyPress={({ nativeEvent }) => {
+                  if (nativeEvent.key !== 'Backspace' || parts[index] || index === 0) return;
+                  focusAt(index - 1);
+                }}
+                placeholder={t(`profile.${key}`, { lng: lang })}
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize={ltr ? 'words' : 'none'}
+                autoCorrect={false}
+                autoComplete={index === 0 ? 'name' : 'off'}
+                textContentType={index === 0 ? 'givenName' : index === 3 ? 'familyName' : 'none'}
+                returnKeyType={index === 3 ? 'done' : 'next'}
+                blurOnSubmit={index === 3}
+                maxLength={24}
+                textAlign={ltr ? 'left' : 'right'}
+                style={[
+                  styles.input,
+                  compact && styles.inputCompact,
+                  {
+                    writingDirection: ltr ? 'ltr' : 'rtl',
+                    color: colors.text,
+                  },
+                ]}
+              />
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 8 },
-  wrapCompact: { gap: 5 },
+  wrap: { gap: 6, maxWidth: '100%' },
+  wrapCompact: { gap: 4 },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   labelCompact: { fontSize: 12 },
-  grid: { gap: 8 },
-  gridCompact: { gap: 6 },
-  row: { flexDirection: 'row', gap: 8 },
-  rowCompact: { gap: 6 },
-  slotWrap: { flex: 1, minWidth: 0, overflow: 'hidden' },
-  slot: {
-    width: '100%',
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    height: 52,
-    fontSize: 14,
-    fontFamily: 'Cairo_400Regular',
-    textAlignVertical: 'center',
-    includeFontPadding: false,
+    padding: 6,
+    height: 56,
+    gap: 6,
     overflow: 'hidden',
   },
-  slotCompact: {
-    height: 40,
-    paddingHorizontal: 8,
-    fontSize: 13,
+  fieldCompact: {
+    height: 44,
+    padding: 4,
+    gap: 4,
     borderRadius: radius.sm,
   },
   soft: {
     borderRadius: radius.full,
-    height: 54,
+    height: 58,
     borderColor: 'transparent',
   },
+  ltr: { direction: 'ltr' },
+  rtl: { direction: 'rtl' },
+  slot: {
+    flex: 1,
+    minWidth: 0,
+    height: '100%',
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  slotCompact: {
+    paddingHorizontal: 4,
+    borderRadius: 8,
+  },
+  input: {
+    padding: 0,
+    margin: 0,
+    fontSize: 13,
+    fontFamily: 'Cairo_400Regular',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  inputCompact: { fontSize: 12 },
   error: {
     alignItems: 'flex-start',
     gap: 8,
