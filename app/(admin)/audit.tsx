@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -42,7 +43,15 @@ export default function AdminAudit() {
       <AdminPageHeader kicker={t('roles.admin')} title={t('admin.auditTitle')} hint={t('admin.auditHint')} />
       {rows.length === 0 ? <EmptyState title={t('admin.auditEmpty')} /> : null}
       {rows.map((item) => (
-        <Card key={item.id} compact>
+        <Card
+          key={item.id}
+          compact
+          onPress={
+            item.target_user_id
+              ? () => router.push({ pathname: '/(admin)/user/[id]', params: { id: item.target_user_id! } })
+              : undefined
+          }
+        >
           <Text style={[styles.action, rtlText, { color: colors.primary }]}>{item.action}</Text>
           <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
             {item.admin?.full_name || item.admin?.email || '—'} ·{' '}

@@ -15,7 +15,7 @@ import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useHubTabBack } from '@/src/hooks/useHubTabBack';
@@ -33,7 +33,6 @@ import { regionPrefix, sameMobile, splitPhone, toE164, type PhoneRegion } from '
 import { pickIdCardPhoto, pickProfilePhoto } from '@/src/lib/pickImage';
 import { supabase } from '@/src/lib/supabase';
 import {
-  accountVerification,
   fetchPublicIp,
   isValidBio,
   isValidEmergencyName,
@@ -167,6 +166,7 @@ export default function OwnerProfile() {
   const [occupancy, setOccupancy] = useState<OccupancyBuilding[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mfaOn, setMfaOn] = useState(true);
@@ -364,7 +364,6 @@ export default function OwnerProfile() {
   const dirty = baseline.current != null && !snapsEqual(currentSnap, baseline.current);
   dirtyRef.current = dirty;
   const occ = occupancyTotals(occupancy);
-  const verification = accountVerification(profile);
   const trustIncomplete = Boolean(
     !isValidNationalId(nationalId) ||
       !isValidNationalIdExpiry(nationalExpiresAt) ||
@@ -411,6 +410,15 @@ export default function OwnerProfile() {
                 text: t('tabs.listings'),
                 onPress: () => router.push('/(owner)/(tabs)/listings'),
               };
+
+  const photoBanner = {
+    icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
+    onPress: () => {
+      if (avatarUrl) setViewingPhoto(true);
+      else void changePhoto();
+    },
+  };
 
   const changePhoto = async () => {
     if (!profile) return;
@@ -633,6 +641,7 @@ export default function OwnerProfile() {
   };
 
   return (
+    <>
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
@@ -654,11 +663,12 @@ export default function OwnerProfile() {
       <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
       {tab === 'menu' ? (
         <>
-          <ProfileHero
+            <ProfileHero
             name={displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) || t('profile.title')}
             avatarUrl={avatarUrl}
             uploading={uploading}
             onChangePhoto={() => void changePhoto()}
+            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
             metas={[
               { icon: 'shield-checkmark', text: statusLabel },
               ...(ageLabel(birthDate, t, today)
@@ -679,11 +689,12 @@ export default function OwnerProfile() {
             progressFilled={progressItems.filter((item) => item.done).length}
             progressTotal={progressItems.length}
           />
+          <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
           <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
-          {progressItems.some((item) => !item.done) ? (
+          {progressItems.some((item) => !item.done && item.id !== 'photo') ? (
             <View style={[styles.gaps, row]}>
               {progressItems
-                .filter((item) => !item.done)
+                .filter((item) => !item.done && item.id !== 'photo')
                 .slice(0, 4)
                 .map((item) => (
                   <Pressable
@@ -781,6 +792,7 @@ export default function OwnerProfile() {
             verifyStatus={profile?.id_verify_status}
             verifyRole="owner"
             bio={bio}
+            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
             lines={ownerPublicLines(
               {
                 gender: gender || null,
@@ -796,6 +808,7 @@ export default function OwnerProfile() {
                 today,
                 bookingStatus: 'pending',
                 phoneDisplay: phoneLocal.trim() ? `${regionPrefix(phoneRegion)} ${phoneLocal}` : '',
+                whatsappDisplay: waLocal.trim() ? `${regionPrefix(waRegion)} ${waLocal}` : '',
                 showContact: true,
                 buildings: occupancy.map((item) => item.name),
               },
@@ -832,11 +845,19 @@ export default function OwnerProfile() {
       ) : null}
 
       {tab === 'trust' && profile?.id_verify_status === 'rejected' ? (
-        <Card compact>
-          <Text style={[{ color: colors.danger, fontFamily: 'Cairo_600SemiBold', fontSize: 13 }, rtlText]}>
-            {profile.id_verify_note || t('menu.verifyRejectedHint')}
-          </Text>
-        </Card>
+        <ProfileBanner
+          icon="alert-circle"
+          text={
+            profile.id_verify_note
+              ? t('profile.idRejectedBody', { note: profile.id_verify_note })
+              : t('profile.idRejectedHint')
+          }
+          onPress={() => jumpTo('nationalCard')}
+        />
+      ) : null}
+
+      {tab === 'trust' && profile?.id_verify_status === 'pending' && nationalIdUrl ? (
+        <ProfileBanner icon="time-outline" text={t('menu.verifyReviewHint')} onPress={() => jumpTo('nationalCard')} />
       ) : null}
 
       {tab === 'trust' ? (
@@ -871,14 +892,8 @@ export default function OwnerProfile() {
                 .then(() => refreshProfile());
             }}
             shareEmergencyHint={t('profile.shareEmergencyOwnerHint')}
+            verifyStatus={profile?.id_verify_status}
           />
-          {verification?.pendingReview ? (
-            <Card compact>
-              <Text style={[{ color: colors.textMuted, fontFamily: 'Cairo_400Regular', fontSize: 12 }, rtlText]}>
-                {t('menu.verifyReviewHint')}
-              </Text>
-            </Card>
-          ) : null}
         </>
       ) : null}
 
@@ -893,6 +908,14 @@ export default function OwnerProfile() {
       ) : null}
       </ProfileEnter>
     </Screen>
+      <PhotoViewer
+        photos={avatarUrl ? [avatarUrl] : []}
+        index={0}
+        visible={viewingPhoto && Boolean(avatarUrl)}
+        onIndexChange={() => {}}
+        onClose={() => setViewingPhoto(false)}
+      />
+    </>
   );
 }
 

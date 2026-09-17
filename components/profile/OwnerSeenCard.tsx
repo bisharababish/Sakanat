@@ -2,6 +2,7 @@ import { type ComponentProps, type ReactNode, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -19,6 +20,7 @@ type Props = {
   bio?: string | null;
   verifyStatus?: IdVerifyStatus | null;
   verifyRole?: UserRole | null;
+  onViewPhoto?: () => void;
   footer?: ReactNode;
 };
 
@@ -39,8 +41,10 @@ export function OwnerSeenCard({
   bio,
   verifyStatus,
   verifyRole,
+  onViewPhoto,
   footer,
 }: Props) {
+  const { t } = useTranslation();
   const { rtlText, row, isRtl } = useLayout();
   const colors = useColors();
   const [open, setOpen] = useState(false);
@@ -63,13 +67,20 @@ export function OwnerSeenCard({
         ) : null}
       </Pressable>
       <View style={[styles.person, row]}>
-        {avatarUrl ? (
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} recyclingKey={avatarUrl} />
-        ) : (
-          <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
-            <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
-          </View>
-        )}
+        <Pressable
+          onPress={avatarUrl && onViewPhoto ? onViewPhoto : undefined}
+          disabled={!(avatarUrl && onViewPhoto)}
+          accessibilityRole={avatarUrl && onViewPhoto ? 'button' : undefined}
+          accessibilityLabel={avatarUrl && onViewPhoto ? t('profile.viewPhoto') : undefined}
+        >
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} recyclingKey={avatarUrl} />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
+              <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
+            </View>
+          )}
+        </Pressable>
         <View style={styles.personCopy}>
           <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
             {name}

@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
@@ -83,6 +84,7 @@ export default function AdminUserEdit() {
   const [emergencyRegion, setEmergencyRegion] = useState<PhoneRegion>('ps');
   const [emergencyLocal, setEmergencyLocal] = useState('');
   const [saving, setSaving] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   const [clearingMfa, setClearingMfa] = useState(false);
   const [accountStatus, setAccountStatus] = useState<'active' | 'suspended'>('active');
   const [suspendReason, setSuspendReason] = useState('');
@@ -340,25 +342,33 @@ export default function AdminUserEdit() {
     Boolean(user.national_id_url || user.university_card_url);
 
   return (
+    <>
     <Screen
       back
       refreshing={refreshing}
       onRefresh={() => void refresh()}
       footer={
         tab === 'profile' || tab === 'access' ? (
-          <Button title={t('common.save')} onPress={() => void save()} loading={saving} pill />
+          <Button title={t('common.save')} onPress={() => void save()} loading={saving} compact pill />
         ) : null
       }
     >
       <Card compact>
         <View style={[styles.header, row]}>
-          {user.avatar_url ? (
-            <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
-              <Text style={[styles.initials, { color: colors.primary }]}>{initials(shownName)}</Text>
-            </View>
-          )}
+          <Pressable
+            onPress={user.avatar_url ? () => setViewingPhoto(true) : undefined}
+            disabled={!user.avatar_url}
+            accessibilityRole={user.avatar_url ? 'button' : undefined}
+            accessibilityLabel={user.avatar_url ? t('profile.viewPhoto') : undefined}
+          >
+            {user.avatar_url ? (
+              <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: colors.primarySoft }]}>
+                <Text style={[styles.initials, { color: colors.primary }]}>{initials(shownName)}</Text>
+              </View>
+            )}
+          </Pressable>
           <View style={styles.headerCopy}>
             <Text style={[styles.name, rtlText, { color: colors.text }]} numberOfLines={1}>
               {shownName}
@@ -367,11 +377,12 @@ export default function AdminUserEdit() {
               {user.email}
             </Text>
             <View style={[styles.badges, row]}>
-              <StatusBadge label={t(`roles.${user.role}`)} tone="pending" />
+              <StatusBadge label={t(`roles.${user.role}`)} tone="pending" compact />
               {accountStatus === 'suspended' ? (
-                <StatusBadge label={t('admin.accountSuspended')} tone="rejected" />
+                <StatusBadge label={t('admin.accountSuspended')} tone="rejected" compact />
               ) : user.role === 'owner' ? (
                 <StatusBadge
+                  compact
                   label={
                     ownerStatus === 'approved'
                       ? t('admin.ownerActive')
@@ -592,12 +603,34 @@ export default function AdminUserEdit() {
         <>
           <Card compact>
             <SectionHead compact icon="pulse-outline" title={t('admin.editTabActivity')} />
-            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
-              {t('admin.activityBookings', { count: activity.bookings.length })}
-            </Text>
-            <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
-              {t('admin.activityReports', { count: activity.reports })}
-            </Text>
+            <Pressable
+              onPress={
+                activity.bookings.length
+                  ? () =>
+                      router.push({
+                        pathname: '/(admin)/(tabs)/bookings',
+                        params: { focus: activity.bookings[0].id },
+                      })
+                  : undefined
+              }
+              disabled={!activity.bookings.length}
+            >
+              <Text style={[styles.meta, rtlText, { color: activity.bookings.length ? colors.primary : colors.textMuted }]}>
+                {t('admin.activityBookings', { count: activity.bookings.length })}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={
+                activity.reports
+                  ? () => router.push({ pathname: '/(admin)/reports', params: { user: user.id } })
+                  : undefined
+              }
+              disabled={!activity.reports}
+            >
+              <Text style={[styles.meta, rtlText, { color: activity.reports ? colors.primary : colors.textMuted }]}>
+                {t('admin.activityReports', { count: activity.reports })}
+              </Text>
+            </Pressable>
             <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>
               {t('admin.activityBlocks', { count: activity.blocks.length })}
             </Text>
@@ -606,9 +639,16 @@ export default function AdminUserEdit() {
             <Card compact>
               <SectionHead compact icon="calendar-outline" title={t('tabs.bookings')} />
               {activity.bookings.map((item) => (
-                <Text key={item.id} style={[styles.meta, rtlText, { color: colors.text }]}>
-                  {item.start_date} · {t(`bookingStatus.${item.status}`)}
-                </Text>
+                <Pressable
+                  key={item.id}
+                  onPress={() =>
+                    router.push({ pathname: '/(admin)/(tabs)/bookings', params: { focus: item.id } })
+                  }
+                >
+                  <Text style={[styles.meta, rtlText, { color: colors.primary }]}>
+                    {item.start_date} · {t(`bookingStatus.${item.status}`)}
+                  </Text>
+                </Pressable>
               ))}
             </Card>
           ) : null}
@@ -618,12 +658,18 @@ export default function AdminUserEdit() {
               {activity.blocks.map((row) => {
                 const other = row.blocker_id === user.id ? row.blocked : row.blocker;
                 const name = other?.full_name || other?.email || row.blocked_id;
+                const otherId = other?.id ?? (row.blocker_id === user.id ? row.blocked_id : row.blocker_id);
                 return (
-                  <Text key={`${row.blocker_id}-${row.blocked_id}`} style={[styles.meta, rtlText, { color: colors.text }]}>
-                    {row.blocker_id === user.id
-                      ? t('admin.blockedByUser', { name })
-                      : t('admin.blockedUser', { name })}
-                  </Text>
+                  <Pressable
+                    key={`${row.blocker_id}-${row.blocked_id}`}
+                    onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: otherId } })}
+                  >
+                    <Text style={[styles.meta, rtlText, { color: colors.primary }]}>
+                      {row.blocker_id === user.id
+                        ? t('admin.blockedByUser', { name })
+                        : t('admin.blockedUser', { name })}
+                    </Text>
+                  </Pressable>
                 );
               })}
             </Card>
@@ -648,38 +694,48 @@ export default function AdminUserEdit() {
               <View style={styles.actions}>
                 <Button
                   title={t('admin.disableMfa')}
-                  variant="secondary"
+                  variant="ghost"
+                  compact
                   onPress={clearMfa}
                   loading={clearingMfa}
                   pill
                 />
                 <Button
                   title={accountStatus === 'suspended' ? t('admin.restoreAccount') : t('admin.suspend')}
-                  variant={accountStatus === 'suspended' ? 'secondary' : 'danger'}
+                  variant={accountStatus === 'suspended' ? 'ghost' : 'danger'}
+                  compact
                   onPress={toggleSuspend}
                   pill
                 />
-                <Button title={t('admin.deleteUser')} variant="danger" onPress={removeUser} pill />
+                <Button title={t('admin.deleteUser')} variant="danger" compact onPress={removeUser} pill />
               </View>
             </Card>
           ) : null}
         </>
       ) : null}
     </Screen>
+    <PhotoViewer
+      photos={user.avatar_url ? [user.avatar_url] : []}
+      index={0}
+      visible={viewingPhoto && Boolean(user.avatar_url)}
+      onIndexChange={() => {}}
+      onClose={() => setViewingPhoto(false)}
+    />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   header: { alignItems: 'center', gap: spacing.sm },
-  avatar: { width: 56, height: 56, borderRadius: 18 },
+  avatar: { width: 44, height: 44, borderRadius: 14 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 18, fontFamily: 'Cairo_800ExtraBold' },
-  headerCopy: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontSize: 17, fontFamily: 'Cairo_800ExtraBold' },
-  email: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  badges: { flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular', marginTop: 2 },
-  label: { fontFamily: 'Cairo_700Bold', fontSize: 13 },
+  initials: { fontSize: 15, fontFamily: 'Cairo_800ExtraBold' },
+  headerCopy: { flex: 1, minWidth: 0, gap: 1 },
+  name: { fontSize: 15, fontFamily: 'Cairo_800ExtraBold' },
+  email: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  badges: { flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  meta: { fontSize: 11, fontFamily: 'Cairo_400Regular', marginTop: 1 },
+  label: { fontFamily: 'Cairo_700Bold', fontSize: 12 },
   muted: { textAlign: 'center' },
-  actions: { gap: 8 },
+  actions: { gap: 6 },
 });

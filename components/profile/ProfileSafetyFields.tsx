@@ -8,6 +8,7 @@ import { IdDocField } from '@/components/profile/IdDocField';
 import { NationalIdExpiryBadge } from '@/components/profile/NationalIdExpiryBadge';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Card } from '@/components/ui/Card';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { DateField } from '@/components/ui/DateField';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
@@ -111,6 +112,14 @@ export function ProfileSafetyFields({
   const replaceDocs = expiryState === 'expired' || verifyStatus === 'rejected';
   const cardY = useRef(0);
   const [mapOpen, setMapOpen] = useState(false);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
+  const docPhotos = [nationalUri, universityUri].filter(Boolean) as string[];
+  const openDoc = (uri?: string | null) => {
+    if (!uri) return;
+    const index = docPhotos.indexOf(uri);
+    if (index < 0) return;
+    setViewer({ photos: docPhotos, index });
+  };
   const mapLockRef = useRef(false);
   const mapCenter = useMemo(() => {
     const city = cityOptions?.find((item) => item.value === cityId);
@@ -132,6 +141,7 @@ export function ProfileSafetyFields({
   };
 
   return (
+    <>
     <Card
       compact
       onLayout={(event) => {
@@ -185,6 +195,7 @@ export function ProfileSafetyFields({
           replace={replaceDocs}
           hint={replaceDocs ? t('profile.replaceCardHint') : undefined}
           onPress={onUploadNational}
+          onView={nationalUri ? () => openDoc(nationalUri) : undefined}
         />
         {isStudent ? (
           <IdDocField
@@ -195,6 +206,7 @@ export function ProfileSafetyFields({
             replace={replaceDocs}
             hint={replaceDocs ? t('profile.replaceCardHint') : undefined}
             onPress={onUploadUniversity}
+            onView={universityUri ? () => openDoc(universityUri) : undefined}
           />
         ) : null}
       </View>
@@ -275,6 +287,16 @@ export function ProfileSafetyFields({
         </>
       ) : null}
     </Card>
+    <PhotoViewer
+      photos={viewer?.photos ?? []}
+      index={viewer?.index ?? 0}
+      visible={Boolean(viewer)}
+      onIndexChange={(index) =>
+        setViewer((current) => (current ? { ...current, index } : current))
+      }
+      onClose={() => setViewer(null)}
+    />
+    </>
   );
 }
 

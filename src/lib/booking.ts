@@ -80,13 +80,22 @@ export function isoDateOnly(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function startOfDay(today = new Date()) {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
 /** Pending request, or confirmed stay that has not ended yet. */
 export function isActiveStay(booking: Pick<Booking, 'status' | 'start_date' | 'months'>, today = new Date()) {
   if (booking.status === 'pending') return true;
   if (booking.status !== 'confirmed') return false;
-  const end = stayEndDate(booking);
-  const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return end.getTime() > startToday.getTime();
+  return stayEndDate(booking).getTime() > startOfDay(today).getTime();
+}
+
+/** Confirmed stay that has already started and has not ended. */
+export function isOngoingStay(booking: Pick<Booking, 'status' | 'start_date' | 'months'>, today = new Date()) {
+  if (booking.status !== 'confirmed') return false;
+  const day = startOfDay(today);
+  return bookingStart(booking.start_date).getTime() <= day.getTime() && stayEndDate(booking).getTime() > day.getTime();
 }
 
 /** Confirmed stay that has not ended, else an open pending request. */
@@ -100,6 +109,26 @@ export function currentStudentStay(bookings: Booking[], today = new Date()) {
 
 export function activeStayBooking(bookings: Booking[]) {
   return bookings.find((item) => isActiveStay(item)) ?? null;
+}
+
+export function currentOwnerStays(bookings: Booking[], today = new Date()) {
+  return bookings.filter((item) => isOngoingStay(item, today));
+}
+
+export async function loadOwnerOccupiedApartmentIds(ownerId: string) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('id, apartment_id, start_date, months, status')
+    .eq('owner_id', ownerId)
+    .eq('status', 'confirmed');
+  if (error) throw error;
+  return [
+    ...new Set(
+      currentOwnerStays((data as Booking[]) ?? [])
+        .map((item) => item.apartment_id)
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export async function loadActiveStay(studentId: string) {

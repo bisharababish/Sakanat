@@ -42,6 +42,7 @@ import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFro
 import { formatEmailDomains, studentEmailError } from '@/src/lib/eduEmail';
 import { regionPrefix, sameMobile, sanitizeStudentId, isValidStudentId, splitPhone, toE164 } from '@/src/lib/phone';
 import type { PhoneRegion } from '@/src/lib/phone';
+import { spokenLanguageLabels } from '@/src/lib/ownerPublic';
 import { canShowSeekerContact, shouldShareEmergency, shouldShowSavedCount } from '@/src/lib/privacy';
 import { loadPendingReview } from '@/src/lib/reviews';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
@@ -923,7 +924,7 @@ export default function StudentProfileScreen() {
     : null;
 
   const photoBanner = {
-    icon: (avatarUrl ? 'image-outline' : 'camera-outline') as const,
+    icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
     text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
     onPress: () => {
       if (avatarUrl) setViewingPhoto(true);
@@ -941,6 +942,8 @@ export default function StudentProfileScreen() {
       ? [{ icon: 'location' as const, text: [isStudent ? universityName : '', cityName].filter(Boolean).join(' · ') }]
       : []),
   ].filter((item) => item.text);
+
+  const languageLine = spokenLanguageLabels(spokenLanguages, t).join(' · ');
 
   return (
     <Screen
@@ -1140,8 +1143,15 @@ export default function StudentProfileScreen() {
         <>
           <OwnerSeenCard
             title={t('profile.ownerSees')}
-            name={fullNameAr.trim() || t('profile.title')}
+            name={
+              displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) ||
+              t('profile.title')
+            }
             avatarUrl={avatarUrl}
+            bio={bio}
+            verifyStatus={profile?.id_verify_status}
+            verifyRole={profile?.role}
+            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
             lines={[
               ...(gender ? [{ icon: 'person-outline' as const, text: t(`profile.${gender}`) }] : []),
               ...(ageLabel(birthDate, t, today)
@@ -1164,6 +1174,9 @@ export default function StudentProfileScreen() {
                 : []),
               ...(isStudent && graduationTerm.trim()
                 ? [{ icon: 'school-outline' as const, text: `${t('profile.graduationTerm')} ${graduationTerm}` }]
+                : []),
+              ...(languageLine
+                ? [{ icon: 'chatbubbles-outline' as const, text: languageLine }]
                 : []),
               ...(phoneLocal.trim() &&
               canShowSeekerContact(

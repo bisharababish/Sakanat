@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -8,6 +8,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
+import { loadOwnerOccupiedApartmentIds } from '@/src/lib/booking';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function OwnerChat() {
@@ -16,8 +17,27 @@ export default function OwnerChat() {
   const colors = useColors();
   const inbox = useInbox();
   const [filter, setFilter] = useState<InboxFilter>('inbox');
+  const [occupiedIds, setOccupiedIds] = useState<string[]>([]);
   const { apartmentId } = useLocalSearchParams<{ apartmentId?: string }>();
   const listingId = typeof apartmentId === 'string' ? apartmentId : undefined;
+
+  useEffect(() => {
+    if (!inbox.profile?.id) {
+      setOccupiedIds([]);
+      return;
+    }
+    let alive = true;
+    void loadOwnerOccupiedApartmentIds(inbox.profile.id)
+      .then((ids) => {
+        if (alive) setOccupiedIds(ids);
+      })
+      .catch(() => {
+        if (alive) setOccupiedIds([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [inbox.profile?.id, inbox.items?.length]);
 
   return (
     <Screen
@@ -40,6 +60,7 @@ export default function OwnerChat() {
         filter={filter}
         onFilterChange={setFilter}
         apartmentId={listingId}
+        pinApartmentIds={occupiedIds}
       />
       </ProfileEnter>
     </Screen>

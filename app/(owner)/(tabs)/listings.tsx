@@ -10,6 +10,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -43,6 +44,7 @@ export default function OwnerListings() {
   const [filter, setFilter] = useState<Filter>('all');
   const [buildingFilter, setBuildingFilter] = useState('all');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
   const [mfaOn, setMfaOn] = useState(true);
 
   const canList = ownerReadyForListing(profile);
@@ -202,6 +204,7 @@ export default function OwnerListings() {
             : null;
 
   return (
+    <>
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
@@ -306,7 +309,17 @@ export default function OwnerListings() {
               accessibilityRole="button"
             >
               {photo ? (
-                <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+                <Pressable
+                  onPress={() =>
+                    item.photos?.length
+                      ? setViewer({ photos: item.photos, index: 0 })
+                      : setOpenId(open ? null : item.id)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={t('listing.viewPhoto')}
+                >
+                  <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+                </Pressable>
               ) : (
                 <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: colors.surfaceMuted }]}>
                   <Ionicons name="home-outline" size={18} color={colors.textMuted} />
@@ -441,6 +454,14 @@ export default function OwnerListings() {
         onPage={paged.setPage}
       />
     </Screen>
+    <PhotoViewer
+      photos={viewer?.photos ?? []}
+      index={viewer?.index ?? 0}
+      visible={Boolean(viewer?.photos.length)}
+      onIndexChange={(index) => setViewer((current) => (current ? { ...current, index } : current))}
+      onClose={() => setViewer(null)}
+    />
+    </>
   );
 }
 

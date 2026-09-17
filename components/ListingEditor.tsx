@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
@@ -80,6 +81,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
   const [gender, setGender] = useState<GenderPolicy>(apartment?.gender_policy ?? 'any');
   const [amenities, setAmenities] = useState<string[]>(apartment?.amenities ?? []);
   const [photos, setPhotos] = useState<string[]>(apartment?.photos ?? []);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [listingStatus, setListingStatus] = useState<ListingStatus>(
     apartment?.status ?? (asAdmin ? 'approved' : 'pending'),
   );
@@ -507,6 +509,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
   const cover = photos[0];
 
   return (
+    <>
     <Screen back scrollRef={scrollRef}>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{apartment ? t('owner.editListing') : t('owner.addListing')}</Text>
       <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('owner.addHint')}</Text>
@@ -517,7 +520,14 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
           {t('owner.qualityPhotosHint', { count: LISTING_MIN_PHOTOS })}
         </Text>
         {cover ? (
-          <Pressable onPress={() => onPhotoPress(cover, 0)} style={styles.coverWrap}>
+          <Pressable
+            onPress={() => setViewerIndex(0)}
+            onLongPress={() => onPhotoPress(cover, 0)}
+            delayLongPress={280}
+            accessibilityRole="button"
+            accessibilityLabel={t('listing.viewPhoto')}
+            style={styles.coverWrap}
+          >
             <Image source={{ uri: cover }} style={[styles.cover, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
             <View style={[styles.coverBadge, isRtl ? styles.coverBadgeStart : styles.coverBadgeEnd, { backgroundColor: colors.primary }]}>
               <Text style={[styles.coverBadgeText, { color: colors.white }]}>{t('owner.coverPhoto')}</Text>
@@ -526,7 +536,15 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         ) : null}
         <View style={[styles.photoGrid, chipAlign]}>
           {photos.slice(1).map((uri, index) => (
-            <Pressable key={uri} onPress={() => onPhotoPress(uri, index + 1)} style={styles.photoWrap}>
+            <Pressable
+              key={uri}
+              onPress={() => setViewerIndex(index + 1)}
+              onLongPress={() => onPhotoPress(uri, index + 1)}
+              delayLongPress={280}
+              accessibilityRole="button"
+              accessibilityLabel={t('listing.viewPhoto')}
+              style={styles.photoWrap}
+            >
               <Image source={{ uri }} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
             </Pressable>
           ))}
@@ -773,6 +791,14 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         <Button title={t('owner.deleteListing')} variant="danger" onPress={removeListing} pill />
       ) : null}
     </Screen>
+      <PhotoViewer
+        photos={photos}
+        index={viewerIndex ?? 0}
+        visible={viewerIndex != null && photos.length > 0}
+        onIndexChange={setViewerIndex}
+        onClose={() => setViewerIndex(null)}
+      />
+    </>
   );
 }
 

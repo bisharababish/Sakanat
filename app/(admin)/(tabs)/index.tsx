@@ -368,6 +368,11 @@ export default function AdminOverview() {
         <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.reviewsHint')}</Text>
       </Card>
 
+      <Card compact onPress={() => router.push('/(admin)/audit')}>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.auditTitle')}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.auditHint')}</Text>
+      </Card>
+
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingIds')}</Text>
       {pendingIds.length === 0 ? <EmptyState title={t('admin.idReviewEmpty')} /> : null}
       {pendingIds.slice(0, 6).map((user) => (

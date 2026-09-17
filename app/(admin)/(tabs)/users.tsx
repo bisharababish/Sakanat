@@ -292,7 +292,7 @@ export default function AdminUsers() {
               secureTextEntry
             />
             <PasswordChecks password={password} confirm={confirmPassword} />
-            <Button title={t('admin.createOwner')} onPress={createOwner} loading={creating} pill />
+            <Button title={t('admin.createOwner')} onPress={createOwner} loading={creating} compact pill />
           </>
         ) : null}
       </Card>
@@ -367,7 +367,8 @@ export default function AdminUsers() {
               <View style={styles.flex}>
                 <Button
                   title={t('admin.editUser')}
-                  variant="secondary"
+                  variant="ghost"
+                  compact
                   onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: user.id } })}
                   pill
                 />
@@ -377,6 +378,7 @@ export default function AdminUsers() {
                   <View style={styles.flex}>
                     <Button
                       title={t('admin.approveAlways')}
+                      compact
                       onPress={() => void setOwnerStatus(user.id, 'approved')}
                       pill
                     />
@@ -385,7 +387,8 @@ export default function AdminUsers() {
                   <View style={styles.flex}>
                     <Button
                       title={isSuspended(user) ? t('admin.restoreAccount') : t('admin.suspend')}
-                      variant={isSuspended(user) ? 'secondary' : 'danger'}
+                      variant={isSuspended(user) ? 'ghost' : 'danger'}
+                      compact
                       onPress={() => toggleSuspend(user)}
                       pill
                     />
@@ -397,7 +400,7 @@ export default function AdminUsers() {
               <View style={[styles.row, { justifyContent: alignStart }]}>
                 {phone ? (
                   <View style={styles.flex}>
-                    <Button title={t('common.call')} variant="ghost" onPress={() => Linking.openURL(`tel:${phone}`)} />
+                    <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
                   </View>
                 ) : null}
                 {whatsapp ? (
@@ -405,6 +408,8 @@ export default function AdminUsers() {
                     <Button
                       title={t('profile.openWhatsapp')}
                       variant="ghost"
+                      compact
+                      pill
                       onPress={() => Linking.openURL(whatsappLink(whatsapp))}
                     />
                   </View>
@@ -436,7 +441,7 @@ const styles = StyleSheet.create({
   userHead: { alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
   userCopy: { flex: 1, minWidth: 0, gap: 2 },
   row: { flexDirection: 'row', gap: 8 },
-  name: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  name: { fontSize: 14, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
   flex: { flex: 1 },
 });

@@ -13,6 +13,7 @@ export function IdDocField({
   uri,
   busy,
   onPress,
+  onView,
   compact,
   replace,
 }: {
@@ -21,19 +22,32 @@ export function IdDocField({
   uri?: string | null;
   busy?: boolean;
   onPress: () => void;
+  onView?: () => void;
   compact?: boolean;
   replace?: boolean;
 }) {
   const { t } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
+  const action = replace ? t('profile.replaceCard') : uri ? t('profile.changePhoto') : t('profile.uploadCard');
+  const thumb = uri ? (
+    <Image source={{ uri }} style={[styles.preview, compact && styles.previewCompact]} contentFit="cover" />
+  ) : (
+    <View
+      style={[
+        styles.fallback,
+        compact && styles.previewCompact,
+        { backgroundColor: colors.primarySoft },
+      ]}
+    >
+      <Ionicons name="id-card-outline" size={compact ? 16 : 18} color={colors.primary} />
+    </View>
+  );
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
       <Text style={[styles.label, compact && styles.labelCompact, rtlText, { color: colors.text }]}>{label}</Text>
-      <Pressable
-        onPress={onPress}
-        disabled={busy}
+      <View
         style={[
           styles.box,
           compact && styles.boxCompact,
@@ -41,31 +55,34 @@ export function IdDocField({
           { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
         ]}
       >
-        {uri ? (
-          <Image source={{ uri }} style={[styles.preview, compact && styles.previewCompact]} contentFit="cover" />
-        ) : (
-          <View
-            style={[
-              styles.fallback,
-              compact && styles.previewCompact,
-              { backgroundColor: colors.primarySoft },
-            ]}
-          >
-            <Ionicons name="id-card-outline" size={compact ? 16 : 18} color={colors.primary} />
-          </View>
-        )}
-        <View style={styles.copy}>
-          <Text style={[styles.title, compact && styles.titleCompact, rtlText, { color: colors.text }]}>
-            {replace ? t('profile.replaceCard') : uri ? t('profile.changePhoto') : t('profile.uploadCard')}
-          </Text>
-          {hint ? (
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]} numberOfLines={2}>
-              {hint}
+        <Pressable
+          onPress={uri && onView ? onView : onPress}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={uri && onView ? t('profile.viewPhoto') : action}
+        >
+          {thumb}
+        </Pressable>
+        <Pressable
+          onPress={onPress}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={action}
+          style={[styles.action, row]}
+        >
+          <View style={styles.copy}>
+            <Text style={[styles.title, compact && styles.titleCompact, rtlText, { color: colors.text }]}>
+              {action}
             </Text>
-          ) : null}
-        </View>
-        <Ionicons name="chevron-forward" size={compact ? 16 : 18} color={colors.textMuted} />
-      </Pressable>
+            {hint ? (
+              <Text style={[styles.hint, rtlText, { color: colors.textMuted }]} numberOfLines={2}>
+                {hint}
+              </Text>
+            ) : null}
+          </View>
+          <Ionicons name="chevron-forward" size={compact ? 16 : 18} color={colors.textMuted} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -87,6 +104,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: radius.sm,
   },
+  action: { flex: 1, minWidth: 0, alignItems: 'center', gap: 10 },
   preview: { width: 56, height: 40, borderRadius: 8 },
   previewCompact: { width: 48, height: 34, borderRadius: 6 },
   fallback: {

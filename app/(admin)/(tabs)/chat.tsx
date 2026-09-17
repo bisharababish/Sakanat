@@ -170,10 +170,10 @@ export default function AdminInbox() {
             >
               <View style={[styles.row, row]}>
                 <View style={styles.flex}>
-                  <Button title={t('admin.openChat')} variant="secondary" pill onPress={() => open(item.id)} />
+                  <Button title={t('admin.openChat')} variant="ghost" compact pill onPress={() => open(item.id)} />
                 </View>
                 <View style={styles.flex}>
-                  <Button title={t('admin.deleteConversation')} variant="danger" pill onPress={() => remove(item.id)} />
+                  <Button title={t('admin.deleteConversation')} variant="danger" compact pill onPress={() => remove(item.id)} />
                 </View>
               </View>
             </ConversationCard>
@@ -199,28 +199,28 @@ export default function AdminInbox() {
 const styles = StyleSheet.create({
   head: { gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  hint: { fontSize: 14, fontFamily: 'Cairo_400Regular', lineHeight: 22 },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 19 },
   searchBar: {
     alignItems: 'center',
-    gap: 10,
-    minHeight: 54,
+    gap: 8,
+    minHeight: 44,
     paddingHorizontal: spacing.md,
     borderRadius: radius.full,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Cairo_400Regular',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
-  list: { gap: 10 },
+  list: { gap: 6 },
   meta: { fontFamily: 'Cairo_400Regular' },
   row: { gap: 8 },
   flex: { flex: 1 },

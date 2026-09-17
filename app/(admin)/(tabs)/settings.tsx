@@ -11,6 +11,7 @@ import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { Button } from '@/components/ui/Button';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { useHubTabBack } from '@/src/hooks/useHubTabBack';
@@ -108,6 +109,7 @@ export default function AdminSettings() {
   const [percent, setPercent] = useState(String(DEFAULT_COMMISSION_PERCENT));
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   const hydratedId = useRef<string | null>(null);
   const baseline = useRef<FormSnap | null>(null);
   const dirtyRef = useRef(false);
@@ -353,7 +355,17 @@ export default function AdminSettings() {
             onPress: () => router.push('/(admin)/ops'),
           };
 
+  const photoBanner = {
+    icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
+    onPress: () => {
+      if (avatarUrl) setViewingPhoto(true);
+      else void changePhoto();
+    },
+  };
+
   return (
+    <>
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
@@ -380,6 +392,7 @@ export default function AdminSettings() {
             avatarUrl={avatarUrl}
             uploading={uploading}
             onChangePhoto={() => void changePhoto()}
+            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
             metas={[
               { icon: 'shield-checkmark', text: t('roles.admin') },
               ...(ageLabel(birthDate, t, today)
@@ -390,9 +403,10 @@ export default function AdminSettings() {
             chip={t('roles.admin')}
             email={profile?.email}
           />
+          <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
           <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
           <ProfileProgress
-            items={progressItems}
+            items={progressItems.filter((item) => item.id !== 'photo')}
             onJump={() => setTab('account')}
             readyLabel={t('admin.profileReady')}
           />
@@ -413,6 +427,12 @@ export default function AdminSettings() {
                   icon: 'options-outline',
                   label: t('admin.platformSettings'),
                   onPress: () => router.push('/(admin)/ops'),
+                },
+                {
+                  key: 'audit',
+                  icon: 'list-outline',
+                  label: t('admin.auditTitle'),
+                  onPress: () => router.push('/(admin)/audit'),
                 },
                 {
                   key: 'security',
@@ -462,6 +482,14 @@ export default function AdminSettings() {
       {tab === 'security' ? <ProfileSecurity mfaRequired /> : null}
       </ProfileEnter>
     </Screen>
+    <PhotoViewer
+      photos={avatarUrl ? [avatarUrl] : []}
+      index={0}
+      visible={viewingPhoto && Boolean(avatarUrl)}
+      onIndexChange={() => {}}
+      onClose={() => setViewingPhoto(false)}
+    />
+    </>
   );
 }
 

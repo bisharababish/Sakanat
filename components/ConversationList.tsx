@@ -67,6 +67,7 @@ export function ConversationList({
   onFilterChange,
   apartmentId,
   pinApartmentId,
+  pinApartmentIds,
 }: {
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
   items: Conversation[] | null;
@@ -77,6 +78,7 @@ export function ConversationList({
   onFilterChange?: (next: InboxFilter) => void;
   apartmentId?: string;
   pinApartmentId?: string;
+  pinApartmentIds?: string[];
 }) {
   if (!items) return null;
   const scoped = apartmentId ? items.filter((item) => item.apartment_id === apartmentId) : items;
@@ -90,6 +92,7 @@ export function ConversationList({
       filter={filter}
       onFilterChange={onFilterChange}
       pinApartmentId={pinApartmentId}
+      pinApartmentIds={pinApartmentIds}
     />
   );
 }
@@ -103,6 +106,7 @@ function ConversationPages({
   filter: filterProp,
   onFilterChange,
   pinApartmentId,
+  pinApartmentIds,
 }: {
   items: Conversation[];
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
@@ -112,6 +116,7 @@ function ConversationPages({
   filter?: InboxFilter;
   onFilterChange?: (next: InboxFilter) => void;
   pinApartmentId?: string;
+  pinApartmentIds?: string[];
 }) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, row } = useLayout();
@@ -187,16 +192,26 @@ function ConversationPages({
     );
   }, [scoped, query, messageHits, i18n.language]);
 
+  const pinIds = useMemo(() => {
+    const ids = new Set(pinApartmentIds ?? []);
+    if (pinApartmentId) ids.add(pinApartmentId);
+    return ids;
+  }, [pinApartmentId, pinApartmentIds]);
+
   const sorted = useMemo(() => {
-    if (!pinApartmentId) return filtered;
+    if (pinIds.size === 0) return filtered;
     return [...filtered].sort((a, b) => {
-      const aPin = a.apartment_id === pinApartmentId ? 0 : 1;
-      const bPin = b.apartment_id === pinApartmentId ? 0 : 1;
+      const aPin = a.apartment_id && pinIds.has(a.apartment_id) ? 0 : 1;
+      const bPin = b.apartment_id && pinIds.has(b.apartment_id) ? 0 : 1;
       return aPin - bPin;
     });
-  }, [filtered, pinApartmentId]);
+  }, [filtered, pinIds]);
 
-  const paged = usePaged(sorted, CHAT_PAGE_SIZE, `${filter}:${query}:${sorted.length}:${pinApartmentId ?? ''}`);
+  const paged = usePaged(
+    sorted,
+    CHAT_PAGE_SIZE,
+    `${filter}:${query}:${sorted.length}:${[...pinIds].sort().join(',')}`,
+  );
 
   const unreadCount = useMemo(
     () => items.filter((item) => !isConversationArchived(item, profileId) && isConversationUnread(item, profileId)).length,
@@ -318,7 +333,13 @@ function ConversationPages({
                 hideListing={
                   hiddenListings.has(conversationListingKey(item)) && !pinnedListings.has(item.id)
                 }
-                badge={item.apartment_id === pinApartmentId ? t('chat.stayPin') : undefined}
+                badge={
+                  item.apartment_id && pinIds.has(item.apartment_id)
+                    ? isOwner
+                      ? t('owner.staying')
+                      : t('chat.stayPin')
+                    : undefined
+                }
                 onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
                 onLongPress={() => manage(item)}
               />

@@ -23,7 +23,7 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
-import { bookingGateCode, hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
+import { bookingGateCode, currentOwnerStays, hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
 import { openConversation, sendMessage } from '@/src/lib/chat';
 import { majorLabel } from '@/src/data/majors';
 import { ageLabel, bookingStatusLabel, bookingTone, formatIls, formatStayRange, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
@@ -91,13 +91,6 @@ export default function OwnerBookings() {
     setBuildingFilter('all');
   }, [listing]);
 
-  useEffect(() => {
-    if (!focus) return;
-    const id = String(focus);
-    const index = bookings.findIndex((item) => item.id === id);
-    if (index >= 0) setPage(Math.floor(index / BOOKING_PAGE_SIZE));
-  }, [bookings, focus]);
-
   const load = useCallback(async () => {
     if (!profile) return;
     const { data } = await supabase
@@ -140,7 +133,30 @@ export default function OwnerBookings() {
     if (buildingFilter === 'all') return byListing;
     return byListing.filter((item) => item.apartments && buildingKey(item.apartments) === buildingFilter);
   }, [bookings, buildingFilter, filter, listingFilter]);
-  const { pages, current, slice: visible, from, to, total } = paginate(filtered, page, BOOKING_PAGE_SIZE);
+  const stayingNow = useMemo(() => {
+    let rows = currentOwnerStays(bookings, today);
+    if (listingFilter) rows = rows.filter((item) => item.apartment_id === listingFilter);
+    if (buildingFilter !== 'all') {
+      rows = rows.filter((item) => item.apartments && buildingKey(item.apartments) === buildingFilter);
+    }
+    return rows;
+  }, [bookings, today, listingFilter, buildingFilter]);
+  const showStaying =
+    stayingNow.length > 0 && (filter === 'all' || filter === 'pending' || filter === 'confirmed');
+  const rest = useMemo(() => {
+    if (!showStaying) return filtered;
+    const ids = new Set(stayingNow.map((item) => item.id));
+    return filtered.filter((item) => !ids.has(item.id));
+  }, [filtered, showStaying, stayingNow]);
+  const { pages, current, slice: visible, from, to, total } = paginate(rest, page, BOOKING_PAGE_SIZE);
+
+  useEffect(() => {
+    if (!focus) return;
+    const id = String(focus);
+    if (stayingNow.some((item) => item.id === id)) return;
+    const index = rest.findIndex((item) => item.id === id);
+    if (index >= 0) setPage(Math.floor(index / BOOKING_PAGE_SIZE));
+  }, [focus, rest, stayingNow]);
 
   useEffect(() => {
     if (!focus) return;
@@ -365,13 +381,20 @@ export default function OwnerBookings() {
         />
       ) : null}
 
-      {filtered.length === 0 ? (
+      {rest.length === 0 && !showStaying ? (
         <EmptyState
           title={bookings.length === 0 ? t('booking.emptyIncoming') : t('booking.emptyFiltered')}
         />
       ) : null}
 
-      {visible.map((booking) => {
+      {showStaying ? (
+        <Text style={[styles.sectionHead, rtlText, { color: colors.accent }]}>{t('owner.stayingNow')}</Text>
+      ) : null}
+
+      {[
+        ...(showStaying ? stayingNow.map((booking) => ({ booking, featured: true })) : []),
+        ...visible.map((booking) => ({ booking, featured: false })),
+      ].map(({ booking, featured }) => {
         const open = openId === booking.id;
         const showPhone = canShowSeekerContact(booking.profiles, 'phone', { bookingStatus: booking.status });
         const phone = showPhone ? booking.profiles?.phone : null;
@@ -432,8 +455,8 @@ export default function OwnerBookings() {
               styles.rowCard,
               {
                 backgroundColor: colors.surface,
-                borderColor: String(focus) === booking.id ? colors.primary : colors.border,
-                borderWidth: String(focus) === booking.id ? 2 : 1,
+                borderColor: featured || String(focus) === booking.id ? colors.primary : colors.border,
+                borderWidth: featured || String(focus) === booking.id ? 2 : 1,
               },
             ]}
           >
@@ -450,6 +473,11 @@ export default function OwnerBookings() {
                 </View>
               )}
               <View style={styles.rowCopy}>
+                {featured ? (
+                  <Text style={[styles.rowKicker, rtlText, { color: colors.primary }]} numberOfLines={1}>
+                    {t('owner.stayingNow')}
+                  </Text>
+                ) : null}
                 <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
                   {personBits[0] || title}
                 </Text>
@@ -609,6 +637,7 @@ export default function OwnerBookings() {
         );
       })}
 
+      {rest.length > 0 ? (
       <Pager
         page={current}
         pages={pages}
@@ -618,6 +647,7 @@ export default function OwnerBookings() {
         pageSize={BOOKING_PAGE_SIZE}
         onPage={setPage}
       />
+      ) : null}
 
       <Modal
         visible={Boolean(rejecting)}
@@ -685,6 +715,8 @@ const styles = StyleSheet.create({
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
   rowCopy: { flex: 1, minWidth: 0, gap: 2 },
   rowTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  rowKicker: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  sectionHead: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
   rowMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   rowActions: { paddingHorizontal: 10, paddingBottom: 10, gap: 8 },
   detailLine: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },

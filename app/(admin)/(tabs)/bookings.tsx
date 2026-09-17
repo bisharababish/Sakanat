@@ -12,6 +12,7 @@ import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -53,6 +54,7 @@ export default function AdminBookings() {
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
   useEffect(() => {
     if (!focusId) return;
@@ -165,6 +167,7 @@ export default function AdminBookings() {
   };
 
   return (
+    <>
     <Screen
       back={fromSettings}
       onBack={fromSettings ? backToSettings : undefined}
@@ -259,6 +262,12 @@ export default function AdminBookings() {
             personAvatar={student?.avatar_url}
             extra={extraBits.join(' · ')}
             details={details}
+            onViewListingPhoto={
+              booking.apartments?.photos?.length
+                ? () => setViewer({ photos: booking.apartments!.photos, index: 0 })
+                : undefined
+            }
+            onViewPersonPhoto={student?.avatar_url ? () => setViewer({ photos: [student.avatar_url!], index: 0 }) : undefined}
             note={
               booking.status === 'cancelled' && booking.cancel_reason
                 ? t('booking.cancelledNote', { note: booking.cancel_reason })
@@ -268,12 +277,13 @@ export default function AdminBookings() {
             {booking.status === 'pending' ? (
               <View style={styles.row}>
                 <View style={styles.flex}>
-                  <Button title={t('admin.approve')} pill onPress={() => void updateStatus(booking.id, 'confirmed')} />
+                  <Button title={t('admin.approve')} compact pill onPress={() => void updateStatus(booking.id, 'confirmed')} />
                 </View>
                 <View style={styles.flex}>
                   <Button
                     title={t('admin.reject')}
                     variant="danger"
+                    compact
                     pill
                     onPress={() => {
                       setRejectNote('');
@@ -284,12 +294,13 @@ export default function AdminBookings() {
               </View>
             ) : null}
             {booking.status === 'confirmed' ? (
-              <Button title={t('booking.complete')} pill onPress={() => void updateStatus(booking.id, 'completed')} />
+              <Button title={t('booking.complete')} compact pill onPress={() => void updateStatus(booking.id, 'completed')} />
             ) : null}
             {booking.status === 'cancelled' ? (
               <Button
                 title={t('admin.restoreBooking')}
-                variant="secondary"
+                variant="ghost"
+                compact
                 pill
                 onPress={() => void updateStatus(booking.id, 'pending')}
               />
@@ -298,6 +309,7 @@ export default function AdminBookings() {
               <Button
                 title={t('admin.restoreBooking')}
                 variant="ghost"
+                compact
                 pill
                 onPress={() => void updateStatus(booking.id, 'confirmed')}
               />
@@ -305,7 +317,8 @@ export default function AdminBookings() {
             {booking.payment_status === 'unpaid' && booking.status !== 'cancelled' ? (
               <Button
                 title={t('admin.markPaid')}
-                variant="secondary"
+                variant="ghost"
+                compact
                 pill
                 onPress={() => void updatePayment(booking.id, 'paid')}
               />
@@ -314,6 +327,7 @@ export default function AdminBookings() {
               <Button
                 title={t('admin.markUnpaid')}
                 variant="ghost"
+                compact
                 pill
                 onPress={() => void updatePayment(booking.id, 'unpaid')}
               />
@@ -322,6 +336,7 @@ export default function AdminBookings() {
               <Button
                 title={t('booking.viewListing')}
                 variant="ghost"
+                compact
                 pill
                 onPress={() => router.push({ pathname: '/(admin)/apartment/[id]', params: { id: booking.apartment_id } })}
               />
@@ -330,14 +345,24 @@ export default function AdminBookings() {
               <Button
                 title={t('admin.editUser')}
                 variant="ghost"
+                compact
                 pill
                 onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: booking.student_id } })}
               />
             ) : null}
-            {student?.national_id_url || student?.university_card_url ? (
-              <Button title={t('profile.viewIdCards')} variant="ghost" pill onPress={() => setDocsFor(booking)} />
+            {booking.owner_id ? (
+              <Button
+                title={t('admin.editOwner')}
+                variant="ghost"
+                compact
+                pill
+                onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: booking.owner_id } })}
+              />
             ) : null}
-            <Button title={t('admin.deleteBooking')} variant="danger" pill onPress={() => removeBooking(booking.id)} />
+            {student?.national_id_url || student?.university_card_url ? (
+              <Button title={t('profile.viewIdCards')} variant="ghost" compact pill onPress={() => setDocsFor(booking)} />
+            ) : null}
+            <Button title={t('admin.deleteBooking')} variant="danger" compact pill onPress={() => removeBooking(booking.id)} />
           </BookingCard>
           </View>
         );
@@ -374,6 +399,14 @@ export default function AdminBookings() {
         onClose={() => setDocsFor(null)}
       />
     </Screen>
+    <PhotoViewer
+      photos={viewer?.photos ?? []}
+      index={viewer?.index ?? 0}
+      visible={Boolean(viewer?.photos.length)}
+      onIndexChange={(index) => setViewer((current) => (current ? { ...current, index } : current))}
+      onClose={() => setViewer(null)}
+    />
+    </>
   );
 }
 
@@ -381,7 +414,7 @@ const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   countPill: {
     minWidth: 36,
     height: 36,

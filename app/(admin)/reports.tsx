@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -29,11 +29,17 @@ export default function AdminReports() {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
-  const [filter, setFilter] = useState<Filter>('active');
+  const params = useLocalSearchParams<{ user?: string }>();
+  const userId = params.user ? String(params.user) : '';
+  const [filter, setFilter] = useState<Filter>(userId ? 'all' : 'active');
   const [reports, setReports] = useState<AdminAppReport[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [closing, setClosing] = useState<AdminAppReport | null>(null);
   const [closeNote, setCloseNote] = useState('');
+
+  useEffect(() => {
+    if (userId) setFilter('all');
+  }, [userId]);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +66,14 @@ export default function AdminReports() {
     }
   };
 
+  const shown = useMemo(
+    () =>
+      userId
+        ? reports.filter((item) => item.reporter_id === userId || item.target_user_id === userId)
+        : reports,
+    [reports, userId],
+  );
+
   return (
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
       <AdminPageHeader kicker={t('roles.admin')} title={t('admin.reportsTitle')} hint={t('admin.reportsHint')} />
@@ -77,9 +91,9 @@ export default function AdminReports() {
         ]}
       />
 
-      {reports.length === 0 ? <EmptyState title={t('admin.reportsEmpty')} /> : null}
+      {shown.length === 0 ? <EmptyState title={t('admin.reportsEmpty')} /> : null}
 
-      {reports.map((report) => {
+      {shown.map((report) => {
         const reporterName = report.reporter?.full_name || report.reporter?.email || '—';
         const targetName = report.target_user?.full_name || report.target_user?.email;
         const when = new Date(report.created_at).toLocaleString(i18n.language.startsWith('ar') ? 'ar' : 'en', {

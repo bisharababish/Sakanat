@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -177,6 +178,11 @@ export default function AdminOps() {
     <Screen back onRefresh={() => void refresh()} refreshing={refreshing}>
       <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('admin.platformSettings')}</Text>
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.opsHubTitle')}</Text>
+
+      <Card compact onPress={() => router.push('/(admin)/audit')}>
+        <SectionHead compact icon="list-outline" title={t('admin.auditTitle')} />
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.auditHint')}</Text>
+      </Card>
 
       <Card compact>
         <SectionHead compact icon="cash-outline" title={t('admin.platformSettings')} />

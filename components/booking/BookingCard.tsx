@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { type ComponentProps, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -27,6 +27,8 @@ type Props = {
   highlighted?: boolean;
   kicker?: string;
   noteLines?: number;
+  onViewListingPhoto?: () => void;
+  onViewPersonPhoto?: () => void;
   children?: ReactNode;
 };
 
@@ -44,6 +46,8 @@ export function BookingCard({
   highlighted,
   kicker,
   noteLines = 2,
+  onViewListingPhoto,
+  onViewPersonPhoto,
   children,
 }: Props) {
   const { t, i18n } = useTranslation();
@@ -80,7 +84,14 @@ export function BookingCard({
       ) : null}
       <View style={[styles.head, row]}>
         {photo ? (
-          <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+          <Pressable
+            onPress={onViewListingPhoto}
+            disabled={!onViewListingPhoto}
+            accessibilityRole={onViewListingPhoto ? 'button' : undefined}
+            accessibilityLabel={onViewListingPhoto ? t('profile.viewPhoto') : undefined}
+          >
+            <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+          </Pressable>
         ) : (
           <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.primarySoft }]}>
             <Ionicons name="home" size={20} color={colors.primary} />
@@ -114,12 +125,24 @@ export function BookingCard({
 
       <View style={[styles.metaRow, row]}>
         <Text style={[styles.pay, copy, { color: colors.textMuted }]} numberOfLines={1}>
-          {t(paymentI18nKey(booking.payment_method))} · {t(`payment.${booking.payment_status}`)}
+          {t(paymentI18nKey(booking.payment_method))}
         </Text>
+        <StatusBadge
+          compact
+          label={t(`payment.${booking.payment_status}`)}
+          tone={booking.payment_status === 'paid' ? 'approved' : booking.status === 'cancelled' ? 'info' : 'pending'}
+        />
         {personLabel ? (
           <View style={[styles.person, row]}>
             {personAvatar ? (
-              <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
+              <Pressable
+                onPress={onViewPersonPhoto}
+                disabled={!onViewPersonPhoto}
+                accessibilityRole={onViewPersonPhoto ? 'button' : undefined}
+                accessibilityLabel={onViewPersonPhoto ? t('profile.viewPhoto') : undefined}
+              >
+                <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
+              </Pressable>
             ) : (
               <Ionicons name={personIcon} size={12} color={colors.primary} />
             )}
