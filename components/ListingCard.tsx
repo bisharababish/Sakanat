@@ -46,6 +46,7 @@ export function ListingCard({
   const meta = [
     place,
     t('listing.roomsBaths', { rooms: apartment.rooms, baths: apartment.bathrooms }),
+    apartment.area_m2 ? t('listing.area', { area: apartment.area_m2 }) : '',
     t(`gender.${apartment.gender_policy}`),
     distanceKm != null
       ? formatKm(distanceKm, lang, distancePlace)

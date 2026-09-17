@@ -167,7 +167,7 @@ export function ChatHeader({
   const openBooking = () => {
     if (!bookingId) return;
     if (admin) {
-      router.push('/(admin)/(tabs)/bookings');
+      router.push({ pathname: '/(admin)/(tabs)/bookings', params: { focus: bookingId } });
       return;
     }
     if (asOwner) {

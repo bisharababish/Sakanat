@@ -6,7 +6,7 @@ import { supabase } from '@/src/lib/supabase';
 import type { IdVerifyStatus, Profile } from '@/src/types/database';
 
 export const SEEKER_BOOKING_PROFILE =
-  'id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth, home_address, national_id_number, national_id_url, university_card_url, id_verify_status, emergency_name, emergency_phone, last_seen_ip, phone_visibility, whatsapp_visibility, hide_last_seen, share_emergency';
+  'id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth, home_address, national_id_number, national_id_url, university_card_url, id_verify_status, emergency_name, emergency_phone, last_seen_ip, phone_visibility, whatsapp_visibility, hide_last_seen, share_emergency, graduation_term';
 
 
 export function sanitizeNationalId(raw: string) {
@@ -154,6 +154,7 @@ export function seekerTrustDetails(
         | 'id_verify_status'
         | 'hide_last_seen'
         | 'share_emergency'
+        | 'graduation_term'
         | 'role'
       >
     | null
@@ -172,18 +173,18 @@ export function seekerTrustDetails(
           ? t('profile.idRejected')
           : '';
   const shareEmergency = opts?.isAdmin || profile.share_emergency !== false;
-  const showIp = opts?.isAdmin || !profile.hide_last_seen;
   return [
     statusLine,
     profile.home_address ? `${t('profile.homeAddress')}: ${profile.home_address}` : '',
     profile.national_id_number ? `${t('profile.nationalId')} ${profile.national_id_number}` : '',
+    profile.graduation_term ? `${t('profile.graduationTerm')}: ${profile.graduation_term}` : '',
     shareEmergency && profile.emergency_name
       ? `${t('profile.emergencyName')}: ${profile.emergency_name}`
       : '',
     shareEmergency && profile.emergency_phone
       ? `${t('profile.emergencyPhone')} ${profile.emergency_phone}`
       : '',
-    showIp && profile.last_seen_ip ? `${t('profile.deviceIp')} ${profile.last_seen_ip}` : '',
+    opts?.isAdmin && profile.last_seen_ip ? `${t('profile.deviceIp')} ${profile.last_seen_ip}` : '',
   ].filter(Boolean);
 }
 

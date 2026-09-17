@@ -108,8 +108,6 @@ export type Profile = {
   recovery_phone?: string | null;
   pref_budget_max?: number | null;
   pref_gender_policy?: GenderPolicy | null;
-  pref_allows_smoking?: boolean | null;
-  pref_allows_pets?: boolean | null;
   pref_move_in?: string | null;
   pref_occupants?: number | null;
   notify_booking?: boolean;

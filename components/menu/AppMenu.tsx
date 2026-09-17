@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,10 +19,8 @@ import { useAuth } from '@/src/lib/auth';
 import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
-import { getPushEnabled, setPushEnabled } from '@/src/lib/push';
 import { loadMyReports, reportStatusLabel, submitAppReport } from '@/src/lib/reports';
 import { profileHref, type ProfileTab } from '@/src/lib/routes';
-import { loadPendingReview } from '@/src/lib/reviews';
 import { appVersion, COPYRIGHT_YEAR, INSTAGRAM_HANDLE, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
 import { accountVerification } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
@@ -60,11 +58,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const { preference, setPreference } = useTheme();
   const { width } = useWindowDimensions();
   const { top: topInset } = useModalSafeArea();
-  const [pushOn, setPushOn] = useState(true);
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<Pane>('root');
   const [askLogout, setAskLogout] = useState(false);
-  const [needsReview, setNeedsReview] = useState(false);
   const [reportKind, setReportKind] = useState<'tech' | 'safety'>('safety');
   const [reportBody, setReportBody] = useState('');
   const [sendingReport, setSendingReport] = useState(false);
@@ -80,18 +76,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const verification = accountVerification(profile);
   const isSeeker = signedIn && (profile?.role === 'student' || profile?.role === 'renter');
   const isOwner = signedIn && profile?.role === 'owner';
-
-  useEffect(() => {
-    if (!visible) return;
-    void getPushEnabled().then(setPushOn);
-    if (!signedIn || !profile || !isSeeker) {
-      setNeedsReview(false);
-      return;
-    }
-    void loadPendingReview(profile.id)
-      .then((pending) => setNeedsReview(Boolean(pending)))
-      .catch(() => setNeedsReview(false));
-  }, [visible, profile, isSeeker, signedIn]);
 
   useEffect(() => {
     if (visible) {
@@ -146,11 +130,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: interpolate(progress.value, [0, 1], [startX, 0]) }],
   }));
-
-  const togglePush = async (next: boolean) => {
-    setPushOn(next);
-    await setPushEnabled(next, profile?.id);
-  };
 
   const goProfile = (tab?: ProfileTab) => {
     if (!signedIn || !profile) return;
@@ -519,39 +498,17 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                         </View>
                       </Pressable>
                     ) : null}
-                    {isSeeker && needsReview ? (
-                      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        <MenuLink
-                          icon="star-outline"
-                          label={t('menu.writeReview')}
-                          colors={colors}
-                          copy={copy}
-                          row={row}
-                          isRtl={isRtl}
-                          onPress={goBookings}
-                        />
-                      </View>
-                    ) : null}
                   </>
                 ) : (
                   <View style={[styles.guestCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <Text style={[styles.guestName, copy, { color: colors.primaryDark }]}>{t('appName')}</Text>
                     <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
                     <Button
-                      title={t('auth.login')}
+                      title={t('guest.goAccount')}
                       pill
                       onPress={() => {
                         onClose();
-                        router.push('/(auth)/login');
-                      }}
-                    />
-                    <Button
-                      title={t('auth.register')}
-                      variant="secondary"
-                      pill
-                      onPress={() => {
-                        onClose();
-                        router.push('/(auth)/register');
+                        router.push('/(guest)/(tabs)/account');
                       }}
                     />
                   </View>
@@ -591,22 +548,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       );
                     })}
                   </View>
-
-                  {signedIn && profile ? (
-                    <>
-                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                      <View style={[styles.row, row]}>
-                        <RowIcon name="notifications-outline" colors={colors} />
-                        <Text style={[styles.rowLabel, copy, { color: colors.text }]}>{t('menu.notifications')}</Text>
-                        <Switch
-                          value={pushOn}
-                          onValueChange={(next) => void togglePush(next)}
-                          trackColor={{ false: colors.border, true: colors.primary }}
-                          thumbColor={colors.white}
-                        />
-                      </View>
-                    </>
-                  ) : null}
                 </View>
 
                 <Text style={[styles.section, copy, { color: colors.textMuted }]}>{t('menu.help')}</Text>

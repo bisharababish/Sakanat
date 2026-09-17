@@ -45,7 +45,7 @@ import type { Apartment, ApartmentReview, University } from '@/src/types/databas
 const PHOTO_WIDTH = Dimensions.get('window').width - spacing.lg * 2;
 
 export type ListingBookGate = {
-  kind: 'profile' | 'review' | 'stay' | 'gender' | 'occupied';
+  kind: 'profile' | 'review' | 'stay' | 'gender' | 'occupied' | 'mine';
   title: string;
   body: string;
 };
@@ -131,6 +131,7 @@ export function ApartmentView({
   const wasViewer = useRef(false);
   const copy = { textAlign, writingDirection };
   const photos = apartment?.photos?.filter(Boolean) ?? [];
+  const myReview = reviews.find((item) => item.student_id === profile?.id) ?? null;
 
   useEffect(() => {
     if (!apartment?.id) {
@@ -475,6 +476,13 @@ export function ApartmentView({
             reviewsY.current = event.nativeEvent.layout.y;
           }}
         >
+          {myReview ? (
+            <Card>
+              <SectionHead icon="star" title={t('listing.yourReview')} />
+              <StarRow value={myReview.stars} />
+              <Text style={[styles.body, copy, { color: colors.text }]}>{myReview.note}</Text>
+            </Card>
+          ) : null}
           <ListingReviews
             reviews={reviews}
             average={apartment.review_avg}
@@ -521,7 +529,7 @@ export function ApartmentView({
                     ? 'person-outline'
                     : bookGate.kind === 'review'
                       ? 'star-outline'
-                      : bookGate.kind === 'stay'
+                      : bookGate.kind === 'stay' || bookGate.kind === 'mine'
                         ? 'home-outline'
                         : bookGate.kind === 'occupied'
                           ? 'calendar-outline'
@@ -573,8 +581,10 @@ export function ApartmentView({
                       : bookGate?.kind === 'review'
                         ? t('review.goWrite')
                         : bookGate?.kind === 'stay'
-                          ? t('booking.myBookings')
-                          : bookGate?.kind === 'gender'
+                      ? t('booking.myBookings')
+                      : bookGate?.kind === 'mine'
+                        ? t('listing.viewStay')
+                        : bookGate?.kind === 'gender'
                             ? t('booking.findPlace')
                             : t('listing.book')
                 }

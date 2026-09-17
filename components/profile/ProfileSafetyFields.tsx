@@ -1,8 +1,9 @@
-import { useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import { AddressMapPicker } from '@/components/profile/AddressMapPicker';
 import { IdDocField } from '@/components/profile/IdDocField';
 import { NationalIdExpiryBadge } from '@/components/profile/NationalIdExpiryBadge';
 import { SectionHead } from '@/components/profile/SectionHead';
@@ -21,7 +22,7 @@ import {
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
-type Section = 'docs' | 'emergency';
+type Section = 'docs' | 'emergency' | 'address';
 
 export function ProfileSafetyFields({
   isStudent,
@@ -41,6 +42,13 @@ export function ProfileSafetyFields({
   emergencyRegion,
   emergencyLocal,
   onEmergency,
+  homeAddress,
+  onHomeAddress,
+  cityId,
+  cityOptions,
+  shareEmergency,
+  onShareEmergency,
+  shareEmergencyHint,
   onSectionLayout,
 }: {
   isStudent: boolean;
@@ -60,6 +68,13 @@ export function ProfileSafetyFields({
   emergencyRegion: PhoneRegion;
   emergencyLocal: string;
   onEmergency: (region: PhoneRegion, local: string) => void;
+  homeAddress?: string;
+  onHomeAddress?: (value: string) => void;
+  cityId?: string;
+  cityOptions?: { value: string; label: string; lat?: number; lng?: number }[];
+  shareEmergency?: boolean;
+  onShareEmergency?: (value: boolean) => void;
+  shareEmergencyHint?: string;
   onSectionLayout?: (section: Section, y: number) => void;
 }) {
   const { t } = useTranslation();
@@ -91,6 +106,26 @@ export function ProfileSafetyFields({
           ? colors.danger
           : colors.textMuted;
   const cardY = useRef(0);
+  const [mapOpen, setMapOpen] = useState(false);
+  const mapLockRef = useRef(false);
+  const mapCenter = useMemo(() => {
+    const city = cityOptions?.find((item) => item.value === cityId);
+    if (city?.lat != null && city?.lng != null) return { lat: city.lat, lng: city.lng };
+    return null;
+  }, [cityId, cityOptions]);
+
+  const openMap = () => {
+    if (!onHomeAddress || mapLockRef.current) return;
+    setMapOpen(true);
+  };
+
+  const closeMap = () => {
+    mapLockRef.current = true;
+    setMapOpen(false);
+    setTimeout(() => {
+      mapLockRef.current = false;
+    }, 600);
+  };
 
   return (
     <Card
@@ -177,7 +212,59 @@ export function ProfileSafetyFields({
           onRegionChange={(region) => onEmergency(region, emergencyLocal)}
           onLocalChange={(value) => onEmergency(emergencyRegion, value)}
         />
+        {onShareEmergency ? (
+          <View style={styles.toggleBlock}>
+            <View style={[styles.toggleRow, row]}>
+              <Text style={[styles.toggleLabel, rtlText, { color: colors.text }]}>{t('profile.shareEmergency')}</Text>
+              <Switch
+                value={shareEmergency !== false}
+                onValueChange={onShareEmergency}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
+              />
+            </View>
+            {shareEmergencyHint ? (
+              <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>{shareEmergencyHint}</Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
+      {onHomeAddress ? (
+        <>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View
+            style={styles.denseBlock}
+            onLayout={(event) => {
+              onSectionLayout?.('address', cardY.current + event.nativeEvent.layout.y);
+            }}
+          >
+            <SectionHead compact icon="home-outline" title={t('profile.homeAddress')} />
+            <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>{t('profile.homeAddressTrustHint')}</Text>
+            <Pressable onPress={openMap} accessibilityRole="button">
+              <View pointerEvents="none">
+                <Input
+                  compact
+                  label={t('profile.homeAddress')}
+                  value={homeAddress ?? ''}
+                  onChangeText={() => undefined}
+                  placeholder={t('profile.homeAddressPick')}
+                  editable={false}
+                  multiline
+                />
+              </View>
+            </Pressable>
+            <AddressMapPicker
+              visible={mapOpen}
+              onClose={closeMap}
+              onPick={(address) => {
+                onHomeAddress(address);
+                closeMap();
+              }}
+              initial={mapCenter}
+            />
+          </View>
+        </>
+      ) : null}
     </Card>
   );
 }
@@ -189,4 +276,7 @@ const styles = StyleSheet.create({
   expiryRow: { alignItems: 'center', gap: 8 },
   consent: { alignItems: 'flex-start', gap: 8, minHeight: 36 },
   consentText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_600SemiBold' },
+  toggleBlock: { gap: 2, maxWidth: '100%' },
+  toggleRow: { alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  toggleLabel: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_700Bold' },
 });

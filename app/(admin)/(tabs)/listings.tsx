@@ -33,7 +33,7 @@ export default function AdminListings() {
   const params = useLocalSearchParams<{ from?: string }>();
   const fromSettings = params.from === 'settings';
   const backToSettings = () =>
-    router.push({ pathname: '/(admin)/(tabs)/settings', params: { tab: 'settings' } });
+    router.push('/(admin)/(tabs)');
   const [listings, setListings] = useState<Apartment[]>([]);
   const [status, setStatus] = useState<Filter>('pending');
   const [query, setQuery] = useState('');

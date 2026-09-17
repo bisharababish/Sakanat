@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -39,10 +39,11 @@ export default function AdminBookings() {
   const colors = useColors();
   const { universities } = useCatalog();
   const today = useToday();
-  const params = useLocalSearchParams<{ from?: string }>();
+  const params = useLocalSearchParams<{ from?: string; focus?: string }>();
   const fromSettings = params.from === 'settings';
+  const focusId = params.focus ? String(params.focus) : '';
   const backToSettings = () =>
-    router.push({ pathname: '/(admin)/(tabs)/settings', params: { tab: 'settings' } });
+    router.push('/(admin)/(tabs)');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<Filter>('pending');
   const [payFilter, setPayFilter] = useState<PayFilter>('all');
@@ -52,6 +53,11 @@ export default function AdminBookings() {
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    if (!focusId) return;
+    setFilter('all');
+  }, [focusId]);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -235,11 +241,18 @@ export default function AdminBookings() {
                     : '',
           yearLabel,
           student?.student_id_number ? `${t('profile.studentId')} ${student.student_id_number}` : '',
-          ...seekerTrustDetails(student, t),
+          ...seekerTrustDetails(student, t, { isAdmin: true }),
         ].filter(Boolean);
         return (
-          <BookingCard
+          <View
             key={booking.id}
+            style={{
+              borderRadius: 20,
+              borderWidth: focusId && focusId === booking.id ? 2 : 0,
+              borderColor: colors.primary,
+            }}
+          >
+          <BookingCard
             booking={booking}
             personIcon={seekerIcon(student?.role)}
             personLabel={personBits.join(' · ') || undefined}
@@ -326,6 +339,7 @@ export default function AdminBookings() {
             ) : null}
             <Button title={t('admin.deleteBooking')} variant="danger" pill onPress={() => removeBooking(booking.id)} />
           </BookingCard>
+          </View>
         );
       })}
       <Pager

@@ -51,6 +51,7 @@ type PeerProfile = Partial<
     | 'share_emergency'
     | 'spoken_languages'
     | 'student_id_number'
+    | 'graduation_term'
   >
 > & { id: string };
 
@@ -63,8 +64,8 @@ export type ChatPeerSeed = {
 };
 
 const PEER_SELECTS = [
-  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, bio, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status, home_address, emergency_name, emergency_phone, share_emergency, spoken_languages, student_id_number',
-  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, phone, whatsapp, id_verify_status, home_address, emergency_name, emergency_phone, student_id_number',
+  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, bio, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status, home_address, emergency_name, emergency_phone, share_emergency, spoken_languages, student_id_number, graduation_term',
+  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, phone, whatsapp, id_verify_status, home_address, emergency_name, emergency_phone, student_id_number, graduation_term',
   'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, phone, whatsapp, id_verify_status',
   'id, full_name, avatar_url, role, phone',
 ];
@@ -300,6 +301,9 @@ export function ChatPeerSheet({
               {peer.major ? <Row icon="book-outline" text={majorLabel(peer.major, i18n.language)} /> : null}
               {degree ? <Row icon="ribbon-outline" text={degree} /> : null}
               {yearLabel ? <Row icon="calendar-outline" text={yearLabel} /> : null}
+              {peer.graduation_term ? (
+                <Row icon="school-outline" text={`${t('profile.graduationTerm')} ${peer.graduation_term}`} />
+              ) : null}
               {peer.student_id_number ? (
                 <Row icon="card-outline" text={`${t('profile.studentId')} ${peer.student_id_number}`} />
               ) : null}
@@ -338,6 +342,16 @@ export function ChatPeerSheet({
                 } else {
                   router.push({ pathname: '/(student)/(tabs)/bookings', params: { focus: bookingId } });
                 }
+              }}
+            />
+          ) : null}
+          {bookingId && adminReview ? (
+            <Button
+              title={t('chat.viewBooking')}
+              pill
+              onPress={() => {
+                onClose();
+                router.push({ pathname: '/(admin)/(tabs)/bookings', params: { focus: bookingId } });
               }}
             />
           ) : null}

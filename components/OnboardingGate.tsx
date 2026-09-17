@@ -10,7 +10,7 @@ import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
-import { isStudentReady } from '@/src/lib/studentProfile';
+import { isSeekerAccountReady } from '@/src/lib/studentProfile';
 import { ownerReadyForListing } from '@/src/lib/trust';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -54,7 +54,7 @@ export function OnboardingGate() {
 
   const isOwner = profile.role === 'owner';
   const isRenter = profile.role === 'renter';
-  const ready = isOwner ? ownerReadyForListing(profile) : isStudentReady(profile);
+  const ready = isOwner ? ownerReadyForListing(profile) : isSeekerAccountReady(profile);
   const title = isOwner
     ? t('onboarding.ownerTitle')
     : isRenter

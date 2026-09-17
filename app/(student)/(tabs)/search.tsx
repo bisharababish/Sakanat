@@ -30,7 +30,6 @@ import {
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
 import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings';
-import { isStudentReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
@@ -103,6 +102,7 @@ export default function SearchScreen() {
     if (isRenter) {
       setUniversityId('');
       setMaxKm('');
+      setSort((current) => (current === 'distance' ? 'price' : current));
       if (profile?.city_id) setCityId((current) => current || profile.city_id || '');
     } else if (profile?.university_id) {
       setUniversityId((current) => current || profile.university_id || '');
@@ -270,8 +270,6 @@ export default function SearchScreen() {
         void supabase.from('profiles').update({ notify_listing: true }).eq('id', profile.id);
       }
       alert(t('common.done'), t('search.alertEnabled'));
-    } else if (profile.id) {
-      void supabase.from('profiles').update({ notify_listing: false }).eq('id', profile.id);
     }
   };
 
@@ -439,7 +437,7 @@ export default function SearchScreen() {
   const campusOptions = universities.filter((item) => !cityId || item.city_id === cityId);
   const sortItems: { value: SortMode; label: string }[] = [
     { value: 'price', label: t('search.sortPrice') },
-    { value: 'distance', label: t('search.sortDistance') },
+    ...(!isRenter ? [{ value: 'distance' as const, label: t('search.sortDistance') }] : []),
     { value: 'rating', label: t('search.sortRating') },
   ];
   const pickCity = (next: string) => {
@@ -490,17 +488,6 @@ export default function SearchScreen() {
 
       {!profile ? (
         <ProfileBanner icon="person-outline" text={t('guest.banner')} onPress={openWelcome} />
-      ) : !isStudentReady(profile) ? (
-        <ProfileBanner
-          icon="sparkles"
-          text={t(isRenter ? 'profile.completeHintRenter' : 'profile.completeHint')}
-          onPress={() =>
-            router.push({
-              pathname: '/(student)/(tabs)/profile',
-              params: { tab: seekerProfileGapTab(profile) },
-            })
-          }
-        />
       ) : pendingBooking ? (
         <ProfileBanner
           icon="calendar-outline"
@@ -562,6 +549,17 @@ export default function SearchScreen() {
             <Ionicons name={alertOn ? 'notifications' : 'notifications-outline'} size={16} color={colors.primary} />
             <Text style={[styles.toolText, { color: colors.text }]}>
               {alertOn ? t('search.alertOnShort') : t('search.alertOffShort')}
+            </Text>
+          </Pressable>
+        ) : null}
+        {profile && savedIds.length > 0 ? (
+          <Pressable
+            onPress={() => router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'saved' } })}
+            style={[styles.tool, row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Ionicons name="heart" size={16} color={colors.danger} />
+            <Text style={[styles.toolText, { color: colors.text }]}>
+              {t('search.savedCount', { count: savedIds.length })}
             </Text>
           </Pressable>
         ) : null}

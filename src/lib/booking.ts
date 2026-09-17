@@ -97,6 +97,20 @@ export async function loadActiveStay(studentId: string) {
   return activeStayBooking((data as Booking[]) ?? []);
 }
 
+export async function loadMyListingStay(studentId: string, apartmentId: string) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('id, apartment_id, student_id, owner_id, start_date, months, status')
+    .eq('student_id', studentId)
+    .eq('apartment_id', apartmentId)
+    .in('status', ['pending', 'confirmed'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Booking | null) ?? null;
+}
+
 export function bookingsOverlap(
   a: Pick<Booking, 'start_date' | 'months'>,
   b: Pick<Booking, 'start_date' | 'months'>,

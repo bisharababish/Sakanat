@@ -1,7 +1,6 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
@@ -11,11 +10,7 @@ import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
 import { ProfileProgress } from '@/components/profile/ProfileProgress';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
-import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { FilterPills } from '@/components/ui/FilterPills';
-import { Input } from '@/components/ui/Input';
 import { Screen } from '@/components/ui/Screen';
 import { useAdminPendingCounts } from '@/src/hooks/useAdminPendingCounts';
 import { useHubTabBack } from '@/src/hooks/useHubTabBack';
@@ -24,29 +19,18 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
-import { logAdminAction } from '@/src/lib/audit';
 import { DEFAULT_COMMISSION_PERCENT } from '@/src/lib/commission';
-import {
-  exportListingsCsv,
-  exportPlatformBookingsCsv,
-  exportReportsCsv,
-  exportReviewsCsv,
-  exportUsersCsv,
-} from '@/src/lib/dataExport';
 import { ageLabel, localizedName } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { cleanName, displayName, isValidArabicName, isValidEnglishName, namesFromProfile } from '@/src/lib/name';
 import { sameMobile, splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
 import { pickProfilePhoto } from '@/src/lib/pickImage';
-import { broadcastPush } from '@/src/lib/push';
-import { loadBookingOpsStatus, runBookingOpsNow } from '@/src/lib/searchAlerts';
 import { supabase } from '@/src/lib/supabase';
 import { uploadProfilePhoto } from '@/src/lib/upload';
-import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import type { PersonGender, Profile, UserRole } from '@/src/types/database';
+import type { PersonGender, Profile } from '@/src/types/database';
 
-type ProfileTab = 'menu' | 'account' | 'security' | 'settings';
+type ProfileTab = 'menu' | 'account' | 'security';
 
 type FormSnap = {
   fullNameEn: string;
@@ -100,48 +84,9 @@ function snapFromProfile(next: Profile): FormSnap {
   };
 }
 
-function QueueRow({
-  icon,
-  label,
-  count,
-  onPress,
-}: {
-  icon: ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  count?: number;
-  onPress: () => void;
-}) {
-  const { rtlText, row, isRtl } = useLayout();
-  const colors = useColors();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.queueRow,
-        row,
-        { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-        pressed && { opacity: 0.9 },
-      ]}
-    >
-      <View style={[styles.queueIcon, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={icon} size={16} color={colors.primary} />
-      </View>
-      <Text style={[styles.queueLabel, rtlText, { color: colors.text }]} numberOfLines={1}>
-        {label}
-      </Text>
-      {count != null && count > 0 ? (
-        <View style={[styles.queueBadge, { backgroundColor: colors.warning }]}>
-          <Text style={styles.queueBadgeText}>{count > 9 ? '9+' : count}</Text>
-        </View>
-      ) : null}
-      <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={16} color={colors.textMuted} />
-    </Pressable>
-  );
-}
-
 export default function AdminSettings() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile } = useAuth();
   const { cities } = useCatalog();
@@ -161,43 +106,17 @@ export default function AdminSettings() {
   const [cityId, setCityId] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [percent, setPercent] = useState(String(DEFAULT_COMMISSION_PERCENT));
-  const [adminEmail, setAdminEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [savingCommission, setSavingCommission] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [opsRunning, setOpsRunning] = useState(false);
-  const [opsStatus, setOpsStatus] = useState<{
-    cronScheduled?: boolean;
-    lastAt?: string | null;
-    lastResult?: Record<string, number> | null;
-  } | null>(null);
-  const [broadcasting, setBroadcasting] = useState(false);
-  const [broadcastTitle, setBroadcastTitle] = useState('');
-  const [broadcastBody, setBroadcastBody] = useState('');
-  const [broadcastRoles, setBroadcastRoles] = useState<Array<'student' | 'renter' | 'owner'>>([
-    'student',
-    'renter',
-    'owner',
-  ]);
   const hydratedId = useRef<string | null>(null);
   const baseline = useRef<FormSnap | null>(null);
   const dirtyRef = useRef(false);
 
   useEffect(() => {
-    if (tabParam === 'account' || tabParam === 'security' || tabParam === 'settings') {
+    if (tabParam === 'account' || tabParam === 'security') {
       setTab(tabParam);
     }
   }, [tabParam]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void pending.refresh();
-      void loadBookingOpsStatus()
-        .then(setOpsStatus)
-        .catch(() => setOpsStatus(null));
-    }, [pending.refresh]),
-  );
 
   const applyForm = useCallback((next: Profile) => {
     const snap = snapFromProfile(next);
@@ -244,11 +163,10 @@ export default function AdminSettings() {
   const loadSettings = useCallback(async () => {
     const { data } = await supabase
       .from('app_settings')
-      .select('commission_percent, admin_email')
+      .select('commission_percent')
       .eq('id', 1)
       .maybeSingle();
     if (data?.commission_percent != null) setPercent(String(data.commission_percent));
-    if (data?.admin_email) setAdminEmail(String(data.admin_email));
   }, []);
 
   const reloadAll = useCallback(async () => {
@@ -341,7 +259,7 @@ export default function AdminSettings() {
 
   const saveProfile = async () => {
     if (!profile || !fullNameEn.trim() || !fullNameAr.trim() || !phoneLocal.trim() || !waLocal.trim() || !gender || !cityId || !birthDate || !avatarUrl) {
-      alert(t('common.error'), t('profile.completeRequiredOwner'));
+      alert(t('common.error'), t('admin.completeRequired'));
       return;
     }
     if (!isValidEnglishName(fullNameEn)) {
@@ -394,119 +312,6 @@ export default function AdminSettings() {
     }
   };
 
-  const saveCommission = async () => {
-    const value = Number(percent);
-    if (!Number.isFinite(value) || value < 0 || value > 100) {
-      alert(t('common.error'), t('admin.invalidCommission'));
-      return;
-    }
-    const email = adminEmail.trim().toLowerCase();
-    if (!email || !email.includes('@')) {
-      alert(t('common.error'), t('auth.invalidEmail'));
-      return;
-    }
-    setSavingCommission(true);
-    const { error } = await supabase
-      .from('app_settings')
-      .update({
-        commission_percent: value,
-        admin_email: email,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', 1);
-    setSavingCommission(false);
-    if (error) alert(t('common.error'), error.message);
-    else {
-      setPercent(String(value));
-      setAdminEmail(email);
-      void logAdminAction('settings.update', { detail: { commission_percent: value, admin_email: email } });
-      alert(t('common.done'));
-    }
-  };
-
-  const runOps = async () => {
-    setOpsRunning(true);
-    try {
-      const result = await runBookingOpsNow();
-      void logAdminAction('ops.booking_run', { detail: result });
-      const status = await loadBookingOpsStatus().catch(() => null);
-      setOpsStatus(status);
-      alert(
-        t('common.done'),
-        t('admin.opsDone', {
-          reminded: result.reminded ?? 0,
-          expired: result.expired ?? 0,
-          completed: result.completed ?? 0,
-          nudged: result.nudged ?? 0,
-        }),
-      );
-    } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : t('admin.opsFailed'));
-    } finally {
-      setOpsRunning(false);
-    }
-  };
-
-  const runExport = async (
-    kind: 'bookings' | 'users' | 'listings' | 'reports' | 'reviews',
-  ) => {
-    setExporting(true);
-    try {
-      const count =
-        kind === 'users'
-          ? await exportUsersCsv()
-          : kind === 'listings'
-            ? await exportListingsCsv()
-            : kind === 'reports'
-              ? await exportReportsCsv()
-              : kind === 'reviews'
-                ? await exportReviewsCsv()
-                : await exportPlatformBookingsCsv();
-      void logAdminAction('export.platform', { detail: { kind, rows: count } });
-      alert(t('common.done'), t('admin.exportDone', { count }));
-    } catch (err) {
-      alert(t('common.error'), err instanceof Error ? err.message : '');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const sendBroadcast = async () => {
-    const title = broadcastTitle.trim();
-    const body = broadcastBody.trim();
-    if (!title || body.length < 8) {
-      alert(t('common.error'), t('admin.broadcastShort'));
-      return;
-    }
-    if (broadcastRoles.length === 0) {
-      alert(t('common.error'), t('admin.broadcastNeedRoles'));
-      return;
-    }
-    alert(t('admin.broadcastTitle'), t('admin.broadcastConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('admin.broadcastSend'),
-        onPress: async () => {
-          setBroadcasting(true);
-          try {
-            const result = await broadcastPush({ roles: broadcastRoles, title, body });
-            void logAdminAction('broadcast', {
-              note: title,
-              detail: { roles: broadcastRoles, recipients: result.recipients },
-            });
-            setBroadcastTitle('');
-            setBroadcastBody('');
-            alert(t('common.done'), t('admin.broadcastSent', { count: result.recipients }));
-          } catch (err) {
-            alert(t('common.error'), err instanceof Error ? err.message : '');
-          } finally {
-            setBroadcasting(false);
-          }
-        },
-      },
-    ]);
-  };
-
   const incomplete = Boolean(
     !fullNameEn.trim() ||
       !fullNameAr.trim() ||
@@ -540,12 +345,12 @@ export default function AdminSettings() {
         ? {
             icon: 'flash-outline' as const,
             text: t('admin.queueBanner', { count: pendingTotal }),
-            onPress: () => setTab('settings'),
+            onPress: () => router.push('/(admin)/(tabs)'),
           }
         : {
             icon: 'cash-outline' as const,
             text: `${t('admin.commissionRate')}: ${percent}%`,
-            onPress: () => setTab('settings'),
+            onPress: () => router.push('/(admin)/ops'),
           };
 
   return (
@@ -576,7 +381,7 @@ export default function AdminSettings() {
             uploading={uploading}
             onChangePhoto={() => void changePhoto()}
             metas={[
-              { icon: 'shield-checkmark', text: t('admin.platformSettings') },
+              { icon: 'shield-checkmark', text: t('roles.admin') },
               ...(ageLabel(birthDate, t, today)
                 ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
                 : []),
@@ -604,12 +409,10 @@ export default function AdminSettings() {
               ],
               [
                 {
-                  key: 'settings',
+                  key: 'ops',
                   icon: 'options-outline',
-                  label: t('profile.tabSettings'),
-                  hint: pendingTotal > 0 ? String(pendingTotal) : undefined,
-                  dot: pendingTotal > 0,
-                  onPress: () => setTab('settings'),
+                  label: t('admin.platformSettings'),
+                  onPress: () => router.push('/(admin)/ops'),
                 },
                 {
                   key: 'security',
@@ -625,9 +428,7 @@ export default function AdminSettings() {
         <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>
           {tab === 'account'
             ? t('profile.personalTitle')
-            : tab === 'security'
-              ? t('profile.tabSecurity')
-              : t('profile.tabSettings')}
+            : t('profile.tabSecurity')}
         </Text>
       )}
 
@@ -659,214 +460,6 @@ export default function AdminSettings() {
       ) : null}
 
       {tab === 'security' ? <ProfileSecurity mfaRequired /> : null}
-
-      {tab === 'settings' ? (
-        <>
-          <Card compact>
-            <SectionHead compact icon="flash-outline" title={t('admin.queueTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.queueHint')}</Text>
-            <View style={styles.queueList}>
-              <QueueRow
-                icon="people-outline"
-                label={t('admin.pendingOwners')}
-                count={pending.owners}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(admin)/(tabs)/users',
-                    params: { role: 'owner', owner: 'pending', from: 'settings' },
-                  })
-                }
-              />
-              <QueueRow
-                icon="id-card-outline"
-                label={t('admin.pendingIds')}
-                count={pending.ids}
-                onPress={() => router.push('/(admin)/verify')}
-              />
-              <QueueRow
-                icon="home-outline"
-                label={t('admin.pendingListings')}
-                count={pending.listings}
-                onPress={() =>
-                  router.push({ pathname: '/(admin)/(tabs)/listings', params: { from: 'settings' } })
-                }
-              />
-              <QueueRow
-                icon="calendar-outline"
-                label={t('admin.pendingBookings')}
-                count={pending.bookings}
-                onPress={() =>
-                  router.push({ pathname: '/(admin)/(tabs)/bookings', params: { from: 'settings' } })
-                }
-              />
-              <QueueRow
-                icon="flag-outline"
-                label={t('admin.reportsTitle')}
-                count={pending.reports}
-                onPress={() => router.push('/(admin)/reports')}
-              />
-              <QueueRow
-                icon="star-outline"
-                label={t('admin.reviewsTitle')}
-                onPress={() => router.push('/(admin)/reviews')}
-              />
-              <QueueRow
-                icon="wallet-outline"
-                label={t('admin.payoutsTitle')}
-                onPress={() => router.push('/(admin)/payouts')}
-              />
-              <QueueRow
-                icon="map-outline"
-                label={t('admin.catalogTitle')}
-                onPress={() => router.push('/(admin)/catalog')}
-              />
-              <QueueRow
-                icon="time-outline"
-                label={t('admin.auditTitle')}
-                onPress={() => router.push('/(admin)/audit')}
-              />
-            </View>
-          </Card>
-
-          <Card compact>
-            <SectionHead compact icon="cash-outline" title={t('admin.platformSettings')} />
-            <Input
-              compact
-              label={`${t('admin.commissionRate')} %`}
-              value={percent}
-              onChangeText={setPercent}
-              keyboardType="numeric"
-            />
-            <Input
-              compact
-              label={t('admin.adminEmail')}
-              value={adminEmail}
-              onChangeText={setAdminEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              ltr
-              hint={t('admin.adminEmailHint')}
-            />
-            <Button
-              title={t('admin.saveSettings')}
-              onPress={() => void saveCommission()}
-              loading={savingCommission}
-              pill
-            />
-          </Card>
-
-          <Card compact>
-            <SectionHead compact icon="timer-outline" title={t('admin.opsTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.opsHint')}</Text>
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-              {t('admin.opsCron', {
-                status: opsStatus?.cronScheduled ? t('admin.opsCronOn') : t('admin.opsCronOff'),
-              })}
-            </Text>
-            {opsStatus?.lastAt ? (
-              <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-                {t('admin.opsLast', {
-                  at: new Date(opsStatus.lastAt).toLocaleString(i18n.language.startsWith('ar') ? 'ar' : 'en'),
-                })}
-              </Text>
-            ) : null}
-            <Button
-              title={t('admin.opsRun')}
-              pill
-              loading={opsRunning}
-              onPress={() => void runOps()}
-            />
-          </Card>
-
-          <Card compact>
-            <SectionHead compact icon="storefront-outline" title={t('admin.storeReadyTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.storeReadyHint')}</Text>
-            {[
-              t('admin.storeReadyPrivacy'),
-              t('admin.storeReadyDelete'),
-              t('admin.storeReadySupport'),
-              t('admin.storeReadyShots'),
-              t('admin.storeReadyPayments'),
-            ].map((line) => (
-              <View key={line} style={[styles.queueRow, row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={[styles.queueIcon, { backgroundColor: colors.primarySoft }]}>
-                  <Ionicons name="checkmark" size={16} color={colors.primary} />
-                </View>
-                <Text style={[styles.queueLabel, rtlText, { color: colors.text }]}>{line}</Text>
-              </View>
-            ))}
-          </Card>
-
-          <Card compact>
-            <SectionHead compact icon="download-outline" title={t('admin.exportTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.exportHint')}</Text>
-            <Button
-              title={t('admin.exportBookingsCsv')}
-              variant="secondary"
-              pill
-              loading={exporting}
-              onPress={() => void runExport('bookings')}
-            />
-            <Button
-              title={t('admin.exportUsersCsv')}
-              variant="secondary"
-              pill
-              loading={exporting}
-              onPress={() => void runExport('users')}
-            />
-            <Button
-              title={t('admin.exportListingsCsv')}
-              variant="secondary"
-              pill
-              loading={exporting}
-              onPress={() => void runExport('listings')}
-            />
-            <Button
-              title={t('admin.exportReportsCsv')}
-              variant="secondary"
-              pill
-              loading={exporting}
-              onPress={() => void runExport('reports')}
-            />
-            <Button
-              title={t('admin.exportReviewsCsv')}
-              variant="secondary"
-              pill
-              loading={exporting}
-              onPress={() => void runExport('reviews')}
-            />
-          </Card>
-
-          <Card compact>
-            <SectionHead compact icon="megaphone-outline" title={t('admin.broadcastTitle')} />
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('admin.broadcastHint')}</Text>
-            <FilterPills
-              compact
-              values={broadcastRoles}
-              onToggle={(role) =>
-                setBroadcastRoles((current) =>
-                  current.includes(role) ? current.filter((item) => item !== role) : [...current, role],
-                )
-              }
-              items={[
-                { value: 'student', label: t('roles.student') },
-                { value: 'renter', label: t('roles.renter') },
-                { value: 'owner', label: t('roles.owner') },
-              ]}
-            />
-            <Input compact label={t('admin.broadcastSubject')} value={broadcastTitle} onChangeText={setBroadcastTitle} />
-            <Input
-              compact
-              label={t('admin.broadcastBody')}
-              value={broadcastBody}
-              onChangeText={setBroadcastBody}
-              multiline
-            />
-            <Button title={t('admin.broadcastSend')} pill loading={broadcasting} onPress={() => void sendBroadcast()} />
-          </Card>
-        </>
-      ) : null}
       </ProfileEnter>
     </Screen>
   );
@@ -874,31 +467,4 @@ export default function AdminSettings() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 19 },
-  queueList: { gap: spacing.xs },
-  queueRow: {
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  queueIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  queueLabel: { flex: 1, fontSize: 14, fontFamily: 'Cairo_600SemiBold' },
-  queueBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  queueBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Cairo_700Bold' },
 });

@@ -468,6 +468,7 @@ export default function OwnerProfile() {
   };
 
   const saveProfile = async () => {
+    const onTrust = tab === 'trust';
     const accountMissing = [
       !avatarUrl && t('profile.photo'),
       !fullNameEn.trim() && t('common.nameEn'),
@@ -478,64 +479,67 @@ export default function OwnerProfile() {
       !phoneLocal.trim() && t('common.phone'),
       !waLocal.trim() && t('profile.whatsapp'),
     ].filter(Boolean) as string[];
-    if (!profile || accountMissing.length > 0) {
-      alert(t('profile.stillNeeded'), accountMissing.join('\n') || t('profile.completeRequiredOwner'));
-      setTab('account');
-      return;
+    if (!profile) return;
+    if (!onTrust) {
+      if (accountMissing.length > 0) {
+        alert(t('profile.stillNeeded'), accountMissing.join('\n') || t('profile.completeRequiredOwner'));
+        return;
+      }
+      if (!isValidEnglishName(fullNameEn)) {
+        alert(t('common.error'), t('auth.invalidNameEn'));
+        return;
+      }
+      if (!isValidArabicName(fullNameAr)) {
+        alert(t('common.error'), t('auth.invalidNameAr'));
+        return;
+      }
+      if (!isValidBio(bio)) {
+        alert(t('common.error'), t('profile.bioInvalid'));
+        return;
+      }
+      const cleanPhone = toE164(phoneRegion, phoneLocal);
+      if (!cleanPhone) {
+        alert(t('common.error'), t('phone.invalid'));
+        return;
+      }
+      const cleanWhatsapp = toE164(waRegion, waLocal);
+      if (!cleanWhatsapp) {
+        alert(t('common.error'), t('phone.invalid'));
+        return;
+      }
+    } else {
+      const cleanPhone = toE164(phoneRegion, phoneLocal);
+      const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
+      if (!isValidNationalId(nationalId)) {
+        alert(t('common.error'), t('profile.nationalIdInvalid'));
+        return;
+      }
+      if (!isValidNationalIdExpiry(nationalExpiresAt)) {
+        alert(
+          t('common.error'),
+          nationalIdExpiryState(nationalExpiresAt) === 'expired'
+            ? t('profile.idExpired')
+            : t('profile.idExpiryInvalid'),
+        );
+        return;
+      }
+      if (!isValidEmergencyName(emergencyName)) {
+        alert(t('common.error'), t('profile.emergencyNameInvalid'));
+        return;
+      }
+      if (!cleanEmergency || cleanEmergency === cleanPhone) {
+        alert(t('common.error'), t('profile.emergencySamePhone'));
+        return;
+      }
+      if (!idDocsConsent || !nationalIdUrl) {
+        alert(t('common.error'), t('profile.idConsentRequired'));
+        return;
+      }
     }
-    if (!isValidEnglishName(fullNameEn)) {
-      alert(t('common.error'), t('auth.invalidNameEn'));
-      return;
-    }
-    if (!isValidArabicName(fullNameAr)) {
-      alert(t('common.error'), t('auth.invalidNameAr'));
-      return;
-    }
-    if (!isValidBio(bio)) {
-      alert(t('common.error'), t('profile.bioInvalid'));
-      setTab('account');
-      return;
-    }
+
     const cleanPhone = toE164(phoneRegion, phoneLocal);
-    if (!cleanPhone) {
-      alert(t('common.error'), t('phone.invalid'));
-      return;
-    }
     const cleanWhatsapp = toE164(waRegion, waLocal);
-    if (!cleanWhatsapp) {
-      alert(t('common.error'), t('phone.invalid'));
-      return;
-    }
-    if (!isValidNationalId(nationalId)) {
-      alert(t('common.error'), t('profile.nationalIdInvalid'));
-      setTab('trust');
-      return;
-    }
-    if (!isValidNationalIdExpiry(nationalExpiresAt)) {
-      alert(
-        t('common.error'),
-        nationalIdExpiryState(nationalExpiresAt) === 'expired'
-          ? t('profile.idExpired')
-          : t('profile.idExpiryInvalid'),
-      );
-      setTab('trust');
-      return;
-    }
-    if (!isValidEmergencyName(emergencyName)) {
-      alert(t('common.error'), t('profile.emergencyNameInvalid'));
-      setTab('trust');
-      return;
-    }
-    if (!cleanEmergency || cleanEmergency === cleanPhone) {
-      alert(t('common.error'), t('profile.emergencySamePhone'));
-      setTab('trust');
-      return;
-    }
-    if (!idDocsConsent || !nationalIdUrl) {
-      alert(t('common.error'), t('profile.idConsentRequired'));
-      setTab('trust');
-      return;
-    }
+    const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
 
     setSaving(true);
     try {
@@ -676,32 +680,6 @@ export default function OwnerProfile() {
             progressTotal={progressItems.length}
           />
           <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
-          <Card compact onPress={() => setTab('occupants')}>
-              <Text style={[styles.occTitle, rtlText, { color: colors.text }]}>{t('owner.occupantsTitle')}</Text>
-              <Text style={[styles.occHint, rtlText, { color: colors.textMuted }]}>
-                {occupancy.length > 0
-                  ? t('owner.occupantsSummary', {
-                      buildings: occ.buildings,
-                      people: occ.people,
-                      vacant: occ.vacant,
-                    })
-                  : t('owner.occupantsHintEmpty')}
-              </Text>
-              {occupancy.length > 0 ? (
-              <View style={[styles.gaps, row]}>
-                {occupancy.slice(0, 4).map((item) => (
-                  <View
-                    key={item.key}
-                    style={[styles.gapChip, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}
-                  >
-                    <Text style={[styles.gapChipText, { color: colors.primaryDark }]} numberOfLines={1}>
-                      {item.name} · {item.people}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              ) : null}
-            </Card>
           {progressItems.some((item) => !item.done) ? (
             <View style={[styles.gaps, row]}>
               {progressItems
@@ -805,7 +783,7 @@ export default function OwnerProfile() {
             bio={bio}
             lines={ownerPublicLines(
               {
-                gender,
+                gender: gender || null,
                 date_of_birth: birthDate,
                 city_id: cityId,
                 spoken_languages: spokenLanguages,
@@ -883,6 +861,16 @@ export default function OwnerProfile() {
               setEmergencyRegion(region);
               setEmergencyLocal(local);
             }}
+            shareEmergency={profile?.share_emergency !== false}
+            onShareEmergency={(next) => {
+              if (!profile) return;
+              void supabase
+                .from('profiles')
+                .update({ share_emergency: next })
+                .eq('id', profile.id)
+                .then(() => refreshProfile());
+            }}
+            shareEmergencyHint={t('profile.shareEmergencyOwnerHint')}
           />
           {verification?.pendingReview ? (
             <Card compact>

@@ -7,6 +7,11 @@ export function isSeeker(profile: Profile | null | undefined) {
   return profile?.role === 'student' || profile?.role === 'renter';
 }
 
+export function isSeekerAccountReady(profile: Profile | null | undefined) {
+  if (!profile || !isSeeker(profile)) return false;
+  return seekerAccountReady(profile);
+}
+
 function seekerAccountReady(profile: Profile) {
   const basics = Boolean(
     profile.full_name?.trim() &&

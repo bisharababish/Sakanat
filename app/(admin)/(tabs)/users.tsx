@@ -44,7 +44,7 @@ export default function AdminUsers() {
   const params = useLocalSearchParams<{ role?: string; owner?: string; from?: string }>();
   const fromSettings = params.from === 'settings';
   const backToSettings = () =>
-    router.push({ pathname: '/(admin)/(tabs)/settings', params: { tab: 'settings' } });
+    router.push('/(admin)/(tabs)');
   const [users, setUsers] = useState<Profile[]>([]);
   const [role, setRole] = useState<RoleFilter>('all');
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all');

@@ -28,6 +28,7 @@ import {
   type OccupiedStay,
 } from '@/src/lib/booking';
 import { openListingChat } from '@/src/lib/chat';
+import { DEFAULT_COMMISSION_PERCENT, commissionAmount, loadCommissionPercent } from '@/src/lib/commission';
 import { formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
 import { notifyUser } from '@/src/lib/push';
@@ -94,6 +95,7 @@ export default function BookScreen() {
   const [pendingReview, setPendingReview] = useState<Pick<Booking, 'id'> | null>(null);
   const [activeStay, setActiveStay] = useState<Pick<Booking, 'id'> | null>(null);
   const [occupiedStays, setOccupiedStays] = useState<OccupiedStay[]>([]);
+  const [commissionPercent, setCommissionPercent] = useState(DEFAULT_COMMISSION_PERCENT);
   const prefsApplied = useRef(false);
 
   useEffect(() => {
@@ -106,11 +108,12 @@ export default function BookScreen() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [{ data }, review, stay, occupied] = await Promise.all([
+    const [{ data }, review, stay, occupied, percent] = await Promise.all([
       supabase.from('apartments').select('*, cities(*)').eq('id', id).single(),
       profile?.id ? loadPendingReview(profile.id) : Promise.resolve(null),
       profile?.id ? loadActiveStay(profile.id) : Promise.resolve(null),
       loadOccupiedStays(),
+      loadCommissionPercent(),
     ]);
     if (data) {
       const next = data as Apartment;
@@ -123,6 +126,7 @@ export default function BookScreen() {
     setPendingReview(review ? { id: review.id } : null);
     setActiveStay(stay ? { id: stay.id } : null);
     setOccupiedStays(occupied.filter((item) => item.apartment_id === id));
+    setCommissionPercent(percent);
   }, [id, profile?.id]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'bookings', 'apartment_reviews'], `book:${id ?? ''}`);
@@ -131,6 +135,7 @@ export default function BookScreen() {
   const people = occupantChoices(apartment?.rooms);
   const headcount = Math.min(occupants, people.length || 1);
   const total = apartment ? apartment.price_month * months : 0;
+  const fee = commissionAmount(total, headcount, commissionPercent);
   const photo = apartment?.photos[0];
   const city = apartment ? localizedName(apartment.cities, i18n.language) : '';
   const ready = isStudentReady(profile);
@@ -231,8 +236,8 @@ export default function BookScreen() {
           occupants: headcount,
           payment_method: method,
           rent_amount: total,
-          commission_percent: 0,
-          commission_amount: 0,
+          commission_percent: commissionPercent,
+          commission_amount: fee,
         });
         if (error) throw error;
         void notifyUser(apartment.owner_id, t('push.bookingRequestTitle'), t('push.bookingRequestBody'), 'booking');
@@ -538,6 +543,10 @@ export default function BookScreen() {
                 <SummaryRow
                   label={t('booking.occupants')}
                   value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
+                />
+                <SummaryRow
+                  label={`${t('booking.commission')} (${commissionPercent}%)`}
+                  value={formatIls(fee, lang)}
                 />
                 <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
                   <Text style={[styles.totalLabel, rowCopy, { color: colors.primary }]}>{t('booking.total')}</Text>

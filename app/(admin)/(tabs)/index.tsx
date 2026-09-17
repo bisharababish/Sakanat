@@ -353,6 +353,11 @@ export default function AdminOverview() {
         <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
       </Card>
 
+      <Card compact onPress={() => router.push('/(admin)/ops')}>
+        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.platformSettings')}</Text>
+        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.opsHubHint')}</Text>
+      </Card>
+
       <Card compact onPress={() => router.push('/(admin)/payouts')}>
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsTitle')}</Text>
         <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsHint')}</Text>
