@@ -53,7 +53,7 @@ function MenuRow({
     >
       <View style={[styles.rowInner, row]}>
         <View style={[styles.iconWrap, { backgroundColor: danger ? colors.dangerSoft : colors.primarySoft }]}>
-          <Ionicons name={icon} size={20} color={tint} />
+          <Ionicons name={icon} size={18} color={tint} />
         </View>
         <View style={styles.copy}>
           <Text style={[styles.label, rtlText, { color: danger ? colors.danger : colors.text }]}>{label}</Text>
@@ -108,28 +108,28 @@ export function ProfileMenu({
 }
 
 const styles = StyleSheet.create({
-  stack: { gap: spacing.md },
+  stack: { gap: spacing.sm },
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   pressed: { opacity: 0.88 },
-  rowInner: { alignItems: 'center', gap: 12 },
+  rowInner: { alignItems: 'center', gap: 10 },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copy: { flex: 1, minWidth: 0, gap: 3 },
-  label: { fontSize: 16, fontFamily: 'Cairo_600SemiBold' },
-  hint: { fontSize: 13, fontFamily: 'Cairo_400Regular' },
+  copy: { flex: 1, minWidth: 0, gap: 1 },
+  label: { fontSize: 14, fontFamily: 'Cairo_600SemiBold' },
+  hint: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
   trail: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
 });

@@ -66,6 +66,7 @@ export function ConversationList({
   filter,
   onFilterChange,
   apartmentId,
+  pinApartmentId,
 }: {
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
   items: Conversation[] | null;
@@ -75,6 +76,7 @@ export function ConversationList({
   filter?: InboxFilter;
   onFilterChange?: (next: InboxFilter) => void;
   apartmentId?: string;
+  pinApartmentId?: string;
 }) {
   if (!items) return null;
   const scoped = apartmentId ? items.filter((item) => item.apartment_id === apartmentId) : items;
@@ -87,6 +89,7 @@ export function ConversationList({
       onReload={onReload}
       filter={filter}
       onFilterChange={onFilterChange}
+      pinApartmentId={pinApartmentId}
     />
   );
 }
@@ -99,6 +102,7 @@ function ConversationPages({
   onReload,
   filter: filterProp,
   onFilterChange,
+  pinApartmentId,
 }: {
   items: Conversation[];
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
@@ -107,6 +111,7 @@ function ConversationPages({
   onReload?: () => void | Promise<void>;
   filter?: InboxFilter;
   onFilterChange?: (next: InboxFilter) => void;
+  pinApartmentId?: string;
 }) {
   const { t, i18n } = useTranslation();
   const { textAlign, writingDirection, row } = useLayout();
@@ -182,7 +187,16 @@ function ConversationPages({
     );
   }, [scoped, query, messageHits, i18n.language]);
 
-  const paged = usePaged(filtered, CHAT_PAGE_SIZE, `${filter}:${query}:${filtered.length}`);
+  const sorted = useMemo(() => {
+    if (!pinApartmentId) return filtered;
+    return [...filtered].sort((a, b) => {
+      const aPin = a.apartment_id === pinApartmentId ? 0 : 1;
+      const bPin = b.apartment_id === pinApartmentId ? 0 : 1;
+      return aPin - bPin;
+    });
+  }, [filtered, pinApartmentId]);
+
+  const paged = usePaged(sorted, CHAT_PAGE_SIZE, `${filter}:${query}:${sorted.length}:${pinApartmentId ?? ''}`);
 
   const unreadCount = useMemo(
     () => items.filter((item) => !isConversationArchived(item, profileId) && isConversationUnread(item, profileId)).length,
@@ -304,6 +318,7 @@ function ConversationPages({
                 hideListing={
                   hiddenListings.has(conversationListingKey(item)) && !pinnedListings.has(item.id)
                 }
+                badge={item.apartment_id === pinApartmentId ? t('chat.stayPin') : undefined}
                 onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
                 onLongPress={() => manage(item)}
               />

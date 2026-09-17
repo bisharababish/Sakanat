@@ -175,7 +175,7 @@ export function seekerTrustDetails(
   const shareEmergency = opts?.isAdmin || profile.share_emergency !== false;
   return [
     statusLine,
-    profile.home_address ? `${t('profile.homeAddress')}: ${profile.home_address}` : '',
+    opts?.isAdmin && profile.home_address ? `${t('profile.homeAddress')}: ${profile.home_address}` : '',
     profile.national_id_number ? `${t('profile.nationalId')} ${profile.national_id_number}` : '',
     profile.graduation_term ? `${t('profile.graduationTerm')}: ${profile.graduation_term}` : '',
     shareEmergency && profile.emergency_name

@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
+import { AmenityChips } from '@/components/search/AmenityChips';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
@@ -29,7 +30,7 @@ import {
   saveSearchAlertPrefs,
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
-import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings';
+import { fetchApprovedListings, refineListings, roomsFilterFromOccupants } from '@/src/lib/searchListings';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
@@ -180,6 +181,9 @@ export default function SearchScreen() {
         lang: i18n.language,
         isRenter,
         verifiedOnly,
+        moveIn: profile?.pref_move_in || undefined,
+        leaseMonths: profile?.pref_lease_months || undefined,
+        minRooms: roomsFilterFromOccupants(profile?.pref_occupants) || undefined,
       });
       setApartments(next.map((row) => row.item));
     } catch (err) {
@@ -206,6 +210,9 @@ export default function SearchScreen() {
     maxPrice,
     profile?.gender,
     profile?.id,
+    profile?.pref_move_in,
+    profile?.pref_lease_months,
+    profile?.pref_occupants,
     reloadCatalog,
     roomsFilter,
     selectedUniversity,
@@ -716,12 +723,7 @@ export default function SearchScreen() {
             />
 
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('listing.amenities')}</Text>
-            <FilterPills
-              compact
-              values={amenityFilter}
-              onToggle={toggleAmenity}
-              items={AMENITIES.map((key) => ({ value: key, label: t(`amenities.${key}`) }))}
-            />
+            <AmenityChips values={amenityFilter} onToggle={toggleAmenity} />
 
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.sort')}</Text>
             <FilterPills compact value={sort} onChange={setSort} items={sortItems} />

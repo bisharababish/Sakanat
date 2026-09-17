@@ -73,6 +73,13 @@ export function stayEndDate(booking: Pick<Booking, 'start_date' | 'months'>) {
   return bookingEnd(booking.start_date, booking.months);
 }
 
+export function isoDateOnly(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /** Pending request, or confirmed stay that has not ended yet. */
 export function isActiveStay(booking: Pick<Booking, 'status' | 'start_date' | 'months'>, today = new Date()) {
   if (booking.status === 'pending') return true;
@@ -80,6 +87,15 @@ export function isActiveStay(booking: Pick<Booking, 'status' | 'start_date' | 'm
   const end = stayEndDate(booking);
   const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return end.getTime() > startToday.getTime();
+}
+
+/** Confirmed stay that has not ended, else an open pending request. */
+export function currentStudentStay(bookings: Booking[], today = new Date()) {
+  return (
+    bookings.find((item) => item.status === 'confirmed' && isActiveStay(item, today)) ??
+    bookings.find((item) => item.status === 'pending') ??
+    null
+  );
 }
 
 export function activeStayBooking(bookings: Booking[]) {

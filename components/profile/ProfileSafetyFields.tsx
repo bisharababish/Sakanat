@@ -19,6 +19,7 @@ import {
   nationalIdChecksumOk,
   nationalIdExpiryState,
 } from '@/src/lib/trust';
+import type { IdVerifyStatus } from '@/src/types/database';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -49,6 +50,7 @@ export function ProfileSafetyFields({
   shareEmergency,
   onShareEmergency,
   shareEmergencyHint,
+  verifyStatus,
   onSectionLayout,
 }: {
   isStudent: boolean;
@@ -75,6 +77,7 @@ export function ProfileSafetyFields({
   shareEmergency?: boolean;
   onShareEmergency?: (value: boolean) => void;
   shareEmergencyHint?: string;
+  verifyStatus?: IdVerifyStatus | null;
   onSectionLayout?: (section: Section, y: number) => void;
 }) {
   const { t } = useTranslation();
@@ -105,6 +108,7 @@ export function ProfileSafetyFields({
         : expiryState === 'expired' || (nationalExpiresAt && !isValidNationalIdExpiry(nationalExpiresAt))
           ? colors.danger
           : colors.textMuted;
+  const replaceDocs = expiryState === 'expired' || verifyStatus === 'rejected';
   const cardY = useRef(0);
   const [mapOpen, setMapOpen] = useState(false);
   const mapLockRef = useRef(false);
@@ -138,6 +142,7 @@ export function ProfileSafetyFields({
     >
       <View style={styles.denseBlock}>
         <SectionHead compact icon="shield-checkmark-outline" title={t('profile.trustTitle')} />
+        <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>{t('profile.trustAudience')}</Text>
         <Input
           compact
           label={t('profile.nationalId')}
@@ -177,6 +182,8 @@ export function ProfileSafetyFields({
           label={t('profile.nationalCard')}
           uri={nationalUri}
           busy={uploadingDoc}
+          replace={replaceDocs}
+          hint={replaceDocs ? t('profile.replaceCardHint') : undefined}
           onPress={onUploadNational}
         />
         {isStudent ? (
@@ -185,6 +192,8 @@ export function ProfileSafetyFields({
             label={t('profile.universityCard')}
             uri={universityUri}
             busy={uploadingDoc}
+            replace={replaceDocs}
+            hint={replaceDocs ? t('profile.replaceCardHint') : undefined}
             onPress={onUploadUniversity}
           />
         ) : null}

@@ -45,6 +45,7 @@ export function ConversationCard({
   muted,
   archived,
   hideListing,
+  badge,
   onPress,
   onLongPress,
   children,
@@ -56,6 +57,7 @@ export function ConversationCard({
   muted?: boolean;
   archived?: boolean;
   hideListing?: boolean;
+  badge?: string;
   onPress: () => void;
   onLongPress?: () => void;
   children?: ReactNode;
@@ -105,6 +107,11 @@ export function ConversationCard({
             >
               {title}
             </Text>
+            {badge ? (
+              <Text style={[styles.badge, { color: colors.primary }]} numberOfLines={1}>
+                {badge}
+              </Text>
+            ) : null}
             {muted ? <Ionicons name="notifications-off-outline" size={12} color={colors.textMuted} /> : null}
             {archived ? <Ionicons name="archive-outline" size={12} color={colors.textMuted} /> : null}
             {unread ? <View style={[styles.dot, { backgroundColor: colors.primary }]} /> : null}
@@ -156,6 +163,7 @@ const styles = StyleSheet.create({
   top: { alignItems: 'center', gap: 4 },
   title: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   titleUnread: { fontWeight: '800' },
+  badge: { fontSize: 10, fontFamily: 'Cairo_800ExtraBold', flexShrink: 0 },
   when: { fontSize: 10, fontFamily: 'Cairo_400Regular' },
   listing: { fontSize: 11, fontFamily: 'Cairo_600SemiBold' },
   preview: { fontSize: 12, fontFamily: 'Cairo_400Regular' },

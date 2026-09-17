@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
@@ -313,6 +314,7 @@ export default function StudentProfileScreen() {
   const [savedListings, setSavedListings] = useState<Apartment[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mfaOn, setMfaOn] = useState(true);
@@ -920,6 +922,15 @@ export default function StudentProfileScreen() {
       }
     : null;
 
+  const photoBanner = {
+    icon: (avatarUrl ? 'image-outline' : 'camera-outline') as const,
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
+    onPress: () => {
+      if (avatarUrl) setViewingPhoto(true);
+      else void changePhoto();
+    },
+  };
+
   const heroMetas = [
     ...(ageLabel(birthDate, t, today) ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }] : []),
     ...(isStudent && majorName ? [{ icon: 'school' as const, text: majorName }] : []),
@@ -959,6 +970,7 @@ export default function StudentProfileScreen() {
               avatarUrl={avatarUrl}
               uploading={uploading}
               onChangePhoto={() => void changePhoto()}
+              onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
               metas={heroMetas}
               chip={t(`roles.${profile?.role ?? 'student'}`)}
               email={profile?.email}
@@ -968,13 +980,14 @@ export default function StudentProfileScreen() {
               progressTotal={progressItems.length}
             />
           </View>
+          <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
           {bookingBanner ? (
             <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
           ) : null}
-          {progressItems.some((item) => !item.done) ? (
+          {progressItems.some((item) => !item.done && item.id !== 'photo') ? (
             <View style={[styles.gaps, row]}>
               {progressItems
-                .filter((item) => !item.done)
+                .filter((item) => !item.done && item.id !== 'photo')
                 .slice(0, 4)
                 .map((item) => (
                   <Pressable
@@ -1081,6 +1094,49 @@ export default function StudentProfileScreen() {
       ) : null}
 
       {tab === 'trust' ? (
+        <ProfileSafetyFields
+            isStudent={isStudent}
+            nationalId={nationalId}
+            onNationalId={(value) => setNationalId(sanitizeNationalId(value))}
+            nationalExpiresAt={nationalExpiresAt}
+            onNationalExpiresAt={setNationalExpiresAt}
+            idDocsConsent={idDocsConsent}
+            onIdDocsConsent={setIdDocsConsent}
+            nationalUri={nationalPreview}
+            universityUri={universityPreview}
+            uploadingDoc={uploadingDoc}
+            onUploadNational={() => void uploadCard('national')}
+            onUploadUniversity={() => void uploadCard('university')}
+            emergencyName={emergencyName}
+            onEmergencyName={setEmergencyName}
+            emergencyRegion={emergencyRegion}
+            emergencyLocal={emergencyLocal}
+            onEmergency={(region, local) => {
+              setEmergencyRegion(region);
+              setEmergencyLocal(local);
+            }}
+            homeAddress={homeAddress}
+            onHomeAddress={setHomeAddress}
+            cityId={cityId}
+            cityOptions={cityOptions}
+            shareEmergency={profile?.share_emergency !== false}
+            onShareEmergency={(next) => {
+              if (!profile) return;
+              void supabase
+                .from('profiles')
+                .update({ share_emergency: next })
+                .eq('id', profile.id)
+                .then(() => refreshProfile());
+            }}
+            shareEmergencyHint={t('profile.shareEmergencyHint')}
+            verifyStatus={profile?.id_verify_status}
+            onSectionLayout={(section, y) => {
+              sectionY.current[section] = y;
+            }}
+          />
+      ) : null}
+
+      {tab === 'account' ? (
         <>
           <OwnerSeenCard
             title={t('profile.ownerSees')}
@@ -1125,9 +1181,6 @@ export default function StudentProfileScreen() {
               )
                 ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
                 : []),
-              ...(homeAddress.trim()
-                ? [{ icon: 'home-outline' as const, text: homeAddress.trim() }]
-                : []),
               ...(nationalIdUrl
                 ? [{ icon: 'id-card-outline' as const, text: t('profile.idCardsReady') }]
                 : []),
@@ -1136,50 +1189,6 @@ export default function StudentProfileScreen() {
                 : []),
             ].filter((item) => item.text)}
           />
-          <ProfileSafetyFields
-            isStudent={isStudent}
-            nationalId={nationalId}
-            onNationalId={(value) => setNationalId(sanitizeNationalId(value))}
-            nationalExpiresAt={nationalExpiresAt}
-            onNationalExpiresAt={setNationalExpiresAt}
-            idDocsConsent={idDocsConsent}
-            onIdDocsConsent={setIdDocsConsent}
-            nationalUri={nationalPreview}
-            universityUri={universityPreview}
-            uploadingDoc={uploadingDoc}
-            onUploadNational={() => void uploadCard('national')}
-            onUploadUniversity={() => void uploadCard('university')}
-            emergencyName={emergencyName}
-            onEmergencyName={setEmergencyName}
-            emergencyRegion={emergencyRegion}
-            emergencyLocal={emergencyLocal}
-            onEmergency={(region, local) => {
-              setEmergencyRegion(region);
-              setEmergencyLocal(local);
-            }}
-            homeAddress={homeAddress}
-            onHomeAddress={setHomeAddress}
-            cityId={cityId}
-            cityOptions={cityOptions}
-            shareEmergency={profile?.share_emergency !== false}
-            onShareEmergency={(next) => {
-              if (!profile) return;
-              void supabase
-                .from('profiles')
-                .update({ share_emergency: next })
-                .eq('id', profile.id)
-                .then(() => refreshProfile());
-            }}
-            shareEmergencyHint={t('profile.shareEmergencyHint')}
-            onSectionLayout={(section, y) => {
-              sectionY.current[section] = y;
-            }}
-          />
-        </>
-      ) : null}
-
-      {tab === 'account' ? (
-        <>
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -1348,6 +1357,13 @@ export default function StudentProfileScreen() {
         />
       ) : null}
       </ProfileEnter>
+      <PhotoViewer
+        photos={avatarUrl ? [avatarUrl] : []}
+        index={0}
+        visible={viewingPhoto && Boolean(avatarUrl)}
+        onIndexChange={() => {}}
+        onClose={() => setViewingPhoto(false)}
+      />
     </Screen>
   );
 }

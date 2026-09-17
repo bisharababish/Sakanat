@@ -25,6 +25,8 @@ type Props = {
   nextAction?: string;
   nextIcon?: ComponentProps<typeof Ionicons>['name'];
   highlighted?: boolean;
+  kicker?: string;
+  noteLines?: number;
   children?: ReactNode;
 };
 
@@ -40,6 +42,8 @@ export function BookingCard({
   nextAction,
   nextIcon = 'flag-outline',
   highlighted,
+  kicker,
+  noteLines = 2,
   children,
 }: Props) {
   const { t, i18n } = useTranslation();
@@ -69,6 +73,11 @@ export function BookingCard({
         },
       ]}
     >
+      {kicker ? (
+        <Text style={[styles.kicker, copy, { color: colors.primary }]} numberOfLines={1}>
+          {kicker}
+        </Text>
+      ) : null}
       <View style={[styles.head, row]}>
         {photo ? (
           <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
@@ -82,7 +91,7 @@ export function BookingCard({
             <Text style={[styles.title, copy, { color: colors.text }]} numberOfLines={1}>
               {localizedTitle(booking.apartments, i18n.language)}
             </Text>
-            <StatusBadge label={bookingStatusLabel(booking.status, t)} tone={bookingTone(booking.status)} />
+            <StatusBadge label={bookingStatusLabel(booking.status, t)} tone={bookingTone(booking.status)} compact />
           </View>
           <Text style={[styles.price, copy, { color: colors.primary }]} numberOfLines={1}>
             {formatIls(booking.rent_amount, lang)}
@@ -97,28 +106,29 @@ export function BookingCard({
       {nextAction ? (
         <View style={[styles.next, row, { backgroundColor: colors.primarySoft }]}>
           <Ionicons name={nextIcon} size={14} color={colors.primary} />
-          <Text style={[styles.nextText, copy, { color: colors.primaryDark }]} numberOfLines={2}>
+          <Text style={[styles.nextText, copy, { color: colors.primaryDark }]} numberOfLines={1}>
             {nextAction}
           </Text>
         </View>
       ) : null}
 
-      <Text style={[styles.pay, copy, { color: colors.textMuted }]} numberOfLines={1}>
-        {t(paymentI18nKey(booking.payment_method))} · {t(`payment.${booking.payment_status}`)}
-      </Text>
-
-      {personLabel ? (
-        <View style={[styles.person, row]}>
-          {personAvatar ? (
-            <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
-          ) : (
-            <Ionicons name={personIcon} size={14} color={colors.primary} />
-          )}
-          <Text style={[styles.personName, copy, { color: colors.text }]} numberOfLines={1}>
-            {personLabel}
-          </Text>
-        </View>
-      ) : null}
+      <View style={[styles.metaRow, row]}>
+        <Text style={[styles.pay, copy, { color: colors.textMuted }]} numberOfLines={1}>
+          {t(paymentI18nKey(booking.payment_method))} · {t(`payment.${booking.payment_status}`)}
+        </Text>
+        {personLabel ? (
+          <View style={[styles.person, row]}>
+            {personAvatar ? (
+              <Image source={{ uri: personAvatar }} style={styles.personAvatar} />
+            ) : (
+              <Ionicons name={personIcon} size={12} color={colors.primary} />
+            )}
+            <Text style={[styles.personName, copy, { color: colors.text }]} numberOfLines={1}>
+              {personLabel}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       {details.map((item) => (
         <Text key={item} style={[styles.meta, copy, { color: colors.textMuted }]} numberOfLines={1}>
           {item}
@@ -126,9 +136,15 @@ export function BookingCard({
       ))}
 
       {warning ? (
-        <Text style={[styles.warn, copy, { color: colors.warning }]}>{warning}</Text>
+        <Text style={[styles.warn, copy, { color: colors.warning }]} numberOfLines={2}>
+          {warning}
+        </Text>
       ) : null}
-      {note ? <Text style={[styles.note, copy, { color: colors.textMuted }]}>{note}</Text> : null}
+      {note ? (
+        <Text style={[styles.note, copy, { color: colors.textMuted }]} numberOfLines={noteLines}>
+          {note}
+        </Text>
+      ) : null}
 
       {children ? <View style={styles.actions}>{children}</View> : null}
     </View>
@@ -139,30 +155,32 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    padding: 10,
-    gap: 6,
+    padding: 8,
+    gap: 4,
   },
-  head: { alignItems: 'center', gap: 10 },
-  thumb: { width: 72, height: 72, borderRadius: 12 },
+  kicker: { fontSize: 10, fontFamily: 'Cairo_800ExtraBold' },
+  head: { alignItems: 'center', gap: 8 },
+  thumb: { width: 56, height: 56, borderRadius: 10 },
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
-  headCopy: { flex: 1, minWidth: 0, gap: 2 },
+  headCopy: { flex: 1, minWidth: 0, gap: 1 },
   titleRow: { alignItems: 'center', gap: 6 },
-  title: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
-  price: { fontSize: 13, fontFamily: 'Cairo_800ExtraBold' },
-  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  title: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_800ExtraBold' },
+  price: { fontSize: 12, fontFamily: 'Cairo_800ExtraBold' },
+  meta: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
   next: {
     alignItems: 'center',
-    gap: 6,
-    borderRadius: radius.md,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    gap: 5,
+    borderRadius: radius.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
-  nextText: { flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  pay: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
-  person: { alignItems: 'center', gap: 6 },
-  personAvatar: { width: 20, height: 20, borderRadius: 10 },
-  personName: { flex: 1, minWidth: 0, fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  warn: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  note: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 18 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  nextText: { flex: 1, minWidth: 0, fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  metaRow: { alignItems: 'center', gap: 8 },
+  pay: { fontSize: 10, fontFamily: 'Cairo_700Bold', flexShrink: 0 },
+  person: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
+  personAvatar: { width: 16, height: 16, borderRadius: 8 },
+  personName: { flex: 1, minWidth: 0, fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  warn: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
+  note: { fontSize: 11, fontFamily: 'Cairo_400Regular', lineHeight: 16 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 1 },
 });

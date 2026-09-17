@@ -1,6 +1,6 @@
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
-import { loadOccupiedStays } from '@/src/lib/booking';
+import { isoDateOnly, loadOccupiedStays, occupiedOverlap } from '@/src/lib/booking';
 import { supabase } from '@/src/lib/supabase';
 import type { Amenity, Apartment, GenderPolicy, University } from '@/src/types/database';
 
@@ -22,7 +22,17 @@ export type SearchFilters = {
   lang?: string;
   isRenter?: boolean;
   verifiedOnly?: boolean;
+  moveIn?: string | null;
+  leaseMonths?: number | null;
+  minRooms?: number | null;
 };
+
+/** Map group size to a rooms floor (2 people can share one room). */
+export function roomsFilterFromOccupants(occupants?: number | null) {
+  const n = Math.round(Number(occupants));
+  if (!Number.isFinite(n) || n < 3) return 0;
+  return Math.min(4, Math.ceil(n / 2));
+}
 
 /** Server filters what Postgres can do; distance/text refined on the client. */
 export async function fetchApprovedListings(filters: SearchFilters = {}) {
@@ -38,6 +48,7 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
   }
   if (filters.rooms === '4') query = query.gte('rooms', 4);
   else if (filters.rooms) query = query.eq('rooms', Number(filters.rooms));
+  else if (filters.minRooms && filters.minRooms > 0) query = query.gte('rooms', filters.minRooms);
   if (filters.bathrooms === '3') query = query.gte('bathrooms', 3);
   else if (filters.bathrooms) query = query.eq('bathrooms', Number(filters.bathrooms));
 
@@ -65,8 +76,15 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
   try {
     const occupied = await loadOccupiedStays();
     if (occupied.length) {
-      const taken = new Set(occupied.map((item) => item.apartment_id));
-      rows = rows.filter((item) => !taken.has(item.id));
+      const start = filters.moveIn || isoDateOnly();
+      const months = Math.max(1, Number(filters.leaseMonths) || 1);
+      rows = rows.filter(
+        (item) =>
+          !occupiedOverlap(
+            { start_date: start, months },
+            occupied.filter((stay) => stay.apartment_id === item.id),
+          ),
+      );
     }
   } catch {
     // Occupancy RPC is optional; search still works.

@@ -17,6 +17,7 @@ type Props = {
   avatarUrl: string | null;
   uploading?: boolean;
   onChangePhoto: () => void;
+  onViewPhoto?: () => void;
   metas?: Meta[];
   chip?: string;
   email?: string | null;
@@ -64,6 +65,7 @@ export function ProfileHero({
   avatarUrl,
   uploading,
   onChangePhoto,
+  onViewPhoto,
   metas = [],
   chip,
   email,
@@ -88,7 +90,11 @@ export function ProfileHero({
           <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
         </View>
       )}
-      <View
+      <Pressable
+        onPress={onChangePhoto}
+        hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.changePhoto')}
         style={[
           styles.cameraBadge,
           isRtl ? styles.badgeStart : styles.badgeEnd,
@@ -96,7 +102,7 @@ export function ProfileHero({
         ]}
       >
         <Ionicons name={uploading ? 'hourglass' : 'camera'} size={11} color={colors.white} />
-      </View>
+      </Pressable>
     </>
   );
 
@@ -105,8 +111,15 @@ export function ProfileHero({
       <View style={[styles.blob, styles.blobGold]} />
       <View style={[styles.heroBody, row]}>
         <Pressable
-          onPress={onChangePhoto}
-          accessibilityLabel={avatarUrl ? t('profile.changePhoto') : t('profile.tapPhoto')}
+          onPress={avatarUrl && onViewPhoto ? onViewPhoto : onChangePhoto}
+          accessibilityRole="button"
+          accessibilityLabel={
+            avatarUrl
+              ? onViewPhoto
+                ? t('profile.viewPhoto')
+                : t('profile.changePhoto')
+              : t('profile.tapPhoto')
+          }
           style={percent != null ? undefined : styles.avatarWrap}
         >
           {percent != null ? <Ring percent={percent}>{photo}</Ring> : <View style={styles.avatarWrap}>{photo}</View>}
@@ -145,8 +158,8 @@ export function ProfileHero({
 const styles = StyleSheet.create({
   hero: {
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm,
     overflow: 'hidden',
   },
   blob: {
@@ -165,8 +178,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm + 2,
   },
   ring: {
-    width: 76,
-    height: 76,
+    width: 64,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -176,20 +189,20 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    borderRadius: 38,
+    borderRadius: 32,
     borderWidth: 3,
   },
-  avatarWrap: { width: 64, height: 64 },
+  avatarWrap: { width: 54, height: 54 },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#E4EFE7',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.85)',
   },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-  initials: { fontSize: 20, fontFamily: 'Cairo_800ExtraBold' },
+  initials: { fontSize: 17, fontFamily: 'Cairo_800ExtraBold' },
   cameraBadge: {
     position: 'absolute',
     width: 22,
@@ -206,7 +219,7 @@ const styles = StyleSheet.create({
   chipRow: { flexWrap: 'wrap', gap: 4, alignItems: 'center' },
   heroName: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Cairo_800ExtraBold',
   },
   heroEmail: {

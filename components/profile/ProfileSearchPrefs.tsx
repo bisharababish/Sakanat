@@ -59,13 +59,14 @@ export function ProfileSearchPrefs({ profile, onSaved }: Props) {
   };
 
   return (
-    <Card compact>
-      <View style={styles.dense}>
-        <SectionHead compact icon="options-outline" title={t('profile.prefsTitle')} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.prefsIntro')}</Text>
+    <Card>
+      <View style={styles.stack}>
+        <View style={styles.field}>
+          <SectionHead icon="options-outline" title={t('profile.prefsTitle')} />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.prefsIntro')}</Text>
+        </View>
 
         <Select
-          dense
           label={t('profile.budgetMax')}
           value={budget}
           placeholder={t('common.select')}
@@ -81,74 +82,83 @@ export function ProfileSearchPrefs({ profile, onSaved }: Props) {
           clearable
         />
 
-        <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.houseGender')}</Text>
-        <FilterPills
-          compact
-          value={gender}
-          onChange={(next) => {
-            const prev = gender;
-            setGender(next);
-            void persist({ pref_gender_policy: next === 'any' ? 'any' : next }, () => setGender(prev));
-          }}
-          items={[
-            { value: 'any', label: t('profile.prefAny') },
-            { value: 'female', label: t('gender.female') },
-            { value: 'male', label: t('gender.male') },
-          ]}
-        />
+        <View style={styles.field}>
+          <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.houseGender')}</Text>
+          <FilterPills
+            value={gender}
+            onChange={(next) => {
+              const prev = gender;
+              setGender(next);
+              void persist({ pref_gender_policy: next === 'any' ? 'any' : next }, () => setGender(prev));
+            }}
+            items={[
+              { value: 'any', label: t('profile.prefAny') },
+              { value: 'female', label: t('gender.female') },
+              { value: 'male', label: t('gender.male') },
+            ]}
+          />
+        </View>
 
-        <DateField compact kind="booking" label={t('profile.moveInPref')} value={moveIn} onChange={(next) => {
-          const prev = moveIn;
-          setMoveIn(next);
-          void persist({ pref_move_in: next || null }, () => setMoveIn(prev));
-        }} />
+        <View style={styles.field}>
+          <DateField kind="booking" label={t('profile.moveInPref')} value={moveIn} onChange={(next) => {
+            const prev = moveIn;
+            setMoveIn(next);
+            void persist({ pref_move_in: next || null }, () => setMoveIn(prev));
+          }} />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.prefsMoveInHint')}</Text>
+        </View>
 
-        <Select
-          dense
-          label={t('profile.roommateCount')}
-          value={occupants}
-          placeholder={t('common.select')}
-          options={[
-            { value: '', label: t('profile.prefAny') },
-            { value: '1', label: t('booking.onePerson') },
-            { value: '2', label: t('booking.people', { count: 2 }) },
-            { value: '3', label: t('booking.people', { count: 3 }) },
-            { value: '4', label: t('booking.people', { count: 4 }) },
-          ]}
-          onChange={(next) => {
-            const prev = occupants;
-            setOccupants(next);
-            void persist({ pref_occupants: next ? Number(next) : null }, () => setOccupants(prev));
-          }}
-          clearable
-        />
+        <View style={styles.field}>
+          <Select
+            label={t('profile.roommateCount')}
+            value={occupants}
+            placeholder={t('common.select')}
+            options={[
+              { value: '', label: t('profile.prefAny') },
+              { value: '1', label: t('booking.onePerson') },
+              { value: '2', label: t('booking.people', { count: 2 }) },
+              { value: '3', label: t('booking.people', { count: 3 }) },
+              { value: '4', label: t('booking.people', { count: 4 }) },
+            ]}
+            onChange={(next) => {
+              const prev = occupants;
+              setOccupants(next);
+              void persist({ pref_occupants: next ? Number(next) : null }, () => setOccupants(prev));
+            }}
+            clearable
+          />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.prefsOccupantsHint')}</Text>
+        </View>
 
-        <Select
-          dense
-          label={t('profile.leasePref')}
-          value={lease}
-          placeholder={t('common.select')}
-          options={[
-            { value: '', label: t('profile.prefAny') },
-            ...LEASE_MONTHS.map((value) => ({
-              value: String(value),
-              label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
-            })),
-          ]}
-          onChange={(next) => {
-            const prev = lease;
-            setLease(next);
-            void persist({ pref_lease_months: next ? Number(next) : null }, () => setLease(prev));
-          }}
-          clearable
-        />
+        <View style={styles.field}>
+          <Select
+            label={t('profile.leasePref')}
+            value={lease}
+            placeholder={t('common.select')}
+            options={[
+              { value: '', label: t('profile.prefAny') },
+              ...LEASE_MONTHS.map((value) => ({
+                value: String(value),
+                label: `${value} ${value === 1 ? t('common.month') : t('common.months')}`,
+              })),
+            ]}
+            onChange={(next) => {
+              const prev = lease;
+              setLease(next);
+              void persist({ pref_lease_months: next ? Number(next) : null }, () => setLease(prev));
+            }}
+            clearable
+          />
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.prefsLeaseHint')}</Text>
+        </View>
       </View>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  dense: { gap: spacing.xs, maxWidth: '100%' },
-  denseLabel: { fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  hint: { fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_400Regular' },
+  stack: { gap: spacing.md, maxWidth: '100%' },
+  field: { gap: spacing.xs, maxWidth: '100%' },
+  denseLabel: { fontWeight: '700', fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  hint: { fontSize: 13, lineHeight: 19, fontFamily: 'Cairo_400Regular' },
 });

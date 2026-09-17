@@ -344,9 +344,6 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                           {shownName}
                         </Text>
                         <Text style={[styles.heroRole, copy, { color: colors.primary }]}>{t(`roles.${profile.role}`)}</Text>
-                        {profile.email ? (
-                          <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{profile.email}</Text>
-                        ) : null}
                         {profile.role === 'student' && university ? (
                           <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]} numberOfLines={1}>
                             {university}
@@ -466,36 +463,38 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                                     ? t('menu.verifyRejected')
                                     : t('menu.verification')}
                             </Text>
-                            <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
-                              {verification.verified
-                                ? t('menu.verifiedHint')
-                                : verification.pendingReview
+                            {verification.verified ? null : (
+                              <Text style={[styles.hint, copy, { color: colors.textMuted }]}>
+                                {verification.pendingReview
                                   ? t('menu.verifyReviewHint')
                                   : verification.rejected
                                     ? t('menu.verifyRejectedHint')
                                     : t('menu.verificationHint')}
-                            </Text>
+                              </Text>
+                            )}
                           </View>
                           <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
                         </View>
-                        <View style={[styles.chips, row]}>
-                          {verification.items.map((item) => (
-                            <View
-                              key={item.id}
-                              style={[
-                                styles.chip,
-                                {
-                                  backgroundColor: item.done ? colors.successSoft : colors.surfaceMuted,
-                                  borderColor: item.done ? colors.success : colors.border,
-                                },
-                              ]}
-                            >
-                              <Text style={[styles.chipText, { color: item.done ? colors.success : colors.textMuted }]}>
-                                {item.done ? t(`menu.verifyDone.${item.id}`) : t(`menu.verifyPending.${item.id}`)}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
+                        {verification.verified ? null : (
+                          <View style={[styles.chips, row]}>
+                            {verification.items.map((item) => (
+                              <View
+                                key={item.id}
+                                style={[
+                                  styles.chip,
+                                  {
+                                    backgroundColor: item.done ? colors.successSoft : colors.surfaceMuted,
+                                    borderColor: item.done ? colors.success : colors.border,
+                                  },
+                                ]}
+                              >
+                                <Text style={[styles.chipText, { color: item.done ? colors.success : colors.textMuted }]}>
+                                  {item.done ? t(`menu.verifyDone.${item.id}`) : t(`menu.verifyPending.${item.id}`)}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </Pressable>
                     ) : null}
                   </>
@@ -802,7 +801,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: { width: 28, height: 28 },
-  body: { padding: spacing.md, gap: spacing.sm, paddingBottom: 36 },
+  body: { padding: spacing.sm + 4, gap: spacing.sm, paddingBottom: 28 },
   hero: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -854,7 +853,7 @@ const styles = StyleSheet.create({
   growth: { justifyContent: 'center', alignItems: 'center', gap: 8, paddingTop: 4 },
   growthText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   growthDot: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
-  avatar: { width: 48, height: 48, borderRadius: 16 },
+  avatar: { width: 40, height: 40, borderRadius: 14 },
   avatarFallback: { alignItems: 'center', justifyContent: 'center' },
   initials: { fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   heroCopy: { flex: 1, minWidth: 0, gap: 2 },
@@ -882,7 +881,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap: 0,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36 },
   rowPressed: { opacity: 0.7 },
   appearanceHead: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36 },
   rowCopy: { flex: 1, minWidth: 0, gap: 1 },
@@ -908,7 +907,7 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 34,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'transparent',

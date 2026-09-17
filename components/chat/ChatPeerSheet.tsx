@@ -308,7 +308,7 @@ export function ChatPeerSheet({
                 <Row icon="card-outline" text={`${t('profile.studentId')} ${peer.student_id_number}`} />
               ) : null}
               {langs.length ? <Row icon="chatbubbles-outline" text={langs.join(' · ')} /> : null}
-              {peer.home_address && !isOwnerPeer ? (
+              {adminReview && peer.home_address ? (
                 <Row icon="home-outline" text={peer.home_address} />
               ) : null}
               {showPhone && peer.phone ? (
@@ -324,9 +324,6 @@ export function ChatPeerSheet({
               ) : null}
               {showEmergency && peer.emergency_phone ? (
                 <Row icon="call-outline" text={`${t('profile.emergencyPhone')} ${peer.emergency_phone}`} />
-              ) : null}
-              {adminReview && peer.home_address && isOwnerPeer ? (
-                <Row icon="home-outline" text={peer.home_address} />
               ) : null}
             </ScrollView>
           )}

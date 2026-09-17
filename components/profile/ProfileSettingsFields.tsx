@@ -132,42 +132,46 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
 
   return (
     <>
-      <Card compact>
-        <View style={styles.dense}>
-          <SectionHead compact icon="eye-outline" title={t('profile.privacyTitle')} />
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-            {t(isOwner ? 'profile.privacyIntroOwner' : 'profile.privacyIntro')}
-          </Text>
+      <Card>
+        <View style={styles.stack}>
+          <View style={styles.field}>
+            <SectionHead icon="eye-outline" title={t('profile.privacyTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+              {t(isOwner ? 'profile.privacyIntroOwner' : 'profile.privacyIntro')}
+            </Text>
+          </View>
 
-          <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('common.phone')}</Text>
-          <FilterPills
-            compact
-            value={phoneVisibility}
-            onChange={(next) => {
-              const prev = phoneVisibility;
-              setPhoneVisibility(next);
-              void persist({ phone_visibility: next }, () => setPhoneVisibility(prev));
-            }}
-            items={visibilityItems}
-          />
-          <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>
-            {contactVisibilityLabel(phoneVisibility, t)}
-          </Text>
+          <View style={styles.field}>
+            <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('common.phone')}</Text>
+            <FilterPills
+              value={phoneVisibility}
+              onChange={(next) => {
+                const prev = phoneVisibility;
+                setPhoneVisibility(next);
+                void persist({ phone_visibility: next }, () => setPhoneVisibility(prev));
+              }}
+              items={visibilityItems}
+            />
+            <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>
+              {contactVisibilityLabel(phoneVisibility, t)}
+            </Text>
+          </View>
 
-          <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.whatsapp')}</Text>
-          <FilterPills
-            compact
-            value={whatsappVisibility}
-            onChange={(next) => {
-              const prev = whatsappVisibility;
-              setWhatsappVisibility(next);
-              void persist({ whatsapp_visibility: next }, () => setWhatsappVisibility(prev));
-            }}
-            items={visibilityItems}
-          />
-          <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>
-            {contactVisibilityLabel(whatsappVisibility, t)}
-          </Text>
+          <View style={styles.field}>
+            <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.whatsapp')}</Text>
+            <FilterPills
+              value={whatsappVisibility}
+              onChange={(next) => {
+                const prev = whatsappVisibility;
+                setWhatsappVisibility(next);
+                void persist({ whatsapp_visibility: next }, () => setWhatsappVisibility(prev));
+              }}
+              items={visibilityItems}
+            />
+            <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>
+              {contactVisibilityLabel(whatsappVisibility, t)}
+            </Text>
+          </View>
 
           <ToggleRow
             label={t('profile.hideLastSeen')}
@@ -192,11 +196,13 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
         </View>
       </Card>
 
-      <Card compact>
-        <View style={styles.dense}>
-          <SectionHead compact icon="notifications-outline" title={t('profile.notifyTitle')} />
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.notifyMasterHint')}</Text>
-          <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>{osHint}</Text>
+      <Card>
+        <View style={styles.stack}>
+          <View style={styles.field}>
+            <SectionHead icon="notifications-outline" title={t('profile.notifyTitle')} />
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.notifyMasterHint')}</Text>
+            <Text style={[styles.mini, rtlText, { color: colors.textMuted }]}>{osHint}</Text>
+          </View>
           <ToggleRow
             label={t('menu.notifications')}
             hint={t('profile.notifyMasterSwitch')}
@@ -271,12 +277,13 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
 }
 
 const styles = StyleSheet.create({
-  dense: { gap: spacing.xs, maxWidth: '100%' },
-  denseLabel: { fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  hint: { fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_400Regular' },
-  mini: { fontSize: 11, lineHeight: 15, fontFamily: 'Cairo_400Regular' },
+  stack: { gap: spacing.md, maxWidth: '100%' },
+  field: { gap: spacing.xs, maxWidth: '100%' },
+  denseLabel: { fontWeight: '700', fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  hint: { fontSize: 13, lineHeight: 19, fontFamily: 'Cairo_400Regular' },
+  mini: { fontSize: 12, lineHeight: 17, fontFamily: 'Cairo_400Regular' },
   link: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
-  toggleBlock: { gap: 2, maxWidth: '100%' },
+  toggleBlock: { gap: 4, maxWidth: '100%' },
   toggleRow: { alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  toggleLabel: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_700Bold' },
+  toggleLabel: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Cairo_700Bold' },
 });

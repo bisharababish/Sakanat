@@ -166,13 +166,6 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
       </Card>
       {profile?.id ? <BlockedUsersCard userId={profile.id} /> : null}
       {profile?.id ? <UserDataExport userId={profile.id} compact /> : null}
-      {profile?.last_seen_ip && !profile.hide_last_seen ? (
-        <Card compact>
-          <SectionHead compact icon="globe-outline" title={t('profile.deviceIp')} />
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.deviceIpHint')}</Text>
-          <Text style={[styles.hint, rtlText, { color: colors.text }]}>{profile.last_seen_ip}</Text>
-        </Card>
-      ) : null}
       {onDelete ? (
         <Card compact>
           <SectionHead compact icon="trash-outline" title={t('profile.deleteAccount')} />

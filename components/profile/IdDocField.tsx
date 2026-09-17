@@ -14,6 +14,7 @@ export function IdDocField({
   busy,
   onPress,
   compact,
+  replace,
 }: {
   label: string;
   hint?: string;
@@ -21,6 +22,7 @@ export function IdDocField({
   busy?: boolean;
   onPress: () => void;
   compact?: boolean;
+  replace?: boolean;
 }) {
   const { t } = useTranslation();
   const { rtlText, row } = useLayout();
@@ -54,7 +56,7 @@ export function IdDocField({
         )}
         <View style={styles.copy}>
           <Text style={[styles.title, compact && styles.titleCompact, rtlText, { color: colors.text }]}>
-            {uri ? t('profile.changePhoto') : t('profile.uploadCard')}
+            {replace ? t('profile.replaceCard') : uri ? t('profile.changePhoto') : t('profile.uploadCard')}
           </Text>
           {hint ? (
             <Text style={[styles.hint, rtlText, { color: colors.textMuted }]} numberOfLines={2}>
