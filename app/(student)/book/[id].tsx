@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { SectionHead } from '@/components/profile/SectionHead';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -96,6 +97,7 @@ export default function BookScreen() {
   const [activeStay, setActiveStay] = useState<Pick<Booking, 'id'> | null>(null);
   const [occupiedStays, setOccupiedStays] = useState<OccupiedStay[]>([]);
   const [commissionPercent, setCommissionPercent] = useState(DEFAULT_COMMISSION_PERCENT);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
   const prefsApplied = useRef(false);
 
   useEffect(() => {
@@ -341,7 +343,13 @@ export default function BookScreen() {
   const listingHero = (
     <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
       {photo ? (
-        <Image source={{ uri: photo }} style={[styles.photo, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
+        <Pressable
+          onPress={() => setViewingPhoto(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.viewPhoto')}
+        >
+          <Image source={{ uri: photo }} style={[styles.photo, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
+        </Pressable>
       ) : (
         <View style={[styles.photo, styles.photoFallback, { backgroundColor: colors.primarySoft }]}>
           <Ionicons name="home" size={32} color={colors.primary} />
@@ -366,6 +374,7 @@ export default function BookScreen() {
   );
 
   return (
+    <>
     <Screen
       back
       onBack={stepIndex > 0 ? () => setStep(BOOK_STEPS[stepIndex - 1]) : undefined}
@@ -558,12 +567,20 @@ export default function BookScreen() {
         </>
       ) : null}
     </Screen>
+    <PhotoViewer
+      photos={apartment.photos?.filter(Boolean) ?? []}
+      index={0}
+      visible={viewingPhoto && Boolean(photo)}
+      onIndexChange={() => {}}
+      onClose={() => setViewingPhoto(false)}
+    />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', marginBottom: -8 },
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   muted: { fontSize: 15, fontFamily: 'Cairo_400Regular' },
   hero: {
     borderRadius: 28,

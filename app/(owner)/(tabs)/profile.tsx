@@ -170,6 +170,7 @@ export default function OwnerProfile() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mfaOn, setMfaOn] = useState(true);
+  const [viewerPhotos, setViewerPhotos] = useState<string[] | null>(null);
   const hydratedId = useRef<string | null>(null);
   const baseline = useRef<FormSnap | null>(null);
   const dirtyRef = useRef(false);
@@ -415,8 +416,10 @@ export default function OwnerProfile() {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
     text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
     onPress: () => {
-      if (avatarUrl) setViewingPhoto(true);
-      else void changePhoto();
+      if (avatarUrl) {
+        setViewerPhotos(null);
+        setViewingPhoto(true);
+      } else void changePhoto();
     },
   };
 
@@ -668,7 +671,14 @@ export default function OwnerProfile() {
             avatarUrl={avatarUrl}
             uploading={uploading}
             onChangePhoto={() => void changePhoto()}
-            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
+            onViewPhoto={
+              avatarUrl
+                ? () => {
+                    setViewerPhotos(null);
+                    setViewingPhoto(true);
+                  }
+                : undefined
+            }
             metas={[
               { icon: 'shield-checkmark', text: statusLabel },
               ...(ageLabel(birthDate, t, today)
@@ -792,7 +802,14 @@ export default function OwnerProfile() {
             verifyStatus={profile?.id_verify_status}
             verifyRole="owner"
             bio={bio}
-            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
+            onViewPhoto={
+              avatarUrl
+                ? () => {
+                    setViewerPhotos(null);
+                    setViewingPhoto(true);
+                  }
+                : undefined
+            }
             lines={ownerPublicLines(
               {
                 gender: gender || null,
@@ -897,7 +914,15 @@ export default function OwnerProfile() {
         </>
       ) : null}
 
-      {tab === 'occupants' && profile?.id ? <OwnerOccupants ownerId={profile.id} /> : null}
+      {tab === 'occupants' && profile?.id ? (
+        <OwnerOccupants
+          ownerId={profile.id}
+          onViewPhoto={(url) => {
+            setViewerPhotos([url]);
+            setViewingPhoto(true);
+          }}
+        />
+      ) : null}
 
       {tab === 'settings' && profile ? (
         <ProfileSettingsFields variant="owner" profile={profile} onSaved={() => void refreshProfile()} />
@@ -909,11 +934,14 @@ export default function OwnerProfile() {
       </ProfileEnter>
     </Screen>
       <PhotoViewer
-        photos={avatarUrl ? [avatarUrl] : []}
+        photos={viewerPhotos ?? (avatarUrl ? [avatarUrl] : [])}
         index={0}
-        visible={viewingPhoto && Boolean(avatarUrl)}
+        visible={viewingPhoto && Boolean((viewerPhotos ?? (avatarUrl ? [avatarUrl] : [])).length)}
         onIndexChange={() => {}}
-        onClose={() => setViewingPhoto(false)}
+        onClose={() => {
+          setViewingPhoto(false);
+          setViewerPhotos(null);
+        }}
       />
     </>
   );

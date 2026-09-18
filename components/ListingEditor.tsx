@@ -769,26 +769,34 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('owner.editNeedsReview')}</Text>
       ) : null}
 
-      <Button title={t('common.save')} onPress={() => void save()} loading={loading} pill />
+      <Button title={t('common.save')} onPress={() => void save()} loading={loading} compact pill />
       {apartment && !asAdmin ? (
         <Button
           title={t('owner.preview')}
           variant="secondary"
+          compact
           onPress={() => router.push({ pathname: '/(owner)/apartment/[id]', params: { id: apartment.id } })}
           pill
         />
       ) : null}
       {apartment && !asAdmin ? (
-        <Button title={t('owner.duplicate')} variant="secondary" onPress={() => void duplicateListing()} loading={loading} pill />
+        <Button
+          title={t('owner.duplicate')}
+          variant="secondary"
+          compact
+          onPress={() => void duplicateListing()}
+          loading={loading}
+          pill
+        />
       ) : null}
       {apartment?.status === 'approved' ? (
-        <Button title={t('owner.hideListing')} variant="secondary" onPress={() => setVisibility('hidden')} pill />
+        <Button title={t('owner.hideListing')} variant="secondary" compact onPress={() => setVisibility('hidden')} pill />
       ) : null}
       {apartment?.status === 'hidden' ? (
-        <Button title={t('owner.unhideListing')} variant="secondary" onPress={() => setVisibility('approved')} pill />
+        <Button title={t('owner.unhideListing')} variant="secondary" compact onPress={() => setVisibility('approved')} pill />
       ) : null}
       {apartment ? (
-        <Button title={t('owner.deleteListing')} variant="danger" onPress={removeListing} pill />
+        <Button title={t('owner.deleteListing')} variant="danger" compact onPress={removeListing} pill />
       ) : null}
     </Screen>
       <PhotoViewer
@@ -803,7 +811,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   sub: { fontSize: 14, fontFamily: 'Cairo_400Regular', marginTop: -4, marginBottom: 4 },
   hint: { fontSize: 13, fontFamily: 'Cairo_400Regular', lineHeight: 20 },
   label: { fontWeight: '800', fontFamily: 'Cairo_700Bold', fontSize: 14 },

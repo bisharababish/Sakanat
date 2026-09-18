@@ -123,6 +123,7 @@ export function ApartmentView({
   const colors = useColors();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [viewer, setViewer] = useState(false);
+  const [viewKind, setViewKind] = useState<'listing' | 'owner'>('listing');
   const [reviews, setReviews] = useState<ApartmentReview[]>([]);
   const [amenityOpen, setAmenityOpen] = useState(false);
   const carouselRef = useRef<ScrollView>(null);
@@ -172,6 +173,7 @@ export function ApartmentView({
   };
 
   const openPhoto = (next: number) => {
+    setViewKind('listing');
     setPhotoIndex(next);
     setViewer(true);
   };
@@ -456,19 +458,13 @@ export function ApartmentView({
             today,
             buildings: apartment.building_name ? [apartment.building_name] : [],
           })}
-          footer={
-            preview && signedIn ? (
-              <>
-                {apartment.profiles?.phone ? (
-                  <Button
-                    title={t('common.call')}
-                    variant="ghost"
-                    pill
-                    onPress={() => Linking.openURL(`tel:${apartment.profiles?.phone}`)}
-                  />
-                ) : null}
-              </>
-            ) : null
+          onViewPhoto={
+            apartment.profiles?.avatar_url
+              ? () => {
+                  setViewKind('owner');
+                  setViewer(true);
+                }
+              : undefined
           }
         />
         <View
@@ -502,11 +498,16 @@ export function ApartmentView({
       </ScrollView>
 
       <PhotoViewer
-        photos={photos}
-        index={photoIndex}
+        photos={viewKind === 'owner' && apartment.profiles?.avatar_url ? [apartment.profiles.avatar_url] : photos}
+        index={viewKind === 'owner' ? 0 : photoIndex}
         visible={viewer}
-        onIndexChange={setPhotoIndex}
-        onClose={() => setViewer(false)}
+        onIndexChange={(next) => {
+          if (viewKind === 'listing') setPhotoIndex(next);
+        }}
+        onClose={() => {
+          setViewer(false);
+          setViewKind('listing');
+        }}
       />
 
       {preview ? null : (

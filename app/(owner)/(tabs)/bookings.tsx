@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useCatalog } from '@/src/hooks/useCatalog';
@@ -23,7 +24,7 @@ import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useModalSafeArea } from '@/src/hooks/useModalSafeArea';
 import { useToday } from '@/src/hooks/useToday';
 import { useAuth } from '@/src/lib/auth';
-import { bookingGateCode, currentOwnerStays, hasConfirmedOverlap, overlappingBookings } from '@/src/lib/booking';
+import { bookingGateCode, currentOwnerStays, hasConfirmedOverlap, overlappingBookings, paymentI18nKey } from '@/src/lib/booking';
 import { openConversation, sendMessage } from '@/src/lib/chat';
 import { majorLabel } from '@/src/data/majors';
 import { ageLabel, bookingStatusLabel, bookingTone, formatIls, formatStayRange, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
@@ -66,6 +67,7 @@ export default function OwnerBookings() {
   const [docsFor, setDocsFor] = useState<Booking | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [listingFilter, setListingFilter] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
   const closeReject = () => setRejecting(null);
   const rejectBack = useEdgeBack(Boolean(rejecting), closeReject);
   const scrollRef = useRef<ScrollView>(null);
@@ -328,6 +330,7 @@ export default function OwnerBookings() {
   };
 
   return (
+    <>
     <Screen
       scrollRef={scrollRef}
       onRefresh={() => void refresh()}
@@ -466,7 +469,17 @@ export default function OwnerBookings() {
               accessibilityRole="button"
             >
               {photo ? (
-                <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+                <Pressable
+                  onPress={() =>
+                    booking.apartments?.photos?.length
+                      ? setViewer({ photos: booking.apartments.photos, index: 0 })
+                      : setOpenId(open ? null : booking.id)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.viewPhoto')}
+                >
+                  <Image source={{ uri: photo }} style={styles.thumb} contentFit="cover" />
+                </Pressable>
               ) : (
                 <View style={[styles.thumb, styles.thumbEmpty, { backgroundColor: colors.surfaceMuted }]}>
                   <Ionicons name="home-outline" size={18} color={colors.textMuted} />
@@ -478,9 +491,20 @@ export default function OwnerBookings() {
                     {t('owner.stayingNow')}
                   </Text>
                 ) : null}
-                <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
-                  {personBits[0] || title}
-                </Text>
+                <View style={[styles.nameLine, row]}>
+                  {booking.profiles?.avatar_url ? (
+                    <Pressable
+                      onPress={() => setViewer({ photos: [booking.profiles!.avatar_url!], index: 0 })}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('profile.viewPhoto')}
+                    >
+                      <Image source={{ uri: booking.profiles.avatar_url }} style={styles.personAvatar} />
+                    </Pressable>
+                  ) : null}
+                  <Text style={[styles.rowTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
+                    {personBits[0] || title}
+                  </Text>
+                </View>
                 <Text style={[styles.rowMeta, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
                   {[place, title, formatIls(booking.rent_amount, i18n.language)].filter(Boolean).join(' · ')}
                 </Text>
@@ -506,6 +530,22 @@ export default function OwnerBookings() {
                   {formatStayRange(booking.start_date, booking.months, i18n.language)} · {booking.months}{' '}
                   {booking.months === 1 ? t('common.month') : t('common.months')}
                 </Text>
+                <View style={[styles.chipLine, row]}>
+                  <Text style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
+                    {t(paymentI18nKey(booking.payment_method))}
+                  </Text>
+                  <StatusBadge
+                    compact
+                    label={t(`payment.${booking.payment_status}`)}
+                    tone={
+                      booking.payment_status === 'paid'
+                        ? 'approved'
+                        : booking.status === 'cancelled'
+                          ? 'info'
+                          : 'pending'
+                    }
+                  />
+                </View>
                 {details.map((line) => (
                   <Text key={line} style={[styles.detailLine, rtlText, { color: colors.textMuted }]}>
                     {line}
@@ -688,6 +728,14 @@ export default function OwnerBookings() {
         onClose={() => setDocsFor(null)}
       />
     </Screen>
+    <PhotoViewer
+      photos={viewer?.photos ?? []}
+      index={viewer?.index ?? 0}
+      visible={Boolean(viewer?.photos.length)}
+      onIndexChange={(index) => setViewer((current) => (current ? { ...current, index } : current))}
+      onClose={() => setViewer(null)}
+    />
+    </>
   );
 }
 
@@ -714,7 +762,9 @@ const styles = StyleSheet.create({
   thumb: { width: 52, height: 52, borderRadius: 12 },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
   rowCopy: { flex: 1, minWidth: 0, gap: 2 },
-  rowTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
+  nameLine: { alignItems: 'center', gap: 6, minWidth: 0 },
+  personAvatar: { width: 20, height: 20, borderRadius: 10 },
+  rowTitle: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
   rowKicker: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
   sectionHead: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
   rowMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },

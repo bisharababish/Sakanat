@@ -223,23 +223,7 @@ export default function OwnerListings() {
             {t('owner.listingCount', { count: listings.length })}
           </Text>
         </View>
-        <View style={styles.topActions}>
-          <Button title={t('owner.addListing')} onPress={gateAdd} pill compact />
-          <Button
-            title={t('tabs.earnings')}
-            variant="ghost"
-            onPress={() => router.push('/(owner)/(tabs)/earnings')}
-            pill
-            compact
-          />
-          <Button
-            title={t('owner.occupantsTitle')}
-            variant="ghost"
-            onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'occupants' } })}
-            pill
-            compact
-          />
-        </View>
+        <Button title={t('owner.addListing')} onPress={gateAdd} pill compact />
       </View>
 
       {listingAlert ? (
@@ -468,7 +452,6 @@ export default function OwnerListings() {
 const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
-  topActions: { alignItems: 'stretch', gap: 8 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   count: { fontSize: 14, fontFamily: 'Cairo_400Regular' },

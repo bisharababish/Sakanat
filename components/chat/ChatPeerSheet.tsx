@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { Button } from '@/components/ui/Button';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -135,6 +136,7 @@ export function ChatPeerSheet({
   const [bookingStatus, setBookingStatus] = useState<BookingStatus | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState(false);
 
   useEffect(() => {
     if (!visible || !userId) {
@@ -240,6 +242,7 @@ export function ChatPeerSheet({
     .filter(Boolean);
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View
         style={[
@@ -269,7 +272,13 @@ export function ChatPeerSheet({
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} showsVerticalScrollIndicator={false}>
               <View style={[styles.person, row]}>
                 {peer.avatar_url ? (
-                  <Image source={{ uri: peer.avatar_url }} style={styles.avatar} contentFit="cover" />
+                  <Pressable
+                    onPress={() => setViewingPhoto(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('profile.viewPhoto')}
+                  >
+                    <Image source={{ uri: peer.avatar_url }} style={styles.avatar} contentFit="cover" />
+                  </Pressable>
                 ) : (
                   <View style={[styles.avatar, styles.fallback, { backgroundColor: colors.primarySoft }]}>
                     <Text style={[styles.initials, { color: colors.primary }]}>{initials(name)}</Text>
@@ -366,6 +375,14 @@ export function ChatPeerSheet({
         </View>
       </View>
     </Modal>
+    <PhotoViewer
+      photos={peer?.avatar_url ? [peer.avatar_url] : []}
+      index={0}
+      visible={visible && viewingPhoto && Boolean(peer?.avatar_url)}
+      onIndexChange={() => {}}
+      onClose={() => setViewingPhoto(false)}
+    />
+    </>
   );
 }
 

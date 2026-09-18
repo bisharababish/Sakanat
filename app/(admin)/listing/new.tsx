@@ -76,6 +76,6 @@ export default function AdminNewListing() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   sub: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
 });

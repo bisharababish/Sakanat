@@ -10,6 +10,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
@@ -86,6 +87,7 @@ export default function OwnerEarnings() {
   const [payFilter, setPayFilter] = useState<'all' | 'owed' | 'clear'>('all');
   const [buildingFilter, setBuildingFilter] = useState('all');
   const [exporting, setExporting] = useState(false);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -184,6 +186,7 @@ export default function OwnerEarnings() {
   }, [list, i18n.language, t]);
 
   return (
+    <>
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
@@ -210,7 +213,8 @@ export default function OwnerEarnings() {
       </View>
       <Button
         title={t('owner.exportCsv')}
-        variant="secondary"
+        variant="ghost"
+        compact
         pill
         loading={exporting}
         onPress={() => {
@@ -328,7 +332,9 @@ export default function OwnerEarnings() {
         style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}
       >
         <View style={[styles.howHead, row]}>
-          <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.howEarnings')}</Text>
+          <Text style={[styles.howTitle, rtlText, { color: colors.text }]} numberOfLines={1}>
+            {t('owner.howEarnings')}
+          </Text>
           <Ionicons name={showHow ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
         </View>
         <Text style={[styles.splitHint, rtlText, { color: colors.textMuted }]}>{t('owner.earningsHint')}</Text>
@@ -473,7 +479,13 @@ export default function OwnerEarnings() {
                 accessibilityRole="button"
               >
                 {photo ? (
-                  <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
+                  <Pressable
+                    onPress={() => setViewer({ photos: [photo], index: 0 })}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('profile.viewPhoto')}
+                  >
+                    <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
+                  </Pressable>
                 ) : (
                   <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
                     <Text style={[styles.initials, { color: colors.primary }]}>{initials(student)}</Text>
@@ -561,6 +573,14 @@ export default function OwnerEarnings() {
         />
       ) : null}
     </Screen>
+    <PhotoViewer
+      photos={viewer?.photos ?? []}
+      index={viewer?.index ?? 0}
+      visible={Boolean(viewer?.photos.length)}
+      onIndexChange={(index) => setViewer((current) => (current ? { ...current, index } : current))}
+      onClose={() => setViewer(null)}
+    />
+    </>
   );
 }
 
@@ -607,7 +627,7 @@ const styles = StyleSheet.create({
   top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topCopy: { flex: 1, minWidth: 0, gap: 2 },
   kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold', letterSpacing: 0.6 },
-  title: { fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   feePill: {
     borderRadius: radius.full,
     borderWidth: 1,
@@ -659,7 +679,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   heroCaption: { color: 'rgba(255,255,255,0.78)', fontFamily: 'Cairo_400Regular', fontSize: 13, flex: 1 },
-  heroValue: { color: '#fff', fontSize: 36, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  heroValue: { color: '#fff', fontSize: 28, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   heroShare: { color: 'rgba(255,255,255,0.82)', fontFamily: 'Cairo_700Bold', fontSize: 13, marginTop: -4 },
   track: { height: 10, borderRadius: 999, overflow: 'hidden', flexDirection: 'row' },
   trackKeep: { height: '100%' },
@@ -696,13 +716,15 @@ const styles = StyleSheet.create({
   splitMeta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   splitValue: { fontSize: 15, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   splitHint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular', marginTop: 8 },
-  howHead: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  howHead: { alignItems: 'center', gap: 8, maxWidth: '100%' },
+  howTitle: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   howBody: { gap: 6, marginTop: 4 },
   panel: {
     borderRadius: 24,
     borderWidth: 1,
     padding: spacing.md,
     gap: 14,
+    overflow: 'hidden',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,

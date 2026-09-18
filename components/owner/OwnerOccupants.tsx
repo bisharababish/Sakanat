@@ -24,7 +24,13 @@ import {
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
-export function OwnerOccupants({ ownerId }: { ownerId: string }) {
+export function OwnerOccupants({
+  ownerId,
+  onViewPhoto,
+}: {
+  ownerId: string;
+  onViewPhoto?: (url: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const { rtlText, row } = useLayout();
   const colors = useColors();
@@ -185,7 +191,14 @@ export function OwnerOccupants({ ownerId }: { ownerId: string }) {
                             style={[styles.person, row, { backgroundColor: colors.surfaceMuted }]}
                           >
                             {stay.avatarUrl ? (
-                              <Image source={{ uri: stay.avatarUrl }} style={styles.avatar} contentFit="cover" />
+                              <Pressable
+                                onPress={() => onViewPhoto?.(stay.avatarUrl!)}
+                                disabled={!onViewPhoto}
+                                accessibilityRole={onViewPhoto ? 'button' : undefined}
+                                accessibilityLabel={onViewPhoto ? t('profile.viewPhoto') : undefined}
+                              >
+                                <Image source={{ uri: stay.avatarUrl }} style={styles.avatar} contentFit="cover" />
+                              </Pressable>
                             ) : (
                               <View style={[styles.avatar, { backgroundColor: colors.primarySoft }]}>
                                 <Ionicons name="person" size={14} color={colors.primary} />

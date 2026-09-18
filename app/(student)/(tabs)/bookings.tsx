@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { HubRow } from '@/components/ui/HubRow';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
+import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -64,6 +65,7 @@ export default function StudentBookings() {
   const [note, setNote] = useState('');
   const [noteBusy, setNoteBusy] = useState(false);
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({});
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -411,6 +413,16 @@ export default function StudentBookings() {
             ? displayName(booking.profiles, i18n.language) || booking.profiles.full_name || undefined
             : undefined
         }
+        onViewListingPhoto={
+          booking.apartments?.photos?.length
+            ? () => setViewer({ photos: booking.apartments!.photos, index: 0 })
+            : undefined
+        }
+        onViewPersonPhoto={
+          booking.profiles?.avatar_url
+            ? () => setViewer({ photos: [booking.profiles!.avatar_url!], index: 0 })
+            : undefined
+        }
         noteLines={featured ? 3 : 2}
         nextAction={
           booking.status === 'pending'
@@ -578,6 +590,7 @@ export default function StudentBookings() {
   };
 
   return (
+    <>
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
@@ -682,6 +695,14 @@ export default function StudentBookings() {
       />
       </ProfileEnter>
     </Screen>
+    <PhotoViewer
+      photos={viewer?.photos ?? []}
+      index={viewer?.index ?? 0}
+      visible={Boolean(viewer?.photos.length)}
+      onIndexChange={(index) => setViewer((current) => (current ? { ...current, index } : current))}
+      onClose={() => setViewer(null)}
+    />
+    </>
   );
 }
 

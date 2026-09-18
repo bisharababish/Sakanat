@@ -393,7 +393,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                       </View>
                     ) : null}
                     {isOwner && profile.owner_status === 'pending' ? (
-                      <View
+                      <Pressable
+                        onPress={() => goProfile()}
+                        accessibilityRole="button"
                         style={[
                           styles.verifyCard,
                           { backgroundColor: colors.warningSoft, borderColor: colors.warning },
@@ -409,11 +411,14 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                               {t('menu.ownerPendingHint')}
                             </Text>
                           </View>
+                          <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
                         </View>
-                      </View>
+                      </Pressable>
                     ) : null}
                     {isOwner && profile.owner_status === 'rejected' ? (
-                      <View
+                      <Pressable
+                        onPress={() => goProfile()}
+                        accessibilityRole="button"
                         style={[
                           styles.verifyCard,
                           { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
@@ -429,8 +434,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                               {t('menu.ownerSuspendedHint')}
                             </Text>
                           </View>
+                          <Ionicons name={isRtl ? 'chevron-back' : 'chevron-forward'} size={18} color={colors.textMuted} />
                         </View>
-                      </View>
+                      </Pressable>
                     ) : null}
                     {verification ? (
                       <Pressable
