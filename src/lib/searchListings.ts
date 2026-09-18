@@ -1,6 +1,7 @@
 import { listingDistanceKm } from '@/src/lib/distance';
 import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/format';
 import { isoDateOnly, loadOccupiedStays, occupiedOverlap } from '@/src/lib/booking';
+import { attachListingOwnerCards } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import type { Amenity, Apartment, GenderPolicy, University } from '@/src/types/database';
 
@@ -38,7 +39,7 @@ export function roomsFilterFromOccupants(occupants?: number | null) {
 export async function fetchApprovedListings(filters: SearchFilters = {}) {
   let query = supabase
     .from('apartments')
-    .select('*, cities(*), universities(*), profiles!owner_id(id, full_name, id_verify_status)')
+    .select('*, cities(*), universities(*)')
     .eq('status', 'approved');
 
   if (filters.cityId) query = query.eq('city_id', filters.cityId);
@@ -72,7 +73,7 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
 
   const { data, error } = await query.limit(400);
   if (error) throw error;
-  let rows = (data as Apartment[]) ?? [];
+  let rows = await attachListingOwnerCards((data as Apartment[]) ?? []);
   try {
     const occupied = await loadOccupiedStays();
     if (occupied.length) {

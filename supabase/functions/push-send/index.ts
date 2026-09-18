@@ -57,8 +57,8 @@ Deno.serve(async (req) => {
     }
 
     const payload = (await req.json()) as Body;
-    const title = (payload.title ?? '').trim();
-    const body = (payload.body ?? '').trim();
+    const title = (payload.title ?? '').trim().slice(0, 120);
+    const body = (payload.body ?? '').trim().slice(0, 400);
     if (!title || !body) return json({ error: 'missing_title_body' }, 400);
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
 
@@ -85,11 +85,34 @@ Deno.serve(async (req) => {
     }
 
     if (!payload.userId) return json({ error: 'missing_user' }, 400);
+    const userId = payload.userId.trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+      return json({ error: 'invalid_user' }, 400);
+    }
+
+    if (callerId && !callerIsAdmin) {
+      const { count: bookingHits } = await admin
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .or(
+          `and(student_id.eq.${callerId},owner_id.eq.${userId}),and(owner_id.eq.${callerId},student_id.eq.${userId})`,
+        )
+        .limit(1);
+      const { count: chatHits } = await admin
+        .from('conversations')
+        .select('id', { count: 'exact', head: true })
+        .or(
+          `and(student_id.eq.${callerId},owner_id.eq.${userId}),and(owner_id.eq.${callerId},student_id.eq.${userId})`,
+        )
+        .limit(1);
+      if (!bookingHits && !chatHits) return json({ error: 'forbidden' }, 403);
+    }
+
     const kind: Kind = payload.kind ?? 'booking';
     const { data: profile, error } = await admin
       .from('profiles')
       .select('expo_push_token, notify_booking, notify_chat, notify_listing, notify_review')
-      .eq('id', payload.userId)
+      .eq('id', userId)
       .maybeSingle();
     if (error) throw error;
     if (!profile?.expo_push_token) return json({ recipients: 0 });

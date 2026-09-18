@@ -6,7 +6,7 @@ import { supabase } from '@/src/lib/supabase';
 import type { IdVerifyStatus, Profile } from '@/src/types/database';
 
 export const SEEKER_BOOKING_PROFILE =
-  'id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth, home_address, national_id_number, national_id_url, university_card_url, id_verify_status, emergency_name, emergency_phone, last_seen_ip, phone_visibility, whatsapp_visibility, hide_last_seen, share_emergency, graduation_term';
+  'id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth, home_address, national_id_number, national_id_url, university_card_url, id_verify_status, emergency_name, emergency_phone, phone_visibility, whatsapp_visibility, hide_last_seen, share_emergency, graduation_term';
 
 
 export function sanitizeNationalId(raw: string) {

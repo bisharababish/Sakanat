@@ -4,11 +4,34 @@ import type { TFunction } from 'i18next';
 
 import { ageLabel } from '@/src/lib/format';
 import { canShowOwnerContact, contactVisibilityLabel } from '@/src/lib/privacy';
-import type { BookingStatus, PersonGender, Profile } from '@/src/types/database';
+import { supabase } from '@/src/lib/supabase';
+import type { Apartment, BookingStatus, PersonGender, Profile } from '@/src/types/database';
 
 /** Public owner fields students may see on a listing, booking, or chat. */
 export const OWNER_PUBLIC_PROFILE =
   'id, full_name, full_name_en, avatar_url, gender, date_of_birth, city_id, bio, spoken_languages, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status';
+
+/** Listing card only — no phone, national ID, address, or IP. */
+export const LISTING_OWNER_CARD =
+  'id, full_name, full_name_en, avatar_url, gender, date_of_birth, city_id, bio, spoken_languages, phone_visibility, whatsapp_visibility, id_verify_status';
+
+export async function attachListingOwnerCards<T extends Pick<Apartment, 'owner_id'> & { profiles?: Apartment['profiles'] }>(
+  rows: T[],
+): Promise<T[]> {
+  const ids = [...new Set(rows.map((row) => row.owner_id).filter(Boolean))];
+  if (!ids.length) return rows;
+  const fromView = await supabase.from('profile_cards').select(LISTING_OWNER_CARD).in('id', ids);
+  let cards = !fromView.error ? (fromView.data ?? []) : null;
+  if (!cards) {
+    const fromProfiles = await supabase.from('profiles').select(LISTING_OWNER_CARD).in('id', ids);
+    cards = fromProfiles.data ?? [];
+  }
+  const byId = new Map(cards.map((card) => [card.id as string, card]));
+  return rows.map((row) => ({
+    ...row,
+    profiles: row.profiles ?? ((byId.get(row.owner_id) as Apartment['profiles'] | undefined) ?? null),
+  }));
+}
 
 export type OwnerPublicProfile = Pick<
   Profile,

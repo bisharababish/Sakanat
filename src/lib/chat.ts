@@ -481,7 +481,7 @@ export async function sendMessage(
   });
   if (error) {
     if (audio && /audio_url|column/i.test(error.message)) {
-      throw new Error(i18n.t('chat.voiceNeedsSql'));
+      throw new Error(i18n.t('chat.mediaFailed'));
     }
     throw error;
   }

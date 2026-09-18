@@ -11,7 +11,9 @@ export type BookingGateCode =
   | 'BOOKING_GENDER_MISMATCH'
   | 'BOOKING_ACCOUNT_SUSPENDED'
   | 'BOOKING_ACTIVE_STAY'
-  | 'BOOKING_LISTING_OCCUPIED';
+  | 'BOOKING_LISTING_OCCUPIED'
+  | 'BOOKING_FORBIDDEN'
+  | 'BOOKING_CANCEL_REASON';
 
 export function bookingGateCode(error: unknown): BookingGateCode | null {
   const message =
@@ -26,6 +28,8 @@ export function bookingGateCode(error: unknown): BookingGateCode | null {
   if (message.includes('BOOKING_ACCOUNT_SUSPENDED')) return 'BOOKING_ACCOUNT_SUSPENDED';
   if (message.includes('BOOKING_ACTIVE_STAY')) return 'BOOKING_ACTIVE_STAY';
   if (message.includes('BOOKING_LISTING_OCCUPIED')) return 'BOOKING_LISTING_OCCUPIED';
+  if (message.includes('BOOKING_FORBIDDEN')) return 'BOOKING_FORBIDDEN';
+  if (message.includes('BOOKING_CANCEL_REASON')) return 'BOOKING_CANCEL_REASON';
   return null;
 }
 

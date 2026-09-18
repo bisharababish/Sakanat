@@ -667,7 +667,8 @@ export default function OwnerBookings() {
                   {phone ? (
                     <Button title={t('common.call')} variant="ghost" compact pill onPress={() => Linking.openURL(`tel:${phone}`)} />
                   ) : null}
-                  {booking.profiles?.national_id_url || booking.profiles?.university_card_url ? (
+                  {(booking.status === 'confirmed' || booking.status === 'completed') &&
+                  (booking.profiles?.national_id_url || booking.profiles?.university_card_url) ? (
                     <Button title={t('profile.viewIdCards')} variant="ghost" compact pill onPress={() => setDocsFor(booking)} />
                   ) : null}
                 </View>

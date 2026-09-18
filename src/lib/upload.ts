@@ -52,13 +52,7 @@ export async function uploadChatPhoto(userId: string, conversationId: string, ur
     contentType: contentTypeFor(ext),
     upsert: false,
   });
-  if (error) {
-    // Fallback to public bucket if private bucket SQL not applied yet.
-    if (/bucket|not found|row-level security/i.test(error.message)) {
-      return uploadPublicImage(`chat/${conversationId}/${userId}-${Date.now()}.${ext}`, uri);
-    }
-    throw error;
-  }
+  if (error) throw new Error(i18n.t('chat.mediaFailed'));
   return path;
 }
 
@@ -73,18 +67,7 @@ export async function uploadChatAudio(userId: string, conversationId: string, ur
     contentType: 'audio/mp4',
     upsert: false,
   });
-  if (error) {
-    if (/bucket|not found|row-level security/i.test(error.message)) {
-      const publicPath = `chat/${conversationId}/${userId}-${Date.now()}.m4a`;
-      const fallback = await supabase.storage.from(PUBLIC_BUCKET).upload(publicPath, buffer, {
-        contentType: 'audio/mp4',
-        upsert: false,
-      });
-      if (fallback.error) throw fallback.error;
-      return supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(publicPath).data.publicUrl;
-    }
-    throw error;
-  }
+  if (error) throw new Error(i18n.t('chat.mediaFailed'));
   return path;
 }
 
@@ -96,8 +79,7 @@ export async function chatPhotoUrl(pathOrUrl?: string | null) {
   }
   const { data, error } = await supabase.storage.from(CHAT_BUCKET).createSignedUrl(pathOrUrl, SIGNED_TTL_SEC);
   if (!error && data?.signedUrl) return data.signedUrl;
-  const { data: pub } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(pathOrUrl);
-  return pub.publicUrl;
+  return null;
 }
 
 /** National / university cards — private bucket; returns storage path (not a public URL). */
@@ -136,8 +118,5 @@ export async function idDocUrl(path?: string | null) {
     .from(ID_DOCS_BUCKET)
     .createSignedUrl(path, SIGNED_TTL_SEC);
   if (!error && data?.signedUrl) return data.signedUrl;
-
-  const legacy = path.includes('/') ? `docs/${path}` : `docs/${path}`;
-  const { data: pub } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(legacy);
-  return pub.publicUrl;
+  return null;
 }

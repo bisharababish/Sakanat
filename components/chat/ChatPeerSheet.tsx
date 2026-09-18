@@ -64,19 +64,20 @@ export type ChatPeerSeed = {
   role?: UserRole | null;
 };
 
-const PEER_SELECTS = [
-  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, bio, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status, home_address, emergency_name, emergency_phone, share_emergency, spoken_languages, student_id_number, graduation_term',
-  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, phone, whatsapp, id_verify_status, home_address, emergency_name, emergency_phone, student_id_number, graduation_term',
-  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, phone, whatsapp, id_verify_status',
-  'id, full_name, avatar_url, role, phone',
-];
+const PUBLIC_PEER =
+  'id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, major, study_year, degree_level, bio, phone, whatsapp, phone_visibility, whatsapp_visibility, id_verify_status, spoken_languages, graduation_term';
+const PRIVATE_PEER = `${PUBLIC_PEER}, home_address, emergency_name, emergency_phone, share_emergency, student_id_number`;
 
-async function loadPeerProfile(userId: string): Promise<PeerProfile | null> {
-  for (const columns of PEER_SELECTS) {
-    const { data, error } = await supabase.from('profiles').select(columns).eq('id', userId).maybeSingle();
-    if (!error && data) return data as unknown as PeerProfile;
-  }
-  return null;
+async function loadPeerProfile(userId: string, includePrivate: boolean): Promise<PeerProfile | null> {
+  const columns = includePrivate ? PRIVATE_PEER : PUBLIC_PEER;
+  const { data, error } = await supabase.from('profiles').select(columns).eq('id', userId).maybeSingle();
+  if (!error && data) return data as unknown as PeerProfile;
+  const { data: fallback } = await supabase
+    .from('profiles')
+    .select('id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, phone, whatsapp, id_verify_status')
+    .eq('id', userId)
+    .maybeSingle();
+  return (fallback as unknown as PeerProfile) ?? null;
 }
 
 function seedAsPeer(seed: ChatPeerSeed): PeerProfile {
@@ -151,8 +152,7 @@ export function ChatPeerSheet({
 
     void (async () => {
       try {
-        const [profile, a, b] = await Promise.all([
-          loadPeerProfile(userId),
+        const [a, b] = await Promise.all([
           viewerId
             ? supabase
                 .from('bookings')
@@ -177,11 +177,16 @@ export function ChatPeerSheet({
             : Promise.resolve({ data: null }),
         ]);
         if (!alive) return;
+        const status = ((a.data?.status ?? b.data?.status) as BookingStatus | undefined) ?? null;
+        setBookingStatus(status);
+        setBookingId((a.data?.id ?? b.data?.id) as string | undefined ?? null);
+        const includePrivate =
+          adminReview || status === 'confirmed' || status === 'completed';
+        const profile = await loadPeerProfile(userId, includePrivate);
+        if (!alive) return;
         if (profile) setPeer(profile);
         else if (seed?.id === userId) setPeer(seedAsPeer(seed));
         else setPeer(null);
-        setBookingStatus(((a.data?.status ?? b.data?.status) as BookingStatus | undefined) ?? null);
-        setBookingId((a.data?.id ?? b.data?.id) as string | undefined ?? null);
       } catch {
         if (!alive) return;
         if (seed?.id === userId) setPeer(seedAsPeer(seed));
@@ -196,7 +201,7 @@ export function ChatPeerSheet({
     return () => {
       alive = false;
     };
-  }, [visible, userId, viewerId, seed?.id, seed?.full_name, seed?.avatar_url, seed?.role]);
+  }, [visible, userId, viewerId, adminReview, seed?.id, seed?.full_name, seed?.avatar_url, seed?.role]);
 
   const name = peer ? displayName(peer, i18n.language) || peer.full_name || '' : '';
   const city = peer?.city_id
