@@ -946,6 +946,7 @@ export default function StudentProfileScreen() {
   const languageLine = spokenLanguageLabels(spokenLanguages, t).join(' · ');
 
   return (
+    <>
     <Screen
       onRefresh={() => void refresh()}
       refreshing={refreshing}
@@ -1153,6 +1154,7 @@ export default function StudentProfileScreen() {
             verifyRole={profile?.role}
             onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
             lines={[
+              ...(!isStudent ? [{ icon: 'briefcase-outline' as const, text: t('roles.renter') }] : []),
               ...(gender ? [{ icon: 'person-outline' as const, text: t(`profile.${gender}`) }] : []),
               ...(ageLabel(birthDate, t, today)
                 ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
@@ -1227,8 +1229,9 @@ export default function StudentProfileScreen() {
             onBio={setBio}
             spokenLanguages={spokenLanguages}
             onSpokenLanguages={setSpokenLanguages}
-            graduationTerm={graduationTerm}
-            onGraduationTerm={setGraduationTerm}
+            campusEmailHint={isStudent}
+            graduationTerm={isStudent ? graduationTerm : undefined}
+            onGraduationTerm={isStudent ? setGraduationTerm : undefined}
             onSectionLayout={(section, y) => {
               sectionY.current[section] = y;
             }}
@@ -1370,6 +1373,7 @@ export default function StudentProfileScreen() {
         />
       ) : null}
       </ProfileEnter>
+    </Screen>
       <PhotoViewer
         photos={avatarUrl ? [avatarUrl] : []}
         index={0}
@@ -1377,7 +1381,7 @@ export default function StudentProfileScreen() {
         onIndexChange={() => {}}
         onClose={() => setViewingPhoto(false)}
       />
-    </Screen>
+    </>
   );
 }
 

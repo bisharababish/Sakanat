@@ -40,8 +40,8 @@ export default function EmailConfirmedScreen() {
         />
       }
     >
-      <AuthCard>
-        <AuthHeading title={t('auth.emailConfirmedTitle')} hint={t('auth.emailConfirmedBody')} />
+      <AuthCard compact>
+        <AuthHeading compact title={t('auth.emailConfirmedTitle')} hint={t('auth.emailConfirmedBody')} />
       </AuthCard>
     </AuthScreen>
   );

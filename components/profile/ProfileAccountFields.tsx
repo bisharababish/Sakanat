@@ -51,6 +51,7 @@ type Props = {
   onSpokenLanguages?: (value: string[]) => void;
   graduationTerm?: string;
   onGraduationTerm?: (value: string) => void;
+  campusEmailHint?: boolean;
   onSectionLayout?: (section: Section, y: number) => void;
 };
 
@@ -84,6 +85,7 @@ export function ProfileAccountFields({
   onSpokenLanguages,
   graduationTerm = '',
   onGraduationTerm,
+  campusEmailHint = false,
   onSectionLayout,
 }: Props) {
   const { t } = useTranslation();
@@ -250,7 +252,11 @@ export function ProfileAccountFields({
             editable={false}
             wrap
             ltr
-            hint={`${t('profile.emailLocked')} ${t('profile.emailCampusHint', { email: SUPPORT_EMAIL })}`}
+            hint={
+              campusEmailHint
+                ? `${t('profile.emailLocked')} ${t('profile.emailCampusHint', { email: SUPPORT_EMAIL })}`
+                : t('profile.emailLocked')
+            }
           />
           <PhoneField
             compact

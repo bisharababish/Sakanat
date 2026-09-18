@@ -59,7 +59,7 @@ export default function GuestAccount() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  body: { fontSize: 15, lineHeight: 24, fontFamily: 'Cairo_400Regular' },
+  body: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
   langRow: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   langLabel: { flex: 1, fontSize: 14, fontFamily: 'Cairo_700Bold' },
 });

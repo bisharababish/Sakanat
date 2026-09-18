@@ -52,6 +52,7 @@ export default function SearchScreen() {
   const { profile } = useAuth();
   const { cities, universities, reload: reloadCatalog } = useCatalog();
   const isRenter = profile?.role === 'renter';
+  const cityFirst = isRenter || !profile;
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -444,7 +445,7 @@ export default function SearchScreen() {
   const campusOptions = universities.filter((item) => !cityId || item.city_id === cityId);
   const sortItems: { value: SortMode; label: string }[] = [
     { value: 'price', label: t('search.sortPrice') },
-    ...(!isRenter ? [{ value: 'distance' as const, label: t('search.sortDistance') }] : []),
+    ...(selectedUniversity ? [{ value: 'distance' as const, label: t('search.sortDistance') }] : []),
     { value: 'rating', label: t('search.sortRating') },
   ];
   const pickCity = (next: string) => {
@@ -456,7 +457,10 @@ export default function SearchScreen() {
   };
   const pickUniversity = (next: string) => {
     setUniversityId(next);
-    if (!next) setMaxKm('');
+    if (!next) {
+      setMaxKm('');
+      setSort((current) => (current === 'distance' ? 'price' : current));
+    }
     const campus = universities.find((item) => item.id === next);
     if (campus?.city_id) setCityId(campus.city_id);
   };
@@ -466,14 +470,14 @@ export default function SearchScreen() {
   const hello =
     helloName && campusName
       ? t('search.helloCampus', { name: helloName, campus: campusName })
-      : helloName && cityName && (isRenter || !profile)
+      : helloName && cityName && cityFirst
         ? t('search.helloCity', { name: helloName, city: cityName })
         : helloName
           ? t('search.hello', { name: helloName })
           : t('search.title');
   const subtitle = campusName
     ? null
-    : t(isRenter || !profile ? 'search.subtitleRenter' : 'search.subtitle');
+    : t(cityFirst ? 'search.subtitleRenter' : 'search.subtitle');
 
   return (
     <Screen
@@ -508,7 +512,7 @@ export default function SearchScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder={t(isRenter ? 'search.placeholderRenter' : 'search.placeholder')}
+          placeholder={t(cityFirst ? 'search.placeholderRenter' : 'search.placeholder')}
           placeholderTextColor={colors.textMuted}
           autoCorrect={false}
           returnKeyType="search"
@@ -767,7 +771,7 @@ export default function SearchScreen() {
         <View style={styles.empty}>
           <EmptyState
             title={t('search.empty')}
-            hint={filtersOn ? t('search.emptyHint') : isRenter ? t('search.emptyRenter') : undefined}
+            hint={filtersOn ? t('search.emptyHint') : cityFirst ? t('search.emptyRenter') : undefined}
             actionTitle={filtersOn ? t('search.clear') : undefined}
             onAction={filtersOn ? clearFilters : undefined}
           />

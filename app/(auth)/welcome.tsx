@@ -1,24 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { type ComponentProps, useMemo } from 'react';
-import { PanResponder, StyleSheet, Text, View } from 'react-native';
+import { type ComponentProps } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthRubber } from '@/components/auth/AuthRubber';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { BrandLogo } from '@/components/BrandLogo';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-
-const RUBBER = 56;
-
-function rubberY(dy: number) {
-  const sign = dy < 0 ? -1 : 1;
-  return sign * RUBBER * (1 - Math.exp(-Math.abs(dy) / 90));
-}
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -35,27 +28,6 @@ export default function WelcomeScreen() {
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const canGoBack = router.canGoBack();
-  const pull = useSharedValue(0);
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: pull.value }],
-  }));
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-        onPanResponderMove: (_, gesture) => {
-          pull.value = rubberY(gesture.dy);
-        },
-        onPanResponderRelease: () => {
-          pull.value = withSpring(0, { damping: 18, stiffness: 220 });
-        },
-        onPanResponderTerminate: () => {
-          pull.value = withSpring(0, { damping: 18, stiffness: 220 });
-        },
-      }),
-    [pull],
-  );
 
   const continueGuest = () => {
     if (canGoBack) {
@@ -70,15 +42,22 @@ export default function WelcomeScreen() {
       back={canGoBack}
       center={false}
       scroll={false}
+      language
       footer={
         <>
           <Button title={t('auth.login')} onPress={() => router.push('/(auth)/login')} pill />
-          <Button title={t('auth.register')} variant="secondary" onPress={() => router.push('/(auth)/register')} pill />
-          <Button title={t('auth.continueGuest')} variant="ghost" onPress={continueGuest} pill />
+          <Button
+            title={t('auth.register')}
+            variant="secondary"
+            compact
+            pill
+            onPress={() => router.push('/(auth)/register')}
+          />
+          <Button title={t('auth.continueGuest')} variant="ghost" compact pill onPress={continueGuest} />
         </>
       }
     >
-      <Animated.View collapsable={false} style={[styles.card, cardStyle]} {...pan.panHandlers}>
+      <AuthRubber>
       <AuthCard compact>
         <View style={styles.logo}>
           <BrandLogo iconOnly size={48} />
@@ -110,13 +89,12 @@ export default function WelcomeScreen() {
         </View>
         <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeGuestNote')}</Text>
       </AuthCard>
-      </Animated.View>
+      </AuthRubber>
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { flexShrink: 1 },
   logo: { alignItems: 'center' },
   lead: {
     fontSize: 24,

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -13,9 +14,10 @@ type Props = {
   onBack?: () => void;
   center?: boolean;
   scroll?: boolean;
+  language?: boolean;
 };
 
-export function AuthScreen({ children, footer, back = false, onBack, center = true, scroll = true }: Props) {
+export function AuthScreen({ children, footer, back = false, onBack, center = true, scroll = true, language = false }: Props) {
   const colors = useColors();
   const body = (
     <>
@@ -25,7 +27,7 @@ export function AuthScreen({ children, footer, back = false, onBack, center = tr
   );
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-      <ChromeBar back={back} showMenu={false} onBack={onBack} />
+      <ChromeBar back={back} showMenu={false} onBack={onBack} extra={language ? <LanguageToggle /> : undefined} />
       {scroll ? (
         <ScrollView
           style={styles.flex}

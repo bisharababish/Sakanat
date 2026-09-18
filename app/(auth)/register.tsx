@@ -205,9 +205,6 @@ export default function RegisterScreen() {
           title={t('auth.registerTitle')}
           hint={step === 1 ? t('auth.registerHint') : t('auth.registerStep2')}
         />
-        <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>
-          {t('booking.stepOf', { step, total: 2 })}
-        </Text>
         {step === 1 ? (
           <>
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>

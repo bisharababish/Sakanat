@@ -14,7 +14,7 @@ import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
 import { openListingChat } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
-import { requireAccount } from '@/src/lib/guest';
+import { apartmentPath, requireAccount } from '@/src/lib/guest';
 import { loadActiveStay, loadOccupiedStays, listingOccupiedStay, loadMyListingStay, occupiedUntil, type OccupiedStay } from '@/src/lib/booking';
 import { formatBookingDate, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
@@ -294,16 +294,18 @@ export default function ApartmentDetails() {
                 key={item.id}
                 apartment={item}
                 ownerVerified={item.profiles?.id_verify_status === 'approved'}
-                university={item.universities}
+                university={useCity ? null : item.universities}
                 distanceKm={listingDistanceKm(item, university, useCity ? item.cities : null)}
                 onPress={() =>
                   router.push({
-                    pathname: '/(student)/apartment/[id]',
-                    params: {
-                      id: item.id,
-                      universityId: universityId || university?.id,
-                      from,
-                    },
+                    pathname: apartmentPath(Boolean(profile)),
+                    params: useCity
+                      ? { id: item.id, from: 'city' }
+                      : {
+                          id: item.id,
+                          universityId: universityId || university?.id || '',
+                          from: from || 'campus',
+                        },
                   })
                 }
               />

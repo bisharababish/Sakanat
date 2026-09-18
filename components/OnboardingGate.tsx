@@ -113,7 +113,7 @@ export function OnboardingGate() {
             pill
             onPress={() => void goNext()}
           />
-          <Button title={t('onboarding.skip')} variant="ghost" pill onPress={() => void dismiss()} />
+          <Button title={t('onboarding.skip')} variant="ghost" compact pill onPress={() => void dismiss()} />
         </View>
       </View>
     </Modal>

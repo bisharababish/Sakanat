@@ -52,15 +52,16 @@ export default function ForgotPasswordScreen() {
         ) : (
           <>
             <Button title={t('auth.sendReset')} onPress={() => void onSubmit()} loading={loading} pill />
-            <Button title={t('auth.backToLogin')} variant="ghost" onPress={() => router.replace('/(auth)/login')} pill />
+            <Button title={t('auth.backToLogin')} variant="ghost" compact pill onPress={() => router.replace('/(auth)/login')} />
           </>
         )
       }
     >
-      <AuthCard>
-        <AuthHeading title={t('auth.forgotTitle')} hint={sent ? t('auth.forgotSent') : t('auth.forgotHint')} />
+      <AuthCard compact>
+        <AuthHeading compact title={t('auth.forgotTitle')} hint={sent ? t('auth.forgotSent') : t('auth.forgotHint')} />
         {sent ? null : (
           <Input
+            compact
             label={t('common.email')}
             value={email}
             onChangeText={setEmail}

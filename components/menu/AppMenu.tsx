@@ -20,6 +20,7 @@ import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { alert } from '@/src/lib/notice';
 import { loadMyReports, reportStatusLabel, submitAppReport } from '@/src/lib/reports';
+import { openLogin, openRegister } from '@/src/lib/guest';
 import { profileHref, type ProfileTab } from '@/src/lib/routes';
 import { appVersion, COPYRIGHT_YEAR, INSTAGRAM_HANDLE, instagramUrl, mailTo, rateUrl, SUPPORT_EMAIL, supportWhatsAppUrl, TRUST_EMAIL } from '@/src/lib/support';
 import { accountVerification } from '@/src/lib/trust';
@@ -509,11 +510,22 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                     <Text style={[styles.guestName, copy, { color: colors.primaryDark }]}>{t('appName')}</Text>
                     <Text style={[styles.heroMeta, copy, { color: colors.textMuted }]}>{t('tagline')}</Text>
                     <Button
-                      title={t('guest.goAccount')}
+                      title={t('auth.login')}
+                      compact
                       pill
                       onPress={() => {
                         onClose();
-                        router.push('/(guest)/(tabs)/account');
+                        openLogin();
+                      }}
+                    />
+                    <Button
+                      title={t('auth.register')}
+                      variant="secondary"
+                      compact
+                      pill
+                      onPress={() => {
+                        onClose();
+                        openRegister();
                       }}
                     />
                   </View>

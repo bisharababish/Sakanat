@@ -77,13 +77,14 @@ export default function VerifyEmailScreen() {
       footer={
         <>
           <Button title={t('auth.confirmCode')} onPress={() => void onConfirm()} loading={loading} pill />
-          <Button title={t('auth.resendCode')} variant="secondary" onPress={() => void onResend()} loading={loading} pill />
+          <Button title={t('auth.resendCode')} variant="secondary" compact pill onPress={() => void onResend()} loading={loading} />
         </>
       }
     >
-      <AuthCard>
-        <AuthHeading title={t('auth.confirmTitle')} hint={t('auth.confirmBody')} />
+      <AuthCard compact>
+        <AuthHeading compact title={t('auth.confirmTitle')} hint={t('auth.confirmBody')} />
         <Input
+          compact
           label={t('common.email')}
           value={email}
           onChangeText={setEmail}

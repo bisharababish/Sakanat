@@ -77,10 +77,10 @@ export default function ResetPasswordScreen() {
         )
       }
     >
-      <AuthCard>
-        <AuthHeading title={t('auth.resetTitle')} hint={t('auth.resetHint')} />
-        <Input label={t('profile.newPassword')} value={password} onChangeText={setPassword} secureTextEntry soft />
-        <Input label={t('profile.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry soft />
+      <AuthCard compact>
+        <AuthHeading compact title={t('auth.resetTitle')} hint={t('auth.resetHint')} />
+        <Input compact label={t('profile.newPassword')} value={password} onChangeText={setPassword} secureTextEntry soft />
+        <Input compact label={t('profile.confirmPassword')} value={confirm} onChangeText={setConfirm} secureTextEntry soft />
         <PasswordChecks password={password} confirm={confirm} />
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
       </AuthCard>
