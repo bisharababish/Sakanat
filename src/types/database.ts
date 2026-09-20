@@ -122,6 +122,9 @@ export type Profile = {
   expo_push_token?: string | null;
   account_status?: 'active' | 'suspended';
   accepted_terms_at?: string | null;
+  accepted_legal_version?: number | null;
+  analytics_consent?: boolean;
+  keep_signed_in?: boolean;
   created_at: string;
   cities?: City | null;
   universities?: University | null;

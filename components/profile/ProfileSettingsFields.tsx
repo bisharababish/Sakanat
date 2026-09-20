@@ -16,6 +16,7 @@ import {
   requestPushAndRegister,
   setPushEnabled,
 } from '@/src/lib/push';
+import { setAnalyticsConsent as persistAnalyticsConsent } from '@/src/lib/analytics';
 import { supabase } from '@/src/lib/supabase';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -77,6 +78,8 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
   const [notifyChat, setNotifyChat] = useState(profile.notify_chat !== false);
   const [notifyListing, setNotifyListing] = useState(profile.notify_listing !== false);
   const [notifyReview, setNotifyReview] = useState(profile.notify_review !== false);
+  const [analyticsConsent, setAnalyticsConsent] = useState(profile.analytics_consent !== false);
+  const [keepSignedIn, setKeepSignedIn] = useState(Boolean(profile.keep_signed_in));
   const [pushMaster, setPushMaster] = useState(true);
   const [osStatus, setOsStatus] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
 
@@ -95,6 +98,8 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
     setNotifyChat(profile.notify_chat !== false);
     setNotifyListing(profile.notify_listing !== false);
     setNotifyReview(profile.notify_review !== false);
+    setAnalyticsConsent(profile.analytics_consent !== false);
+    setKeepSignedIn(Boolean(profile.keep_signed_in));
   }, [
     profile.id,
     profile.phone_visibility,
@@ -105,6 +110,8 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
     profile.notify_chat,
     profile.notify_listing,
     profile.notify_review,
+    profile.analytics_consent,
+    profile.keep_signed_in,
   ]);
 
   useEffect(() => {
@@ -266,6 +273,26 @@ export function ProfileSettingsFields({ profile, onSaved, variant = 'seeker' }: 
             onChange={(next) => {
               setNotifyReview(next);
               void persist({ notify_review: next }, () => setNotifyReview(!next));
+            }}
+          />
+          <ToggleRow
+            label={t('profile.analyticsConsent')}
+            hint={t('profile.analyticsConsentHint')}
+            value={analyticsConsent}
+            onChange={(next) => {
+              setAnalyticsConsent(next);
+              void persistAnalyticsConsent(next, profile.id)
+                .then(() => onSaved())
+                .catch(() => setAnalyticsConsent(!next));
+            }}
+          />
+          <ToggleRow
+            label={t('profile.keepSignedIn')}
+            hint={t('profile.keepSignedInHint')}
+            value={keepSignedIn}
+            onChange={(next) => {
+              setKeepSignedIn(next);
+              void persist({ keep_signed_in: next }, () => setKeepSignedIn(!next));
             }}
           />
         </View>

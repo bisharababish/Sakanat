@@ -3,7 +3,7 @@ import { logAdminAction } from '@/src/lib/audit';
 import i18n from '@/src/i18n';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
-import type { IdVerifyStatus, Profile } from '@/src/types/database';
+import type { BookingStatus, IdVerifyStatus, Profile } from '@/src/types/database';
 
 export const SEEKER_BOOKING_PROFILE =
   'id, full_name, avatar_url, phone, email, whatsapp, gender, university_id, city_id, role, major, study_year, degree_level, student_id_number, date_of_birth, home_address, national_id_number, national_id_url, university_card_url, id_verify_status, emergency_name, emergency_phone, phone_visibility, whatsapp_visibility, hide_last_seen, share_emergency, graduation_term';
@@ -160,7 +160,7 @@ export function seekerTrustDetails(
     | null
     | undefined,
   t: (key: string) => string,
-  opts?: { isAdmin?: boolean },
+  opts?: { isAdmin?: boolean; bookingStatus?: BookingStatus | null },
 ) {
   if (!profile) return [];
   const status = profile.id_verify_status ?? 'none';
@@ -173,10 +173,12 @@ export function seekerTrustDetails(
           ? t('profile.idRejected')
           : '';
   const shareEmergency = opts?.isAdmin || profile.share_emergency !== false;
+  const stayFile =
+    opts?.isAdmin || opts?.bookingStatus === 'confirmed' || opts?.bookingStatus === 'completed';
   return [
     statusLine,
     opts?.isAdmin && profile.home_address ? `${t('profile.homeAddress')}: ${profile.home_address}` : '',
-    profile.national_id_number ? `${t('profile.nationalId')} ${profile.national_id_number}` : '',
+    stayFile && profile.national_id_number ? `${t('profile.nationalId')} ${profile.national_id_number}` : '',
     profile.graduation_term ? `${t('profile.graduationTerm')}: ${profile.graduation_term}` : '',
     shareEmergency && profile.emergency_name
       ? `${t('profile.emergencyName')}: ${profile.emergency_name}`

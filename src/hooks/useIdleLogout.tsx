@@ -10,12 +10,12 @@ const BACKGROUND_MS = 15 * 60 * 1000;
 
 export function IdleGuard({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { session, signOut, passwordRecovery, mfaPending, mfaEnrollRequired } = useAuth();
+  const { session, signOut, passwordRecovery, mfaPending, mfaEnrollRequired, profile } = useAuth();
   const lastTouch = useRef(Date.now());
   const backgroundedAt = useRef<number | null>(null);
   const signingOut = useRef(false);
 
-  const locked = !session || passwordRecovery || mfaPending || mfaEnrollRequired;
+  const locked = !session || passwordRecovery || mfaPending || mfaEnrollRequired || profile?.keep_signed_in;
 
   useEffect(() => {
     if (locked) {

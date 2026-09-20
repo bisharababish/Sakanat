@@ -4,6 +4,7 @@ import { Share } from 'react-native';
 
 import { localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
+import { attachStayPeerCards } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import { idDocUrl } from '@/src/lib/upload';
 import type { Profile } from '@/src/types/database';
@@ -12,6 +13,7 @@ export type UserExportBundle = {
   profile: Profile;
   bookings: Record<string, unknown>[];
   conversations: Record<string, unknown>[];
+  messages: Record<string, unknown>[];
   savedApartmentIds: string[];
   reports: Record<string, unknown>[];
   nationalCardUrl: string | null;
@@ -41,7 +43,7 @@ export async function loadUserExportBundle(userId: string): Promise<UserExportBu
     .single();
   if (error || !profile) throw error ?? new Error('User not found');
 
-  const [bookingsRes, convosRes, savedRes, reportsRes, nationalCardUrl, universityCardUrl] =
+  const [bookingsRes, convosRes, savedRes, reportsRes, messagesRes, nationalCardUrl, universityCardUrl] =
     await Promise.all([
       supabase
         .from('bookings')
@@ -61,14 +63,27 @@ export async function loadUserExportBundle(userId: string): Promise<UserExportBu
         .select('id, kind, subject, body, status, admin_note, created_at')
         .eq('reporter_id', userId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('messages')
+        .select('id, conversation_id, sender_id, body, created_at')
+        .order('created_at', { ascending: true })
+        .limit(4000),
       idDocUrl((profile as Profile).national_id_url),
       idDocUrl((profile as Profile).university_card_url),
     ]);
+
+  const convoIds = new Set(
+    (convosRes.error ? [] : ((convosRes.data as { id: string }[]) ?? [])).map((row) => row.id),
+  );
+  const messages = (messagesRes.error ? [] : ((messagesRes.data as Record<string, unknown>[]) ?? [])).filter(
+    (row) => convoIds.has(String(row.conversation_id ?? '')),
+  );
 
   return {
     profile: profile as Profile,
     bookings: bookingsRes.error ? [] : ((bookingsRes.data as Record<string, unknown>[]) ?? []),
     conversations: convosRes.error ? [] : ((convosRes.data as Record<string, unknown>[]) ?? []),
+    messages,
     savedApartmentIds: savedRes.error
       ? []
       : ((savedRes.data as { apartment_id: string }[]) ?? []).map((row) => row.apartment_id),
@@ -122,6 +137,9 @@ export function buildUserExportCsv(bundle: UserExportBundle, lang: string) {
     '# conversations',
     rowsToCsv(bundle.conversations) || 'id',
     '',
+    '# messages',
+    rowsToCsv(bundle.messages) || 'id',
+    '',
     '# saved_apartments',
     rowsToCsv(bundle.savedApartmentIds.map((apartment_id) => ({ apartment_id }))) || 'apartment_id',
     '',
@@ -155,6 +173,7 @@ export function buildUserExportSummaryText(
     p.emergency_phone ? `${t('profile.emergencyPhone')}: ${p.emergency_phone}` : '',
     `${t('profile.exportBookings')}: ${bundle.bookings.length}`,
     `${t('profile.exportChats')}: ${bundle.conversations.length}`,
+    `${t('profile.exportMessages')}: ${bundle.messages.length}`,
     `${t('profile.exportSaved')}: ${bundle.savedApartmentIds.length}`,
     `${t('menu.version', { version: bundle.exportedAt })}`,
   ];
@@ -236,13 +255,19 @@ export async function exportOwnerEarningsCsv(ownerId: string) {
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      'id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, commission_percent, created_at, student:profiles!student_id(full_name, email), apartments(title_ar, title_en, building_name, floor, unit_number)',
+      'id, student_id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, commission_percent, created_at, apartments(title_ar, title_en, building_name, floor, unit_number)',
     )
     .eq('owner_id', ownerId)
     .in('status', ['confirmed', 'completed'])
     .order('created_at', { ascending: false });
   if (error) throw error;
-  const rows = ((data as Record<string, unknown>[]) ?? []).map((item) => {
+  const withPeers = await attachStayPeerCards(
+    ((data ?? []) as Record<string, unknown>[]) as Array<
+      Record<string, unknown> & { student_id?: string; student?: { full_name?: string; email?: string } | null }
+    >,
+    'student',
+  );
+  const rows = withPeers.map((item) => {
     const student = item.student as { full_name?: string; email?: string } | null;
     const apt = item.apartments as {
       title_ar?: string;

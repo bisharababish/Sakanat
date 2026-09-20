@@ -10,12 +10,53 @@ export type AnalyticsName =
   | 'review_submit'
   | 'onboarding_done';
 
+const CONSENT_KEY = 'sakanat.analytics.consent';
+
+let consentCache: boolean | null = null;
+
+export async function setAnalyticsConsent(on: boolean, userId?: string) {
+  consentCache = on;
+  try {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    await AsyncStorage.setItem(CONSENT_KEY, on ? 'on' : 'off');
+  } catch {
+    // local optional
+  }
+  if (userId) {
+    await supabase.from('profiles').update({ analytics_consent: on }).eq('id', userId);
+  }
+}
+
+export async function loadAnalyticsConsent(profileConsent?: boolean | null) {
+  if (profileConsent === false) {
+    consentCache = false;
+    return false;
+  }
+  if (profileConsent === true) {
+    consentCache = true;
+    return true;
+  }
+  try {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    const saved = await AsyncStorage.getItem(CONSENT_KEY);
+    consentCache = saved !== 'off';
+  } catch {
+    consentCache = true;
+  }
+  return consentCache !== false;
+}
+
 export async function trackEvent(
   name: AnalyticsName,
   props: Record<string, unknown> = {},
   userId?: string | null,
 ) {
   try {
+    if (consentCache === false) return;
+    if (consentCache == null && userId) {
+      const ok = await loadAnalyticsConsent();
+      if (!ok) return;
+    }
     await supabase.from('app_events').insert({
       user_id: userId ?? null,
       name,

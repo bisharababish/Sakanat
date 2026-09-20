@@ -37,7 +37,8 @@ import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { canShowSeekerContact } from '@/src/lib/privacy';
 import { notifyUser } from '@/src/lib/push';
 import { pendingExpireHoursLeft } from '@/src/lib/searchAlerts';
-import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
+import { attachStayPeerCards } from '@/src/lib/ownerPublic';
+import { seekerTrustDetails } from '@/src/lib/trust';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -97,12 +98,10 @@ export default function OwnerBookings() {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
-      .select(
-        `*, apartments(*, cities(*)), profiles!student_id(${SEEKER_BOOKING_PROFILE})`,
-      )
+      .select(`*, apartments(*, cities(*))`)
       .eq('owner_id', profile.id)
       .order('created_at', { ascending: false });
-    setBookings((data as Booking[]) ?? []);
+    setBookings(await attachStayPeerCards((data as Booking[]) ?? [], 'student'));
   }, [profile]);
 
   const { refreshing, refresh } = useLiveReload(load, ['bookings'], `owner-bookings:${profile?.id ?? ''}`);
@@ -434,7 +433,7 @@ export default function OwnerBookings() {
           booking.profiles?.student_id_number
             ? `${t('profile.studentId')} ${booking.profiles.student_id_number}`
             : '',
-          ...seekerTrustDetails(booking.profiles, t),
+          ...seekerTrustDetails(booking.profiles, t, { bookingStatus: booking.status }),
         ].filter(Boolean);
         const overlapConfirmed = hasConfirmedOverlap(booking, bookings);
         const overlapPending =

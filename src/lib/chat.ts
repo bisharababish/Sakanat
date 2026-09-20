@@ -7,6 +7,7 @@ import {
   isListingContextPinned,
 } from '@/src/lib/chatDeleted';
 import { listingChatIntro } from '@/src/lib/chatIntro';
+import { attachPersonCards } from '@/src/lib/ownerPublic';
 import { MESSAGE_MAX } from '@/src/lib/limits';
 import { notifyUser } from '@/src/lib/push';
 import { supabase } from '@/src/lib/supabase';
@@ -226,7 +227,7 @@ export async function loadConversations(column: 'student_id' | 'owner_id', userI
     .eq(column, userId)
     .order('last_message_at', { ascending: false });
   if (error) throw error;
-  return (data as Conversation[]) ?? [];
+  return attachPersonCards((data as Conversation[]) ?? []);
 }
 
 export async function loadSharedBooking(opts: {
@@ -250,7 +251,8 @@ export async function loadSharedBooking(opts: {
 export async function loadConversation(id: string) {
   const { data, error } = await supabase.from('conversations').select(CONVERSATION_SELECT).eq('id', id).single();
   if (error) throw error;
-  return data as Conversation;
+  const [row] = await attachPersonCards([data as Conversation]);
+  return row;
 }
 
 export function conversationParties(conversation: Conversation | null | undefined) {
@@ -268,7 +270,7 @@ export async function loadAllConversations() {
     )
     .order('last_message_at', { ascending: false });
   if (error) throw error;
-  return (data as Conversation[]) ?? [];
+  return attachPersonCards((data as Conversation[]) ?? []);
 }
 
 export async function conversationIdsMatchingMessage(query: string) {

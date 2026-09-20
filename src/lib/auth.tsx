@@ -125,11 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mine === loadGen.current) clearLocalAuth();
       return null;
     }
-    try {
-      await supabase.rpc('claim_admin');
-    } catch {
-      // Fine if the function is not installed yet.
-    }
     const row = await fetchProfileWithRetry(next.user.id);
     const nextProfile = row ? withEnglishName(row, next.user.user_metadata) : null;
     if (mine !== loadGen.current) return nextProfile;
@@ -165,6 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
+    void import('@/src/lib/analytics').then(({ loadAnalyticsConsent }) =>
+      loadAnalyticsConsent(nextProfile.analytics_consent),
+    );
     void import('@/src/lib/devices')
       .then(({ touchDeviceSession }) => touchDeviceSession(nextProfile.id))
       .catch(() => undefined);

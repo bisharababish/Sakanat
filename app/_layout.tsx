@@ -32,6 +32,7 @@ import {
 } from '@/src/lib/guest';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 import { OnboardingGate } from '@/components/OnboardingGate';
+import { LegalGate } from '@/components/LegalGate';
 import * as Linking from 'expo-linking';
 
 export { ErrorBoundary } from 'expo-router';
@@ -86,6 +87,7 @@ export default function RootLayout() {
               <AppStack />
               <PushPrompt />
               <OnboardingGate />
+              <LegalGate />
             </SessionGuard>
           </MenuProvider>
           </EdgeBackProvider>

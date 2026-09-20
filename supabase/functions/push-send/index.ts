@@ -35,7 +35,10 @@ Deno.serve(async (req) => {
     const pushSecret = req.headers.get('x-push-secret') ?? '';
     const bearer = auth.replace(/^Bearer\s+/i, '').trim();
     const isService = Boolean(bearer && bearer === service);
-    const isHook = Boolean(hookSecret && pushSecret && pushSecret === hookSecret);
+    const isHook =
+      Boolean(hookSecret && pushSecret && pushSecret === hookSecret) &&
+      pushSecret !== 'CHANGE_ME_PUSH_HOOK_SECRET' &&
+      pushSecret !== '2s8X4x1LSDZOMrVbRYJlUHyWCvGo9aFIdfgqE0Tn';
 
     let callerId: string | null = null;
     let callerIsAdmin = false;
@@ -106,6 +109,14 @@ Deno.serve(async (req) => {
         )
         .limit(1);
       if (!bookingHits && !chatHits) return json({ error: 'forbidden' }, 403);
+      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { count: recent } = await admin
+        .from('push_send_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('caller_id', callerId)
+        .gte('created_at', since);
+      if ((recent ?? 0) >= 30) return json({ error: 'rate_limited' }, 429);
+      await admin.from('push_send_log').insert({ caller_id: callerId });
     }
 
     const kind: Kind = payload.kind ?? 'booking';

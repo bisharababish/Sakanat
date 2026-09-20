@@ -56,6 +56,9 @@ export const UserExportCard = forwardRef<View, { bundle: UserExportBundle }>(fun
           {t('profile.exportChats')}: {bundle.conversations.length}
         </Text>
         <Text style={[styles.stat, rtlText, { color: colors.textMuted }]}>
+          {t('profile.exportMessages')}: {bundle.messages.length}
+        </Text>
+        <Text style={[styles.stat, rtlText, { color: colors.textMuted }]}>
           {t('profile.exportSaved')}: {bundle.savedApartmentIds.length}
         </Text>
       </View>

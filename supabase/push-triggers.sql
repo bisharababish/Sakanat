@@ -14,12 +14,11 @@ insert into public.app_settings_secrets (id, push_function_url, push_hook_secret
 values (
   1,
   'https://lnyozqdnxfwzgrwtcxjc.supabase.co/functions/v1/push-send',
-  '2s8X4x1LSDZOMrVbRYJlUHyWCvGo9aFIdfgqE0Tn'
+  'CHANGE_ME_PUSH_HOOK_SECRET'
 )
 on conflict (id) do update
 set
   push_function_url = excluded.push_function_url,
-  push_hook_secret = excluded.push_hook_secret,
   updated_at = now();
 
 alter table public.app_settings_secrets enable row level security;

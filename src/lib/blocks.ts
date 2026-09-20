@@ -1,3 +1,4 @@
+import { PERSON_CARD } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import type { UserBlock } from '@/src/types/database';
 
@@ -8,10 +9,20 @@ export async function loadMyBlocks(blockerId: string) {
     .eq('blocker_id', blockerId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as unknown as UserBlock[]).map((row) => ({
+  const rows = ((data ?? []) as unknown as UserBlock[]).map((row) => ({
     ...row,
     blocked: Array.isArray(row.blocked) ? row.blocked[0] ?? null : row.blocked,
   }));
+  const missing = rows.filter((row) => !row.blocked).map((row) => row.blocked_id);
+  if (missing.length) {
+    const { data: cards } = await supabase.from('person_cards').select(PERSON_CARD).in('id', missing);
+    const byId = new Map((cards ?? []).map((card) => [card.id as string, card]));
+    return rows.map((row) => ({
+      ...row,
+      blocked: row.blocked ?? (byId.get(row.blocked_id) as UserBlock['blocked']) ?? null,
+    }));
+  }
+  return rows;
 }
 
 export async function isBlockedEitherWay(a: string, b: string) {

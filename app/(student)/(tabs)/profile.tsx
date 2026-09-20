@@ -893,26 +893,17 @@ export default function StudentProfileScreen() {
 
   const canDeleteAccount = profile?.role === 'student' || profile?.role === 'renter';
 
-  const removeAccount = () => {
+  const removeAccount = async () => {
     if (!canDeleteAccount) return;
-    alert(t('profile.deleteAccountTitle'), t('profile.deleteAccountBody'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('profile.deleteAccount'),
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await deleteOwnAccount();
-            await signOut();
-          } catch {
-            alert(t('common.error'), t('profile.deleteAccountFailed'));
-          } finally {
-            setDeleting(false);
-          }
-        },
-      },
-    ]);
+    setDeleting(true);
+    try {
+      await deleteOwnAccount();
+      await signOut();
+    } catch {
+      alert(t('common.error'), t('profile.deleteAccountFailed'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const bookingBanner = resumeId && !incomplete

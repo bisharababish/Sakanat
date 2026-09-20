@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import { stayEndDate } from '@/src/lib/booking';
 import { localizedTitle } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
+import { attachStayPeerCards } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import type { Apartment, BookingStatus } from '@/src/types/database';
 
@@ -132,29 +133,30 @@ export async function loadOwnerOccupancy(ownerId: string, lang: string, untitled
     supabase.from('apartments').select('*').eq('owner_id', ownerId).order('created_at', { ascending: false }),
     supabase
       .from('bookings')
-      .select(
-        'id, apartment_id, student_id, status, occupants, start_date, months, profiles!student_id(id, full_name, full_name_en, avatar_url)',
-      )
+      .select('id, apartment_id, student_id, status, occupants, start_date, months')
       .eq('owner_id', ownerId)
       .in('status', ['pending', 'confirmed']),
   ]);
 
   const apartments = (listings as Apartment[]) ?? [];
   const staysByApt = new Map<string, OccupancyStay[]>();
-  for (const row of (bookings as {
-    id: string;
-    apartment_id: string;
-    student_id: string;
-    status: 'pending' | 'confirmed';
-    occupants: number;
-    start_date: string;
-    months: number;
-    profiles?:
-      | { id: string; full_name?: string | null; full_name_en?: string | null; avatar_url?: string | null }
-      | { id: string; full_name?: string | null; full_name_en?: string | null; avatar_url?: string | null }[]
-      | null;
-  }[]) ?? []) {
-    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+  const bookingRows = await attachStayPeerCards(
+    (bookings as {
+      id: string;
+      apartment_id: string;
+      student_id: string;
+      status: 'pending' | 'confirmed';
+      occupants: number;
+      start_date: string;
+      months: number;
+      profiles?:
+        | { id: string; full_name?: string | null; full_name_en?: string | null; avatar_url?: string | null }
+        | null;
+    }[]) ?? [],
+    'student',
+  );
+  for (const row of bookingRows) {
+    const profile = row.profiles;
     const stay: OccupancyStay = {
       bookingId: row.id,
       apartmentId: row.apartment_id,

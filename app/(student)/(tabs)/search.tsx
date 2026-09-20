@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -27,11 +27,13 @@ import { loadSavedApartmentIds, toggleSavedApartment } from '@/src/lib/saved';
 import {
   loadSearchAlertPrefs,
   loadSeenListingIds,
+  listingMatchesAlert,
   saveSearchAlertPrefs,
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
 import { fetchApprovedListings, refineListings, roomsFilterFromOccupants } from '@/src/lib/searchListings';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
+import { needsLegalAccept } from '@/src/lib/legal';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { supabase } from '@/src/lib/supabase';
 import { alert } from '@/src/lib/notice';
@@ -50,6 +52,8 @@ export default function SearchScreen() {
   const { rtlText, isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const { profile } = useAuth();
+  const legalLock = needsLegalAccept(profile);
+  const searchRef = useRef<TextInput>(null);
   const { cities, universities, reload: reloadCatalog } = useCatalog();
   const isRenter = profile?.role === 'renter';
   const cityFirst = isRenter || !profile;
@@ -74,6 +78,12 @@ export default function SearchScreen() {
   const alertHydrated = useRef(false);
 
   useEffect(() => {
+    if (!legalLock) return;
+    searchRef.current?.blur();
+    Keyboard.dismiss();
+  }, [legalLock]);
+
+  useEffect(() => {
     void loadSearchAlertPrefs().then((prefs) => {
       setAlertOn(Boolean(prefs.enabled));
       if (prefs.enabled) {
@@ -81,6 +91,12 @@ export default function SearchScreen() {
         if (prefs.universityId) setUniversityId(prefs.universityId);
         setMaxPrice(prefs.maxPrice != null ? String(prefs.maxPrice) : '');
         setMaxKm(prefs.maxKm != null ? String(prefs.maxKm) : '');
+        if (prefs.rooms) setRoomsFilter(prefs.rooms);
+        if (prefs.baths) setBathsFilter(prefs.baths);
+        if (prefs.amenities?.length) setAmenityFilter(prefs.amenities as Amenity[]);
+        if (prefs.gender) setGenderFilter(prefs.gender as GenderFilter);
+        if (prefs.query) setQuery(prefs.query);
+        if (prefs.verifiedOnly) setVerifiedOnly(true);
       }
       alertHydrated.current = true;
     });
@@ -95,10 +111,16 @@ export default function SearchScreen() {
         cityId: cityId || undefined,
         maxPrice: maxPrice ? Number(maxPrice) : null,
         maxKm: maxKm ? Number(maxKm) : null,
+        rooms: roomsFilter || undefined,
+        baths: bathsFilter || undefined,
+        amenities: amenityFilter,
+        gender: genderFilter,
+        query: query.trim() || undefined,
+        verifiedOnly,
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [alertOn, cityId, maxKm, maxPrice, profile, universityId]);
+  }, [alertOn, amenityFilter, bathsFilter, cityId, genderFilter, maxKm, maxPrice, profile, query, roomsFilter, universityId, verifiedOnly]);
 
   useEffect(() => {
     if (isRenter) {
@@ -239,15 +261,9 @@ export default function SearchScreen() {
       const seenSet = new Set(seen);
       const matches = apartments.filter((item) => {
         if (seenSet.has(item.id)) return false;
-        if (prefs.universityId && item.nearest_university_id !== prefs.universityId) return false;
-        if (prefs.cityId && item.city_id !== prefs.cityId) return false;
-        if (prefs.maxPrice != null && item.price_month > prefs.maxPrice) return false;
-        if (prefs.maxKm != null) {
-          const uni = universities.find((u) => u.id === prefs.universityId);
-          const km = listingDistanceKm(item, uni ?? null, uni ? null : item.cities);
-          if (km == null || km > prefs.maxKm) return false;
-        }
-        return true;
+        const uni = universities.find((u) => u.id === prefs.universityId);
+        const km = listingDistanceKm(item, uni ?? null, uni ? null : item.cities);
+        return listingMatchesAlert(item, prefs, km);
       });
       await saveSeenListingIds(apartments.map((item) => item.id));
       if (cancelled || matches.length === 0 || seen.length === 0) return;
@@ -271,6 +287,12 @@ export default function SearchScreen() {
       cityId: cityId || undefined,
       maxPrice: maxPrice ? Number(maxPrice) : null,
       maxKm: maxKm ? Number(maxKm) : null,
+      rooms: roomsFilter || undefined,
+      baths: bathsFilter || undefined,
+      amenities: amenityFilter,
+      gender: genderFilter,
+      query: query.trim() || undefined,
+      verifiedOnly,
     });
     if (next) {
       await saveSeenListingIds(apartments.map((item) => item.id));
@@ -510,11 +532,15 @@ export default function SearchScreen() {
       <View style={[styles.searchBar, row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Ionicons name="search" size={18} color={colors.primary} />
         <TextInput
+          ref={searchRef}
           value={query}
           onChangeText={setQuery}
           placeholder={t(cityFirst ? 'search.placeholderRenter' : 'search.placeholder')}
           placeholderTextColor={colors.textMuted}
           autoCorrect={false}
+          autoFocus={false}
+          editable={!legalLock}
+          showSoftInputOnFocus={!legalLock}
           returnKeyType="search"
           style={[styles.searchInput, { textAlign, writingDirection, color: colors.text }]}
         />

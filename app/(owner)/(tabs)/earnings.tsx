@@ -22,6 +22,7 @@ import { buildingKey, listingPlaceLine, uniqueBuildings } from '@/src/lib/listin
 import { exportOwnerEarningsCsv } from '@/src/lib/dataExport';
 import { alert } from '@/src/lib/notice';
 import { EARNINGS_PAGE_SIZE } from '@/src/lib/page';
+import { attachStayPeerCards } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -95,14 +96,14 @@ export default function OwnerEarnings() {
       supabase
         .from('bookings')
         .select(
-          '*, apartments(title_ar, title_en, building_name, floor, unit_number), student:profiles!student_id(id, full_name, avatar_url)',
+          '*, apartments(title_ar, title_en, building_name, floor, unit_number)',
         )
         .eq('owner_id', profile.id)
         .in('status', ['confirmed', 'completed'])
         .order('created_at', { ascending: false }),
       supabase.from('app_settings').select('commission_percent').eq('id', 1).maybeSingle(),
     ]);
-    setBookings((bookingRes.data as Booking[]) ?? []);
+    setBookings(await attachStayPeerCards((bookingRes.data as Booking[]) ?? [], 'student'));
     if (settingsRes.data?.commission_percent != null) setPercent(Number(settingsRes.data.commission_percent));
   }, [profile]);
 

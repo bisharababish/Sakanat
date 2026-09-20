@@ -29,7 +29,7 @@ import { submitAppReport } from '@/src/lib/reports';
 import { bookingCopyText, detachCancelledStayChat, postBookingChat } from '@/src/lib/stayActions';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { displayName } from '@/src/lib/name';
-import { OWNER_PUBLIC_PROFILE } from '@/src/lib/ownerPublic';
+import { attachStayPeerCards } from '@/src/lib/ownerPublic';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
 import { canShowOwnerContact } from '@/src/lib/privacy';
@@ -71,10 +71,10 @@ export default function StudentBookings() {
     if (!profile) return;
     const { data } = await supabase
       .from('bookings')
-      .select(`*, apartments(*, cities(*)), profiles!owner_id(${OWNER_PUBLIC_PROFILE})`)
+      .select(`*, apartments(*, cities(*))`)
       .eq('student_id', profile.id)
       .order('created_at', { ascending: false });
-    setBookings((data as Booking[]) ?? []);
+    setBookings(await attachStayPeerCards((data as Booking[]) ?? [], 'owner'));
     if (profile) {
       try {
         setReviews(await loadMyReviews(profile.id));

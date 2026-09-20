@@ -175,7 +175,20 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
           <Button
             title={t('profile.deleteAccount')}
             variant="danger"
-            onPress={onDelete}
+            onPress={() => {
+              alert(t('profile.deleteAccountTitle'), t(profile?.role === 'owner' ? 'profile.deleteAccountBodyOwner' : 'profile.deleteAccountBody'), [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                  text: t('common.continue'),
+                  onPress: () => {
+                    alert(t('profile.deleteAccountAgainTitle'), t('profile.deleteAccountAgainBody'), [
+                      { text: t('common.cancel'), style: 'cancel' },
+                      { text: t('profile.deleteAccount'), style: 'destructive', onPress: onDelete },
+                    ]);
+                  },
+                },
+              ]);
+            }}
             loading={deleting}
             pill
           />

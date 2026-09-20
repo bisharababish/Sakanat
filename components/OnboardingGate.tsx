@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Modal, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/Button';
@@ -50,6 +50,11 @@ export function OnboardingGate() {
     };
   }, [profile?.id, profile?.role, mfaPending, mfaEnrollRequired]);
 
+  useEffect(() => {
+    if (!visible) return;
+    Keyboard.dismiss();
+  }, [visible]);
+
   if (!profile || !visible) return null;
 
   const isOwner = profile.role === 'owner';
@@ -87,7 +92,7 @@ export function OnboardingGate() {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
+    <Modal visible transparent animationType="fade" onRequestClose={() => {}} onShow={() => Keyboard.dismiss()}>
       <View
         style={[
           styles.overlay,

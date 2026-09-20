@@ -20,6 +20,7 @@ import { ageLabel, localizedName } from '@/src/lib/format';
 import { displayName } from '@/src/lib/name';
 import { canShowOwnerContact, canShowSeekerContact, shouldShareEmergency } from '@/src/lib/privacy';
 import { seekerRoleLabel } from '@/src/lib/seeker';
+import { PERSON_CARD, STAY_PEER_CARD } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -69,15 +70,16 @@ const PUBLIC_PEER =
 const PRIVATE_PEER = `${PUBLIC_PEER}, home_address, emergency_name, emergency_phone, share_emergency, student_id_number`;
 
 async function loadPeerProfile(userId: string, includePrivate: boolean): Promise<PeerProfile | null> {
+  if (includePrivate) {
+    const stay = await supabase.from('stay_peer_cards').select(STAY_PEER_CARD).eq('id', userId).maybeSingle();
+    if (!stay.error && stay.data) return stay.data as unknown as PeerProfile;
+  }
+  const card = await supabase.from('person_cards').select(PERSON_CARD).eq('id', userId).maybeSingle();
+  if (!card.error && card.data) return card.data as unknown as PeerProfile;
   const columns = includePrivate ? PRIVATE_PEER : PUBLIC_PEER;
   const { data, error } = await supabase.from('profiles').select(columns).eq('id', userId).maybeSingle();
   if (!error && data) return data as unknown as PeerProfile;
-  const { data: fallback } = await supabase
-    .from('profiles')
-    .select('id, full_name, full_name_en, avatar_url, role, gender, date_of_birth, city_id, university_id, phone, whatsapp, id_verify_status')
-    .eq('id', userId)
-    .maybeSingle();
-  return (fallback as unknown as PeerProfile) ?? null;
+  return null;
 }
 
 function seedAsPeer(seed: ChatPeerSeed): PeerProfile {

@@ -53,11 +53,12 @@ export default function AdminOps() {
 
   const load = useCallback(async () => {
     const [{ data }, status] = await Promise.all([
-      supabase.from('app_settings').select('commission_percent, admin_email').eq('id', 1).maybeSingle(),
+      supabase.rpc('read_platform_settings'),
       loadBookingOpsStatus().catch(() => null),
     ]);
-    if (data?.commission_percent != null) setPercent(String(data.commission_percent));
-    if (data?.admin_email) setAdminEmail(String(data.admin_email));
+    const row = (data ?? {}) as { commission_percent?: number; admin_email?: string | null };
+    if (row.commission_percent != null) setPercent(String(row.commission_percent));
+    if (row.admin_email) setAdminEmail(String(row.admin_email));
     setOpsStatus(status);
   }, []);
 
@@ -75,14 +76,10 @@ export default function AdminOps() {
       return;
     }
     setSavingCommission(true);
-    const { error } = await supabase
-      .from('app_settings')
-      .update({
-        commission_percent: value,
-        admin_email: email,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', 1);
+    const { error } = await supabase.rpc('save_platform_settings', {
+      p_commission: value,
+      p_admin_email: email,
+    });
     setSavingCommission(false);
     if (error) alert(t('common.error'), error.message);
     else {

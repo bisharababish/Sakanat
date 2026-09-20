@@ -590,25 +590,16 @@ export default function OwnerProfile() {
     }
   };
 
-  const removeAccount = () => {
-    alert(t('profile.deleteAccountTitle'), t('profile.deleteAccountBodyOwner'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('profile.deleteAccount'),
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await deleteOwnAccount();
-            await signOut();
-          } catch {
-            alert(t('common.error'), t('profile.deleteAccountFailed'));
-          } finally {
-            setDeleting(false);
-          }
-        },
-      },
-    ]);
+  const removeAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteOwnAccount();
+      await signOut();
+    } catch {
+      alert(t('common.error'), t('profile.deleteAccountFailed'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const progressItems = [
