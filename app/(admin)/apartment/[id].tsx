@@ -8,6 +8,7 @@ import { ListingQualityChecklist, apartmentHasQualityIssues } from '@/components
 import { Button } from '@/components/ui/Button';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { useCatalog } from '@/src/hooks/useCatalog';
+import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { listingDistanceKm } from '@/src/lib/distance';
 import { updateListingStatus } from '@/src/lib/listing';
@@ -21,6 +22,7 @@ import type { Apartment, ListingStatus } from '@/src/types/database';
 export default function AdminApartmentReview() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
+  const { row } = useLayout();
   const { universities } = useCatalog();
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [missing, setMissing] = useState(false);
@@ -109,52 +111,59 @@ export default function AdminApartmentReview() {
         {apartment ? (
           <View style={styles.actions}>
             <ListingQualityChecklist apartment={apartment} />
-            {apartment.status !== 'approved' ? (
-              <Button title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} pill />
-            ) : (
+            <View style={[styles.actionsRow, row]}>
+              {apartment.status !== 'approved' ? (
+                <Button compact pill title={t('admin.approve')} onPress={() => void setStatus('approved')} loading={busy} />
+              ) : (
+                <Button
+                  compact
+                  pill
+                  title={t('owner.hideListing')}
+                  variant="secondary"
+                  onPress={() => void setStatus('hidden')}
+                  loading={busy}
+                />
+              )}
+              {apartment.status === 'hidden' ? (
+                <Button
+                  compact
+                  pill
+                  title={t('owner.unhideListing')}
+                  variant="secondary"
+                  onPress={() => void setStatus('approved')}
+                  loading={busy}
+                />
+              ) : null}
+              {apartment.status !== 'rejected' ? (
+                <Button
+                  compact
+                  pill
+                  title={t('admin.reject')}
+                  variant="danger"
+                  onPress={() => {
+                    setRejectNote('');
+                    setRejecting(true);
+                  }}
+                />
+              ) : null}
               <Button
-                title={t('owner.hideListing')}
+                compact
+                pill
+                title={t('owner.editListing')}
                 variant="secondary"
-                onPress={() => void setStatus('hidden')}
-                loading={busy}
-                pill
+                onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: apartment.id } })}
               />
-            )}
-            {apartment.status === 'hidden' ? (
-              <Button
-                title={t('owner.unhideListing')}
-                variant="secondary"
-                onPress={() => void setStatus('approved')}
-                loading={busy}
-                pill
-              />
-            ) : null}
-            {apartment.status !== 'rejected' ? (
-              <Button
-                title={t('admin.reject')}
-                variant="danger"
-                onPress={() => {
-                  setRejectNote('');
-                  setRejecting(true);
-                }}
-                pill
-              />
-            ) : null}
-            <Button
-              title={t('owner.editListing')}
-              variant="secondary"
-              pill
-              onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: apartment.id } })}
-            />
-            {apartment.owner_id ? (
-              <Button
-                title={t('admin.editUser')}
-                variant="ghost"
-                pill
-                onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: apartment.owner_id } })}
-              />
-            ) : null}
-            <Button title={t('admin.deleteListing')} variant="ghost" onPress={removeListing} />
+              {apartment.owner_id ? (
+                <Button
+                  compact
+                  pill
+                  title={t('admin.editUser')}
+                  variant="ghost"
+                  onPress={() => router.push({ pathname: '/(admin)/user/[id]', params: { id: apartment.owner_id } })}
+                />
+              ) : null}
+              <Button compact pill title={t('admin.deleteListing')} variant="ghost" onPress={removeListing} />
+            </View>
           </View>
         ) : null}
       </ApartmentView>
@@ -177,4 +186,5 @@ export default function AdminApartmentReview() {
 
 const styles = StyleSheet.create({
   actions: { gap: 8 },
+  actionsRow: { flexWrap: 'wrap', alignItems: 'center', gap: 6 },
 });

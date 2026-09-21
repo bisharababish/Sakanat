@@ -62,11 +62,11 @@ export function PushPrompt() {
     setBusy(true);
     try {
       await markPushPrompted();
-      if (allow) await requestPushAndRegister(profile.id);
     } finally {
       setBusy(false);
       setVisible(false);
     }
+    if (allow) void requestPushAndRegister(profile.id);
   };
 
   const edgeBack = useEdgeBack(visible, () => {

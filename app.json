@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Sakanat",
+    "name": "Sukna",
     "slug": "sakanat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,13 +11,13 @@
       "supportsTablet": true,
       "bundleIdentifier": "ps.sakanat.app",
       "infoPlist": {
-        "CFBundleName": "Sakanat",
-        "CFBundleDisplayName": "بدك سكن؟ اطلب منا"
+        "CFBundleName": "Sukna",
+        "CFBundleDisplayName": "سُكنة"
       }
     },
     "android": {
       "package": "ps.sakanat.app",
-      "label": "بدك سكن؟ اطلب منا",
+      "label": "سُكنة",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",

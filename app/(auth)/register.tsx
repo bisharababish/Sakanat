@@ -19,11 +19,11 @@ import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
-import { authErrorMessage } from '@/src/lib/authErrors';
+import { authErrorMessage, isEmailTakenError } from '@/src/lib/authErrors';
 import { localizedName } from '@/src/lib/format';
 import { cleanName, isValidArabicName, isValidEnglishName } from '@/src/lib/name';
 import { isPasswordValid } from '@/src/lib/password';
-import { sanitizeEmail, studentEmailError, formatEmailDomains } from '@/src/lib/eduEmail';
+import { sanitizeEmail, studentEmailError, formatEmailDomains, universityMatchingEmail } from '@/src/lib/eduEmail';
 import { toE164, type PhoneRegion } from '@/src/lib/phone';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, PublicSignupRole } from '@/src/types/database';
@@ -71,10 +71,7 @@ export default function RegisterScreen() {
     () => formatEmailDomains(universities.find((item) => item.id === universityId)?.email_domains),
     [universities, universityId],
   );
-  const studentEmailHint =
-    universityDomains.length > 0
-      ? t('auth.universityEmailHint', { domains: universityDomains.join(', ') })
-      : t('auth.studentEmailHint');
+  const studentEmailHint = t('auth.studentEmailHint');
 
   const pickKind = (next: PublicSignupRole) => {
     setKind(next);
@@ -121,11 +118,7 @@ export default function RegisterScreen() {
       return;
     }
     if (isStudent) {
-      const emailIssue = studentEmailError(email, universityDomains);
-      if (emailIssue === 'universityEmailMismatch') {
-        setError(t('auth.universityEmailMismatch', { domains: universityDomains.join(', ') }));
-        return;
-      }
+      const emailIssue = studentEmailError(email);
       if (emailIssue) {
         setError(t(`auth.${emailIssue}`));
         return;
@@ -144,17 +137,19 @@ export default function RegisterScreen() {
       setError(t('phone.invalid'));
       return;
     }
+    const cleanEmail = sanitizeEmail(email);
+    const matchedUniversity = isStudent ? universityMatchingEmail(cleanEmail, universities) : undefined;
     setLoading(true);
     try {
       const result = await signUp({
-        email: sanitizeEmail(email),
+        email: cleanEmail,
         password,
         fullName: cleanName(fullNameAr),
         fullNameEn: cleanName(fullNameEn),
         phone: cleanPhone,
         role: kind,
         cityId,
-        universityId: isStudent ? universityId : undefined,
+        universityId: isStudent ? (matchedUniversity?.id ?? universityId) : undefined,
         universityDomains: isStudent ? universityDomains : undefined,
         gender,
         language: lang.startsWith('ar') ? 'ar' : 'en',
@@ -163,6 +158,13 @@ export default function RegisterScreen() {
         router.replace({ pathname: '/(auth)/verify-email', params: { email: sanitizeEmail(email) } });
       }
     } catch (err) {
+      if (isEmailTakenError(err)) {
+        router.replace({
+          pathname: '/(auth)/verify-email',
+          params: { email: sanitizeEmail(email), reason: 'exists' },
+        });
+        return;
+      }
       setError(authErrorMessage(err, t));
     } finally {
       setLoading(false);
@@ -279,7 +281,12 @@ export default function RegisterScreen() {
               compact
               label={isStudent ? t('auth.studentEmail') : t('common.email')}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(next) => {
+                setEmail(next);
+                if (!isStudent) return;
+                const match = universityMatchingEmail(sanitizeEmail(next), universities);
+                if (match?.id) setUniversityId(match.id);
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}

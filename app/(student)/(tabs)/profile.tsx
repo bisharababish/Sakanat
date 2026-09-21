@@ -47,6 +47,7 @@ import { canShowSeekerContact, shouldShareEmergency, shouldShowSavedCount } from
 import { loadPendingReview } from '@/src/lib/reviews';
 import { loadSavedApartments, toggleSavedApartment } from '@/src/lib/saved';
 import { pickIdCardPhoto, pickProfilePhoto } from '@/src/lib/pickImage';
+import { clearedProfileFields } from '@/src/lib/studentProfile';
 import { SUPPORT_EMAIL } from '@/src/lib/support';
 import { supabase } from '@/src/lib/supabase';
 import { isValidNationalId, sanitizeNationalId, isValidBio, isValidEmergencyName, isValidHomeAddress, isValidNationalIdExpiry, nationalIdExpiryState } from '@/src/lib/trust';
@@ -577,7 +578,7 @@ export default function StudentProfileScreen() {
     'homeAddress',
   ]);
   const trustIncomplete = progressItems.some((item) => item.id && trustIds.has(item.id) && !item.done);
-  const accountIncomplete = progressItems.some((item) => item.id && !trustIds.has(item.id) && !item.done);
+  const accountIncomplete = progressItems.some((item) => item.id && item.id !== 'photo' && !trustIds.has(item.id) && !item.done);
   const jumpTo = (id: string) => {
     const section: SectionKey =
       id === 'photo'
@@ -733,15 +734,18 @@ export default function StudentProfileScreen() {
     if (!profile) return;
     const uri = await pickProfilePhoto();
     if (!uri) return;
+    const previous = avatarUrl;
     setUploading(true);
+    setAvatarUrl(uri);
     try {
-      setAvatarUrl(uri);
       const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
+      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
+      setAvatarUrl(previous);
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUploading(false);
@@ -751,30 +755,19 @@ export default function StudentProfileScreen() {
   const saveProfile = async () => {
     if (!profile) return;
     const onTrust = tab === 'trust';
-    const missing = progressItems
-      .filter((item) => {
-        if (item.done || !item.id) return false;
-        const trustField = trustIds.has(item.id);
-        return onTrust ? trustField : !trustField;
-      })
-      .map((item) => item.label);
-    if (missing.length > 0) {
-      alert(t('profile.stillNeeded'), missing.join('\n') || t(isStudent ? 'profile.completeRequired' : 'profile.completeRequiredRenter'));
-      return;
-    }
-    const cleanPhone = toE164(phoneRegion, phoneLocal);
-    const cleanWhatsapp = toE164(waRegion, waLocal);
-    const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
+    const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
+    const cleanWhatsapp = waLocal.trim() ? toE164(waRegion, waLocal) : null;
+    const cleanEmergency = emergencyLocal.trim() ? toE164(emergencyRegion, emergencyLocal) : null;
     if (!onTrust) {
-      if (!cleanPhone) {
+      if (phoneLocal.trim() && !cleanPhone) {
         alert(t('common.error'), t('phone.invalid'));
         return;
       }
-      if (!cleanWhatsapp) {
+      if (waLocal.trim() && !cleanWhatsapp) {
         alert(t('common.error'), t('phone.invalid'));
         return;
       }
-      if (isStudent && !isValidStudentId(studentId)) {
+      if (isStudent && studentId.trim() && !isValidStudentId(studentId)) {
         alert(t('common.error'), t('profile.studentIdHint'));
         return;
       }
@@ -782,31 +775,27 @@ export default function StudentProfileScreen() {
         alert(t('common.error'), t('profile.bioInvalid'));
         return;
       }
-      if (!englishNameOk(fullNameEn)) {
+      if (fullNameEn.trim() && !englishNameOk(fullNameEn)) {
         alert(t('common.error'), t('auth.invalidNameEn'));
         return;
       }
-      if (!arabicNameOk(fullNameAr)) {
+      if (fullNameAr.trim() && !arabicNameOk(fullNameAr)) {
         alert(t('common.error'), t('auth.invalidNameAr'));
         return;
       }
-      if (isStudent && universityId !== (profile.university_id ?? '')) {
-        const emailIssue = studentEmailError(profile.email, universityDomains);
-        if (emailIssue === 'universityEmailMismatch') {
-          alert(t('common.error'), t('auth.universityEmailMismatch', { domains: universityDomains.join(', ') }));
-          return;
-        }
+      if (isStudent && universityId && universityId !== (profile.university_id ?? '')) {
+        const emailIssue = studentEmailError(profile.email);
         if (emailIssue) {
           alert(t('common.error'), t(`auth.${emailIssue}`));
           return;
         }
       }
     } else {
-      if (!isValidHomeAddress(homeAddress)) {
+      if (homeAddress.trim() && !isValidHomeAddress(homeAddress)) {
         alert(t('common.error'), t('profile.homeAddressInvalid'));
         return;
       }
-      if (!cleanEmergency || cleanEmergency === (cleanPhone || profile.phone)) {
+      if (emergencyLocal.trim() && (!cleanEmergency || cleanEmergency === (cleanPhone || profile.phone))) {
         alert(t('common.error'), t('profile.emergencySamePhone'));
         return;
       }
@@ -814,7 +803,7 @@ export default function StudentProfileScreen() {
         alert(t('common.error'), t('profile.nationalIdInvalid'));
         return;
       }
-      if (!isValidNationalIdExpiry(nationalExpiresAt)) {
+      if (nationalExpiresAt && !isValidNationalIdExpiry(nationalExpiresAt)) {
         alert(
           t('common.error'),
           nationalIdExpiryState(nationalExpiresAt) === 'expired'
@@ -823,7 +812,7 @@ export default function StudentProfileScreen() {
         );
         return;
       }
-      if (!isValidEmergencyName(emergencyName)) {
+      if (emergencyName.trim() && !isValidEmergencyName(emergencyName)) {
         alert(t('common.error'), t('profile.emergencyNameInvalid'));
         return;
       }
@@ -838,11 +827,11 @@ export default function StudentProfileScreen() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: cleanName(fullNameAr) || profile.full_name,
-          full_name_en: englishNameOk(fullNameEn) ? cleanName(fullNameEn) : (profile.full_name_en ?? null),
-          phone: cleanPhone || profile.phone,
+          full_name: fullNameAr.trim() ? cleanName(fullNameAr) : '',
+          full_name_en: fullNameEn.trim() && englishNameOk(fullNameEn) ? cleanName(fullNameEn) : null,
+          phone: cleanPhone,
           student_id_number: isStudent ? studentId.trim() || null : null,
-          whatsapp: cleanWhatsapp || profile.whatsapp,
+          whatsapp: cleanWhatsapp,
           major: isStudent ? major || null : null,
           degree_level: isStudent ? degreeLevel || null : null,
           study_year: isStudent ? studyYear || null : null,
@@ -850,30 +839,29 @@ export default function StudentProfileScreen() {
           date_of_birth: birthDate || null,
           city_id: cityId || null,
           university_id: isStudent ? universityId || null : null,
-          home_address: homeAddress.trim() || profile.home_address,
+          home_address: homeAddress.trim() || null,
           bio: bio.trim() || null,
           spoken_languages: spokenLanguages,
           graduation_term: graduationTerm.trim() || null,
-          national_id_number: nationalId.trim() || profile.national_id_number,
-          national_id_expires_at: nationalExpiresAt || profile.national_id_expires_at || null,
+          national_id_number: nationalId.trim() || null,
+          national_id_expires_at: nationalExpiresAt || null,
           id_docs_consent_at: idDocsConsent
             ? profile.id_docs_consent_at ?? new Date().toISOString()
-            : profile.id_docs_consent_at,
-          emergency_name: emergencyName.trim() || profile.emergency_name,
-          emergency_phone: cleanEmergency || profile.emergency_phone,
+            : null,
+          emergency_name: emergencyName.trim() || null,
+          emergency_phone: cleanEmergency,
           last_seen_ip: ip ?? profile.last_seen_ip ?? null,
         })
         .eq('id', profile.id);
       if (error) throw error;
-      if (englishNameOk(fullNameEn)) {
-        const { error: nameError } = await supabase.auth.updateUser({
-          data: { full_name_en: cleanName(fullNameEn) },
-        });
-        if (nameError) throw nameError;
-      }
+      const { error: nameError } = await supabase.auth.updateUser({
+        data: { full_name_en: fullNameEn.trim() ? cleanName(fullNameEn) : '' },
+      });
+      if (nameError) throw nameError;
       await refreshProfile();
       baseline.current = currentSnap;
-      if (resumeId) {
+      const leftover = progressItems.filter((item) => !item.done);
+      if (resumeId && leftover.length === 0) {
         alert(t('common.done'), t('profile.saved'), [
           { text: t('common.done') },
           {
@@ -881,6 +869,8 @@ export default function StudentProfileScreen() {
             onPress: () => router.replace({ pathname: '/(student)/book/[id]', params: { id: resumeId } }),
           },
         ]);
+      } else if (leftover.length > 0) {
+        alert(t('common.done'), t('profile.savedCompleteHint'));
       } else {
         alert(t('common.done'), t('profile.saved'));
       }
@@ -889,6 +879,33 @@ export default function StudentProfileScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetProfile = () => {
+    if (!profile) return;
+    alert(t('profile.resetProfile'), t('profile.resetProfileBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.resetProfile'),
+        style: 'destructive',
+        onPress: async () => {
+          setSaving(true);
+          try {
+            const { error } = await supabase.from('profiles').update(clearedProfileFields()).eq('id', profile.id);
+            if (error) throw error;
+            const { error: nameError } = await supabase.auth.updateUser({ data: { full_name_en: '' } });
+            if (nameError) throw nameError;
+            const next = await refreshProfile();
+            if (next) applyForm(next);
+            alert(t('common.done'), t('profile.resetProfileDone'));
+          } catch (err) {
+            alert(t('common.error'), err instanceof Error ? err.message : '');
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
   };
 
   const canDeleteAccount = profile?.role === 'student' || profile?.role === 'renter';
@@ -912,11 +929,35 @@ export default function StudentProfileScreen() {
         text: t('profile.continueBooking'),
         onPress: () => router.replace({ pathname: '/(student)/book/[id]', params: { id: resumeId } }),
       }
-    : null;
+    : !incomplete
+      ? {
+          icon: 'checkmark-circle' as const,
+          text: t('profile.readyToBook'),
+          onPress: () => router.push('/(student)/(tabs)/search'),
+        }
+      : accountIncomplete
+        ? {
+            icon: 'person-outline' as const,
+            text: isStudent ? t('profile.completeHint') : t('profile.completeHintRenter'),
+            onPress: () => setTab('account'),
+          }
+        : trustIncomplete
+          ? {
+              icon: 'shield-outline' as const,
+              text: t('profile.stillNeeded'),
+              onPress: () => setTab('trust'),
+            }
+          : !avatarUrl
+            ? {
+                icon: 'camera-outline' as const,
+                text: t('profile.photoForBook'),
+                onPress: () => void changePhoto(),
+              }
+            : null;
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
-    text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoOptional'),
     onPress: () => {
       if (avatarUrl) setViewingPhoto(true);
       else void changePhoto();
@@ -1004,8 +1045,12 @@ export default function StudentProfileScreen() {
                   key: 'account',
                   icon: 'person-outline',
                   label: t('profile.tabAccount'),
-                  hint: accountIncomplete ? t('profile.stillNeeded') : undefined,
-                  dot: accountIncomplete,
+                  hint: accountIncomplete
+                    ? t('profile.stillNeeded')
+                    : !avatarUrl
+                      ? t('profile.photoForBook')
+                      : undefined,
+                  dot: accountIncomplete || !avatarUrl,
                   onPress: () => setTab('account'),
                 },
                 {
@@ -1133,6 +1178,16 @@ export default function StudentProfileScreen() {
 
       {tab === 'account' ? (
         <>
+          {accountIncomplete ? (
+            <ProfileBanner
+              icon="alert-circle-outline"
+              text={isStudent ? t('profile.completeHint') : t('profile.completeHintRenter')}
+              onPress={() => {
+                const first = progressItems.find((item) => !item.done && item.id && item.id !== 'photo');
+                if (first?.id) jumpTo(first.id);
+              }}
+            />
+          ) : null}
           <OwnerSeenCard
             title={t('profile.ownerSees')}
             name={
@@ -1284,6 +1339,13 @@ export default function StudentProfileScreen() {
               </View>
             </Card>
           ) : null}
+          <Button
+            title={t('profile.resetProfile')}
+            variant="secondary"
+            onPress={resetProfile}
+            disabled={saving}
+            pill
+          />
         </>
       ) : null}
 

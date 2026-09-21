@@ -11,6 +11,9 @@ const BY_CODE: Record<string, string> = {
   weak_password: 'auth.weakPassword',
   same_password: 'auth.samePassword',
   mfa_verification_failed: 'mfa.invalidCode',
+  otp_expired: 'auth.codeExpired',
+  token_expired: 'auth.codeExpired',
+  otp_disabled: 'auth.codeInvalid',
 };
 
 const BY_TEXT: { test: RegExp; key: string }[] = [
@@ -23,6 +26,8 @@ const BY_TEXT: { test: RegExp; key: string }[] = [
   { test: /rate limit|only request this once/i, key: 'auth.rateLimit' },
   { test: /new password should be different|same_password/i, key: 'auth.samePassword' },
   { test: /mfa_verification_failed|invalid.*totp|invalid.*factor/i, key: 'mfa.invalidCode' },
+  { test: /otp_expired|token has expired|otp.*expired|code.*expired/i, key: 'auth.codeExpired' },
+  { test: /invalid.*(otp|token|code)|otp|confirmation.?code|one.?time/i, key: 'auth.codeInvalid' },
 ];
 
 function authBits(err: unknown) {
@@ -48,4 +53,10 @@ export function authErrorMessage(err: unknown, t: TFunction) {
   const hit = BY_TEXT.find((item) => item.test.test(`${code} ${text}`));
   if (hit) return t(hit.key);
   return t('common.error');
+}
+
+export function isEmailTakenError(err: unknown) {
+  const { code, text } = authBits(err);
+  if (code === 'user_already_exists' || code === 'email_exists') return true;
+  return /already registered|already exists/i.test(`${code} ${text}`);
 }

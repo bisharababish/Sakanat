@@ -264,16 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp: async (input) => {
         const role: PublicSignupRole = input.role === 'renter' ? 'renter' : 'student';
         if (role === 'student') {
-          let domains = input.universityDomains ?? [];
-          if (input.universityId) {
-            const { data } = await supabase
-              .from('universities')
-              .select('email_domains')
-              .eq('id', input.universityId)
-              .maybeSingle();
-            if (data?.email_domains?.length) domains = data.email_domains as string[];
-          }
-          const emailIssue = studentEmailError(input.email, domains);
+          const emailIssue = studentEmailError(input.email);
           if (emailIssue) throw new Error(emailIssue);
         } else if (!isValidEmail(input.email)) {
           throw new Error('invalidEmail');

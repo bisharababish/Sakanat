@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { chatPhotoUrl } from '@/src/lib/upload';
@@ -14,37 +14,20 @@ function formatMs(ms: number) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-export function ChatVoiceBubble({
-  pathOrUrl,
+function VoicePlay({
+  uri,
   mine,
   onLongPress,
 }: {
-  pathOrUrl: string;
+  uri: string;
   mine: boolean;
   onLongPress?: () => void;
 }) {
   const colors = useColors();
   const { row } = useLayout();
-  const [uri, setUri] = useState<string | null>(
-    pathOrUrl.startsWith('http') || pathOrUrl.startsWith('file:') ? pathOrUrl : null,
-  );
-  const player = useAudioPlayer(null, { updateInterval: 200 });
+  const remote = uri.startsWith('http://') || uri.startsWith('https://');
+  const player = useAudioPlayer({ uri }, { updateInterval: 200, downloadFirst: remote });
   const status = useAudioPlayerStatus(player);
-
-  useEffect(() => {
-    let alive = true;
-    void chatPhotoUrl(pathOrUrl).then((next) => {
-      if (alive && next) setUri(next);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [pathOrUrl]);
-
-  useEffect(() => {
-    if (uri) player.replace(uri);
-  }, [player, uri]);
-
   const playing = Boolean(status.playing);
   const duration = (status.duration ?? 0) * 1000;
   const current = (status.currentTime ?? 0) * 1000;
@@ -54,7 +37,6 @@ export function ChatVoiceBubble({
   return (
     <Pressable
       onPress={() => {
-        if (!uri) return;
         if (playing) {
           player.pause();
           return;
@@ -90,6 +72,42 @@ export function ChatVoiceBubble({
       </Text>
     </Pressable>
   );
+}
+
+export function ChatVoiceBubble({
+  pathOrUrl,
+  mine,
+  onLongPress,
+}: {
+  pathOrUrl: string;
+  mine: boolean;
+  onLongPress?: () => void;
+}) {
+  const colors = useColors();
+  const { row } = useLayout();
+  const [uri, setUri] = useState<string | null>(
+    pathOrUrl.startsWith('http') || pathOrUrl.startsWith('file:') ? pathOrUrl : null,
+  );
+
+  useEffect(() => {
+    let alive = true;
+    void chatPhotoUrl(pathOrUrl).then((next) => {
+      if (alive && next) setUri(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pathOrUrl]);
+
+  if (!uri) {
+    return (
+      <View style={[styles.row, row]}>
+        <ActivityIndicator size="small" color={mine ? colors.white : colors.primary} />
+      </View>
+    );
+  }
+
+  return <VoicePlay key={uri} uri={uri} mine={mine} onLongPress={onLongPress} />;
 }
 
 const styles = StyleSheet.create({

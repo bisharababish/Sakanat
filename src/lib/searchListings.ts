@@ -55,7 +55,7 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
 
   if (filters.gender && filters.gender !== 'all') {
     if (filters.gender === 'suitable' && filters.profileGender) {
-      query = query.or(`gender_policy.eq.any,gender_policy.eq.${filters.profileGender}`);
+      query = query.in('gender_policy', ['any', filters.profileGender]);
     } else if (filters.gender === 'male' || filters.gender === 'female') {
       query = query.eq('gender_policy', filters.gender);
     }
@@ -71,9 +71,14 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
     query = query.order('price_month');
   }
 
-  const { data, error } = await query.limit(400);
+  const { data, error } = await query.limit(filters.cityId || filters.universityId ? 400 : 1000);
   if (error) throw error;
-  let rows = await attachListingOwnerCards((data as Apartment[]) ?? []);
+  let rows = (data as Apartment[]) ?? [];
+  try {
+    rows = await attachListingOwnerCards(rows);
+  } catch {
+    // Cards are optional; listings still show.
+  }
   try {
     const occupied = await loadOccupiedStays();
     if (occupied.length) {

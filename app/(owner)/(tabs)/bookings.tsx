@@ -196,13 +196,38 @@ export default function OwnerBookings() {
       }
       return;
     }
-    if (status === 'confirmed' && booking.student_id) {
-      void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'), 'booking');
-
+    if (status === 'confirmed' && booking.student_id && profile) {
+      void notifyUser(booking.student_id, t('push.bookingApprovedTitle'), t('push.bookingApprovedBody'), 'booking', {
+        bookingId: booking.id,
+      });
+      void postBookingChat(
+        booking,
+        profile.id,
+        [
+          t('booking.chatApproved'),
+          formatStayRange(booking.start_date, booking.months, i18n.language),
+          `${booking.months} ${booking.months === 1 ? t('common.month') : t('common.months')}`,
+        ].join('\n'),
+      );
     }
-    if (status === 'cancelled' && booking.student_id) {
-      void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'), 'booking');
-      void detachCancelledStayChat(booking);
+    if (status === 'cancelled' && booking.student_id && profile) {
+      const note = cancelReason?.trim();
+      void notifyUser(booking.student_id, t('push.bookingRejectedTitle'), t('push.bookingRejectedBody'), 'booking', {
+        bookingId: booking.id,
+      });
+      void postBookingChat(
+        booking,
+        profile.id,
+        note ? t('booking.chatRejectedNote', { note }) : t('booking.chatRejected'),
+      ).finally(() => {
+        void detachCancelledStayChat(booking);
+      });
+    }
+    if (status === 'completed' && booking.student_id && profile) {
+      void notifyUser(booking.student_id, t('push.bookingCompletedTitle'), t('push.bookingCompletedBody'), 'booking', {
+        bookingId: booking.id,
+      });
+      void postBookingChat(booking, profile.id, t('booking.chatCompleted'));
     }
     void load();
   };

@@ -97,12 +97,31 @@ export async function registerPushToken(userId: string, requestPermission = fals
     if (next.status !== 'granted' && !next.granted) return;
     const projectId =
       Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId ?? undefined;
-    const token = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+    const token = await withTimeout(
+      Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined),
+      8000,
+    );
     if (!token.data) return;
     await supabase.from('profiles').update({ expo_push_token: token.data }).eq('id', userId);
   } catch {
-    // Expo Go / missing column / permission — booking still works without push.
+    // Expo Go / missing project id / permission — booking still works without push.
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 export async function notifyUser(

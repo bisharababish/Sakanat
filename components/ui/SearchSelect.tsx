@@ -42,16 +42,19 @@ export function SearchSelect({
   const colors = useColors();
   const safe = useModalSafeArea();
   const edgeBack = useEdgeBack(open, () => setOpen(false));
-  const selected = value ? options.find((option) => option.value === value) : undefined;
+  const selected = options.find((option) => option.value === (value ?? ''));
   const active = Boolean(value);
+  const allOption = options.find((option) => option.value === '');
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    const named = options.filter((option) => option.value);
     const rest = needle
-      ? options.filter((option) => option.label.toLowerCase().includes(needle))
-      : options;
-    if (!clearable || options.some((option) => option.value === '')) return rest;
+      ? named.filter((option) => option.label.toLowerCase().includes(needle))
+      : named;
+    if (allOption) return rest;
+    if (!clearable) return rest;
     return [{ value: '', label: t('common.none') }, ...rest];
-  }, [clearable, options, query, t]);
+  }, [allOption, clearable, options, query, t]);
 
   return (
     <View style={[styles.wrap, dense && styles.wrapDense]}>
@@ -83,7 +86,7 @@ export function SearchSelect({
             { textAlign, writingDirection, color: selected ? (compact && active ? colors.primary : colors.text) : colors.textMuted },
           ]}
         >
-          {selected?.label ?? placeholder}
+          {selected?.label ?? (value ? label : placeholder)}
         </Text>
         {compact ? (
           <Ionicons name="chevron-down" size={14} color={active ? colors.primary : colors.textMuted} />
@@ -91,6 +94,7 @@ export function SearchSelect({
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View
+          pointerEvents="box-none"
           style={[
             styles.overlay,
             {
@@ -102,7 +106,7 @@ export function SearchSelect({
           {...edgeBack}
         >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
-          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, zIndex: 2, elevation: 8 }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />
             </View>
@@ -114,6 +118,17 @@ export function SearchSelect({
               autoCorrect={false}
               style={[styles.search, { textAlign, color: colors.text, borderColor: colors.border }]}
             />
+            {allOption ? (
+              <Pressable
+                style={[styles.option, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  onChange('');
+                  setOpen(false);
+                }}
+              >
+                <Text style={[styles.optionLabel, rtlText, { color: colors.textMuted }]}>{allOption.label}</Text>
+              </Pressable>
+            ) : null}
             <ScrollView keyboardShouldPersistTaps="handled">
               {filtered.length === 0 ? (
                 <Text style={[styles.empty, rtlText, { color: colors.textMuted }]}>{t('common.noResults')}</Text>

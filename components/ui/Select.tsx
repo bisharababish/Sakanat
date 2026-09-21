@@ -47,7 +47,9 @@ export function Select({
     clearable && !options.some((option) => option.value === '')
       ? [{ value: '', label: t('common.none') }, ...options]
       : options;
-  const selected = value ? list.find((option) => option.value === value) : undefined;
+  const allOption = list.find((option) => option.value === '');
+  const named = list.filter((option) => option.value);
+  const selected = list.find((option) => option.value === (value ?? ''));
   const active = Boolean(value);
 
   return (
@@ -77,7 +79,7 @@ export function Select({
             { color: !selected ? colors.textMuted : compact && active ? colors.primary : colors.text, textAlign, writingDirection },
           ]}
         >
-          {selected?.label ?? placeholder}
+          {selected?.label ?? (value ? label : placeholder)}
         </Text>
         {compact ? (
           <Ionicons name="chevron-down" size={14} color={active ? colors.primary : colors.textMuted} />
@@ -85,6 +87,7 @@ export function Select({
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View
+          pointerEvents="box-none"
           style={[
             styles.overlay,
             {
@@ -96,23 +99,34 @@ export function Select({
           {...edgeBack}
         >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
-          <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
+          <View style={[styles.sheet, { backgroundColor: colors.surface, zIndex: 2, elevation: 8 }]}>
             <View style={[styles.sheetHead, { alignItems: alignStart }]}>
               <BackButton onPress={() => setOpen(false)} />
             </View>
+            {allOption ? (
+              <Pressable
+                style={[styles.option, { borderBottomColor: colors.border }]}
+                onPress={() => {
+                  onChange('');
+                  setOpen(false);
+                }}
+              >
+                <Text style={[styles.optionLabel, rtlText, { color: colors.textMuted }]}>{allOption.label}</Text>
+              </Pressable>
+            ) : null}
             <ScrollView keyboardShouldPersistTaps="handled">
-              {list.length === 0 ? (
+              {named.length === 0 ? (
                 <Text style={[styles.empty, rtlText, { color: colors.textMuted }]}>{t('common.noResults')}</Text>
               ) : null}
-              {list.map((option) => (
+              {named.map((option) => (
                 <Pressable
-                  key={option.value || 'empty'}
+                  key={option.value}
                   style={[styles.option, { borderBottomColor: colors.border }]}
                   onPress={() => {
                     onChange(option.value);
                     setOpen(false);
                   }}>
-                  <Text style={[styles.optionLabel, rtlText, { color: option.value ? colors.text : colors.textMuted }]}>{option.label}</Text>
+                  <Text style={[styles.optionLabel, rtlText, { color: colors.text }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>

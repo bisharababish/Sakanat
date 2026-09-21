@@ -1,3 +1,6 @@
+import { File } from 'expo-file-system';
+import * as LegacyFS from 'expo-file-system/legacy';
+
 import i18n from '@/src/i18n';
 import { supabase } from '@/src/lib/supabase';
 import { AUDIO_MAX_BYTES, PHOTO_MAX_BYTES, photoExt } from '@/src/lib/limits';
@@ -13,9 +16,53 @@ function contentTypeFor(ext: string) {
   return 'image/jpeg';
 }
 
+function audioContentType(uri: string) {
+  const ext = uri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? '';
+  if (ext === 'wav') return 'audio/wav';
+  if (ext === 'webm') return 'audio/webm';
+  if (ext === '3gp' || ext === '3gpp') return 'audio/3gpp';
+  if (ext === 'aac') return 'audio/aac';
+  return 'audio/mp4';
+}
+
+function audioExt(uri: string) {
+  const ext = uri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? '';
+  if (ext === 'wav' || ext === 'webm' || ext === '3gp' || ext === 'aac' || ext === 'm4a' || ext === 'mp4') {
+    return ext === 'mp4' ? 'm4a' : ext;
+  }
+  return 'm4a';
+}
+
+function base64ToArrayBuffer(value: string) {
+  const binary = globalThis.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+/** Local files via File / FileSystem — fetch(file://) is slow and often fails on Android. */
+async function readLocalBuffer(uri: string): Promise<ArrayBuffer> {
+  if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error(i18n.t('chat.mediaFailed'));
+    return response.arrayBuffer();
+  }
+  try {
+    return await new File(uri).arrayBuffer();
+  } catch {
+    try {
+      const b64 = await LegacyFS.readAsStringAsync(uri, { encoding: LegacyFS.EncodingType.Base64 });
+      return base64ToArrayBuffer(b64);
+    } catch {
+      const response = await fetch(uri);
+      if (!response.ok) throw new Error(i18n.t('chat.mediaFailed'));
+      return response.arrayBuffer();
+    }
+  }
+}
+
 async function uploadPublicImage(path: string, uri: string, upsert = false) {
-  const response = await fetch(uri);
-  const buffer = await response.arrayBuffer();
+  const buffer = await readLocalBuffer(uri);
   if (buffer.byteLength > PHOTO_MAX_BYTES) {
     throw new Error(i18n.t('profile.photoTooLarge'));
   }
@@ -41,8 +88,7 @@ export async function uploadProfilePhoto(userId: string, uri: string) {
 
 /** Private chat photo — returns storage path (not a public URL). */
 export async function uploadChatPhoto(userId: string, conversationId: string, uri: string) {
-  const response = await fetch(uri);
-  const buffer = await response.arrayBuffer();
+  const buffer = await readLocalBuffer(uri);
   if (buffer.byteLength > PHOTO_MAX_BYTES) {
     throw new Error(i18n.t('chat.photoTooLarge'));
   }
@@ -57,14 +103,13 @@ export async function uploadChatPhoto(userId: string, conversationId: string, ur
 }
 
 export async function uploadChatAudio(userId: string, conversationId: string, uri: string) {
-  const response = await fetch(uri);
-  const buffer = await response.arrayBuffer();
+  const buffer = await readLocalBuffer(uri);
   if (buffer.byteLength > AUDIO_MAX_BYTES) {
     throw new Error(i18n.t('chat.voiceTooLarge'));
   }
-  const path = `${conversationId}/${userId}/${Date.now()}.m4a`;
+  const path = `${conversationId}/${userId}/${Date.now()}.${audioExt(uri)}`;
   const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, buffer, {
-    contentType: 'audio/mp4',
+    contentType: audioContentType(uri),
     upsert: false,
   });
   if (error) throw new Error(i18n.t('chat.mediaFailed'));
@@ -84,8 +129,7 @@ export async function chatPhotoUrl(pathOrUrl?: string | null) {
 
 /** National / university cards — private bucket; returns storage path (not a public URL). */
 export async function uploadIdDoc(userId: string, kind: 'national' | 'university', uri: string) {
-  const response = await fetch(uri);
-  const buffer = await response.arrayBuffer();
+  const buffer = await readLocalBuffer(uri);
   if (buffer.byteLength > PHOTO_MAX_BYTES) {
     throw new Error(i18n.t('profile.photoTooLarge'));
   }

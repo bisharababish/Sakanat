@@ -23,7 +23,7 @@ export function BrandLogo({ size = 180, plate = false, iconOnly = false }: Props
         marginTop: iconOnly ? -Math.round(size * ICON_TOP) : 0,
       }}
       contentFit="contain"
-      accessibilityLabel="بدك سكن؟ اطلب منا"
+      accessibilityLabel="Sukna"
     />
   );
   const mark = iconOnly ? (

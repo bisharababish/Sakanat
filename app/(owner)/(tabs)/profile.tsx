@@ -47,6 +47,7 @@ import {
   type OccupancyBuilding,
 } from '@/src/lib/listingPlace';
 import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
+import { clearedProfileFields } from '@/src/lib/studentProfile';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { PersonGender, Profile } from '@/src/types/database';
 
@@ -382,8 +383,7 @@ export default function OwnerProfile() {
       !cityId ||
       !birthDate ||
       !phoneLocal.trim() ||
-      !waLocal.trim() ||
-      !avatarUrl,
+      !waLocal.trim(),
   );
 
   const statusLabel =
@@ -414,7 +414,7 @@ export default function OwnerProfile() {
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
-    text: avatarUrl ? t('profile.viewPhoto') : t('profile.addPhotoAction'),
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoOptional'),
     onPress: () => {
       if (avatarUrl) {
         setViewerPhotos(null);
@@ -427,15 +427,18 @@ export default function OwnerProfile() {
     if (!profile) return;
     const uri = await pickProfilePhoto();
     if (!uri) return;
+    const previous = avatarUrl;
     setUploading(true);
+    setAvatarUrl(uri);
     try {
-      setAvatarUrl(uri);
       const url = await uploadProfilePhoto(profile.id, uri);
       const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id);
       if (error) throw error;
       setAvatarUrl(url);
+      if (baseline.current) baseline.current = { ...baseline.current, avatarUrl: url };
       await refreshProfile();
     } catch (err) {
+      setAvatarUrl(previous);
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setUploading(false);
@@ -480,27 +483,16 @@ export default function OwnerProfile() {
 
   const saveProfile = async () => {
     const onTrust = tab === 'trust';
-    const accountMissing = [
-      !avatarUrl && t('profile.photo'),
-      !fullNameEn.trim() && t('common.nameEn'),
-      !fullNameAr.trim() && t('common.nameAr'),
-      !gender && t('profile.gender'),
-      !cityId && t('auth.homeCity'),
-      !birthDate && t('profile.birthDate'),
-      !phoneLocal.trim() && t('common.phone'),
-      !waLocal.trim() && t('profile.whatsapp'),
-    ].filter(Boolean) as string[];
     if (!profile) return;
+    const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
+    const cleanWhatsapp = waLocal.trim() ? toE164(waRegion, waLocal) : null;
+    const cleanEmergency = emergencyLocal.trim() ? toE164(emergencyRegion, emergencyLocal) : null;
     if (!onTrust) {
-      if (accountMissing.length > 0) {
-        alert(t('profile.stillNeeded'), accountMissing.join('\n') || t('profile.completeRequiredOwner'));
-        return;
-      }
-      if (!isValidEnglishName(fullNameEn)) {
+      if (fullNameEn.trim() && !isValidEnglishName(fullNameEn)) {
         alert(t('common.error'), t('auth.invalidNameEn'));
         return;
       }
-      if (!isValidArabicName(fullNameAr)) {
+      if (fullNameAr.trim() && !isValidArabicName(fullNameAr)) {
         alert(t('common.error'), t('auth.invalidNameAr'));
         return;
       }
@@ -508,24 +500,20 @@ export default function OwnerProfile() {
         alert(t('common.error'), t('profile.bioInvalid'));
         return;
       }
-      const cleanPhone = toE164(phoneRegion, phoneLocal);
-      if (!cleanPhone) {
+      if (phoneLocal.trim() && !cleanPhone) {
         alert(t('common.error'), t('phone.invalid'));
         return;
       }
-      const cleanWhatsapp = toE164(waRegion, waLocal);
-      if (!cleanWhatsapp) {
+      if (waLocal.trim() && !cleanWhatsapp) {
         alert(t('common.error'), t('phone.invalid'));
         return;
       }
     } else {
-      const cleanPhone = toE164(phoneRegion, phoneLocal);
-      const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
-      if (!isValidNationalId(nationalId)) {
+      if (nationalId.trim() && !isValidNationalId(nationalId)) {
         alert(t('common.error'), t('profile.nationalIdInvalid'));
         return;
       }
-      if (!isValidNationalIdExpiry(nationalExpiresAt)) {
+      if (nationalExpiresAt && !isValidNationalIdExpiry(nationalExpiresAt)) {
         alert(
           t('common.error'),
           nationalIdExpiryState(nationalExpiresAt) === 'expired'
@@ -534,23 +522,19 @@ export default function OwnerProfile() {
         );
         return;
       }
-      if (!isValidEmergencyName(emergencyName)) {
+      if (emergencyName.trim() && !isValidEmergencyName(emergencyName)) {
         alert(t('common.error'), t('profile.emergencyNameInvalid'));
         return;
       }
-      if (!cleanEmergency || cleanEmergency === cleanPhone) {
+      if (emergencyLocal.trim() && (!cleanEmergency || cleanEmergency === (cleanPhone || profile.phone))) {
         alert(t('common.error'), t('profile.emergencySamePhone'));
         return;
       }
-      if (!idDocsConsent || !nationalIdUrl) {
+      if ((nationalIdUrl || nationalId.trim()) && !idDocsConsent) {
         alert(t('common.error'), t('profile.idConsentRequired'));
         return;
       }
     }
-
-    const cleanPhone = toE164(phoneRegion, phoneLocal);
-    const cleanWhatsapp = toE164(waRegion, waLocal);
-    const cleanEmergency = toE164(emergencyRegion, emergencyLocal);
 
     setSaving(true);
     try {
@@ -558,36 +542,69 @@ export default function OwnerProfile() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: cleanName(fullNameAr),
-          full_name_en: cleanName(fullNameEn),
+          full_name: fullNameAr.trim() ? cleanName(fullNameAr) : '',
+          full_name_en: fullNameEn.trim() ? cleanName(fullNameEn) : null,
           phone: cleanPhone,
           whatsapp: cleanWhatsapp,
-          gender,
-          date_of_birth: birthDate,
-          city_id: cityId,
+          gender: gender || null,
+          date_of_birth: birthDate || null,
+          city_id: cityId || null,
           bio: bio.trim() || null,
           spoken_languages: spokenLanguages,
           national_id_number: sanitizeNationalId(nationalId) || null,
           national_id_expires_at: nationalExpiresAt || null,
           emergency_name: emergencyName.trim() || null,
           emergency_phone: cleanEmergency,
-          id_docs_consent_at: profile.id_docs_consent_at ?? new Date().toISOString(),
+          id_docs_consent_at: idDocsConsent
+            ? profile.id_docs_consent_at ?? new Date().toISOString()
+            : null,
           ...(ip ? { last_seen_ip: ip } : {}),
         })
         .eq('id', profile.id);
       if (error) throw error;
       const { error: nameError } = await supabase.auth.updateUser({
-        data: { full_name_en: cleanName(fullNameEn) },
+        data: { full_name_en: fullNameEn.trim() ? cleanName(fullNameEn) : '' },
       });
       if (nameError) throw nameError;
       await refreshProfile();
       baseline.current = currentSnap;
-      alert(t('common.done'), t('profile.saved'));
+      const leftover = progressItems.filter((item) => !item.done);
+      alert(
+        t('common.done'),
+        leftover.length > 0 ? t('profile.savedCompleteHintOwner') : t('profile.saved'),
+      );
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetProfile = () => {
+    if (!profile) return;
+    alert(t('profile.resetProfile'), t('profile.resetProfileBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.resetProfile'),
+        style: 'destructive',
+        onPress: async () => {
+          setSaving(true);
+          try {
+            const { error } = await supabase.from('profiles').update(clearedProfileFields()).eq('id', profile.id);
+            if (error) throw error;
+            const { error: nameError } = await supabase.auth.updateUser({ data: { full_name_en: '' } });
+            if (nameError) throw nameError;
+            const next = await refreshProfile();
+            if (next) applyForm(next);
+            alert(t('common.done'), t('profile.resetProfileDone'));
+          } catch (err) {
+            alert(t('common.error'), err instanceof Error ? err.message : '');
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
   };
 
   const removeAccount = async () => {
@@ -783,6 +800,13 @@ export default function OwnerProfile() {
 
       {tab === 'account' ? (
         <>
+          {accountIncomplete ? (
+            <ProfileBanner
+              icon="alert-circle-outline"
+              text={t('profile.completeHintOwner')}
+              onPress={() => jumpTo('nameEn')}
+            />
+          ) : null}
           <OwnerSeenCard
             title={t('profile.studentSeesOwner')}
             name={
@@ -848,6 +872,13 @@ export default function OwnerProfile() {
             bioHint={t('profile.bioHintOwner')}
             spokenLanguages={spokenLanguages}
             onSpokenLanguages={setSpokenLanguages}
+          />
+          <Button
+            title={t('profile.resetProfile')}
+            variant="secondary"
+            onPress={resetProfile}
+            disabled={saving}
+            pill
           />
         </>
       ) : null}

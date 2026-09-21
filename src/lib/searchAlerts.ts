@@ -187,7 +187,6 @@ export function listingMatchesAlert(
   if (prefs.gender && prefs.gender !== 'all' && prefs.gender !== 'suitable') {
     if (item.gender_policy !== 'any' && item.gender_policy !== prefs.gender) return false;
   }
-  if (prefs.verifiedOnly && item.profiles?.id_verify_status !== 'approved') return false;
   const needle = (prefs.query ?? '').trim().toLowerCase();
   if (needle) {
     const hay = [item.title_ar, item.title_en, item.building_name].join(' ').toLowerCase();

@@ -28,7 +28,7 @@ export async function pickProfilePhoto() {
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [1, 1],
-    quality: 0.7,
+    quality: 0.55,
   });
   if (result.canceled || !result.assets[0]) return null;
   if (!withinSize(result.assets[0].fileSize)) {
@@ -111,7 +111,7 @@ export async function pickChatPhoto() {
   if (!ok) return null;
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
-    quality: 0.7,
+    quality: 0.55,
     allowsEditing: false,
   });
   return chatAssetUri(result);
@@ -133,7 +133,7 @@ export async function takeChatPhoto() {
   if (!libraryOk) return null;
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: ['images'],
-    quality: 0.7,
+    quality: 0.55,
     allowsEditing: false,
   });
   return chatAssetUri(result);
@@ -147,7 +147,7 @@ export async function pickListingPhotos(remaining: number) {
   }
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
-    quality: 0.7,
+    quality: 0.55,
     allowsMultipleSelection: true,
     selectionLimit: Math.max(1, remaining),
   });

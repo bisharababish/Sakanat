@@ -54,7 +54,7 @@ import { deletedMessageIds } from '@/src/lib/chatDeleted';
 import { enqueueChatOutbox, flushChatOutbox, subscribeOutboxCount } from '@/src/lib/chatOutbox';
 import { pickChatPhoto, takeChatPhoto } from '@/src/lib/pickImage';
 import { chatPhotoUrl, uploadChatAudio, uploadChatPhoto } from '@/src/lib/upload';
-import { isSeeker, isStudentReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
+import { isSeeker, isSeekerAccountReady, seekerProfileGapTab } from '@/src/lib/studentProfile';
 import { logAdminAction } from '@/src/lib/audit';
 import { supabase, uniqueChannel } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
@@ -188,7 +188,7 @@ export function ChatThread({
     }
     router.push({ pathname: '/(student)/apartment/[id]', params: { id: listingId } });
   };
-  const profileBlocked = Boolean(!readOnly && profile && isSeeker(profile) && !isStudentReady(profile));
+  const profileBlocked = Boolean(!readOnly && profile && isSeeker(profile) && !isSeekerAccountReady(profile));
   const goCompleteProfile = () => {
     if (!profile) return;
     router.push({
@@ -347,6 +347,13 @@ export function ChatThread({
       await sendMessage(conversationId, profile.id, text, imageUrl, audioUrl);
       void loadMessages();
     } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      const tooLarge = message === t('chat.voiceTooLarge') || message === t('chat.photoTooLarge');
+      if (tooLarge) {
+        setMessages((current) => current.filter((row) => row.id !== tempId));
+        alert(t('common.error'), message);
+        return;
+      }
       await enqueueChatOutbox({
         id: tempId,
         conversationId,
@@ -356,10 +363,7 @@ export function ChatThread({
         audioUri: audioUri || null,
         createdAt: temp.created_at,
       });
-      alert(
-        t('common.error'),
-        err instanceof Error && err.message ? err.message : t('chat.sendQueued'),
-      );
+      alert(t('common.error'), message || t('chat.sendQueued'));
     } finally {
       setSending(false);
     }
@@ -441,6 +445,10 @@ export function ChatThread({
       const uri = recorder.uri;
       if (send && uri && ms >= 800) {
         await deliver('', null, uri);
+      } else if (send && ms < 800) {
+        alert(t('common.error'), t('chat.voiceTooShort'));
+      } else if (send && !uri) {
+        alert(t('common.error'), t('chat.mediaFailed'));
       }
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : t('chat.sendFailed'));
@@ -483,7 +491,7 @@ export function ChatThread({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
-      {!readOnly && profile && isSeeker(profile) && !isStudentReady(profile) ? (
+      {!readOnly && profile && isSeeker(profile) && !isSeekerAccountReady(profile) ? (
         <ProfileBanner
           icon="sparkles"
           text={t('chat.completeToChat')}

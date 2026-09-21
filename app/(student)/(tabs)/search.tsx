@@ -31,7 +31,7 @@ import {
   saveSearchAlertPrefs,
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
-import { fetchApprovedListings, refineListings, roomsFilterFromOccupants } from '@/src/lib/searchListings';
+import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { needsLegalAccept } from '@/src/lib/legal';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
@@ -42,7 +42,7 @@ import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import { AMENITIES, type Amenity, type Apartment, type GenderPolicy, type University } from '@/src/types/database';
 
-type GenderFilter = 'suitable' | 'all' | GenderPolicy;
+type GenderFilter = 'all' | GenderPolicy;
 type SortMode = 'price' | 'distance' | 'rating';
 
 const PRICE_OPTIONS = ['400', '600', '800', '1000', '1200', '1500', '2000', '2500', '3000'];
@@ -65,17 +65,17 @@ export default function SearchScreen() {
   const [maxPrice, setMaxPrice] = useState('');
   const [maxKm, setMaxKm] = useState('');
   const [sort, setSort] = useState<SortMode>(!isRenter && profile?.university_id ? 'distance' : 'price');
-  const [genderFilter, setGenderFilter] = useState<GenderFilter>(profile?.gender ? 'suitable' : 'all');
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
   const [roomsFilter, setRoomsFilter] = useState('');
   const [bathsFilter, setBathsFilter] = useState('');
   const [amenityFilter, setAmenityFilter] = useState<Amenity[]>([]);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [alertOn, setAlertOn] = useState(false);
   const [pendingBooking, setPendingBooking] = useState(false);
   const [loadError, setLoadError] = useState('');
   const alertHydrated = useRef(false);
+  const filtersTouched = useRef(false);
 
   useEffect(() => {
     if (!legalLock) return;
@@ -86,7 +86,7 @@ export default function SearchScreen() {
   useEffect(() => {
     void loadSearchAlertPrefs().then((prefs) => {
       setAlertOn(Boolean(prefs.enabled));
-      if (prefs.enabled) {
+      if (prefs.enabled && !filtersTouched.current) {
         if (prefs.cityId) setCityId(prefs.cityId);
         if (prefs.universityId) setUniversityId(prefs.universityId);
         setMaxPrice(prefs.maxPrice != null ? String(prefs.maxPrice) : '');
@@ -94,9 +94,8 @@ export default function SearchScreen() {
         if (prefs.rooms) setRoomsFilter(prefs.rooms);
         if (prefs.baths) setBathsFilter(prefs.baths);
         if (prefs.amenities?.length) setAmenityFilter(prefs.amenities as Amenity[]);
-        if (prefs.gender) setGenderFilter(prefs.gender as GenderFilter);
+        if (prefs.gender && prefs.gender !== 'suitable') setGenderFilter(prefs.gender as GenderFilter);
         if (prefs.query) setQuery(prefs.query);
-        if (prefs.verifiedOnly) setVerifiedOnly(true);
       }
       alertHydrated.current = true;
     });
@@ -116,13 +115,14 @@ export default function SearchScreen() {
         amenities: amenityFilter,
         gender: genderFilter,
         query: query.trim() || undefined,
-        verifiedOnly,
+        verifiedOnly: false,
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [alertOn, amenityFilter, bathsFilter, cityId, genderFilter, maxKm, maxPrice, profile, query, roomsFilter, universityId, verifiedOnly]);
+  }, [alertOn, amenityFilter, bathsFilter, cityId, genderFilter, maxKm, maxPrice, profile, query, roomsFilter, universityId]);
 
   useEffect(() => {
+    if (filtersTouched.current) return;
     if (isRenter) {
       setUniversityId('');
       setMaxKm('');
@@ -134,10 +134,6 @@ export default function SearchScreen() {
       const campus = universities.find((item) => item.id === profile.university_id);
       if (campus?.city_id) setCityId((current) => current || campus.city_id);
     }
-    if (profile?.gender) setGenderFilter((current) => (current === 'all' ? 'suitable' : current));
-    if (profile?.pref_budget_max != null) {
-      setMaxPrice((current) => current || String(Math.round(Number(profile.pref_budget_max))));
-    }
     if (profile?.pref_gender_policy === 'female' || profile?.pref_gender_policy === 'male') {
       setGenderFilter(profile.pref_gender_policy);
     } else if (profile?.pref_gender_policy === 'any') {
@@ -146,9 +142,7 @@ export default function SearchScreen() {
   }, [
     isRenter,
     profile?.city_id,
-    profile?.gender,
     profile?.university_id,
-    profile?.pref_budget_max,
     profile?.pref_gender_policy,
     universities,
   ]);
@@ -203,10 +197,8 @@ export default function SearchScreen() {
         university: selectedUniversity,
         lang: i18n.language,
         isRenter,
-        verifiedOnly,
         moveIn: profile?.pref_move_in || undefined,
         leaseMonths: profile?.pref_lease_months || undefined,
-        minRooms: roomsFilterFromOccupants(profile?.pref_occupants) || undefined,
       });
       setApartments(next.map((row) => row.item));
     } catch (err) {
@@ -235,14 +227,12 @@ export default function SearchScreen() {
     profile?.id,
     profile?.pref_move_in,
     profile?.pref_lease_months,
-    profile?.pref_occupants,
     reloadCatalog,
     roomsFilter,
     selectedUniversity,
     sort,
     t,
     universityId,
-    verifiedOnly,
   ]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], 'search');
@@ -292,7 +282,7 @@ export default function SearchScreen() {
       amenities: amenityFilter,
       gender: genderFilter,
       query: query.trim() || undefined,
-      verifiedOnly,
+      verifiedOnly: false,
     });
     if (next) {
       await saveSeenListingIds(apartments.map((item) => item.id));
@@ -312,22 +302,21 @@ export default function SearchScreen() {
         university: selectedUniversity,
         lang: i18n.language,
         isRenter,
-        verifiedOnly,
       }),
-    [apartments, i18n.language, isRenter, maxKm, query, selectedUniversity, sort, verifiedOnly],
+    [apartments, i18n.language, isRenter, maxKm, query, selectedUniversity, sort],
   );
 
   const paged = usePaged(
     filtered,
     LISTING_PAGE_SIZE,
-    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, bathsFilter, genderFilter, sort, amenityFilter.join(','), verifiedOnly].join('|'),
+    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, bathsFilter, genderFilter, sort, amenityFilter.join(',')].join('|'),
   );
 
   const defaultUniversityId = isRenter ? '' : (profile?.university_id ?? '');
   const defaultCityId = isRenter
     ? (profile?.city_id ?? '')
     : (universities.find((item) => item.id === defaultUniversityId)?.city_id ?? '');
-  const defaultGender: GenderFilter = profile?.gender ? 'suitable' : 'all';
+  const defaultGender: GenderFilter = 'all';
   const defaultSort: SortMode = !isRenter && defaultUniversityId ? 'distance' : 'price';
   const filtersOn = Boolean(
     query.trim() ||
@@ -338,12 +327,12 @@ export default function SearchScreen() {
       roomsFilter ||
       bathsFilter ||
       amenityFilter.length > 0 ||
-      verifiedOnly ||
       genderFilter !== defaultGender ||
       sort !== defaultSort,
   );
 
   const clearFilters = () => {
+    filtersTouched.current = true;
     setQuery('');
     setCityId(defaultCityId);
     setUniversityId(defaultUniversityId);
@@ -352,7 +341,6 @@ export default function SearchScreen() {
     setRoomsFilter('');
     setBathsFilter('');
     setAmenityFilter([]);
-    setVerifiedOnly(false);
     setGenderFilter(defaultGender);
     setSort(defaultSort);
   };
@@ -408,11 +396,9 @@ export default function SearchScreen() {
       chips.push({
         key: 'gender',
         label:
-          genderFilter === 'suitable'
-            ? t('search.suitable')
-            : genderFilter === 'female' || genderFilter === 'male'
-              ? t(`gender.${genderFilter}`)
-              : t('common.all'),
+          genderFilter === 'female' || genderFilter === 'male'
+            ? t(`gender.${genderFilter}`)
+            : t('common.all'),
         onClear: () => setGenderFilter(defaultGender),
       });
     }
@@ -423,9 +409,6 @@ export default function SearchScreen() {
         onClear: () => setAmenityFilter((current) => current.filter((key) => key !== item)),
       });
     });
-    if (verifiedOnly) {
-      chips.push({ key: 'verified', label: t('search.verifiedOnly'), onClear: () => setVerifiedOnly(false) });
-    }
     if (sort !== defaultSort) {
       chips.push({
         key: 'sort',
@@ -454,30 +437,38 @@ export default function SearchScreen() {
     t,
     universities,
     universityId,
-    verifiedOnly,
   ]);
 
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
   const genderItems = [
-    ...(profile?.gender ? [{ value: 'suitable' as const, label: t('search.suitable') }] : []),
     { value: 'all' as const, label: t('common.all') },
     { value: 'female' as const, label: t('gender.female') },
     { value: 'male' as const, label: t('gender.male') },
   ];
-  const campusOptions = universities.filter((item) => !cityId || item.city_id === cityId);
+  const campusOptions = universities.filter(
+    (item) => !cityId || item.city_id === cityId || item.id === universityId,
+  );
   const sortItems: { value: SortMode; label: string }[] = [
     { value: 'price', label: t('search.sortPrice') },
     ...(selectedUniversity ? [{ value: 'distance' as const, label: t('search.sortDistance') }] : []),
     { value: 'rating', label: t('search.sortRating') },
   ];
   const pickCity = (next: string) => {
+    filtersTouched.current = true;
     setCityId(next);
-    if (next && selectedUniversity && selectedUniversity.city_id !== next) {
+    if (!next) {
+      setUniversityId('');
+      setMaxKm('');
+      setSort((current) => (current === 'distance' ? 'price' : current));
+      return;
+    }
+    if (selectedUniversity && selectedUniversity.city_id !== next) {
       setUniversityId('');
       setMaxKm('');
     }
   };
   const pickUniversity = (next: string) => {
+    filtersTouched.current = true;
     setUniversityId(next);
     if (!next) {
       setMaxKm('');
@@ -741,17 +732,6 @@ export default function SearchScreen() {
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
             <FilterPills compact value={genderFilter} onChange={setGenderFilter} items={genderItems} />
 
-            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.trust')}</Text>
-            <FilterPills
-              compact
-              value={verifiedOnly ? 'verified' : 'any'}
-              onChange={(next) => setVerifiedOnly(next === 'verified')}
-              items={[
-                { value: 'any', label: t('common.all') },
-                { value: 'verified', label: t('search.verifiedOnly') },
-              ]}
-            />
-
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('listing.amenities')}</Text>
             <AmenityChips values={amenityFilter} onToggle={toggleAmenity} />
 
@@ -797,9 +777,35 @@ export default function SearchScreen() {
         <View style={styles.empty}>
           <EmptyState
             title={t('search.empty')}
-            hint={filtersOn ? t('search.emptyHint') : cityFirst ? t('search.emptyRenter') : undefined}
-            actionTitle={filtersOn ? t('search.clear') : undefined}
-            onAction={filtersOn ? clearFilters : undefined}
+            hint={
+              filtersOn
+                ? t('search.emptyHint')
+                : cityFirst
+                  ? t('search.emptyRenter')
+                  : !cityId && !universityId
+                    ? t('search.emptyNationwide')
+                    : t('search.emptyCampus')
+            }
+            actionTitle={
+              filtersOn || cityId || universityId ? t('search.clearToAll') : undefined
+            }
+            onAction={
+              filtersOn || cityId || universityId
+                ? () => {
+                    filtersTouched.current = true;
+                    setQuery('');
+                    setCityId('');
+                    setUniversityId('');
+                    setMaxPrice('');
+                    setMaxKm('');
+                    setRoomsFilter('');
+                    setBathsFilter('');
+                    setAmenityFilter([]);
+                    setGenderFilter('all');
+                    setSort('price');
+                  }
+                : undefined
+            }
           />
         </View>
       ) : null}

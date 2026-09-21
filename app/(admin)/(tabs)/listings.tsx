@@ -163,44 +163,48 @@ export default function AdminListings() {
             badge={{ label: t(`status.${item.status}`), tone: listingBadgeTone(item.status) }}
             onPress={() => openListing(item.id)}
           />
-          <View style={[styles.row, row]}>
+          <View style={[styles.actions, row]}>
             {item.status !== 'approved' ? (
-              <View style={styles.flex}>
-                <Button title={t('admin.approve')} pill onPress={() => void setListingStatus(item, 'approved')} />
-              </View>
+              <Button compact pill title={t('admin.approve')} onPress={() => void setListingStatus(item, 'approved')} />
             ) : (
-              <View style={styles.flex}>
-                <Button
-                  title={t('owner.hideListing')}
-                  variant="secondary"
-                  pill
-                  onPress={() => void setListingStatus(item, 'hidden')}
-                />
-              </View>
-            )}
-            {item.status !== 'rejected' ? (
-              <View style={styles.flex}>
-                <Button
-                  title={t('admin.reject')}
-                  variant="danger"
-                  pill
-                  onPress={() => {
-                    setRejectNote('');
-                    setRejecting(item);
-                  }}
-                />
-              </View>
-            ) : null}
-            <View style={styles.flex}>
               <Button
-                title={t('owner.editListing')}
-                variant="secondary"
+                compact
                 pill
-                onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: item.id } })}
+                title={t('owner.hideListing')}
+                variant="secondary"
+                onPress={() => void setListingStatus(item, 'hidden')}
               />
-            </View>
+            )}
+            {item.status === 'hidden' ? (
+              <Button
+                compact
+                pill
+                title={t('owner.unhideListing')}
+                variant="secondary"
+                onPress={() => void setListingStatus(item, 'approved')}
+              />
+            ) : null}
+            {item.status !== 'rejected' ? (
+              <Button
+                compact
+                pill
+                title={t('admin.reject')}
+                variant="danger"
+                onPress={() => {
+                  setRejectNote('');
+                  setRejecting(item);
+                }}
+              />
+            ) : null}
+            <Button
+              compact
+              pill
+              title={t('owner.editListing')}
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/(admin)/listing/[id]', params: { id: item.id } })}
+            />
+            <Button compact pill title={t('admin.deleteListing')} variant="ghost" onPress={() => removeListing(item)} />
           </View>
-          <Button title={t('admin.deleteListing')} variant="ghost" onPress={() => removeListing(item)} />
         </View>
       ))}
       <Pager
@@ -235,6 +239,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   block: { gap: 6 },
   owner: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 13 },
-  row: { gap: 8 },
-  flex: { flex: 1 },
+  actions: { flexWrap: 'wrap', alignItems: 'center', gap: 6 },
 });

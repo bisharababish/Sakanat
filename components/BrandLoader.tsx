@@ -16,7 +16,7 @@ export function BrandLoader() {
         source={require('@/assets/images/logo.png')}
         style={styles.logo}
         contentFit="contain"
-        accessibilityLabel="بدك سكن؟ اطلب منا"
+        accessibilityLabel="Sukna"
       />
       <ActivityIndicator size="large" color={lightColors.primary} style={styles.spinner} />
     </View>
