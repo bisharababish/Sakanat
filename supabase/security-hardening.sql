@@ -100,7 +100,7 @@ create trigger protect_booking_update
   before update on public.bookings
   for each row execute function public.protect_booking_update();
 
--- Cash/check cannot insert as paid. Visa/pay_now still mark paid (simulated until real payments).
+-- Cash cannot insert as paid. Visa/pay_now still mark paid (simulated until real payments).
 create or replace function public.fill_booking_money()
 returns trigger
 language plpgsql

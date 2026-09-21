@@ -148,7 +148,6 @@ export default function OwnerEarnings() {
   const paySplit = useMemo(() => {
     const next = {
       cash: { keep: 0, count: 0 },
-      check: { keep: 0, count: 0 },
       visa: { keep: 0, count: 0 },
     };
     for (const item of list) {
@@ -354,7 +353,7 @@ export default function OwnerEarnings() {
       <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
         <Text style={[styles.panelTitle, rtlText, { color: colors.text }]}>{t('owner.paySplit')}</Text>
         <View style={styles.splitList}>
-          {(['cash', 'check', 'visa'] as const).map((method, index) => (
+          {(['cash', 'visa'] as const).map((method, index) => (
             <View
               key={method}
               style={[

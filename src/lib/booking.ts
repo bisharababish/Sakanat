@@ -33,7 +33,7 @@ export function bookingGateCode(error: unknown): BookingGateCode | null {
   return null;
 }
 
-export const PAYMENT_CHOICES = ['cash', 'check', 'visa'] as const;
+export const PAYMENT_CHOICES = ['cash', 'visa'] as const;
 export type PaymentChoice = (typeof PAYMENT_CHOICES)[number];
 
 export function maxOccupants(_rooms?: number | null) {
@@ -47,19 +47,18 @@ export function occupantChoices(rooms?: number | null) {
 
 export function paymentI18nKey(method?: string | null) {
   if (method === 'pay_now') return 'payment.visa';
-  if (method === 'pay_later') return 'payment.cash';
-  return `payment.${method || 'cash'}`;
+  if (method === 'pay_later' || method === 'check') return 'payment.cash';
+  if (method === 'visa') return 'payment.visa';
+  return 'payment.cash';
 }
 
 export function paymentHintKey(method?: string | null) {
   if (method === 'visa' || method === 'pay_now') return 'payment.visaHint';
-  if (method === 'check') return 'payment.checkHint';
   return 'payment.cashHint';
 }
 
 export function paymentBucket(method?: string | null): PaymentChoice {
   if (method === 'visa' || method === 'pay_now') return 'visa';
-  if (method === 'check') return 'check';
   return 'cash';
 }
 

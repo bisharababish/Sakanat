@@ -34,5 +34,6 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
     flexShrink: 1,
+    overflow: 'hidden',
   },
 });

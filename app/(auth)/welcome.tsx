@@ -59,35 +59,40 @@ export default function WelcomeScreen() {
     >
       <AuthRubber>
       <AuthCard compact>
-        <View style={styles.logo}>
-          <BrandLogo iconOnly size={48} />
-        </View>
-        <Text style={[styles.lead, rtlText, { color: colors.primaryDark }]}>{t('appNameLead')}</Text>
-        <Text style={[styles.tail, rtlText, { color: colors.primary }]}>{t('appNameTail')}</Text>
-        <Text style={[styles.tag, rtlText, { color: colors.textMuted }]}>{t('tagline')}</Text>
-        <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeBody')}</Text>
-        <View style={styles.who}>
-          {WHO.map((role) => (
-            <View key={role} style={[styles.whoChip, { backgroundColor: colors.primarySoft }]}>
-              <Text style={[styles.whoText, { color: colors.primary }]}>{t(`roles.${role}`)}</Text>
-            </View>
-          ))}
-        </View>
-        <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.ownersInvited')}</Text>
-        <View style={styles.points}>
-          {POINTS.map((item) => (
-            <View key={item.title} style={[styles.point, row]}>
-              <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name={item.icon} size={16} color={colors.primary} />
+        <View style={styles.main}>
+          <View style={styles.logo}>
+            <BrandLogo iconOnly size={48} />
+          </View>
+          <View style={styles.brandRow}>
+            <Text style={[styles.brand, { color: colors.primaryDark }]}>{t('appNameLead')}</Text>
+            <Text style={[styles.brandSep, { color: colors.textMuted }]}>·</Text>
+            <Text style={[styles.brand, { color: colors.primary }]}>{t('appNameTail')}</Text>
+          </View>
+          <Text style={[styles.tag, rtlText, { color: colors.textMuted }]}>{t('tagline')}</Text>
+          <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeBody')}</Text>
+          <View style={styles.who}>
+            {WHO.map((role) => (
+              <View key={role} style={[styles.whoChip, { backgroundColor: colors.primarySoft }]}>
+                <Text style={[styles.whoText, { color: colors.primary }]}>{t(`roles.${role}`)}</Text>
               </View>
-              <View style={styles.pointCopy}>
-                <Text style={[styles.pointTitle, rtlText, { color: colors.text }]}>{t(`auth.${item.title}`)}</Text>
-                <Text style={[styles.pointHint, rtlText, { color: colors.textMuted }]}>{t(`auth.${item.hint}`)}</Text>
+            ))}
+          </View>
+          <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.ownersInvited')}</Text>
+          <View style={styles.points}>
+            {POINTS.map((item) => (
+              <View key={item.title} style={[styles.point, row]}>
+                <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+                  <Ionicons name={item.icon} size={16} color={colors.primary} />
+                </View>
+                <View style={styles.pointCopy}>
+                  <Text style={[styles.pointTitle, rtlText, { color: colors.text }]}>{t(`auth.${item.title}`)}</Text>
+                  <Text style={[styles.pointHint, rtlText, { color: colors.textMuted }]}>{t(`auth.${item.hint}`)}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
-        <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('auth.welcomeGuestNote')}</Text>
+        <Text style={[styles.guestNote, rtlText, { color: colors.text }]}>{t('auth.welcomeGuestNote')}</Text>
       </AuthCard>
       </AuthRubber>
     </AuthScreen>
@@ -95,21 +100,27 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  main: { gap: 8, flexShrink: 1, overflow: 'hidden' },
   logo: { alignItems: 'center' },
-  lead: {
+  brandRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+  },
+  brand: {
     fontSize: 24,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
     textAlign: 'center',
     lineHeight: 30,
   },
-  tail: {
-    fontSize: 18,
-    fontWeight: '800',
-    fontFamily: 'Cairo_800ExtraBold',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginTop: -6,
+  brandSep: {
+    fontSize: 20,
+    fontFamily: 'Cairo_700Bold',
+    lineHeight: 30,
   },
   tag: {
     fontSize: 13,
@@ -135,7 +146,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   whoText: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  points: { gap: 8 },
+  points: { gap: 8, flexShrink: 1 },
   point: { alignItems: 'flex-start', gap: 8 },
   iconWrap: {
     width: 30,
@@ -153,5 +164,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
     lineHeight: 16,
     textAlign: 'center',
+  },
+  guestNote: {
+    fontSize: 13,
+    fontFamily: 'Cairo_600SemiBold',
+    lineHeight: 18,
+    textAlign: 'center',
+    flexShrink: 0,
   },
 });

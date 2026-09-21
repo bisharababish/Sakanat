@@ -96,7 +96,7 @@ create table if not exists public.bookings (
   owner_id uuid not null references public.profiles(id) on delete cascade,
   start_date date not null,
   months int not null default 1 check (months > 0),
-  payment_method text not null check (payment_method in ('pay_now', 'pay_later', 'visa', 'cash', 'check')),
+  payment_method text not null check (payment_method in ('pay_now', 'pay_later', 'visa', 'cash')),
   payment_status text not null default 'unpaid' check (payment_status in ('unpaid', 'paid')),
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'cancelled', 'completed')),
   occupants int not null default 1 check (occupants between 1 and 8),

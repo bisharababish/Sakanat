@@ -23,6 +23,7 @@ import { ageLabel, formatIls, localizedName, localizedTitle } from '@/src/lib/fo
 import { seekerIcon, seekerRoleLabel } from '@/src/lib/seeker';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
+import { paymentBucket } from '@/src/lib/booking';
 import { notifyUser } from '@/src/lib/push';
 import { detachCancelledStayChat } from '@/src/lib/stayActions';
 import { SEEKER_BOOKING_PROFILE, seekerTrustDetails } from '@/src/lib/trust';
@@ -32,7 +33,7 @@ import { useColors } from '@/src/theme/ThemeProvider';
 import type { Booking, BookingStatus, PaymentStatus } from '@/src/types/database';
 
 type Filter = 'all' | BookingStatus;
-type PayFilter = 'all' | 'unpaid' | 'paid' | 'cash' | 'check' | 'visa';
+type PayFilter = 'all' | 'unpaid' | 'paid' | 'cash' | 'visa';
 
 export default function AdminBookings() {
   const { t, i18n } = useTranslation();
@@ -131,8 +132,8 @@ export default function AdminBookings() {
     let next = filter === 'all' ? bookings : bookings.filter((item) => item.status === filter);
     if (payFilter === 'unpaid') next = next.filter((item) => item.payment_status !== 'paid');
     else if (payFilter === 'paid') next = next.filter((item) => item.payment_status === 'paid');
-    else if (payFilter === 'cash' || payFilter === 'check' || payFilter === 'visa') {
-      next = next.filter((item) => item.payment_method === payFilter);
+    else if (payFilter === 'cash' || payFilter === 'visa') {
+      next = next.filter((item) => paymentBucket(item.payment_method) === payFilter);
     }
     const needle = query.trim().toLowerCase();
     if (!needle) return next;
@@ -196,7 +197,6 @@ export default function AdminBookings() {
           { value: 'unpaid', label: t('admin.unpaid') },
           { value: 'paid', label: t('admin.paid') },
           { value: 'cash', label: t('payment.cash') },
-          { value: 'check', label: t('payment.check') },
           { value: 'visa', label: t('payment.visa') },
         ]}
       />

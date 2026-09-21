@@ -1,10 +1,13 @@
--- Cash and bank check are settled with the owner. Visa is the in-app option.
--- Run once in the Supabase SQL editor.
+-- Cash and Visa only. Bank check is removed; any old check rows become cash.
+
+update public.bookings
+set payment_method = 'cash'
+where payment_method = 'check';
 
 alter table public.bookings drop constraint if exists bookings_payment_method_check;
 alter table public.bookings
   add constraint bookings_payment_method_check
-  check (payment_method in ('pay_now', 'pay_later', 'visa', 'cash', 'check'));
+  check (payment_method in ('pay_now', 'pay_later', 'visa', 'cash'));
 
 create or replace function public.fill_booking_money()
 returns trigger

@@ -124,7 +124,6 @@ export default function AdminOverview() {
   const paySplit = useMemo(() => {
     const next = {
       cash: { fee: 0, count: 0 },
-      check: { fee: 0, count: 0 },
       visa: { fee: 0, count: 0 },
     };
     for (const item of earned) {
@@ -282,7 +281,7 @@ export default function AdminOverview() {
 
       <Card compact>
         <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.commissionSplit')}</Text>
-        {(['cash', 'check', 'visa'] as const).map((method) => (
+        {(['cash', 'visa'] as const).map((method) => (
           <View key={method} style={[styles.splitRow, row]}>
             <Text
               style={[styles.splitLabel, { textAlign, writingDirection, color: colors.text }]}
