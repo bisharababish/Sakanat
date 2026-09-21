@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +50,7 @@ import {
 import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
 import { clearedProfileFields } from '@/src/lib/studentProfile';
 import { useColors } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/colors';
 import type { PersonGender, Profile } from '@/src/types/database';
 
 type ProfileTab = 'menu' | 'account' | 'trust' | 'settings' | 'security' | 'occupants';
@@ -135,7 +137,7 @@ function snapFromProfile(next: Profile): FormSnap {
 
 export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row } = useLayout();
+  const { rtlText, row, writingDirection } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { cities } = useCatalog();
@@ -396,21 +398,19 @@ export default function OwnerProfile() {
   const banner =
     profile?.owner_status !== 'approved'
       ? { icon: 'hourglass' as const, text: statusLabel, onPress: () => setTab('account') }
-      : accountIncomplete
-        ? { icon: 'person-outline' as const, text: t('profile.completeHintOwner'), onPress: () => setTab('account') }
-        : trustIncomplete
-          ? { icon: 'shield-outline' as const, text: t('menu.verification'), onPress: () => setTab('trust') }
-          : listingCount > 0
-            ? {
-                icon: 'home' as const,
-                text: t('profile.listingCount', { count: listingCount }),
-                onPress: () => router.push('/(owner)/(tabs)/listings'),
-              }
-            : {
-                icon: 'home' as const,
-                text: t('tabs.listings'),
-                onPress: () => router.push('/(owner)/(tabs)/listings'),
-              };
+      : listingCount > 0
+        ? {
+            icon: 'home' as const,
+            text: t('profile.listingCount', { count: listingCount }),
+            onPress: () => router.push('/(owner)/(tabs)/listings'),
+          }
+        : {
+            icon: 'home' as const,
+            text: t('tabs.listings'),
+            onPress: () => router.push('/(owner)/(tabs)/listings'),
+          };
+
+  const setupNeeded = accountIncomplete || trustIncomplete;
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
@@ -651,6 +651,15 @@ export default function OwnerProfile() {
     setTab(trustIds.has(id) ? 'trust' : 'account');
   };
 
+  const continueSetup = () => {
+    const next = progressItems.find((item) => !item.done && item.id && item.id !== 'photo');
+    if (next?.id) {
+      jumpTo(next.id);
+      return;
+    }
+    setTab('account');
+  };
+
   return (
     <>
     <Screen
@@ -708,25 +717,23 @@ export default function OwnerProfile() {
             progressTotal={progressItems.length}
           />
           <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
-          <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
-          {progressItems.some((item) => !item.done && item.id !== 'photo') ? (
-            <View style={[styles.gaps, row]}>
-              {progressItems
-                .filter((item) => !item.done && item.id !== 'photo')
-                .slice(0, 4)
-                .map((item) => (
-                  <Pressable
-                    key={item.id ?? item.label}
-                    onPress={() => item.id && jumpTo(item.id)}
-                    style={[styles.gapChip, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
-                  >
-                    <Text style={[styles.gapChipText, { color: colors.text }]} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                ))}
-            </View>
-          ) : null}
+          {setupNeeded ? (
+            <Pressable
+              onPress={continueSetup}
+              style={({ pressed }) => [
+                styles.continueCta,
+                row,
+                { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
+              <Text style={[styles.continueCtaText, { writingDirection }]}>
+                {t('profile.continueSetup')}
+              </Text>
+            </Pressable>
+          ) : (
+            <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
+          )}
           <ProfileMenu
             groups={[
               [
@@ -734,7 +741,7 @@ export default function OwnerProfile() {
                   key: 'account',
                   icon: 'person-outline',
                   label: t('profile.personalTitle'),
-                  hint: accountIncomplete ? t('profile.stillNeeded') : undefined,
+                  hint: accountIncomplete ? t('profile.saveNeeds') : undefined,
                   dot: accountIncomplete,
                   onPress: () => setTab('account'),
                 },
@@ -807,6 +814,33 @@ export default function OwnerProfile() {
               onPress={() => jumpTo('nameEn')}
             />
           ) : null}
+          <ProfileAccountFields
+            email={profile?.email ?? ''}
+            fullNameEn={fullNameEn}
+            onFullNameEn={setFullNameEn}
+            fullNameAr={fullNameAr}
+            onFullNameAr={setFullNameAr}
+            gender={gender}
+            onGender={setGender}
+            cityId={cityId}
+            onCityId={setCityId}
+            cityOptions={cityOptions}
+            birthDate={birthDate}
+            onBirthDate={setBirthDate}
+            phoneRegion={phoneRegion}
+            phoneLocal={phoneLocal}
+            onPhone={applyPhone}
+            waRegion={waRegion}
+            waLocal={waLocal}
+            onWhatsapp={applyWhatsapp}
+            waLinked={waLinked}
+            onWaLinked={setWaLinked}
+            bio={bio}
+            onBio={setBio}
+            bioHint={t('profile.bioHintOwner')}
+            spokenLanguages={spokenLanguages}
+            onSpokenLanguages={setSpokenLanguages}
+          />
           <OwnerSeenCard
             title={t('profile.studentSeesOwner')}
             name={
@@ -845,33 +879,6 @@ export default function OwnerProfile() {
                 buildings: occupancy.map((item) => item.name),
               },
             )}
-          />
-          <ProfileAccountFields
-            email={profile?.email ?? ''}
-            fullNameEn={fullNameEn}
-            onFullNameEn={setFullNameEn}
-            fullNameAr={fullNameAr}
-            onFullNameAr={setFullNameAr}
-            gender={gender}
-            onGender={setGender}
-            cityId={cityId}
-            onCityId={setCityId}
-            cityOptions={cityOptions}
-            birthDate={birthDate}
-            onBirthDate={setBirthDate}
-            phoneRegion={phoneRegion}
-            phoneLocal={phoneLocal}
-            onPhone={applyPhone}
-            waRegion={waRegion}
-            waLocal={waLocal}
-            onWhatsapp={applyWhatsapp}
-            waLinked={waLinked}
-            onWaLinked={setWaLinked}
-            bio={bio}
-            onBio={setBio}
-            bioHint={t('profile.bioHintOwner')}
-            spokenLanguages={spokenLanguages}
-            onSpokenLanguages={setSpokenLanguages}
           />
           <Button
             title={t('profile.resetProfile')}
@@ -973,13 +980,18 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   occTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
   occHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 18, marginBottom: 6 },
-  gaps: { flexWrap: 'wrap', gap: 6 },
-  gapChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    maxWidth: '100%',
+  continueCta: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: radius.lg,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
   },
-  gapChipText: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
+  continueCtaText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Cairo_700Bold',
+  },
 });

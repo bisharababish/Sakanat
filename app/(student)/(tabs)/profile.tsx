@@ -273,7 +273,7 @@ function degreeName(value: string, t: (key: string) => string) {
 
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row } = useLayout();
+  const { rtlText, row, writingDirection } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { resumeBook, tab: tabParam } = useLocalSearchParams<{
@@ -923,6 +923,19 @@ export default function StudentProfileScreen() {
     }
   };
 
+  const continueSetup = () => {
+    const next = progressItems.find((item) => !item.done && item.id && item.id !== 'photo');
+    if (next?.id) {
+      jumpTo(next.id);
+      return;
+    }
+    if (!avatarUrl) {
+      void changePhoto();
+      return;
+    }
+    setTab('account');
+  };
+
   const bookingBanner = resumeId && !incomplete
     ? {
         icon: 'calendar' as const,
@@ -935,25 +948,9 @@ export default function StudentProfileScreen() {
           text: t('profile.readyToBook'),
           onPress: () => router.push('/(student)/(tabs)/search'),
         }
-      : accountIncomplete
-        ? {
-            icon: 'person-outline' as const,
-            text: isStudent ? t('profile.completeHint') : t('profile.completeHintRenter'),
-            onPress: () => setTab('account'),
-          }
-        : trustIncomplete
-          ? {
-              icon: 'shield-outline' as const,
-              text: t('profile.stillNeeded'),
-              onPress: () => setTab('trust'),
-            }
-          : !avatarUrl
-            ? {
-                icon: 'camera-outline' as const,
-                text: t('profile.photoForBook'),
-                onPress: () => void changePhoto(),
-              }
-            : null;
+      : null;
+
+  const setupNeeded = accountIncomplete || trustIncomplete || !avatarUrl;
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
@@ -1016,28 +1013,24 @@ export default function StudentProfileScreen() {
               progressTotal={progressItems.length}
             />
           </View>
-          <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
-          {bookingBanner ? (
+          {setupNeeded ? (
+            <Pressable
+              onPress={continueSetup}
+              style={({ pressed }) => [
+                styles.continueCta,
+                row,
+                { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
+              <Text style={[styles.continueCtaText, { writingDirection }]}>
+                {t('profile.continueSetup')}
+              </Text>
+            </Pressable>
+          ) : bookingBanner ? (
             <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
           ) : null}
-          {progressItems.some((item) => !item.done && item.id !== 'photo') ? (
-            <View style={[styles.gaps, row]}>
-              {progressItems
-                .filter((item) => !item.done && item.id !== 'photo')
-                .slice(0, 4)
-                .map((item) => (
-                  <Pressable
-                    key={item.id ?? item.label}
-                    onPress={() => item.id && jumpTo(item.id)}
-                    style={[styles.gapChip, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}
-                  >
-                    <Text style={[styles.gapChipText, { color: colors.text }]} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                  </Pressable>
-                ))}
-            </View>
-          ) : null}
+          <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
           <ProfileMenu
             groups={[
               [
@@ -1046,7 +1039,7 @@ export default function StudentProfileScreen() {
                   icon: 'person-outline',
                   label: t('profile.tabAccount'),
                   hint: accountIncomplete
-                    ? t('profile.stillNeeded')
+                    ? t('profile.saveNeeds')
                     : !avatarUrl
                       ? t('profile.photoForBook')
                       : undefined,
@@ -1188,68 +1181,6 @@ export default function StudentProfileScreen() {
               }}
             />
           ) : null}
-          <OwnerSeenCard
-            title={t('profile.ownerSees')}
-            name={
-              displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) ||
-              t('profile.title')
-            }
-            avatarUrl={avatarUrl}
-            bio={bio}
-            verifyStatus={profile?.id_verify_status}
-            verifyRole={profile?.role}
-            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
-            lines={[
-              ...(!isStudent ? [{ icon: 'briefcase-outline' as const, text: t('roles.renter') }] : []),
-              ...(gender ? [{ icon: 'person-outline' as const, text: t(`profile.${gender}`) }] : []),
-              ...(ageLabel(birthDate, t, today)
-                ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
-                : []),
-              ...(isStudent && universityName ? [{ icon: 'school-outline' as const, text: universityName }] : []),
-              ...(cityName ? [{ icon: 'location-outline' as const, text: cityName }] : []),
-              ...(isStudent && majorName ? [{ icon: 'book-outline' as const, text: majorName }] : []),
-              ...(isStudent && degreeLabelText ? [{ icon: 'ribbon-outline' as const, text: degreeLabelText }] : []),
-              ...(isStudent && studyYear
-                ? [
-                    {
-                      icon: 'calendar-outline' as const,
-                      text: yearOptions.find((item) => item.value === studyYear)?.label ?? '',
-                    },
-                  ]
-                : []),
-              ...(isStudent && studentId.trim()
-                ? [{ icon: 'id-card-outline' as const, text: `${t('profile.studentId')} ${studentId}` }]
-                : []),
-              ...(isStudent && graduationTerm.trim()
-                ? [{ icon: 'school-outline' as const, text: `${t('profile.graduationTerm')} ${graduationTerm}` }]
-                : []),
-              ...(languageLine
-                ? [{ icon: 'chatbubbles-outline' as const, text: languageLine }]
-                : []),
-              ...(phoneLocal.trim() &&
-              canShowSeekerContact(
-                { phone_visibility: profile?.phone_visibility ?? 'booking' },
-                'phone',
-                { bookingStatus: 'pending' },
-              )
-                ? [{ icon: 'call-outline' as const, text: `${regionPrefix(phoneRegion)} ${phoneLocal}` }]
-                : []),
-              ...(waLocal.trim() &&
-              canShowSeekerContact(
-                { whatsapp_visibility: profile?.whatsapp_visibility ?? 'booking' },
-                'whatsapp',
-                { bookingStatus: 'pending' },
-              )
-                ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
-                : []),
-              ...(nationalIdUrl
-                ? [{ icon: 'id-card-outline' as const, text: t('profile.idCardsReady') }]
-                : []),
-              ...(shouldShareEmergency(profile) && emergencyName.trim()
-                ? [{ icon: 'alert-circle-outline' as const, text: emergencyName.trim() }]
-                : []),
-            ].filter((item) => item.text)}
-          />
           <ProfileAccountFields
             email={profile?.email ?? ''}
             fullNameEn={fullNameEn}
@@ -1339,6 +1270,68 @@ export default function StudentProfileScreen() {
               </View>
             </Card>
           ) : null}
+          <OwnerSeenCard
+            title={t('profile.ownerSees')}
+            name={
+              displayName({ full_name: fullNameAr, full_name_en: fullNameEn }, i18n.language) ||
+              t('profile.title')
+            }
+            avatarUrl={avatarUrl}
+            bio={bio}
+            verifyStatus={profile?.id_verify_status}
+            verifyRole={profile?.role}
+            onViewPhoto={avatarUrl ? () => setViewingPhoto(true) : undefined}
+            lines={[
+              ...(!isStudent ? [{ icon: 'briefcase-outline' as const, text: t('roles.renter') }] : []),
+              ...(gender ? [{ icon: 'person-outline' as const, text: t(`profile.${gender}`) }] : []),
+              ...(ageLabel(birthDate, t, today)
+                ? [{ icon: 'hourglass-outline' as const, text: ageLabel(birthDate, t, today) }]
+                : []),
+              ...(isStudent && universityName ? [{ icon: 'school-outline' as const, text: universityName }] : []),
+              ...(cityName ? [{ icon: 'location-outline' as const, text: cityName }] : []),
+              ...(isStudent && majorName ? [{ icon: 'book-outline' as const, text: majorName }] : []),
+              ...(isStudent && degreeLabelText ? [{ icon: 'ribbon-outline' as const, text: degreeLabelText }] : []),
+              ...(isStudent && studyYear
+                ? [
+                    {
+                      icon: 'calendar-outline' as const,
+                      text: yearOptions.find((item) => item.value === studyYear)?.label ?? '',
+                    },
+                  ]
+                : []),
+              ...(isStudent && studentId.trim()
+                ? [{ icon: 'id-card-outline' as const, text: `${t('profile.studentId')} ${studentId}` }]
+                : []),
+              ...(isStudent && graduationTerm.trim()
+                ? [{ icon: 'school-outline' as const, text: `${t('profile.graduationTerm')} ${graduationTerm}` }]
+                : []),
+              ...(languageLine
+                ? [{ icon: 'chatbubbles-outline' as const, text: languageLine }]
+                : []),
+              ...(phoneLocal.trim() &&
+              canShowSeekerContact(
+                { phone_visibility: profile?.phone_visibility ?? 'booking' },
+                'phone',
+                { bookingStatus: 'pending' },
+              )
+                ? [{ icon: 'call-outline' as const, text: `${regionPrefix(phoneRegion)} ${phoneLocal}` }]
+                : []),
+              ...(waLocal.trim() &&
+              canShowSeekerContact(
+                { whatsapp_visibility: profile?.whatsapp_visibility ?? 'booking' },
+                'whatsapp',
+                { bookingStatus: 'pending' },
+              )
+                ? [{ icon: 'logo-whatsapp' as const, text: `${regionPrefix(waRegion)} ${waLocal}` }]
+                : []),
+              ...(nationalIdUrl
+                ? [{ icon: 'id-card-outline' as const, text: t('profile.idCardsReady') }]
+                : []),
+              ...(shouldShareEmergency(profile) && emergencyName.trim()
+                ? [{ icon: 'alert-circle-outline' as const, text: emergencyName.trim() }]
+                : []),
+            ].filter((item) => item.text)}
+          />
           <Button
             title={t('profile.resetProfile')}
             variant="secondary"
@@ -1440,15 +1433,20 @@ export default function StudentProfileScreen() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
-  gaps: { flexWrap: 'wrap', gap: 6 },
-  gapChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    maxWidth: '100%',
+  continueCta: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: radius.lg,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
   },
-  gapChipText: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', flexShrink: 1 },
+  continueCtaText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Cairo_700Bold',
+  },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   denseBlock: { gap: spacing.xs },
   savedBlock: { gap: 8 },

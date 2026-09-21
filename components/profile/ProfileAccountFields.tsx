@@ -94,6 +94,7 @@ export function ProfileAccountFields({
   const numbersMatch = sameMobile(phoneRegion, phoneLocal, waRegion, waLocal);
   const sameNumber = numbersMatch && waLinked;
   const [mapOpen, setMapOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const mapLockRef = useRef(false);
   const mapCenter = useMemo(() => {
     const city = cityOptions.find((item) => item.value === cityId);
@@ -192,52 +193,6 @@ export function ProfileAccountFields({
               />
             </>
           ) : null}
-          {onBio ? (
-            <Input
-              compact
-              label={t('profile.bio')}
-              value={bio}
-              onChangeText={onBio}
-              multiline
-              hint={bioHint || t('profile.bioHint')}
-            />
-          ) : null}
-          {onSpokenLanguages ? (
-            <>
-              <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.spokenLanguages')}</Text>
-              <FilterPills
-                compact
-                values={
-                  spokenLanguages.filter((item): item is 'ar' | 'en' | 'he' =>
-                    item === 'ar' || item === 'en' || item === 'he',
-                  )
-                }
-                onToggle={(value) => {
-                  const selected = spokenLanguages.filter(
-                    (item): item is 'ar' | 'en' | 'he' => item === 'ar' || item === 'en' || item === 'he',
-                  );
-                  onSpokenLanguages(
-                    selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value],
-                  );
-                }}
-                items={[
-                  { value: 'ar', label: t('profile.langAr') },
-                  { value: 'en', label: t('profile.langEn') },
-                  { value: 'he', label: t('profile.langHe') },
-                ]}
-              />
-            </>
-          ) : null}
-          {onGraduationTerm ? (
-            <Input
-              compact
-              label={t('profile.graduationTerm')}
-              value={graduationTerm}
-              onChangeText={onGraduationTerm}
-              placeholder={t('profile.graduationTermHint')}
-              ltr
-            />
-          ) : null}
           <DateField compact label={t('profile.birthDate')} value={birthDate} onChange={onBirthDate} />
         </View>
       </Card>
@@ -301,6 +256,71 @@ export function ProfileAccountFields({
           ) : null}
         </View>
       </Card>
+      {onBio || onSpokenLanguages || onGraduationTerm ? (
+        <Card compact>
+          <Pressable
+            onPress={() => setMoreOpen((open) => !open)}
+            style={[styles.moreHead, row]}
+            accessibilityRole="button"
+          >
+            <View style={styles.moreTitle}>
+              <SectionHead compact icon="ellipsis-horizontal" title={t('profile.moreOptional')} />
+            </View>
+            <Ionicons name={moreOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+          </Pressable>
+          {moreOpen ? (
+            <View style={styles.denseBlock}>
+              <Text style={[styles.moreHint, rtlText, { color: colors.textMuted }]}>{t('profile.moreOptionalHint')}</Text>
+              {onBio ? (
+                <Input
+                  compact
+                  label={t('profile.bio')}
+                  value={bio}
+                  onChangeText={onBio}
+                  multiline
+                  hint={bioHint || t('profile.bioHint')}
+                />
+              ) : null}
+              {onSpokenLanguages ? (
+                <>
+                  <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.spokenLanguages')}</Text>
+                  <FilterPills
+                    compact
+                    values={
+                      spokenLanguages.filter((item): item is 'ar' | 'en' | 'he' =>
+                        item === 'ar' || item === 'en' || item === 'he',
+                      )
+                    }
+                    onToggle={(value) => {
+                      const selected = spokenLanguages.filter(
+                        (item): item is 'ar' | 'en' | 'he' => item === 'ar' || item === 'en' || item === 'he',
+                      );
+                      onSpokenLanguages(
+                        selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value],
+                      );
+                    }}
+                    items={[
+                      { value: 'ar', label: t('profile.langAr') },
+                      { value: 'en', label: t('profile.langEn') },
+                      { value: 'he', label: t('profile.langHe') },
+                    ]}
+                  />
+                </>
+              ) : null}
+              {onGraduationTerm ? (
+                <Input
+                  compact
+                  label={t('profile.graduationTerm')}
+                  value={graduationTerm}
+                  onChangeText={onGraduationTerm}
+                  placeholder={t('profile.graduationTermHint')}
+                  ltr
+                />
+              ) : null}
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
     </>
   );
 }
@@ -309,6 +329,9 @@ const styles = StyleSheet.create({
   denseBlock: { gap: spacing.xs },
   denseLabel: { fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 0 },
+  moreHead: { alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  moreTitle: { flex: 1, minWidth: 0 },
+  moreHint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular', marginBottom: 4 },
   warn: {
     alignItems: 'flex-start',
     gap: 6,
