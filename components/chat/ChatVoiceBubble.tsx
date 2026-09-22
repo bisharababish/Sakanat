@@ -16,11 +16,9 @@ function formatMs(ms: number) {
 
 function VoicePlay({
   uri,
-  mine,
   onLongPress,
 }: {
   uri: string;
-  mine: boolean;
   onLongPress?: () => void;
 }) {
   const colors = useColors();
@@ -32,7 +30,7 @@ function VoicePlay({
   const duration = (status.duration ?? 0) * 1000;
   const current = (status.currentTime ?? 0) * 1000;
   const shown = playing || current > 0 ? current : duration;
-  const tint = mine ? colors.white : colors.primary;
+  const tint = colors.primary;
 
   return (
     <Pressable
@@ -53,10 +51,10 @@ function VoicePlay({
       accessibilityRole="button"
       style={[styles.row, row]}
     >
-      <View style={[styles.play, { backgroundColor: mine ? 'rgba(255,255,255,0.18)' : colors.primarySoft }]}>
+      <View style={[styles.play, { backgroundColor: colors.surface }]}>
         <Ionicons name={playing ? 'pause' : 'play'} size={16} color={tint} />
       </View>
-      <View style={[styles.bar, { backgroundColor: mine ? 'rgba(255,255,255,0.28)' : colors.border }]}>
+      <View style={[styles.bar, { backgroundColor: colors.border }]}>
         <View
           style={[
             styles.fill,
@@ -67,16 +65,14 @@ function VoicePlay({
           ]}
         />
       </View>
-      <Text style={[styles.time, { color: mine ? 'rgba(255,255,255,0.9)' : colors.text }]}>
-        {formatMs(shown || 0)}
-      </Text>
+      <Text style={[styles.time, { color: colors.text }]}>{formatMs(shown || 0)}</Text>
     </Pressable>
   );
 }
 
 export function ChatVoiceBubble({
   pathOrUrl,
-  mine,
+  mine: _mine,
   onLongPress,
 }: {
   pathOrUrl: string;
@@ -102,12 +98,12 @@ export function ChatVoiceBubble({
   if (!uri) {
     return (
       <View style={[styles.row, row]}>
-        <ActivityIndicator size="small" color={mine ? colors.white : colors.primary} />
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   }
 
-  return <VoicePlay key={uri} uri={uri} mine={mine} onLongPress={onLongPress} />;
+  return <VoicePlay key={uri} uri={uri} onLongPress={onLongPress} />;
 }
 
 const styles = StyleSheet.create({

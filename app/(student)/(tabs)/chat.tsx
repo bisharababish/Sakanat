@@ -49,6 +49,7 @@ export default function StudentChat() {
         profileId={inbox.profile?.id}
         isOwner={false}
         onReload={inbox.reload}
+        onPatch={inbox.patch}
         filter={filter}
         onFilterChange={setFilter}
         pinApartmentId={stayApartmentId ?? undefined}

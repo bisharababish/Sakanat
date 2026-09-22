@@ -131,12 +131,12 @@ function ReceiptTick({
   onMine: boolean;
 }) {
   const colors = useColors();
-  const muted = onMine ? 'rgba(255,255,255,0.72)' : colors.textMuted;
-  const read = onMine ? colors.accent : colors.primary;
-  if (status === 'pending') return <Ionicons name="time-outline" size={13} color={muted} />;
-  if (status === 'sent') return <Ionicons name="checkmark" size={13} color={muted} />;
-  if (status === 'delivered') return <Ionicons name="checkmark-done" size={13} color={muted} />;
-  return <Ionicons name="checkmark-done" size={13} color={read} />;
+  const muted = colors.textMuted;
+  const read = colors.primary;
+  if (status === 'pending') return <Ionicons name="time-outline" size={14} color={muted} />;
+  if (status === 'sent') return <Ionicons name="checkmark" size={14} color={muted} />;
+  if (status === 'delivered') return <Ionicons name="checkmark-done" size={14} color={muted} />;
+  return <Ionicons name="checkmark-done" size={14} color={read} />;
 }
 
 type ThreadItem = Message & { showDay: boolean; grouped: boolean; lastInGroup: boolean };
@@ -487,7 +487,7 @@ export function ChatThread({
 
   return (
     <KeyboardAvoidingView
-      style={[styles.flex, { backgroundColor: colors.background }]}
+      style={[styles.flex, { backgroundColor: colors.surfaceMuted }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
@@ -571,7 +571,7 @@ export function ChatThread({
             <View style={{ marginTop: item.showDay ? 4 : item.grouped ? 3 : 10 }}>
               {item.showDay ? (
                 <View style={styles.dayWrap}>
-                  <Text style={[styles.day, { backgroundColor: colors.accentSoft, color: colors.primaryDark }]}>
+                  <Text style={[styles.day, { backgroundColor: colors.surface, color: colors.textMuted }]}>
                     {dayLabel(item.created_at, i18n.language, t('chat.today'), t('chat.yesterday'))}
                   </Text>
                 </View>
@@ -580,7 +580,7 @@ export function ChatThread({
                 <Text
                   style={[
                     styles.sender,
-                    { color: colors.textMuted },
+                    { color: colors.primary },
                     mine ? styles.senderMine : styles.senderTheirs,
                   ]}
                 >
@@ -593,16 +593,14 @@ export function ChatThread({
                   mine
                     ? {
                         alignSelf: 'flex-end',
-                        backgroundColor: colors.primary,
-                        borderBottomRightRadius: item.lastInGroup ? 6 : 20,
+                        backgroundColor: colors.primarySoft,
+                        borderBottomRightRadius: item.lastInGroup ? 4 : 16,
                         opacity: pending ? 0.78 : 1,
                       }
                     : {
                         alignSelf: 'flex-start',
                         backgroundColor: colors.surface,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        borderBottomLeftRadius: item.lastInGroup ? 6 : 20,
+                        borderBottomLeftRadius: item.lastInGroup ? 4 : 16,
                       },
                 ]}
               >
@@ -621,7 +619,7 @@ export function ChatThread({
                     <Text
                       style={[
                         styles.body,
-                        { writingDirection, color: mine ? colors.white : colors.text },
+                        { writingDirection, color: colors.text },
                       ]}
                     >
                       {item.body}
@@ -634,7 +632,7 @@ export function ChatThread({
                     delayLongPress={350}
                     style={[styles.meta, row]}
                   >
-                    <Text style={[styles.time, { color: mine ? 'rgba(255,255,255,0.72)' : colors.textMuted }]}>
+                    <Text style={[styles.time, { color: colors.textMuted }]}>
                       {timeLabel(item.created_at, i18n.language)}
                     </Text>
                     {showTicks ? <ReceiptTick status={receipt} onMine={mine} /> : null}
@@ -651,29 +649,28 @@ export function ChatThread({
             styles.composer,
             row,
             {
-              paddingBottom: Math.max(insets.bottom, 6),
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 8),
+              backgroundColor: colors.surfaceMuted,
             },
           ]}
         >
-          <Pressable
-            onPress={() => void onTakePhoto()}
-            disabled={sending || recording || Boolean(pendingPhoto)}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.takePhoto')}
-            style={[styles.attach, { backgroundColor: colors.surfaceMuted }]}
-          >
-            <Ionicons name="camera-outline" size={18} color={colors.primary} />
-          </Pressable>
           <Pressable
             onPress={() => void onAttach()}
             disabled={sending || recording || Boolean(pendingPhoto)}
             accessibilityRole="button"
             accessibilityLabel={t('chat.attachPhoto')}
-            style={[styles.attach, { backgroundColor: colors.surfaceMuted }]}
+            style={styles.attach}
           >
-            <Ionicons name="image-outline" size={18} color={colors.primary} />
+            <Ionicons name="add-circle" size={30} color={colors.primary} />
+          </Pressable>
+          <Pressable
+            onPress={() => void onTakePhoto()}
+            disabled={sending || recording || Boolean(pendingPhoto)}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.takePhoto')}
+            style={styles.attachSm}
+          >
+            <Ionicons name="camera" size={22} color={colors.primary} />
           </Pressable>
           {recording ? (
             <View style={[styles.recordBox, row, { backgroundColor: colors.dangerSoft }]}>
@@ -703,42 +700,43 @@ export function ChatThread({
                 {
                   textAlign,
                   writingDirection,
-                  backgroundColor: colors.surfaceMuted,
+                  backgroundColor: colors.surface,
                   color: colors.text,
+                  borderColor: colors.border,
                 },
               ]}
             />
           )}
-          <Pressable
-            onPress={() => (recording ? void finishVoice(true) : void startVoice())}
-            disabled={sending || Boolean(pendingPhoto)}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.voiceMessage')}
-            style={[styles.attach, { backgroundColor: recording ? colors.dangerSoft : colors.surfaceMuted }]}
-          >
-            <Ionicons name={recording ? 'stop' : 'mic-outline'} size={18} color={recording ? colors.danger : colors.primary} />
-          </Pressable>
-          <Pressable
-            onPress={() => (recording ? void finishVoice(true) : void onSend())}
-            disabled={recording ? sending : !canSend}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.send')}
-            style={[
-              styles.send,
-              { backgroundColor: recording || canSend || sending ? colors.primary : colors.surfaceMuted },
-            ]}
-          >
-            {sending ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Ionicons
-                name="send"
-                size={18}
-                color={recording || canSend ? colors.white : colors.textMuted}
-                style={isRtl ? { transform: [{ scaleX: -1 }] } : undefined}
-              />
-            )}
-          </Pressable>
+          {canSend || recording || sending ? (
+            <Pressable
+              onPress={() => (recording ? void finishVoice(true) : void onSend())}
+              disabled={recording ? sending : !canSend}
+              accessibilityRole="button"
+              accessibilityLabel={t('chat.send')}
+              style={[styles.send, { backgroundColor: colors.primary }]}
+            >
+              {sending ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Ionicons
+                  name={recording ? 'send' : 'send'}
+                  size={18}
+                  color={colors.white}
+                  style={isRtl ? { transform: [{ scaleX: -1 }] } : undefined}
+                />
+              )}
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => void startVoice()}
+              disabled={sending || Boolean(pendingPhoto)}
+              accessibilityRole="button"
+              accessibilityLabel={t('chat.voiceMessage')}
+              style={[styles.send, { backgroundColor: colors.primary }]}
+            >
+              <Ionicons name="mic" size={20} color={colors.white} />
+            </Pressable>
+          )}
         </View>
       )}
       <Modal
@@ -796,7 +794,7 @@ export function ChatThread({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  list: { padding: spacing.md, flexGrow: 1, paddingBottom: spacing.lg },
+  list: { paddingHorizontal: 10, paddingTop: 8, flexGrow: 1, paddingBottom: spacing.lg },
   emptyBox: {
     alignItems: 'center',
     gap: 10,
@@ -814,56 +812,70 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   empty: { fontFamily: 'Cairo_400Regular', lineHeight: 22 },
-  dayWrap: { alignItems: 'center', marginVertical: 10 },
+  dayWrap: { alignItems: 'center', marginVertical: 12 },
   day: {
     fontSize: 12,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: radius.full,
     overflow: 'hidden',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
   },
   bubble: {
     maxWidth: '82%',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 8,
-    gap: 4,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: 4,
+    gap: 2,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 1 },
   },
   bubbleImage: {
     width: 220,
     height: 160,
-    borderRadius: 12,
-    marginBottom: 4,
+    borderRadius: 10,
+    marginBottom: 2,
     overflow: 'hidden',
   },
   bubbleImageFill: { width: '100%', height: '100%' },
-  body: { fontSize: 15, lineHeight: 22, fontFamily: 'Cairo_400Regular' },
-  meta: { alignItems: 'center', gap: 4, alignSelf: 'flex-end' },
+  body: { fontSize: 15, lineHeight: 21, fontFamily: 'Cairo_400Regular' },
+  meta: { alignItems: 'center', gap: 3, alignSelf: 'flex-end', marginTop: 2 },
   time: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
-  sender: { fontSize: 11, fontFamily: 'Cairo_700Bold', marginBottom: 4, marginHorizontal: 4 },
+  sender: { fontSize: 11, fontFamily: 'Cairo_700Bold', marginBottom: 2, marginHorizontal: 6 },
   senderMine: { alignSelf: 'flex-end' },
   senderTheirs: { alignSelf: 'flex-start' },
   composer: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 8,
     paddingTop: 8,
     gap: 6,
-    borderTopWidth: 1,
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   attach: {
     width: 36,
-    height: 36,
-    borderRadius: 18,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachSm: {
+    width: 32,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recordBox: {
     flex: 1,
-    minHeight: 40,
-    borderRadius: 20,
+    minHeight: 44,
+    borderRadius: 22,
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
     gap: 8,
@@ -872,18 +884,19 @@ const styles = StyleSheet.create({
   recTime: { fontSize: 14, fontFamily: 'Cairo_700Bold' },
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 44,
+    maxHeight: 110,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontSize: 15,
     fontFamily: 'Cairo_400Regular',
   },
   send: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

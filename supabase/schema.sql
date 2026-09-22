@@ -504,26 +504,47 @@ create policy apartment_photos_update on storage.objects
   using (bucket_id = 'apartment-photos');
 
 -- ---------------------------------------------------------------------------
--- Realtime
+-- Realtime (tables the app watches via useLiveReload / chat / catalog)
 -- ---------------------------------------------------------------------------
 
 alter table public.messages replica identity full;
 alter table public.conversations replica identity full;
+alter table public.apartments replica identity full;
+alter table public.bookings replica identity full;
+alter table public.profiles replica identity full;
+alter table public.saved_apartments replica identity full;
+alter table public.cities replica identity full;
+alter table public.universities replica identity full;
+alter table public.app_settings replica identity full;
 
 do $$
+declare
+  tbl text;
 begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and tablename = 'messages'
-  ) then
-    alter publication supabase_realtime add table public.messages;
-  end if;
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and tablename = 'conversations'
-  ) then
-    alter publication supabase_realtime add table public.conversations;
-  end if;
+  foreach tbl in array array[
+    'messages',
+    'conversations',
+    'apartments',
+    'bookings',
+    'profiles',
+    'saved_apartments',
+    'cities',
+    'universities',
+    'app_settings',
+    'apartment_reviews',
+    'app_reports'
+  ]
+  loop
+    if exists (
+      select 1 from information_schema.tables
+      where table_schema = 'public' and table_name = tbl
+    ) and not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and tablename = tbl
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', tbl);
+    end if;
+  end loop;
 end $$;
 
 -- ---------------------------------------------------------------------------

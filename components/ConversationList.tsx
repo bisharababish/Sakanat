@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationCard } from '@/components/chat/ConversationCard';
+import { SwipeableConversation } from '@/components/chat/SwipeableConversation';
 import { EmptyState } from '@/components/EmptyState';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
@@ -28,7 +29,7 @@ import {
   setConversationMuted,
 } from '@/src/lib/chat';
 import { alert } from '@/src/lib/notice';
-import { pinnedListingConversationIds } from '@/src/lib/chatDeleted';
+import { dismissConversation, dismissedConversationIds, pinnedListingConversationIds } from '@/src/lib/chatDeleted';
 import { CHAT_PAGE_SIZE } from '@/src/lib/page';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -52,9 +53,13 @@ export function useInbox() {
     }
   }, [profile]);
 
+  const patch = useCallback((id: string, next: Partial<Conversation>) => {
+    setItems((prev) => (prev ? prev.map((row) => (row.id === id ? { ...row, ...next } : row)) : prev));
+  }, []);
+
   const { refreshing, refresh } = useLiveReload(load, ['conversations', 'messages'], `inbox:${profile?.id ?? ''}`);
 
-  return { items, refreshing, refresh, profile, reload: load };
+  return { items, refreshing, refresh, profile, reload: load, patch };
 }
 
 export function ConversationList({
@@ -63,6 +68,7 @@ export function ConversationList({
   profileId,
   isOwner,
   onReload,
+  onPatch,
   filter,
   onFilterChange,
   apartmentId,
@@ -74,6 +80,7 @@ export function ConversationList({
   profileId?: string;
   isOwner?: boolean;
   onReload?: () => void | Promise<void>;
+  onPatch?: (id: string, next: Partial<Conversation>) => void;
   filter?: InboxFilter;
   onFilterChange?: (next: InboxFilter) => void;
   apartmentId?: string;
@@ -89,6 +96,7 @@ export function ConversationList({
       profileId={profileId}
       isOwner={isOwner}
       onReload={onReload}
+      onPatch={onPatch}
       filter={filter}
       onFilterChange={onFilterChange}
       pinApartmentId={pinApartmentId}
@@ -103,6 +111,7 @@ function ConversationPages({
   profileId,
   isOwner,
   onReload,
+  onPatch,
   filter: filterProp,
   onFilterChange,
   pinApartmentId,
@@ -113,6 +122,7 @@ function ConversationPages({
   profileId?: string;
   isOwner?: boolean;
   onReload?: () => void | Promise<void>;
+  onPatch?: (id: string, next: Partial<Conversation>) => void;
   filter?: InboxFilter;
   onFilterChange?: (next: InboxFilter) => void;
   pinApartmentId?: string;
@@ -128,25 +138,33 @@ function ConversationPages({
   const [messageHits, setMessageHits] = useState<string[]>([]);
   const [hiddenListings, setHiddenListings] = useState<Set<string>>(new Set());
   const [pinnedListings, setPinnedListings] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!profileId) {
       setHiddenListings(new Set());
       setPinnedListings(new Set());
+      setDismissed(new Set());
       return;
     }
     let cancelled = false;
-    void Promise.all([hiddenListingChatKeys(profileId, Boolean(isOwner)), pinnedListingConversationIds()])
-      .then(([hidden, pinned]) => {
+    void Promise.all([
+      hiddenListingChatKeys(profileId, Boolean(isOwner)),
+      pinnedListingConversationIds(),
+      dismissedConversationIds(),
+    ])
+      .then(([hidden, pinned, gone]) => {
         if (!cancelled) {
           setHiddenListings(hidden);
           setPinnedListings(pinned);
+          setDismissed(gone);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setHiddenListings(new Set());
           setPinnedListings(new Set());
+          setDismissed(new Set());
         }
       });
     return () => {
@@ -175,13 +193,14 @@ function ConversationPages({
 
   const scoped = useMemo(() => {
     return items.filter((item) => {
+      if (dismissed.has(item.id)) return false;
       const archived = isConversationArchived(item, profileId);
       if (filter === 'archived') return archived;
       if (archived) return false;
       if (filter === 'unread') return isConversationUnread(item, profileId);
       return true;
     });
-  }, [items, filter, profileId]);
+  }, [items, filter, profileId, dismissed]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -214,13 +233,77 @@ function ConversationPages({
   );
 
   const unreadCount = useMemo(
-    () => items.filter((item) => !isConversationArchived(item, profileId) && isConversationUnread(item, profileId)).length,
-    [items, profileId],
+    () =>
+      items.filter(
+        (item) =>
+          !dismissed.has(item.id) &&
+          !isConversationArchived(item, profileId) &&
+          isConversationUnread(item, profileId),
+      ).length,
+    [items, profileId, dismissed],
   );
   const archivedCount = useMemo(
-    () => items.filter((item) => isConversationArchived(item, profileId)).length,
-    [items, profileId],
+    () => items.filter((item) => !dismissed.has(item.id) && isConversationArchived(item, profileId)).length,
+    [items, profileId, dismissed],
   );
+
+  const runMute = (item: Conversation) => {
+    const muted = isConversationMuted(item, profileId);
+    const next = !muted;
+    const patch = isOwner ? { owner_muted: next } : { student_muted: next };
+    onPatch?.(item.id, patch);
+    alert(t('common.done'), muted ? t('chat.unmutedToast') : t('chat.mutedToast'));
+    void (async () => {
+      try {
+        await setConversationMuted(item.id, Boolean(isOwner), next);
+        void onReload?.();
+      } catch (err) {
+        onPatch?.(item.id, isOwner ? { owner_muted: muted } : { student_muted: muted });
+        alert(t('common.error'), err instanceof Error ? err.message : t('chat.inboxActionFailed'));
+      }
+    })();
+  };
+
+  const runArchive = (item: Conversation) => {
+    const archived = isConversationArchived(item, profileId);
+    const next = !archived;
+    const stamp = next ? new Date().toISOString() : null;
+    const before = isOwner
+      ? { owner_archived_at: item.owner_archived_at ?? null }
+      : { student_archived_at: item.student_archived_at ?? null };
+    onPatch?.(item.id, isOwner ? { owner_archived_at: stamp } : { student_archived_at: stamp });
+    alert(t('common.done'), archived ? t('chat.unarchivedToast') : t('chat.archivedToast'));
+    void (async () => {
+      try {
+        await setConversationArchived(item.id, Boolean(isOwner), next);
+        void onReload?.();
+      } catch (err) {
+        onPatch?.(item.id, before);
+        alert(t('common.error'), err instanceof Error ? err.message : t('chat.inboxActionFailed'));
+      }
+    })();
+  };
+
+  const runDelete = (item: Conversation) => {
+    alert(t('chat.deleteChat'), t('chat.confirmDeleteChat'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('chat.deleteChat'),
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await dismissConversation(item.id);
+              setDismissed((prev) => new Set([...prev, item.id]));
+              void onReload?.();
+            } catch (err) {
+              alert(t('common.error'), err instanceof Error ? err.message : t('chat.inboxActionFailed'));
+            }
+          })();
+        },
+      },
+    ]);
+  };
 
   const manage = (item: Conversation) => {
     const muted = isConversationMuted(item, profileId);
@@ -229,29 +312,16 @@ function ConversationPages({
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: muted ? t('chat.unmute') : t('chat.mute'),
-        onPress: () => {
-          void (async () => {
-            try {
-              await setConversationMuted(item.id, Boolean(isOwner), !muted);
-              await onReload?.();
-            } catch (err) {
-              alert(t('common.error'), err instanceof Error ? err.message : t('chat.inboxActionFailed'));
-            }
-          })();
-        },
+        onPress: () => runMute(item),
       },
       {
         text: archived ? t('chat.unarchive') : t('chat.archive'),
-        onPress: () => {
-          void (async () => {
-            try {
-              await setConversationArchived(item.id, Boolean(isOwner), !archived);
-              await onReload?.();
-            } catch (err) {
-              alert(t('common.error'), err instanceof Error ? err.message : t('chat.inboxActionFailed'));
-            }
-          })();
-        },
+        onPress: () => runArchive(item),
+      },
+      {
+        text: t('chat.deleteChat'),
+        style: 'destructive',
+        onPress: () => runDelete(item),
       },
     ]);
   };
@@ -301,6 +371,12 @@ function ConversationPages({
         ]}
       />
 
+      {items.length > 0 ? (
+        <Text style={[styles.hint, { textAlign, writingDirection, color: colors.textMuted }]}>
+          {t('chat.inboxHint')}
+        </Text>
+      ) : null}
+
       {items.length === 0 ? (
         <EmptyState
           title={isOwner ? t('chat.emptyOwner') : t('chat.empty')}
@@ -318,33 +394,57 @@ function ConversationPages({
           }
         />
       ) : (
-        <View style={styles.list}>
-          {paged.slice.map((item) => {
-            const person = otherPerson(item, profileId);
-            return (
-              <ConversationCard
-                key={item.id}
-                conversation={item}
-                title={personName(person) || t('chat.unknownPerson')}
-                photo={person?.avatar_url}
-                unread={isConversationUnread(item, profileId)}
-                muted={isConversationMuted(item, profileId)}
-                archived={isConversationArchived(item, profileId)}
-                hideListing={
-                  hiddenListings.has(conversationListingKey(item)) && !pinnedListings.has(item.id)
-                }
-                badge={
-                  item.apartment_id && pinIds.has(item.apartment_id)
-                    ? isOwner
-                      ? t('owner.staying')
-                      : t('chat.stayPin')
-                    : undefined
-                }
-                onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
-                onLongPress={() => manage(item)}
-              />
-            );
-          })}
+        <View style={styles.listBlock}>
+          <View
+            style={[
+              styles.list,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            {paged.slice.map((item, index) => {
+              const person = otherPerson(item, profileId);
+              const muted = isConversationMuted(item, profileId);
+              const archived = isConversationArchived(item, profileId);
+              return (
+                <View key={item.id}>
+                  <SwipeableConversation
+                    muted={muted}
+                    archived={archived}
+                    onMute={() => runMute(item)}
+                    onArchive={() => runArchive(item)}
+                    onDelete={() => runDelete(item)}
+                  >
+                    <ConversationCard
+                      conversation={item}
+                      title={personName(person) || t('chat.unknownPerson')}
+                      photo={person?.avatar_url}
+                      unread={isConversationUnread(item, profileId)}
+                      muted={muted}
+                      archived={archived}
+                      hideListing={
+                        hiddenListings.has(conversationListingKey(item)) && !pinnedListings.has(item.id)
+                      }
+                      badge={
+                        item.apartment_id && pinIds.has(item.apartment_id)
+                          ? isOwner
+                            ? t('owner.staying')
+                            : t('chat.stayPin')
+                          : undefined
+                      }
+                      onPress={() => router.push({ pathname: roleHref, params: { id: item.id } })}
+                      onLongPress={() => manage(item)}
+                    />
+                  </SwipeableConversation>
+                  {index < paged.slice.length - 1 ? (
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
           <Pager
             page={paged.page}
             pages={paged.pages}
@@ -362,14 +462,24 @@ function ConversationPages({
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
-  list: { gap: 6 },
+  listBlock: { gap: spacing.sm },
+  list: {
+    overflow: 'hidden',
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 74,
+  },
+  hint: { fontSize: 11, fontFamily: 'Cairo_400Regular', lineHeight: 15, opacity: 0.85, marginTop: -2 },
   searchBar: {
     alignItems: 'center',
     gap: 8,
-    borderWidth: 1,
-    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
-    minHeight: 40,
+    minHeight: 38,
   },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: 'Cairo_400Regular', paddingVertical: 6 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: 'Cairo_400Regular', paddingVertical: 5 },
 });

@@ -19,20 +19,11 @@ export function ChromeBar({ back = false, compactBack = false, showMenu, onBack,
   useEdgeBack(Boolean(back), onBack ?? goBack);
   if (!back && !menu && !extra) return null;
 
-  if (extra) {
-    return (
-      <View style={[styles.bar, styles.split]}>
-        <View style={[styles.slot, styles.slotStart]}>{back ? <BackButton compact={compactBack} onPress={onBack} /> : null}</View>
-        <View style={styles.mid}>{extra}</View>
-        <View style={[styles.slot, styles.slotEnd]}>{menu ? <MenuButton /> : null}</View>
-      </View>
-    );
-  }
-
   return (
-    <View style={[styles.bar, back ? styles.spread : styles.end]}>
+    <View style={[styles.bar, back || extra ? styles.spread : styles.end]}>
       {back ? <BackButton compact={compactBack} onPress={onBack} /> : null}
       <View style={styles.trail}>
+        {extra}
         {menu ? <MenuButton /> : null}
       </View>
     </View>
@@ -47,14 +38,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     alignItems: 'center',
   },
-  split: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  slot: { flex: 1, minWidth: 0 },
-  slotStart: { alignItems: 'flex-start' },
-  slotEnd: { alignItems: 'flex-end' },
-  mid: { alignItems: 'center', justifyContent: 'center' },
   spread: {
     flexDirection: 'row',
     justifyContent: 'space-between',

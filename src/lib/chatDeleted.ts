@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = 'sakanat.chatDeleted';
 const MAX_IDS = 250;
+const DISMISS_KEY = 'sakanat.chatDismissed';
 
 async function readMap(): Promise<Record<string, string[]>> {
   try {
@@ -24,6 +25,33 @@ export async function rememberDeletedMessage(conversationId: string, messageId: 
 export async function deletedMessageIds(conversationId: string) {
   const map = await readMap();
   return new Set(map[conversationId] ?? []);
+}
+
+async function readDismissed(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(DISMISS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as string[];
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Hide a chat from this device's inbox (swipe Delete). Server row stays for the other side. */
+export async function dismissConversation(conversationId: string) {
+  const ids = await readDismissed();
+  if (ids.includes(conversationId)) return;
+  await AsyncStorage.setItem(DISMISS_KEY, JSON.stringify([conversationId, ...ids].slice(0, 300)));
+}
+
+export async function undismissConversation(conversationId: string) {
+  const ids = await readDismissed();
+  await AsyncStorage.setItem(DISMISS_KEY, JSON.stringify(ids.filter((id) => id !== conversationId)));
+}
+
+export async function dismissedConversationIds() {
+  return new Set(await readDismissed());
 }
 
 const PIN_KEY = 'sakanat.chatListingPin';

@@ -362,7 +362,13 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       unitNumber,
     });
     if (issues.length > 0 && !asAdmin) {
-      alert(t('owner.qualityTitle'), qualityMessage(issues));
+      alert(t('owner.qualityTitle'), qualityMessage(issues), [
+        {
+          text: t('common.close'),
+          onPress: () => scrollRef.current?.scrollTo({ y: 0, animated: true }),
+        },
+      ]);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
     if (!asAdmin && !opts?.ignoreStayGap && listingNeedsStayNotes(stay)) {
@@ -454,9 +460,8 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         await write(payload);
       }
       if (resubmit) {
-        alert(t('common.done'), t('owner.sentForReview'), [
-          { text: t('common.done'), onPress: () => router.back() },
-        ]);
+        alert(t('common.done'), t('owner.sentForReview'));
+        router.back();
       } else {
         router.back();
       }

@@ -218,7 +218,7 @@ export function ApartmentView({
         back
         compactBack
         extra={
-          <>
+          <View style={styles.chromeActions}>
             <Pressable
               onPress={() => void shareListing()}
               hitSlop={8}
@@ -240,7 +240,7 @@ export function ApartmentView({
                 <Ionicons name={saved ? 'heart' : 'heart-outline'} size={22} color={saved ? colors.danger : colors.primary} />
               </Pressable>
             )}
-          </>
+          </View>
         }
       />
       <ScrollView
@@ -602,6 +602,11 @@ export function ApartmentView({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  chromeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   heartBtn: {
     width: 44,
     height: 44,

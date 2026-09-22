@@ -18,6 +18,10 @@ type LiveTable =
   | 'app_settings'
   | 'app_reports';
 
+/**
+ * Live reload while the screen is focused (Supabase realtime) + pull-to-refresh.
+ * Also reloads on focus and when the app returns to the foreground.
+ */
 export function useLiveReload(
   load: () => Promise<void>,
   tables: readonly LiveTable[] = [],
@@ -27,13 +31,15 @@ export function useLiveReload(
   const { refreshing, refresh } = usePullRefresh(pull ?? load);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tablesKey = tables.join('+');
+  const loadRef = useRef(load);
+  loadRef.current = load;
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void loadRef.current();
 
       const app = AppState.addEventListener('change', (state) => {
-        if (state === 'active') void load();
+        if (state === 'active') void loadRef.current();
       });
 
       if (!tablesKey) {
@@ -43,7 +49,7 @@ export function useLiveReload(
       const bump = () => {
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => {
-          void load();
+          void loadRef.current();
         }, 300);
       };
 
@@ -59,7 +65,7 @@ export function useLiveReload(
         if (timer.current) clearTimeout(timer.current);
         void supabase.removeChannel(channel);
       };
-    }, [key, load, tablesKey]),
+    }, [key, tablesKey]),
   );
 
   return { refreshing, refresh };

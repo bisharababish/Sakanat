@@ -201,14 +201,8 @@ export function ChatHeader({
             try {
               const { blockUser } = await import('@/src/lib/blocks');
               await blockUser(profile.id, person.id);
-              alert(t('common.done'), t('chat.blockLeft'), [
-                {
-                  text: t('common.done'),
-                  onPress: () => {
-                    if (router.canGoBack()) router.back();
-                  },
-                },
-              ]);
+              if (router.canGoBack()) router.back();
+              alert(t('common.done'), t('chat.blockLeft'));
             } catch (err) {
               alert(t('common.error'), err instanceof Error ? err.message : '');
             }
@@ -299,7 +293,7 @@ export function ChatHeader({
             accessibilityLabel={t('chat.viewBooking')}
             style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
           >
-            <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+            <Ionicons name="calendar-outline" size={22} color={colors.primary} />
           </Pressable>
         ) : null}
         {!admin ? (
@@ -312,31 +306,9 @@ export function ChatHeader({
           >
             <Ionicons
               name={muted ? 'notifications-off' : 'notifications-outline'}
-              size={20}
+              size={22}
               color={muted ? colors.warning : colors.textMuted}
             />
-          </Pressable>
-        ) : null}
-        {!admin && person?.id ? (
-          <Pressable
-            onPress={() => setReportOpen(true)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t('chat.reportUser')}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="flag-outline" size={20} color={colors.warning} />
-          </Pressable>
-        ) : null}
-        {!admin && person?.id ? (
-          <Pressable
-            onPress={blockOther}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t('profile.block')}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="hand-left-outline" size={20} color={colors.danger} />
           </Pressable>
         ) : null}
         {onDelete ? (

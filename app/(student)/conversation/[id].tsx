@@ -11,7 +11,7 @@ export default function StudentConversation() {
   const colors = useColors();
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.surfaceMuted }]} edges={['top']}>
       {id ? <ChatHeader conversationId={id} /> : null}
       {id ? <ChatThread conversationId={id} /> : null}
     </SafeAreaView>

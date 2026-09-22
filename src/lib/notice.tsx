@@ -22,6 +22,8 @@ type ToastState = {
   title: string;
   message: string;
   tone: Tone;
+  /** Runs when the toast body is tapped (not the X). */
+  onPress?: () => void;
 };
 
 type DialogState = {
@@ -58,6 +60,14 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const hideToast = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = null;
+    setToast(null);
+  };
+
+  const hideDialog = () => setDialog(null);
+
   const api = useMemo<NoticeApi>(
     () => ({
       alert: (title, message, buttons) => {
@@ -68,10 +78,17 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (toastTimer.current) clearTimeout(toastTimer.current);
-        setToast({ title, message: body, tone: inferTone(title) });
-        toastTimer.current = setTimeout(() => setToast(null), 3600);
-        const followUp = actions[0]?.onPress;
-        if (followUp) queueMicrotask(followUp);
+        const tapAction = actions[0]?.onPress;
+        setToast({
+          title,
+          message: body,
+          tone: inferTone(title),
+          onPress: tapAction,
+        });
+        toastTimer.current = setTimeout(() => {
+          toastTimer.current = null;
+          setToast(null);
+        }, 4200);
       },
     }),
     [],
@@ -81,6 +98,7 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
     bound = api.alert;
     boundHide = () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = null;
       setToast(null);
       setDialog(null);
     };
@@ -95,7 +113,7 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
     <NoticeContext.Provider value={api}>
       <View style={styles.root}>
         {children}
-        <NoticeHost toast={toast} dialog={dialog} onHideToast={() => setToast(null)} onHideDialog={() => setDialog(null)} />
+        <NoticeHost toast={toast} dialog={dialog} onHideToast={hideToast} onHideDialog={hideDialog} />
       </View>
     </NoticeContext.Provider>
   );
@@ -116,7 +134,7 @@ function NoticeHost({
   onHideToast: () => void;
   onHideDialog: () => void;
 }) {
-  const { isRtl, textAlign, writingDirection } = useLayout();
+  const { isRtl, textAlign, writingDirection, row } = useLayout();
   const colors = useColors();
   const safe = useModalSafeArea();
   const slide = useRef(new Animated.Value(0)).current;
@@ -137,39 +155,54 @@ function NoticeHost({
   }[toast?.tone ?? 'info'];
 
   const rtlText = { textAlign, writingDirection } as const;
-  const toastBack = useEdgeBack(Boolean(toast), onHideToast);
   const dialogBack = useEdgeBack(Boolean(dialog), onHideDialog);
+
+  const pressToast = () => {
+    const action = toast?.onPress;
+    onHideToast();
+    if (action) queueMicrotask(action);
+  };
 
   return (
     <>
-      <Modal visible={Boolean(toast)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideToast}>
-        <View style={styles.host} {...toastBack}>
-          {toast ? (
-            <Animated.View
-              style={[
-                styles.toastWrap,
-                {
-                  top: safe.top + 12,
-                  opacity: slide,
-                  transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
-                },
-              ]}
-            >
-              <Pressable
-                onPress={onHideToast}
-                style={[styles.toast, { backgroundColor: palette.bg, borderColor: palette.tint, shadowColor: colors.text }]}
-              >
-                {isRtl ? null : <Ionicons name={palette.icon} size={26} color={palette.tint} />}
+      {/* Only the toast chip captures taps; the rest of the screen stays usable */}
+      <View style={styles.toastHost} pointerEvents="box-none">
+        {toast ? (
+          <Animated.View
+            pointerEvents="box-none"
+            style={[
+              styles.toastWrap,
+              {
+                top: safe.top + 12,
+                opacity: slide,
+                transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+              },
+            ]}
+          >
+            <View style={[styles.toast, row, { backgroundColor: palette.bg, borderColor: palette.tint, shadowColor: colors.text }]}>
+              <Pressable onPress={pressToast} style={[styles.toastMain, row]} accessibilityRole="button">
+                <Ionicons name={palette.icon} size={24} color={palette.tint} />
                 <View style={styles.toastCopy}>
                   <Text style={[styles.toastTitle, rtlText, { color: palette.tint }]}>{toast.title}</Text>
                   {toast.message ? <Text style={[styles.toastBody, rtlText, { color: colors.text }]}>{toast.message}</Text> : null}
+                  {toast.onPress ? (
+                    <Text style={[styles.toastHint, rtlText, { color: palette.tint }]}>{i18n.t('common.toastTapHint')}</Text>
+                  ) : null}
                 </View>
-                {isRtl ? <Ionicons name={palette.icon} size={26} color={palette.tint} /> : null}
               </Pressable>
-            </Animated.View>
-          ) : null}
-        </View>
-      </Modal>
+              <Pressable
+                onPress={onHideToast}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={i18n.t('common.close')}
+                style={[styles.closeBtn, { backgroundColor: colors.surface }]}
+              >
+                <Ionicons name="close" size={16} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          </Animated.View>
+        ) : null}
+      </View>
 
       <Modal visible={Boolean(dialog)} transparent animationType="fade" statusBarTranslucent onRequestClose={onHideDialog}>
         <View
@@ -215,8 +248,10 @@ function NoticeHost({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  host: {
-    flex: 1,
+  toastHost: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 100,
+    elevation: 100,
   },
   toastWrap: {
     position: 'absolute',
@@ -224,11 +259,11 @@ const styles = StyleSheet.create({
     right: spacing.md,
   },
   toast: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
+    gap: 8,
+    paddingLeft: spacing.md,
+    paddingRight: 8,
+    paddingVertical: 12,
     borderRadius: radius.lg,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 8 },
@@ -236,15 +271,34 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
   },
+  toastMain: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 10,
+  },
   toastCopy: { flex: 1, minWidth: 0, gap: 2 },
   toastTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     fontFamily: 'Cairo_700Bold',
   },
   toastBody: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: 'Cairo_400Regular',
+    lineHeight: 18,
+  },
+  toastHint: {
+    fontSize: 11,
+    fontFamily: 'Cairo_600SemiBold',
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overlay: {
     flex: 1,

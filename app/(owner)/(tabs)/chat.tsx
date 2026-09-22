@@ -57,6 +57,7 @@ export default function OwnerChat() {
         profileId={inbox.profile?.id}
         isOwner
         onReload={inbox.reload}
+        onPatch={inbox.patch}
         filter={filter}
         onFilterChange={setFilter}
         apartmentId={listingId}

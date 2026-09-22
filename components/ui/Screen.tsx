@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from 'react';
-import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ChromeBar } from '@/components/ui/ChromeBar';

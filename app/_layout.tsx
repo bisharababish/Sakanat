@@ -1,9 +1,12 @@
+import 'react-native-gesture-handler';
+
 import { Cairo_400Regular, Cairo_600SemiBold, Cairo_700Bold, Cairo_800ExtraBold, useFonts } from '@expo-google-fonts/cairo';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { BrandLoader } from '@/components/BrandLoader';
 import { MenuProvider } from '@/components/menu/MenuProvider';
@@ -77,6 +80,7 @@ export default function RootLayout() {
   }
 
   return (
+    <GestureHandlerRootView style={styles.root}>
     <AuthProvider>
       <ThemeProvider>
         <NoticeProvider>
@@ -94,6 +98,7 @@ export default function RootLayout() {
         </NoticeProvider>
       </ThemeProvider>
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -297,6 +302,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   cover: {
     ...StyleSheet.absoluteFill,
     zIndex: 50,

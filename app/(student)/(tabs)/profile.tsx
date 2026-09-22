@@ -1,7 +1,6 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type ScrollView } from 'react-native';
+import { StyleSheet, Text, View, type ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ListingCard } from '@/components/ListingCard';
@@ -12,6 +11,7 @@ import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
+import { ProfileMissingJump } from '@/components/profile/ProfileMissingJump';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
 import { SectionHead } from '@/components/profile/SectionHead';
@@ -273,7 +273,7 @@ function degreeName(value: string, t: (key: string) => string) {
 
 export default function StudentProfileScreen() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row, writingDirection } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { resumeBook, tab: tabParam } = useLocalSearchParams<{
@@ -758,66 +758,70 @@ export default function StudentProfileScreen() {
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     const cleanWhatsapp = waLocal.trim() ? toE164(waRegion, waLocal) : null;
     const cleanEmergency = emergencyLocal.trim() ? toE164(emergencyRegion, emergencyLocal) : null;
+    const fieldError = (message: string, fieldId: string) => {
+      jumpTo(fieldId);
+      alert(t('common.error'), message, [{ text: t('common.close'), onPress: () => jumpTo(fieldId) }]);
+    };
     if (!onTrust) {
       if (phoneLocal.trim() && !cleanPhone) {
-        alert(t('common.error'), t('phone.invalid'));
+        fieldError(t('phone.invalid'), 'phone');
         return;
       }
       if (waLocal.trim() && !cleanWhatsapp) {
-        alert(t('common.error'), t('phone.invalid'));
+        fieldError(t('phone.invalid'), 'whatsapp');
         return;
       }
       if (isStudent && studentId.trim() && !isValidStudentId(studentId)) {
-        alert(t('common.error'), t('profile.studentIdHint'));
+        fieldError(t('profile.studentIdHint'), 'studentId');
         return;
       }
       if (!isValidBio(bio)) {
-        alert(t('common.error'), t('profile.bioInvalid'));
+        fieldError(t('profile.bioInvalid'), 'nameEn');
         return;
       }
       if (fullNameEn.trim() && !englishNameOk(fullNameEn)) {
-        alert(t('common.error'), t('auth.invalidNameEn'));
+        fieldError(t('auth.invalidNameEn'), 'nameEn');
         return;
       }
       if (fullNameAr.trim() && !arabicNameOk(fullNameAr)) {
-        alert(t('common.error'), t('auth.invalidNameAr'));
+        fieldError(t('auth.invalidNameAr'), 'nameAr');
         return;
       }
       if (isStudent && universityId && universityId !== (profile.university_id ?? '')) {
         const emailIssue = studentEmailError(profile.email);
         if (emailIssue) {
-          alert(t('common.error'), t(`auth.${emailIssue}`));
+          fieldError(t(`auth.${emailIssue}`), 'university');
           return;
         }
       }
     } else {
       if (homeAddress.trim() && !isValidHomeAddress(homeAddress)) {
-        alert(t('common.error'), t('profile.homeAddressInvalid'));
+        fieldError(t('profile.homeAddressInvalid'), 'homeAddress');
         return;
       }
       if (emergencyLocal.trim() && (!cleanEmergency || cleanEmergency === (cleanPhone || profile.phone))) {
-        alert(t('common.error'), t('profile.emergencySamePhone'));
+        fieldError(t('profile.emergencySamePhone'), 'emergencyPhone');
         return;
       }
       if (nationalId.trim() && !isValidNationalId(nationalId)) {
-        alert(t('common.error'), t('profile.nationalIdInvalid'));
+        fieldError(t('profile.nationalIdInvalid'), 'nationalId');
         return;
       }
       if (nationalExpiresAt && !isValidNationalIdExpiry(nationalExpiresAt)) {
-        alert(
-          t('common.error'),
+        fieldError(
           nationalIdExpiryState(nationalExpiresAt) === 'expired'
             ? t('profile.idExpired')
             : t('profile.idExpiryInvalid'),
+          'nationalExpiry',
         );
         return;
       }
       if (emergencyName.trim() && !isValidEmergencyName(emergencyName)) {
-        alert(t('common.error'), t('profile.emergencyNameInvalid'));
+        fieldError(t('profile.emergencyNameInvalid'), 'emergencyName');
         return;
       }
       if ((nationalIdUrl || universityCardUrl) && !idDocsConsent) {
-        alert(t('common.error'), t('profile.idConsentRequired'));
+        fieldError(t('profile.idConsentRequired'), 'nationalCard');
         return;
       }
     }
@@ -869,8 +873,6 @@ export default function StudentProfileScreen() {
             onPress: () => router.replace({ pathname: '/(student)/book/[id]', params: { id: resumeId } }),
           },
         ]);
-      } else if (leftover.length > 0) {
-        alert(t('common.done'), t('profile.savedCompleteHint'));
       } else {
         alert(t('common.done'), t('profile.saved'));
       }
@@ -923,18 +925,9 @@ export default function StudentProfileScreen() {
     }
   };
 
-  const continueSetup = () => {
-    const next = progressItems.find((item) => !item.done && item.id && item.id !== 'photo');
-    if (next?.id) {
-      jumpTo(next.id);
-      return;
-    }
-    if (!avatarUrl) {
-      void changePhoto();
-      return;
-    }
-    setTab('account');
-  };
+  const missingJumpItems = progressItems
+    .filter((item) => !item.done && item.id && item.id !== 'photo')
+    .map((item) => ({ id: item.id, label: item.label }));
 
   const bookingBanner = resumeId && !incomplete
     ? {
@@ -949,8 +942,6 @@ export default function StudentProfileScreen() {
           onPress: () => router.push('/(student)/(tabs)/search'),
         }
       : null;
-
-  const setupNeeded = accountIncomplete || trustIncomplete || !avatarUrl;
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
@@ -1013,20 +1004,8 @@ export default function StudentProfileScreen() {
               progressTotal={progressItems.length}
             />
           </View>
-          {setupNeeded ? (
-            <Pressable
-              onPress={continueSetup}
-              style={({ pressed }) => [
-                styles.continueCta,
-                row,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
-              ]}
-            >
-              <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
-              <Text style={[styles.continueCtaText, { writingDirection }]}>
-                {t('profile.continueSetup')}
-              </Text>
-            </Pressable>
+          {missingJumpItems.length > 0 ? (
+            <ProfileMissingJump items={missingJumpItems} onJump={jumpTo} />
           ) : bookingBanner ? (
             <ProfileBanner icon={bookingBanner.icon} text={bookingBanner.text} onPress={bookingBanner.onPress} />
           ) : null}
@@ -1433,20 +1412,6 @@ export default function StudentProfileScreen() {
 
 const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
-  continueCta: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    borderRadius: radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.md,
-  },
-  continueCtaText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Cairo_700Bold',
-  },
   label: { fontWeight: '700', fontSize: 14, fontFamily: 'Cairo_700Bold' },
   denseBlock: { gap: spacing.xs },
   savedBlock: { gap: 8 },

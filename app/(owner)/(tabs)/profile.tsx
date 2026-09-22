@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -12,6 +11,7 @@ import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ProfileHero } from '@/components/profile/ProfileHero';
 import { ProfileMenu } from '@/components/profile/ProfileMenu';
+import { ProfileMissingJump } from '@/components/profile/ProfileMissingJump';
 import { ProfileSafetyFields } from '@/components/profile/ProfileSafetyFields';
 import { ProfileSecurity } from '@/components/profile/ProfileSecurity';
 import { ProfileSettingsFields } from '@/components/profile/ProfileSettingsFields';
@@ -50,7 +50,6 @@ import {
 import { idDocUrl, uploadIdDoc, uploadProfilePhoto } from '@/src/lib/upload';
 import { clearedProfileFields } from '@/src/lib/studentProfile';
 import { useColors } from '@/src/theme/ThemeProvider';
-import { radius, spacing } from '@/src/theme/colors';
 import type { PersonGender, Profile } from '@/src/types/database';
 
 type ProfileTab = 'menu' | 'account' | 'trust' | 'settings' | 'security' | 'occupants';
@@ -137,7 +136,7 @@ function snapFromProfile(next: Profile): FormSnap {
 
 export default function OwnerProfile() {
   const { t, i18n } = useTranslation();
-  const { rtlText, row, writingDirection } = useLayout();
+  const { rtlText } = useLayout();
   const colors = useColors();
   const { profile, refreshProfile, signOut } = useAuth();
   const { cities } = useCatalog();
@@ -410,8 +409,6 @@ export default function OwnerProfile() {
             onPress: () => router.push('/(owner)/(tabs)/listings'),
           };
 
-  const setupNeeded = accountIncomplete || trustIncomplete;
-
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
     text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoOptional'),
@@ -487,51 +484,55 @@ export default function OwnerProfile() {
     const cleanPhone = phoneLocal.trim() ? toE164(phoneRegion, phoneLocal) : null;
     const cleanWhatsapp = waLocal.trim() ? toE164(waRegion, waLocal) : null;
     const cleanEmergency = emergencyLocal.trim() ? toE164(emergencyRegion, emergencyLocal) : null;
+    const fieldError = (message: string, fieldId: string) => {
+      jumpTo(fieldId);
+      alert(t('common.error'), message, [{ text: t('common.close'), onPress: () => jumpTo(fieldId) }]);
+    };
     if (!onTrust) {
       if (fullNameEn.trim() && !isValidEnglishName(fullNameEn)) {
-        alert(t('common.error'), t('auth.invalidNameEn'));
+        fieldError(t('auth.invalidNameEn'), 'nameEn');
         return;
       }
       if (fullNameAr.trim() && !isValidArabicName(fullNameAr)) {
-        alert(t('common.error'), t('auth.invalidNameAr'));
+        fieldError(t('auth.invalidNameAr'), 'nameAr');
         return;
       }
       if (!isValidBio(bio)) {
-        alert(t('common.error'), t('profile.bioInvalid'));
+        fieldError(t('profile.bioInvalid'), 'nameEn');
         return;
       }
       if (phoneLocal.trim() && !cleanPhone) {
-        alert(t('common.error'), t('phone.invalid'));
+        fieldError(t('phone.invalid'), 'phone');
         return;
       }
       if (waLocal.trim() && !cleanWhatsapp) {
-        alert(t('common.error'), t('phone.invalid'));
+        fieldError(t('phone.invalid'), 'whatsapp');
         return;
       }
     } else {
       if (nationalId.trim() && !isValidNationalId(nationalId)) {
-        alert(t('common.error'), t('profile.nationalIdInvalid'));
+        fieldError(t('profile.nationalIdInvalid'), 'nationalId');
         return;
       }
       if (nationalExpiresAt && !isValidNationalIdExpiry(nationalExpiresAt)) {
-        alert(
-          t('common.error'),
+        fieldError(
           nationalIdExpiryState(nationalExpiresAt) === 'expired'
             ? t('profile.idExpired')
             : t('profile.idExpiryInvalid'),
+          'nationalExpiry',
         );
         return;
       }
       if (emergencyName.trim() && !isValidEmergencyName(emergencyName)) {
-        alert(t('common.error'), t('profile.emergencyNameInvalid'));
+        fieldError(t('profile.emergencyNameInvalid'), 'emergencyName');
         return;
       }
       if (emergencyLocal.trim() && (!cleanEmergency || cleanEmergency === (cleanPhone || profile.phone))) {
-        alert(t('common.error'), t('profile.emergencySamePhone'));
+        fieldError(t('profile.emergencySamePhone'), 'emergencyPhone');
         return;
       }
       if ((nationalIdUrl || nationalId.trim()) && !idDocsConsent) {
-        alert(t('common.error'), t('profile.idConsentRequired'));
+        fieldError(t('profile.idConsentRequired'), 'nationalCard');
         return;
       }
     }
@@ -568,11 +569,7 @@ export default function OwnerProfile() {
       if (nameError) throw nameError;
       await refreshProfile();
       baseline.current = currentSnap;
-      const leftover = progressItems.filter((item) => !item.done);
-      alert(
-        t('common.done'),
-        leftover.length > 0 ? t('profile.savedCompleteHintOwner') : t('profile.saved'),
-      );
+      alert(t('common.done'), t('profile.saved'));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
@@ -651,14 +648,9 @@ export default function OwnerProfile() {
     setTab(trustIds.has(id) ? 'trust' : 'account');
   };
 
-  const continueSetup = () => {
-    const next = progressItems.find((item) => !item.done && item.id && item.id !== 'photo');
-    if (next?.id) {
-      jumpTo(next.id);
-      return;
-    }
-    setTab('account');
-  };
+  const missingJumpItems = progressItems
+    .filter((item) => !item.done && item.id && item.id !== 'photo')
+    .map((item) => ({ id: item.id!, label: item.label }));
 
   return (
     <>
@@ -717,20 +709,8 @@ export default function OwnerProfile() {
             progressTotal={progressItems.length}
           />
           <ProfileBanner icon={photoBanner.icon} text={photoBanner.text} onPress={photoBanner.onPress} />
-          {setupNeeded ? (
-            <Pressable
-              onPress={continueSetup}
-              style={({ pressed }) => [
-                styles.continueCta,
-                row,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
-              ]}
-            >
-              <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
-              <Text style={[styles.continueCtaText, { writingDirection }]}>
-                {t('profile.continueSetup')}
-              </Text>
-            </Pressable>
+          {missingJumpItems.length > 0 ? (
+            <ProfileMissingJump items={missingJumpItems} onJump={jumpTo} />
           ) : (
             <ProfileBanner icon={banner.icon} text={banner.text} onPress={banner.onPress} />
           )}
@@ -980,18 +960,4 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   occTitle: { fontSize: 14, fontFamily: 'Cairo_800ExtraBold' },
   occHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 18, marginBottom: 6 },
-  continueCta: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    borderRadius: radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.md,
-  },
-  continueCtaText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Cairo_700Bold',
-  },
 });

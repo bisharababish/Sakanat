@@ -1,8 +1,10 @@
 import i18n from '@/src/i18n';
 import {
   deletedMessageIds,
+  dismissConversation,
   pinListingContext,
   rememberDeletedMessage,
+  undismissConversation,
   unpinListingContext,
   isListingContextPinned,
 } from '@/src/lib/chatDeleted';
@@ -119,6 +121,7 @@ export async function openConversation(apartment: Apartment, studentId: string) 
 
 export async function openListingChat(apartment: Apartment, profile: Profile) {
   const { id, created } = await openConversationState(apartment, profile.id);
+  await undismissConversation(id);
   await supabase
     .from('conversations')
     .update({ student_archived_at: null, owner_archived_at: null })
