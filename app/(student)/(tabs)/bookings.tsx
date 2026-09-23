@@ -467,7 +467,7 @@ export default function StudentBookings() {
             <Text style={[styles.myReviewNote, rtlText, { color: colors.textMuted }]}>
               {t('payment.simulated')}
             </Text>
-            <Button title={t('booking.payNow')} compact pill onPress={() => payVisa(booking.id)} />
+            <Button title={t('booking.markVisaDemo')} compact pill onPress={() => payVisa(booking.id)} />
           </>
         ) : null}
         {reviewable && !myReview ? (

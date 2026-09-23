@@ -411,7 +411,7 @@ export default function OwnerProfile() {
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
-    text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoOptional'),
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoForList'),
     onPress: () => {
       if (avatarUrl) {
         setViewerPhotos(null);
@@ -637,6 +637,10 @@ export default function OwnerProfile() {
   ];
 
   const jumpTo = (id: string) => {
+    if (id === 'photo') {
+      setTab('menu');
+      return;
+    }
     const trustIds = new Set([
       'nationalId',
       'nationalExpiry',
@@ -649,7 +653,7 @@ export default function OwnerProfile() {
   };
 
   const missingJumpItems = progressItems
-    .filter((item) => !item.done && item.id && item.id !== 'photo')
+    .filter((item) => !item.done && item.id)
     .map((item) => ({ id: item.id!, label: item.label }));
 
   return (

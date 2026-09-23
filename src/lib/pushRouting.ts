@@ -65,7 +65,7 @@ export function routeFromPushData(data: PushRouteData | null | undefined, role?:
     } else {
       router.push({
         pathname: '/(student)/(tabs)/bookings',
-        params: data.bookingId ? { focus: data.bookingId, review: data.bookingId } : undefined,
+        params: data.bookingId ? { focus: data.bookingId } : undefined,
       });
     }
     return;

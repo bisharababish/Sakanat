@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ListingCard } from '@/components/ListingCard';
 import { EmptyState } from '@/components/EmptyState';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
@@ -580,22 +581,33 @@ export default function StudentProfileScreen() {
   const trustIncomplete = progressItems.some((item) => item.id && trustIds.has(item.id) && !item.done);
   const accountIncomplete = progressItems.some((item) => item.id && item.id !== 'photo' && !trustIds.has(item.id) && !item.done);
   const jumpTo = (id: string) => {
+    if (id === 'photo') {
+      const go = () => {
+        const y = sectionY.current.hero ?? 0;
+        scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+      };
+      if (tab !== 'menu') {
+        setTab('menu');
+        setTimeout(go, 80);
+        return;
+      }
+      go();
+      return;
+    }
     const section: SectionKey =
-      id === 'photo'
-        ? 'hero'
-        : id === 'nameEn' || id === 'nameAr'
-          ? 'names'
-          : id === 'gender' || id === 'city' || id === 'birth'
-            ? 'about'
-            : id === 'homeAddress'
-              ? 'address'
-              : id === 'phone' || id === 'whatsapp'
-                ? 'contact'
-                : id === 'nationalId' || id === 'nationalExpiry' || id === 'nationalCard' || id === 'universityCard'
-                  ? 'docs'
-                  : id === 'emergencyName' || id === 'emergencyPhone'
-                    ? 'emergency'
-                    : 'studies';
+      id === 'nameEn' || id === 'nameAr'
+        ? 'names'
+        : id === 'gender' || id === 'city' || id === 'birth'
+          ? 'about'
+          : id === 'homeAddress'
+            ? 'address'
+            : id === 'phone' || id === 'whatsapp'
+              ? 'contact'
+              : id === 'nationalId' || id === 'nationalExpiry' || id === 'nationalCard' || id === 'universityCard'
+                ? 'docs'
+                : id === 'emergencyName' || id === 'emergencyPhone'
+                  ? 'emergency'
+                  : 'studies';
     const nextTab: ProfileTab =
       section === 'docs' || section === 'emergency' ? 'trust' : 'account';
     const go = () => {
@@ -926,7 +938,7 @@ export default function StudentProfileScreen() {
   };
 
   const missingJumpItems = progressItems
-    .filter((item) => !item.done && item.id && item.id !== 'photo')
+    .filter((item) => !item.done && item.id)
     .map((item) => ({ id: item.id, label: item.label }));
 
   const bookingBanner = resumeId && !incomplete
@@ -945,7 +957,7 @@ export default function StudentProfileScreen() {
 
   const photoBanner = {
     icon: avatarUrl ? ('image-outline' as const) : ('camera-outline' as const),
-    text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoOptional'),
+    text: avatarUrl ? t('profile.viewPhoto') : t('profile.photoForBook'),
     onPress: () => {
       if (avatarUrl) setViewingPhoto(true);
       else void changePhoto();
@@ -985,6 +997,7 @@ export default function StudentProfileScreen() {
       }
       scrollRef={scrollRef}
     >
+      <OfflineBanner />
       <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
       {tab === 'menu' ? (
         <>

@@ -560,7 +560,11 @@ export default function OwnerBookings() {
                   </Text>
                   <StatusBadge
                     compact
-                    label={t(`payment.${booking.payment_status}`)}
+                    label={
+                      booking.payment_status === 'paid'
+                        ? t('payment.feeSettled')
+                        : t('payment.feeOpen')
+                    }
                     tone={
                       booking.payment_status === 'paid'
                         ? 'approved'

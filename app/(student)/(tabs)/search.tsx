@@ -256,7 +256,9 @@ export default function SearchScreen() {
         return listingMatchesAlert(item, prefs, km);
       });
       await saveSeenListingIds(apartments.map((item) => item.id));
-      if (cancelled || matches.length === 0 || seen.length === 0) return;
+      if (cancelled || matches.length === 0) return;
+      // First enable seeds "seen" silently; only alert on later new matches.
+      if (seen.length === 0) return;
       alert(t('search.alertTitle'), t('search.alertBody', { count: matches.length }));
     })();
     return () => {
@@ -780,11 +782,13 @@ export default function SearchScreen() {
             hint={
               filtersOn
                 ? t('search.emptyHint')
-                : cityFirst
-                  ? t('search.emptyRenter')
-                  : !cityId && !universityId
-                    ? t('search.emptyNationwide')
-                    : t('search.emptyCampus')
+                : profile?.pref_move_in || profile?.pref_lease_months
+                  ? t('search.emptyPrefs')
+                  : cityFirst
+                    ? t('search.emptyRenter')
+                    : !cityId && !universityId
+                      ? t('search.emptyNationwide')
+                      : t('search.emptyCampus')
             }
             actionTitle={
               filtersOn || cityId || universityId ? t('search.clearToAll') : undefined

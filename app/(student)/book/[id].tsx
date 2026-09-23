@@ -558,8 +558,10 @@ export default function BookScreen() {
                   value={formatIls(fee, lang)}
                 />
                 <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
-                  <Text style={[styles.totalLabel, rowCopy, { color: colors.primary }]}>{t('booking.total')}</Text>
-                  <Text style={[styles.totalValue, rowCopy, { color: colors.primary }]}>{formatIls(total, lang)}</Text>
+                  <Text style={[styles.totalLabel, rowCopy, { color: colors.primary }]}>{t('booking.totalDue')}</Text>
+                  <Text style={[styles.totalValue, rowCopy, { color: colors.primary }]}>
+                    {formatIls(total + fee, lang)}
+                  </Text>
                 </View>
               </Card>
             </>

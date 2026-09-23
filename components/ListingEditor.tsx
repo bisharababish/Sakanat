@@ -337,7 +337,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       })
       .join('\n');
 
-  const save = async (opts?: { ignoreStayGap?: boolean }) => {
+  const save = async (opts?: { ignoreStayGap?: boolean; confirmedResubmit?: boolean }) => {
     const listingOwnerId = apartment?.owner_id || ownerId || (!asAdmin ? profile?.id : '');
     if (!profile || !listingOwnerId) {
       alert(t('common.error'), t('auth.missingFields'));
@@ -379,6 +379,21 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       return;
     }
 
+    const resubmit =
+      !asAdmin &&
+      apartment &&
+      (apartment.status === 'approved' || apartment.status === 'hidden' || apartment.status === 'rejected');
+    if (resubmit && !opts?.confirmedResubmit) {
+      alert(t('owner.resubmitTitle'), t('owner.resubmitBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('owner.resubmitConfirm'),
+          onPress: () => void save({ ...opts, confirmedResubmit: true }),
+        },
+      ]);
+      return;
+    }
+
     const city = cities.find((item) => item.id === cityId);
     const university = universities.find((item) => item.id === universityId);
     const place = listingPlacePayload(buildingName, floor, unitNumber);
@@ -403,10 +418,6 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       ...place,
       ...stay,
     };
-    const resubmit =
-      !asAdmin &&
-      apartment &&
-      (apartment.status === 'approved' || apartment.status === 'hidden' || apartment.status === 'rejected');
     setLoading(true);
     const write = async (body: Record<string, unknown>, id?: string) => {
       const persist = (next: Record<string, unknown>) =>

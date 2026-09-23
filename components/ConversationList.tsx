@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationCard } from '@/components/chat/ConversationCard';
@@ -87,7 +87,14 @@ export function ConversationList({
   pinApartmentId?: string;
   pinApartmentIds?: string[];
 }) {
-  if (!items) return null;
+  const colors = useColors();
+  if (!items) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
   const scoped = apartmentId ? items.filter((item) => item.apartment_id === apartmentId) : items;
   return (
     <ConversationPages
@@ -462,6 +469,7 @@ function ConversationPages({
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
+  loading: { paddingVertical: 48, alignItems: 'center', justifyContent: 'center' },
   listBlock: { gap: spacing.sm },
   list: {
     overflow: 'hidden',
