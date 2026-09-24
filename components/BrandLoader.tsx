@@ -11,12 +11,12 @@ export function BrandLoader() {
   }, []);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: lightColors.background }]}>
       <Image
         source={require('@/assets/images/logo.png')}
         style={styles.logo}
         contentFit="contain"
-        accessibilityLabel="Sukna"
+        accessibilityLabel="Matrah"
       />
       <ActivityIndicator size="large" color={lightColors.primary} style={styles.spinner} />
     </View>
@@ -26,16 +26,15 @@ export function BrandLoader() {
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
   logo: {
-    width: 240,
-    height: 240,
+    width: 220,
+    height: 220,
   },
   spinner: {
-    marginTop: 28,
+    marginTop: 24,
   },
 });

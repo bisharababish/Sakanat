@@ -22,42 +22,46 @@ export type Palette = {
   overlay: string;
 };
 
+/**
+ * Matrah light — cool mist stone + deep teal-ink (not cream/gold cliché).
+ * Feels grounded, campus-adjacent, distinct from generic housing apps.
+ */
 export const lightColors: Palette = {
-  primary: '#2D5A3D',
-  primaryDark: '#1F3F2B',
-  primarySoft: '#E4EFE7',
-  accent: '#C4A35A',
-  accentSoft: '#F4E9CF',
-  background: '#F6F1E7',
+  primary: '#1B4A3C',
+  primaryDark: '#12352C',
+  primarySoft: '#E2F0EA',
+  accent: '#9A7B4F',
+  accentSoft: '#F2EBE0',
+  background: '#EEF1EF',
   surface: '#FFFFFF',
-  surfaceMuted: '#EFE8DA',
-  text: '#1C241E',
-  textMuted: '#5E6B62',
-  border: '#D9D0C0',
+  surfaceMuted: '#E6EBE8',
+  text: '#15241F',
+  textMuted: '#5A6B64',
+  border: '#D0D9D4',
   danger: '#B42318',
   dangerSoft: '#FCE8E6',
   success: '#176C3A',
   successSoft: '#E3F5EA',
-  warning: '#A15C07',
-  warningSoft: '#FEF4E4',
+  warning: '#9A6700',
+  warningSoft: '#FEF7E6',
   info: '#1D4E89',
   infoSoft: '#E6F0FA',
   white: '#FFFFFF',
-  overlay: 'rgba(28, 36, 30, 0.45)',
+  overlay: 'rgba(18, 36, 31, 0.48)',
 };
 
 export const darkColors: Palette = {
-  primary: '#6FBF86',
-  primaryDark: '#8FCB9E',
-  primarySoft: '#1E3326',
-  accent: '#D4B56C',
-  accentSoft: '#3A3220',
-  background: '#121614',
-  surface: '#1C221E',
-  surfaceMuted: '#262C28',
-  text: '#F3EEE4',
-  textMuted: '#A8B3AB',
-  border: '#323A34',
+  primary: '#6FBF9A',
+  primaryDark: '#8FD0B0',
+  primarySoft: '#1A2E28',
+  accent: '#C4A574',
+  accentSoft: '#2E2A22',
+  background: '#0E1412',
+  surface: '#171E1B',
+  surfaceMuted: '#222B27',
+  text: '#F0F4F2',
+  textMuted: '#9AABA3',
+  border: '#2C3833',
   danger: '#E85D54',
   dangerSoft: '#3A1E1C',
   success: '#5DCF86',
@@ -74,10 +78,10 @@ export const darkColors: Palette = {
 export const colors = lightColors;
 
 export const radius = {
-  sm: 12,
-  md: 18,
-  lg: 24,
-  xl: 28,
+  sm: 10,
+  md: 16,
+  lg: 20,
+  xl: 26,
   full: 999,
 };
 
@@ -85,7 +89,23 @@ export const spacing = {
   xs: 6,
   sm: 10,
   md: 16,
-  lg: 22,
+  lg: 20,
   xl: 28,
   xxl: 36,
 };
+
+/** Soft elevation for interactive surfaces */
+export const elevation = {
+  card: {
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  toast: {
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+} as const;

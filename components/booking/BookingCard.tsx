@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useLayout } from '@/src/hooks/useLayout';
 import { paymentI18nKey } from '@/src/lib/booking';
 import { bookingStatusLabel, bookingTone, formatBookingDate, formatIls, localizedName, localizedTitle } from '@/src/lib/format';
-import { radius } from '@/src/theme/colors';
+import { elevation, radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Booking } from '@/src/types/database';
 
@@ -73,7 +73,8 @@ export function BookingCard({
         {
           backgroundColor: colors.surface,
           borderColor: highlighted ? colors.primary : colors.border,
-          borderWidth: highlighted ? 2 : 1,
+          borderWidth: highlighted ? 2 : StyleSheet.hairlineWidth,
+          shadowColor: colors.text,
         },
       ]}
     >
@@ -177,9 +178,10 @@ export function BookingCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: 8,
-    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 10,
+    gap: 6,
+    ...elevation.card,
   },
   kicker: { fontSize: 10, fontFamily: 'Cairo_800ExtraBold' },
   head: { alignItems: 'center', gap: 8 },

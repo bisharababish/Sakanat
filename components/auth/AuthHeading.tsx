@@ -11,7 +11,7 @@ export function AuthHeading({ title, hint, compact }: { title: string; hint?: st
 
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
-      <Text style={[styles.kicker, compact && styles.kickerCompact, rtlText, { color: colors.accent }]}>{t('appNameLead')}</Text>
+      <Text style={[styles.kicker, compact && styles.kickerCompact, rtlText, { color: colors.primary }]}>{t('appNameMark')}</Text>
       <Text style={[styles.title, compact && styles.titleCompact, rtlText, { color: colors.primaryDark }]}>{title}</Text>
       {hint ? (
         <Text style={[styles.hint, compact && styles.hintCompact, rtlText, { color: colors.textMuted }]}>{hint}</Text>

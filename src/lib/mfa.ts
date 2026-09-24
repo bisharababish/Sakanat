@@ -1,6 +1,6 @@
 import { supabase } from '@/src/lib/supabase';
 
-export const MFA_ISSUER = 'Sukna';
+export const MFA_ISSUER = 'Matrah';
 export const MFA_COOLDOWN_MS = 10 * 60 * 1000;
 const MFA_CHANGED_AT = 'mfa_changed_at';
 

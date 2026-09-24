@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
-import { radius, spacing } from '@/src/theme/colors';
+import { elevation, radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type Props = {
@@ -39,21 +39,18 @@ export function Card({ children, onPress, onLayout, compact }: Props) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: radius.xl,
-    padding: spacing.md,
-    borderWidth: 1,
+    padding: spacing.md + 2,
+    borderWidth: StyleSheet.hairlineWidth,
     gap: spacing.md,
     overflow: 'hidden',
     alignSelf: 'stretch',
     maxWidth: '100%',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
+    ...elevation.card,
   },
   compact: {
     borderRadius: radius.lg,
-    padding: spacing.sm + 2,
+    padding: spacing.sm + 4,
     gap: spacing.sm,
   },
-  pressed: { opacity: 0.92 },
+  pressed: { opacity: 0.94, transform: [{ scale: 0.995 }] },
 });

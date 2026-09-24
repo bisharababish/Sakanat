@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   listBlock: { gap: spacing.sm },
   list: {
     overflow: 'hidden',
-    borderRadius: radius.md,
+    borderRadius: radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
   },
   divider: {
@@ -485,9 +485,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    minHeight: 38,
+    borderRadius: radius.xl,
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
   },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: 'Cairo_400Regular', paddingVertical: 5 },
+  searchInput: { flex: 1, fontSize: 15, fontFamily: 'Cairo_400Regular', paddingVertical: 8 },
 });

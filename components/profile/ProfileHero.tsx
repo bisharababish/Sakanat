@@ -38,7 +38,7 @@ function initials(name?: string | null) {
 
 function Ring({ percent, children }: { percent: number; children: ReactNode }) {
   const p = Math.max(0, Math.min(100, percent));
-  const gold = 'rgba(196, 163, 90, 1)';
+  const mark = 'rgba(159, 212, 186, 1)';
   const track = 'rgba(255,255,255,0.22)';
   return (
     <View style={styles.ring}>
@@ -48,10 +48,10 @@ function Ring({ percent, children }: { percent: number; children: ReactNode }) {
           styles.ringArc,
           {
             borderColor: track,
-            borderTopColor: p >= 8 ? gold : track,
-            borderRightColor: p >= 35 ? gold : track,
-            borderBottomColor: p >= 65 ? gold : track,
-            borderLeftColor: p >= 92 ? gold : track,
+            borderTopColor: p >= 8 ? mark : track,
+            borderRightColor: p >= 35 ? mark : track,
+            borderBottomColor: p >= 65 ? mark : track,
+            borderLeftColor: p >= 92 ? mark : track,
           },
         ]}
       />
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     borderRadius: 55,
   },
   blobGold: {
-    backgroundColor: 'rgba(196, 163, 90, 0.2)',
+    backgroundColor: 'rgba(159, 212, 186, 0.22)',
     top: -40,
     end: -24,
   },
@@ -228,13 +228,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Cairo_400Regular',
   },
   metaLine: {
-    color: 'rgba(244, 233, 207, 0.95)',
+    color: 'rgba(226, 240, 234, 0.95)',
     fontSize: 12,
     fontFamily: 'Cairo_600SemiBold',
     marginTop: 2,
   },
   pct: {
-    color: 'rgba(244, 233, 207, 0.95)',
+    color: 'rgba(226, 240, 234, 0.95)',
     fontSize: 11,
     fontFamily: 'Cairo_600SemiBold',
   },

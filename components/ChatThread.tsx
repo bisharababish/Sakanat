@@ -487,7 +487,7 @@ export function ChatThread({
 
   return (
     <KeyboardAvoidingView
-      style={[styles.flex, { backgroundColor: colors.surfaceMuted }]}
+      style={[styles.flex, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
@@ -829,21 +829,21 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: '82%',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingTop: 6,
-    paddingBottom: 4,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 5,
     gap: 2,
     elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 1.5,
+    shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
   },
   bubbleImage: {
     width: 220,
     height: 160,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 2,
     overflow: 'hidden',
   },
@@ -855,8 +855,8 @@ const styles = StyleSheet.create({
   senderMine: { alignSelf: 'flex-end' },
   senderTheirs: { alignSelf: 'flex-start' },
   composer: {
-    paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingHorizontal: 10,
+    paddingTop: 10,
     gap: 6,
     alignItems: 'flex-end',
   },

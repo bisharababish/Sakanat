@@ -16,7 +16,7 @@ export function AdminPageHeader({
   const colors = useColors();
   return (
     <>
-      {kicker ? <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{kicker}</Text> : null}
+      {kicker ? <Text style={[styles.kicker, rtlText, { color: colors.primary }]}>{kicker}</Text> : null}
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{title}</Text>
       {hint ? <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{hint}</Text> : null}
     </>

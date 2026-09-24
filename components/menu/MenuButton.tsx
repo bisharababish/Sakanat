@@ -19,7 +19,12 @@ export function MenuButton() {
       accessibilityLabel={t('menu.title')}
       style={({ pressed }) => [
         styles.btn,
-        { backgroundColor: colors.primarySoft, opacity: pressed ? 0.82 : 1 },
+        {
+          backgroundColor: colors.primarySoft,
+          borderColor: colors.border,
+          opacity: pressed ? 0.82 : 1,
+          transform: [{ scale: pressed ? 0.96 : 1 }],
+        },
       ]}
     >
       <Ionicons name="menu-outline" size={22} color={colors.primary} />
@@ -32,6 +37,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },

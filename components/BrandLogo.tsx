@@ -23,7 +23,7 @@ export function BrandLogo({ size = 180, plate = false, iconOnly = false }: Props
         marginTop: iconOnly ? -Math.round(size * ICON_TOP) : 0,
       }}
       contentFit="contain"
-      accessibilityLabel="Sukna"
+      accessibilityLabel="Matrah"
     />
   );
   const mark = iconOnly ? (
@@ -40,8 +40,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 28,
-    backgroundColor: 'rgba(28, 36, 30, 0.06)',
+    backgroundColor: 'rgba(27, 74, 60, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(28, 36, 30, 0.08)',
+    borderColor: 'rgba(27, 74, 60, 0.1)',
   },
 });

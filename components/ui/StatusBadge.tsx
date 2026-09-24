@@ -31,7 +31,11 @@ export function StatusBadge({
         styles.badge,
         compact && styles.compact,
         overlay ? [styles.overlay, { borderColor: colors.white, shadowColor: colors.text }] : null,
-        { backgroundColor: palette.bg, alignSelf: overlay ? 'auto' : isRtl ? 'flex-end' : 'flex-start' },
+        {
+          backgroundColor: palette.bg,
+          borderColor: palette.text,
+          alignSelf: overlay ? 'auto' : isRtl ? 'flex-end' : 'flex-start',
+        },
       ]}
     >
       <Text style={[styles.text, compact && styles.textCompact, { color: palette.text, textAlign, writingDirection }]}>{label}</Text>
@@ -40,7 +44,12 @@ export function StatusBadge({
 }
 
 const styles = StyleSheet.create({
-  badge: { borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  badge: {
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   compact: { paddingHorizontal: 7, paddingVertical: 2 },
   overlay: {
     borderWidth: 1,

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Sukna",
+    "name": "Matraح",
     "slug": "sakanat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,16 +11,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "ps.sakanat.app",
       "infoPlist": {
-        "CFBundleName": "Sukna",
-        "CFBundleDisplayName": "سُكنة"
+        "CFBundleName": "Matraح",
+        "CFBundleDisplayName": "مطرح"
       }
     },
     "android": {
       "package": "ps.sakanat.app",
-      "label": "سُكنة",
+      "label": "مطرح",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#EEF1EF",
         "foregroundImage": "./assets/images/logo.png"
       },
       "predictiveBackGestureEnabled": false
@@ -38,7 +38,7 @@
           "image": "./assets/images/logo.png",
           "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#EEF1EF"
         }
       ],
       "expo-localization",
@@ -46,7 +46,7 @@
       [
         "expo-notifications",
         {
-          "color": "#2D5A3D",
+          "color": "#1B4A3C",
           "defaultChannel": "default"
         }
       ],

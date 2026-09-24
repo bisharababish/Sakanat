@@ -38,7 +38,7 @@ import { listingPlaceLine } from '@/src/lib/listingPlace';
 import { displayName } from '@/src/lib/name';
 import { ownerPublicLines } from '@/src/lib/ownerPublic';
 import { loadApartmentReviews } from '@/src/lib/reviews';
-import { radius, spacing } from '@/src/theme/colors';
+import { elevation, radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, ApartmentReview, University } from '@/src/types/database';
 
@@ -628,15 +628,12 @@ const styles = StyleSheet.create({
   },
   previewText: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   hero: {
-    borderRadius: 28,
-    borderWidth: 1,
+    borderRadius: radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
+    ...elevation.card,
   },
-  cover: { height: 188 },
+  cover: { height: 200 },
   coverFallback: { width: '100%', alignItems: 'center', justifyContent: 'center' },
   ltr: { direction: 'ltr' },
   pricePill: {
@@ -688,8 +685,8 @@ const styles = StyleSheet.create({
   gate: {
     alignItems: 'center',
     gap: 8,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 8,
@@ -698,9 +695,11 @@ const styles = StyleSheet.create({
   gateTitle: { fontSize: 13, fontFamily: 'Cairo_800ExtraBold' },
   gateBody: { fontSize: 12, lineHeight: 16, fontFamily: 'Cairo_400Regular' },
   footer: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    ...elevation.toast,
+    shadowOffset: { width: 0, height: -4 },
   },
   footerPriceRow: {
     direction: 'ltr',

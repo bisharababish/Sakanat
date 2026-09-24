@@ -33,12 +33,20 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
         pill ? styles.pill : null,
         compact ? styles.compact : null,
         compact && pill ? styles.compactPill : null,
-        { backgroundColor: palette.bg, borderColor: palette.border, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
-      ]}>
+        {
+          backgroundColor: palette.bg,
+          borderColor: palette.border,
+          opacity: disabled ? 0.5 : pressed ? 0.88 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.985 : 1 }],
+        },
+      ]}
+    >
       {loading ? (
         <ActivityIndicator color={palette.text} />
       ) : (
-        <Text style={[styles.label, compact && styles.compactLabel, { color: palette.text, writingDirection }]}>{title}</Text>
+        <Text style={[styles.label, compact && styles.compactLabel, { color: palette.text, writingDirection }]}>
+          {title}
+        </Text>
       )}
     </Pressable>
   );
@@ -57,9 +65,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
+    letterSpacing: -0.2,
   },
-  pill: { borderRadius: radius.full, minHeight: 54 },
-  compact: { minHeight: 36, paddingHorizontal: 12 },
-  compactPill: { minHeight: 36 },
+  pill: { borderRadius: radius.full, minHeight: 52 },
+  compact: { minHeight: 38, paddingHorizontal: 14 },
+  compactPill: { minHeight: 38 },
   compactLabel: { fontSize: 13 },
 });

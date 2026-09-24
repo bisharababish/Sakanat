@@ -57,13 +57,14 @@ const styles = StyleSheet.create({
   iconCompact: {
     width: 26,
     height: 26,
-    borderRadius: 8,
+    borderRadius: 9,
   },
   sectionTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
+    letterSpacing: -0.2,
   },
   titleCompact: { fontSize: 14 },
   titleRtl: { textAlign: 'right' },

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { radius } from '@/src/theme/colors';
+import { elevation, radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export type MissingJumpItem = { id: string; label: string };
@@ -44,6 +44,7 @@ export function ProfileMissingJump({
         {
           backgroundColor: colors.warningSoft,
           borderColor: colors.warning,
+          shadowColor: colors.text,
           opacity: pressed ? 0.92 : 1,
         },
       ]}
@@ -75,13 +76,14 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    ...elevation.card,
   },
   icon: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

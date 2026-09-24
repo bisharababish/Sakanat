@@ -35,9 +35,20 @@ export function sanitizeNamePart(raw: string, script: 'en' | 'ar') {
   return raw.replace(/[^\p{Script=Arabic}\p{M}'\-]/gu, '');
 }
 
+/** Slot values for the 4 name boxes. Keeps empty middle/leading slots (unlike nameWords). */
 export function nameParts(raw: string) {
-  const words = nameWords(raw).slice(0, NAME_WORD_MAX);
-  return [0, 1, 2, 3].map((index) => words[index] ?? '');
+  if (!raw) return ['', '', '', ''];
+  const pieces = raw.split(' ');
+  return [0, 1, 2, 3].map((index) => pieces[index] ?? '');
+}
+
+/** Join 4 slots back to a string without dropping empty boxes (so typing in box 2 stays in box 2). */
+export function emitNameParts(parts: Array<string | undefined>) {
+  const padded = [0, 1, 2, 3].map((index) => parts[index] ?? '');
+  let end = NAME_WORD_MAX;
+  while (end > 0 && !padded[end - 1]) end -= 1;
+  if (end === 0) return '';
+  return padded.slice(0, end).join(' ');
 }
 
 function lettersOnly(word: string) {

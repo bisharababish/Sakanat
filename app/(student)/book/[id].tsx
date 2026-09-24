@@ -585,8 +585,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
   muted: { fontSize: 15, fontFamily: 'Cairo_400Regular' },
   hero: {
-    borderRadius: 28,
-    borderWidth: 1,
+    borderRadius: radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,

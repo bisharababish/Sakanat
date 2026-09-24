@@ -3,7 +3,7 @@ import { type ComponentProps, type ReactNode, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { radius, spacing } from '@/src/theme/colors';
+import { elevation, radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -87,25 +87,22 @@ export function HubRow({
 const styles = StyleSheet.create({
   rowCard: {
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm + 2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
+    ...elevation.card,
   },
   pressed: { opacity: 0.92 },
   rowInner: { alignItems: 'center', gap: spacing.sm },
   iconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   copy: { flex: 1, minWidth: 0, gap: 2 },
-  label: { fontSize: 15, fontFamily: 'Cairo_600SemiBold' },
+  label: { fontSize: 15, fontFamily: 'Cairo_700Bold', letterSpacing: -0.2 },
   hint: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
   trail: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },

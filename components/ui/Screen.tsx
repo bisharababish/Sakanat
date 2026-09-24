@@ -33,7 +33,10 @@ export function Screen({
   const colors = useColors();
   const bar = <ChromeBar back={back} showMenu={showMenu ?? !back} onBack={onBack} />;
   const bottom = footer ? (
-    <SafeAreaView edges={['bottom']} style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+    <SafeAreaView
+      edges={['bottom']}
+      style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}
+    >
       {footer}
     </SafeAreaView>
   ) : null;
@@ -97,10 +100,16 @@ export function Screen({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
-  pad: { flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xxl },
+  pad: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xxl,
+    gap: spacing.md,
+  },
   padWithFooter: { paddingBottom: spacing.md },
   footer: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     gap: spacing.sm,

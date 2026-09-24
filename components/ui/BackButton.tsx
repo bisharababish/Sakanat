@@ -43,5 +43,5 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   pressed: { opacity: 0.7 },
-  label: { fontWeight: '800', fontSize: 16 },
+  label: { fontWeight: '800', fontSize: 16, fontFamily: 'Cairo_800ExtraBold' },
 });

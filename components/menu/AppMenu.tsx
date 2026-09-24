@@ -281,7 +281,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                 </View>
               )}
               <Text style={[styles.title, copy]}>
-                {pane === 'root' ? t('appNameLead') : paneTitle}
+                {pane === 'root' ? t('appNameMark') : paneTitle}
               </Text>
               <Pressable
                 onPress={onClose}

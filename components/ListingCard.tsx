@@ -8,7 +8,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { formatKm, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedName, localizedTitle } from '@/src/lib/format';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
-import { radius } from '@/src/theme/colors';
+import { elevation, radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import type { Apartment, University } from '@/src/types/database';
 
@@ -68,6 +68,7 @@ export function ListingCard({
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
+          shadowColor: colors.text,
         },
         pressed && styles.pressed,
       ]}
@@ -124,13 +125,14 @@ const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
     gap: 12,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    padding: 8,
+    borderRadius: radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 10,
+    ...elevation.card,
   },
-  pressed: { opacity: 0.94 },
+  pressed: { opacity: 0.94, transform: [{ scale: 0.995 }] },
   thumbWrap: { position: 'relative' },
-  thumb: { width: 108, height: 108, borderRadius: 16 },
+  thumb: { width: 108, height: 108, borderRadius: 18 },
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
   countPill: {
     position: 'absolute',
@@ -143,14 +145,14 @@ const styles = StyleSheet.create({
   countText: { fontSize: 10, fontFamily: 'Cairo_700Bold' },
   body: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 6 },
   titleRow: { alignItems: 'center', gap: 6 },
-  title: { flex: 1, minWidth: 0, fontSize: 15, fontFamily: 'Cairo_700Bold' },
+  title: { flex: 1, minWidth: 0, fontSize: 15, fontFamily: 'Cairo_700Bold', letterSpacing: -0.2 },
   priceChip: {
     alignSelf: 'flex-start',
     borderRadius: radius.full,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   priceText: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
-  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
+  meta: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 16 },
   badge: { alignSelf: 'flex-start' },
 });

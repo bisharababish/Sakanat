@@ -4,7 +4,7 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
-import { NAME_WORD_MAX, nameParts, sanitizeNamePart } from '@/src/lib/name';
+import { emitNameParts, NAME_MIN, NAME_WORD_MAX, nameParts, sanitizeNamePart } from '@/src/lib/name';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -27,8 +27,8 @@ function wrongScript(raw: string, script: 'en' | 'ar') {
   return script === 'en' ? ARABIC_CHAR.test(raw) : LATIN_CHAR.test(raw);
 }
 
-function emitParts(parts: string[]) {
-  return parts.filter(Boolean).join(' ');
+function lettersIn(part: string) {
+  return part.replace(/['\-]/g, '').replace(/\p{M}/gu, '').length;
 }
 
 export function NameField({ label, value, onChangeText, script, soft, compact }: Props) {
@@ -70,29 +70,41 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
   const applySlot = (index: number, raw: string) => {
     noteIncoming(raw);
     const next = nameParts(value);
-    const jump = /\s/.test(raw);
+    const hasSpace = /[ \t]/.test(raw);
+
+    // Normal typing in one box — never touch other slots.
+    if (!hasSpace) {
+      next[index] = sanitizeNamePart(raw, script);
+      onChangeText(emitNameParts(next));
+      return;
+    }
+
     const chunks = raw
-      .split(/\s+/)
+      .split(/[ \t]+/)
       .map((chunk) => sanitizeNamePart(chunk, script))
       .filter(Boolean);
 
-    if (!jump) {
-      next[index] = sanitizeNamePart(raw, script);
-      onChangeText(emitParts(next));
+    // Trailing space after a real word → keep this slot, advance focus only.
+    if (chunks.length <= 1 && /[ \t]$/.test(raw)) {
+      if (chunks[0]) next[index] = chunks[0];
+      else next[index] = sanitizeNamePart(raw.replace(/[ \t]+$/g, ''), script);
+      onChangeText(emitNameParts(next));
+      if (lettersIn(next[index] ?? '') >= NAME_MIN) focusAt(index + 1);
       return;
     }
 
+    // Multi-word paste into this slot → fill forward from here only.
     if (!chunks.length) {
-      if (next[index]) focusAt(index + 1);
+      next[index] = '';
+      onChangeText(emitNameParts(next));
       return;
     }
-
     chunks.slice(0, NAME_WORD_MAX - index).forEach((chunk, offset) => {
       next[index + offset] = chunk;
     });
-    onChangeText(emitParts(next));
+    onChangeText(emitNameParts(next));
     const lastFilled = index + Math.min(chunks.length, NAME_WORD_MAX - index) - 1;
-    focusAt(/\s$/.test(raw) ? lastFilled + 1 : lastFilled);
+    focusAt(/[ \t]$/.test(raw) ? lastFilled + 1 : lastFilled);
   };
 
   return (
@@ -113,7 +125,14 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
           compact ? styles.fieldCompact : null,
           ltr ? styles.ltr : styles.rtl,
           {
-            backgroundColor: scriptError && focused != null ? colors.dangerSoft : focused != null ? colors.primarySoft : soft ? colors.surfaceMuted : colors.surface,
+            backgroundColor:
+              scriptError && focused != null
+                ? colors.dangerSoft
+                : focused != null
+                  ? colors.primarySoft
+                  : soft
+                    ? colors.surfaceMuted
+                    : colors.surface,
             borderColor: scriptError
               ? colors.danger
               : focused != null || filled
@@ -135,7 +154,8 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
                 compact && styles.slotCompact,
                 {
                   backgroundColor: active ? colors.surface : soft ? colors.surface : colors.surfaceMuted,
-                  borderColor: scriptError && active ? colors.danger : active ? colors.primary : slotFilled ? colors.border : 'transparent',
+                  borderColor:
+                    scriptError && active ? colors.danger : active ? colors.primary : slotFilled ? colors.border : 'transparent',
                 },
               ]}
             >
@@ -159,8 +179,9 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
                 placeholderTextColor={colors.textMuted}
                 autoCapitalize={ltr ? 'words' : 'none'}
                 autoCorrect={false}
-                autoComplete={index === 0 ? 'name' : 'off'}
-                textContentType={index === 0 ? 'givenName' : index === 3 ? 'familyName' : 'none'}
+                autoComplete="off"
+                textContentType="none"
+                importantForAutofill="no"
                 returnKeyType={index === 3 ? 'done' : 'next'}
                 blurOnSubmit={index === 3}
                 maxLength={24}
