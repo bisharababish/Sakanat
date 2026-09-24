@@ -41,7 +41,15 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      await signIn(cleanEmail, password);
+      const result = await signIn(cleanEmail, password);
+      if (result.mfaPending) {
+        router.replace('/(auth)/mfa');
+        return;
+      }
+      if (result.mfaEnrollRequired) {
+        router.replace('/(auth)/mfa-enroll');
+        return;
+      }
       return;
     } catch (err) {
       const message = authErrorMessage(err, t);

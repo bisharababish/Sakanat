@@ -121,7 +121,8 @@ export function NameField({ label, value, onChangeText, script, soft, compact }:
       <View
         style={[
           styles.field,
-          soft ? styles.soft : null,
+          soft && !compact ? styles.soft : null,
+          soft && compact ? styles.softCompact : null,
           compact ? styles.fieldCompact : null,
           ltr ? styles.ltr : styles.rtl,
           {
@@ -219,14 +220,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fieldCompact: {
-    height: 44,
-    padding: 4,
-    gap: 4,
+    height: 40,
+    padding: 3,
+    gap: 3,
     borderRadius: radius.sm,
   },
   soft: {
     borderRadius: radius.full,
     height: 58,
+    borderColor: 'transparent',
+  },
+  softCompact: {
+    borderRadius: radius.full,
+    height: 40,
     borderColor: 'transparent',
   },
   ltr: { direction: 'ltr' },
@@ -241,7 +247,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   slotCompact: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
     borderRadius: 8,
   },
   input: {
@@ -252,7 +258,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  inputCompact: { fontSize: 12 },
+  inputCompact: { fontSize: 11 },
   error: {
     alignItems: 'flex-start',
     gap: 8,

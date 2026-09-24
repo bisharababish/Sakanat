@@ -1,47 +1,44 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
+
+/** Native logo.jpeg size — keep this ratio everywhere. */
+const LOGO_W = 918;
+const LOGO_H = 612;
+const ASPECT = LOGO_W / LOGO_H;
+
+const LOGO = require('@/assets/images/logo.jpeg');
 
 type Props = {
+  /** Display width; height follows the logo’s real shape. */
+  width?: number;
+  /** Compact menu / chrome mark (width in px). */
+  badge?: boolean;
   size?: number;
-  plate?: boolean;
-  iconOnly?: boolean;
 };
 
-/** Logo file is 1024²: mark sits ~169–686, Arabic wordmark starts ~712. */
-const ICON_TOP = 120 / 1024;
-const ICON_BOTTOM = 700 / 1024;
-const ICON_RATIO = ICON_BOTTOM - ICON_TOP;
+/**
+ * Renders logo.jpeg at its true aspect — no crop, no stretch, no extra plate.
+ * The file already includes the green field + white wordmark.
+ */
+export function BrandLogo({ width = 168, badge = false, size = 36 }: Props) {
+  const { t } = useTranslation();
+  const w = badge ? size : width;
+  const h = Math.round(w / ASPECT);
 
-export function BrandLogo({ size = 180, plate = false, iconOnly = false }: Props) {
-  const height = iconOnly ? Math.round(size * ICON_RATIO) : size;
-  const image = (
+  return (
     <Image
-      source={require('@/assets/images/logo.png')}
-      style={{
-        width: size,
-        height: size,
-        marginTop: iconOnly ? -Math.round(size * ICON_TOP) : 0,
-      }}
+      source={LOGO}
+      style={[styles.logo, { width: w, height: h, borderRadius: badge ? 8 : 12 }]}
       contentFit="contain"
-      accessibilityLabel="Matrah"
+      accessibilityLabel={t('appName')}
     />
   );
-  const mark = iconOnly ? (
-    <View style={{ width: size, height, overflow: 'hidden' }}>{image}</View>
-  ) : (
-    image
-  );
-  if (!plate) return mark;
-  return <View style={[styles.plate, { width: size + 20, height: height + 20 }]}>{mark}</View>;
 }
 
 const styles = StyleSheet.create({
-  plate: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 28,
-    backgroundColor: 'rgba(27, 74, 60, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(27, 74, 60, 0.1)',
+  logo: {
+    alignSelf: 'center',
+    overflow: 'hidden',
   },
 });

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandLogo } from '@/components/BrandLogo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
@@ -276,12 +277,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <Ionicons name={isRtl ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.white} />
                 </Pressable>
               ) : (
-                <View style={styles.logoWrap} accessibilityRole="image" accessibilityLabel={t('appName')}>
-                  <Image source={require('@/assets/images/logo.png')} style={styles.logo} contentFit="contain" />
+                <View style={styles.logoWrap}>
+                  <BrandLogo badge size={72} />
                 </View>
               )}
               <Text style={[styles.title, copy]}>
-                {pane === 'root' ? t('appNameMark') : paneTitle}
+                {pane === 'root' ? t('appName') : paneTitle}
               </Text>
               <Pressable
                 onPress={onClose}
@@ -810,9 +811,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
   logoWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 78,
+    height: 54,
+    borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#fff',
     alignItems: 'center',

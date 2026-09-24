@@ -35,7 +35,8 @@ export function AuthScreen({ children, footer, back = false, onBack, center = tr
           keyboardDismissMode="on-drag"
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           contentContainerStyle={[styles.content, center ? styles.center : styles.start]}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator
+          bounces
         >
           {body}
         </ScrollView>
@@ -51,12 +52,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
   },
   center: { justifyContent: 'center' },
-  start: { justifyContent: 'flex-start', paddingTop: spacing.sm },
+  start: { justifyContent: 'flex-start', paddingTop: 0 },
   fit: {
     gap: spacing.sm,
     paddingTop: 0,
@@ -64,8 +65,8 @@ const styles = StyleSheet.create({
   },
   fitStart: { justifyContent: 'space-between' },
   footer: {
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
+    gap: 6,
+    paddingTop: 4,
     paddingBottom: spacing.sm,
   },
 });

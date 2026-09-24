@@ -1,41 +1,41 @@
 {
   "expo": {
-    "name": "Matraح",
+    "name": "Matra7",
     "slug": "sakanat",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/logo.jpeg",
     "scheme": "sakanat",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ps.sakanat.app",
       "infoPlist": {
-        "CFBundleName": "Matraح",
-        "CFBundleDisplayName": "مطرح"
+        "CFBundleName": "Matra7",
+        "CFBundleDisplayName": "Matra7"
       }
     },
     "android": {
       "package": "ps.sakanat.app",
-      "label": "مطرح",
+      "label": "Matra7",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#EEF1EF",
-        "foregroundImage": "./assets/images/logo.png"
+        "foregroundImage": "./assets/images/logo.jpeg"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/logo.jpeg"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
+          "image": "./assets/images/logo.jpeg",
           "imageWidth": 240,
           "resizeMode": "contain",
           "backgroundColor": "#EEF1EF"

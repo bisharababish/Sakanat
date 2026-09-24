@@ -50,12 +50,18 @@ type SignUpInput = {
   language: 'ar' | 'en';
 };
 
+type SignInResult = {
+  profile: Profile | null;
+  mfaPending: boolean;
+  mfaEnrollRequired: boolean;
+};
+
 type AuthContextValue = {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
   configured: boolean;
-  signIn: (email: string, password: string) => Promise<Profile | null>;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
   signUp: (input: SignUpInput) => Promise<'verify' | 'ready'>;
   verifyEmail: (email: string, token: string) => Promise<Profile | null>;
   resendConfirmation: (email: string) => Promise<void>;
@@ -110,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mfaEnrollRequired, setMfaEnrollRequired] = useState(false);
   const loadGen = useRef(0);
   const signingOut = useRef(false);
+  const signingIn = useRef(false);
 
   const clearLocalAuth = () => {
     setSession(null);
@@ -119,21 +126,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadForSession = async (next: Session | null) => {
-    if (signingOut.current) return null;
+    if (signingOut.current) return { profile: null as Profile | null, mfaPending: false, mfaEnrollRequired: false };
     const mine = ++loadGen.current;
     if (!next?.user) {
       if (mine === loadGen.current) clearLocalAuth();
-      return null;
+      return { profile: null, mfaPending: false, mfaEnrollRequired: false };
     }
     const row = await fetchProfileWithRetry(next.user.id);
     const nextProfile = row ? withEnglishName(row, next.user.user_metadata) : null;
-    if (mine !== loadGen.current) return nextProfile;
+    if (mine !== loadGen.current) {
+      return { profile: nextProfile, mfaPending: false, mfaEnrollRequired: false };
+    }
     if (!nextProfile) {
       if (mine === loadGen.current) {
         setSession(next);
         setProfile(null);
       }
-      return null;
+      return { profile: null, mfaPending: false, mfaEnrollRequired: false };
     }
     if (isSuspended(nextProfile)) {
       await supabase.auth.signOut({ scope: 'local' });
@@ -152,11 +161,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const needsMfa = await mfaNeedsChallenge();
     const totp = needsMfa ? true : Boolean(await verifiedTotpFactor());
-    if (mine !== loadGen.current) return nextProfile;
+    const needsEnroll = roleRequiresMfa(nextProfile.role) && !needsMfa && !totp;
+    if (mine !== loadGen.current) {
+      return { profile: nextProfile, mfaPending: needsMfa, mfaEnrollRequired: needsEnroll };
+    }
+    // Gate flags first so SessionGuard never briefly routes into the app before MFA.
+    setMfaPending(needsMfa);
+    setMfaEnrollRequired(needsEnroll);
     setSession(next);
     setProfile(nextProfile);
-    setMfaPending(needsMfa);
-    setMfaEnrollRequired(roleRequiresMfa(nextProfile.role) && !needsMfa && !totp);
     if (nextProfile.language) {
       await changeAppLanguage(nextProfile.language);
     }
@@ -166,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import('@/src/lib/devices')
       .then(({ touchDeviceSession }) => touchDeviceSession(nextProfile.id))
       .catch(() => undefined);
-    return nextProfile;
+    return { profile: nextProfile, mfaPending: needsMfa, mfaEnrollRequired: needsEnroll };
   };
 
   useEffect(() => {
@@ -195,6 +208,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       if (signingOut.current) return;
       if (event === 'INITIAL_SESSION') return;
+      // signIn() already loads the session; skip the duplicate SIGNED_IN so MFA
+      // flags are not raced by a second load that briefly clears the gate.
+      if (signingIn.current && event === 'SIGNED_IN') return;
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordRecovery(true);
         setTimeout(() => router.replace('/(auth)/reset-password'), 0);
@@ -250,16 +266,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mfaPending,
       mfaEnrollRequired,
       signIn: async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-        if (error) {
-          const wrapped = new Error(error.message);
-          (wrapped as { code?: string }).code = error.code;
-          throw wrapped;
+        signingIn.current = true;
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          if (error) {
+            const wrapped = new Error(error.message);
+            (wrapped as { code?: string }).code = error.code;
+            throw wrapped;
+          }
+          return await loadForSession(data.session);
+        } finally {
+          setTimeout(() => {
+            signingIn.current = false;
+          }, 600);
         }
-        return loadForSession(data.session);
       },
       signUp: async (input) => {
         const role: PublicSignupRole = input.role === 'renter' ? 'renter' : 'student';

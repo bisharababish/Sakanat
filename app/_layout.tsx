@@ -227,18 +227,22 @@ function SessionGuard({ children }: { children: ReactNode }) {
     if (passwordRecovery) {
       dest = screen === 'reset-password' ? null : '/(auth)/reset-password';
     } else if (mfaPending) {
+      // Never land in the app (or flash home) while the authenticator step is required.
       dest = screen === 'mfa' ? null : '/(auth)/mfa';
     } else if (mfaEnrollRequired) {
       dest = screen === 'mfa-enroll' ? null : '/(auth)/mfa-enroll';
     } else if (session && profile) {
       const seeker = profile.role === 'student' || profile.role === 'renter';
       const onSeekerListing = group === '(student)' && screen === 'apartment';
-      if (seeker && guestApt && !onSeekerListing && !mfaPending && !mfaEnrollRequired) {
+      if (seeker && guestApt && !onSeekerListing) {
         dest = { pathname: '/(student)/apartment/[id]', params: { id: guestApt } };
       } else if (inApp && allowedAppGroup(profile.role, group)) dest = null;
       else if (inAuth && (screen === 'forgot-password' || screen === 'confirmed')) dest = null;
       else dest = homeHref(profile.role);
       if (seeker && guestApt && onSeekerListing) takeGuestApartment();
+    } else if (session && !profile) {
+      // Profile still loading — stay put; do not bounce to welcome/home.
+      dest = null;
     } else if (!session) {
       if (!linkReady) return;
       if (inApp) {

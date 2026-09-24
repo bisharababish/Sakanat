@@ -10,6 +10,7 @@ export function useAppTabScreenOptions() {
     tabBarHideOnKeyboard: false,
     tabBarActiveTintColor: colors.primary,
     tabBarInactiveTintColor: colors.textMuted,
+    tabBarActiveBackgroundColor: 'transparent',
     freezeOnBlur: false,
     animation: 'shift' as const,
     transitionSpec: {
@@ -36,7 +37,7 @@ export function useAppTabScreenOptions() {
     tabBarStyle: {
       backgroundColor: colors.surface,
       borderTopWidth: 0,
+      elevation: 0,
     },
   };
 }
-

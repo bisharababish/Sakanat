@@ -186,12 +186,21 @@ export default function RegisterScreen() {
       footer={
         <>
           {step === 1 ? (
-            <Button title={t('common.next')} onPress={goNext} pill />
+            <Button title={t('common.next')} onPress={goNext} pill compact />
           ) : (
-            <Button title={t('auth.register')} onPress={() => void onSubmit()} loading={loading} pill />
+            <Button title={t('auth.register')} onPress={() => void onSubmit()} loading={loading} pill compact />
           )}
           {step === 2 ? (
-            <Button title={t('common.previous')} variant="secondary" onPress={() => { setError(''); setStep(1); }} pill />
+            <Button
+              title={t('common.previous')}
+              variant="secondary"
+              onPress={() => {
+                setError('');
+                setStep(1);
+              }}
+              pill
+              compact
+            />
           ) : null}
           <Pressable onPress={() => router.push('/(auth)/login')} style={styles.footer}>
             <Text style={[styles.footerText, rtlText, { color: colors.textMuted }]}>
@@ -201,35 +210,43 @@ export default function RegisterScreen() {
         </>
       }
     >
-      <AuthCard compact>
+      <AuthCard dense>
         <AuthHeading
-          compact
+          dense
           title={t('auth.registerTitle')}
           hint={step === 1 ? t('auth.registerHint') : t('auth.registerStep2')}
         />
         {step === 1 ? (
           <>
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
-            <FilterPills
-              compact
-              value={kind}
-              onChange={pickKind}
-              items={[
-                { value: 'student', label: t('auth.accountStudent') },
-                { value: 'renter', label: t('auth.accountRenter') },
-              ]}
-            />
-            <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]}>{isStudent ? t('auth.studentHint') : t('auth.renterHint')}</Text>
-            <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-            <FilterPills
-              compact
-              value={gender}
-              onChange={setGender}
-              items={[
-                { value: 'male', label: t('profile.male') },
-                { value: 'female', label: t('profile.female') },
-              ]}
-            />
+            <View style={styles.duo}>
+              <View style={styles.duoCol}>
+                <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
+                <FilterPills
+                  compact
+                  value={kind}
+                  onChange={pickKind}
+                  items={[
+                    { value: 'student', label: t('auth.accountStudent') },
+                    { value: 'renter', label: t('auth.accountRenter') },
+                  ]}
+                />
+              </View>
+              <View style={styles.duoCol}>
+                <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
+                <FilterPills
+                  compact
+                  value={gender}
+                  onChange={setGender}
+                  items={[
+                    { value: 'male', label: t('profile.male') },
+                    { value: 'female', label: t('profile.female') },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+              {isStudent ? t('auth.studentHint') : t('auth.renterHint')}
+            </Text>
             <NameField
               compact
               label={t('common.nameEn')}
@@ -305,13 +322,13 @@ export default function RegisterScreen() {
             />
             <PasswordChecks password={password} confirm={confirmPassword} />
             <LegalAcceptRow accepted={accepted} onToggle={() => setAccepted((value) => !value)} onOpen={setLegal} />
+            <View style={[styles.lockRow, row]}>
+              <Ionicons name="lock-closed" size={12} color={colors.primary} />
+              <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
+            </View>
           </>
         )}
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
-        <View style={[styles.lockRow, row]}>
-          <Ionicons name="lock-closed" size={14} color={colors.primary} />
-          <Text style={[styles.lock, { color: colors.textMuted }]}>{t('auth.secureNote')}</Text>
-        </View>
       </AuthCard>
       <LegalDocModal kind={legal} onClose={() => setLegal(null)} />
     </AuthScreen>
@@ -319,13 +336,15 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 13 },
-  roleHint: { fontSize: 12, fontFamily: 'Cairo_400Regular', lineHeight: 17 },
-  error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold' },
+  duo: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  duoCol: { flex: 1, minWidth: 0, gap: 4 },
+  label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 12 },
+  roleHint: { fontSize: 11, fontFamily: 'Cairo_400Regular', lineHeight: 14, marginTop: -2 },
+  error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold', fontSize: 12 },
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  lock: { fontSize: 12, fontFamily: 'Cairo_400Regular' },
-  footer: { alignItems: 'center', paddingVertical: 4 },
-  footerText: { fontSize: 14, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
+  lock: { fontSize: 11, fontFamily: 'Cairo_400Regular' },
+  footer: { alignItems: 'center', paddingVertical: 2 },
+  footerText: { fontSize: 13, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
   link: { fontWeight: '800', fontFamily: 'Cairo_700Bold' },
 });
 

@@ -38,49 +38,70 @@ export function PhoneField({
       <Text style={[styles.label, compact && styles.labelCompact, rtlText, { color: colors.text }]}>
         {label}
       </Text>
-      <View style={[styles.chipRow, compact && styles.chipRowCompact, { justifyContent: alignStart }]}>
-        <Chip
-          compact={compact}
-          label={regionPrefix('ps')}
-          selected={region === 'ps'}
-          onPress={() => onRegionChange('ps')}
-        />
-        <Chip
-          compact={compact}
-          label={regionPrefix('il')}
-          selected={region === 'il'}
-          onPress={() => onRegionChange('il')}
-        />
-      </View>
-      <View
-        style={[
-          styles.inputRow,
-          compact && styles.inputRowCompact,
-          {
-            flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
-            backgroundColor: soft ? colors.surfaceMuted : colors.surface,
-            borderColor: soft ? 'transparent' : colors.border,
-            borderRadius: soft ? radius.full : compact ? radius.sm : radius.md,
-            minHeight: soft ? 54 : compact ? 40 : 52,
-          },
-        ]}
-      >
-        <Text style={[styles.prefix, compact && styles.prefixCompact, { color: colors.primary }]}>
-          {regionPrefix(region)}
-        </Text>
-        <TextInput
-          value={local}
-          onChangeText={(value) => onLocalChange(sanitizePhoneLocal(value))}
-          keyboardType="phone-pad"
-          placeholder={region === 'ps' ? t('phone.placeholderPs') : t('phone.placeholderOther')}
-          placeholderTextColor={colors.textMuted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={maxLength}
-          textAlign="left"
-          style={[styles.input, compact && styles.inputCompact, { color: colors.text }]}
-        />
-      </View>
+      {compact ? (
+        <View
+          style={[
+            styles.inputRow,
+            styles.inputRowCompact,
+            {
+              flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
+              backgroundColor: soft ? colors.surfaceMuted : colors.surface,
+              borderColor: soft ? 'transparent' : colors.border,
+              borderRadius: soft ? radius.full : radius.sm,
+              minHeight: soft ? 40 : 40,
+            },
+          ]}
+        >
+          <Chip compact label={regionPrefix('ps')} selected={region === 'ps'} onPress={() => onRegionChange('ps')} />
+          <Chip compact label={regionPrefix('il')} selected={region === 'il'} onPress={() => onRegionChange('il')} />
+          <Text style={[styles.prefix, styles.prefixCompact, { color: colors.primary }]}>{regionPrefix(region)}</Text>
+          <TextInput
+            value={local}
+            onChangeText={(value) => onLocalChange(sanitizePhoneLocal(value))}
+            keyboardType="phone-pad"
+            placeholder={region === 'ps' ? t('phone.placeholderPs') : t('phone.placeholderOther')}
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={maxLength}
+            textAlign="left"
+            style={[styles.input, styles.inputCompact, { color: colors.text }]}
+          />
+        </View>
+      ) : (
+        <>
+          <View style={[styles.chipRow, { justifyContent: alignStart }]}>
+            <Chip label={regionPrefix('ps')} selected={region === 'ps'} onPress={() => onRegionChange('ps')} />
+            <Chip label={regionPrefix('il')} selected={region === 'il'} onPress={() => onRegionChange('il')} />
+          </View>
+          <View
+            style={[
+              styles.inputRow,
+              {
+                flexDirection: I18nManager.isRTL ? 'row-reverse' : 'row',
+                backgroundColor: soft ? colors.surfaceMuted : colors.surface,
+                borderColor: soft ? 'transparent' : colors.border,
+                borderRadius: soft ? radius.full : radius.md,
+                minHeight: soft ? 54 : 52,
+              },
+            ]}
+          >
+            <Text style={[styles.prefix, { color: colors.primary }]}>{regionPrefix(region)}</Text>
+            <TextInput
+              value={local}
+              onChangeText={(value) => onLocalChange(sanitizePhoneLocal(value))}
+              keyboardType="phone-pad"
+              placeholder={region === 'ps' ? t('phone.placeholderPs') : t('phone.placeholderOther')}
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={maxLength}
+              textAlign="left"
+              style={[styles.input, { color: colors.text }]}
+            />
+          </View>
+        </>
+      )}
       {hint ? <Text style={[styles.hint, compact && styles.hintCompact, rtlText, { color: colors.textMuted }]}>{hint}</Text> : null}
     </View>
   );

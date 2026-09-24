@@ -23,7 +23,7 @@ export type Palette = {
 };
 
 /**
- * Matrah light — cool mist stone + deep teal-ink (not cream/gold cliché).
+ * Matra7 light — cool mist stone + deep teal-ink (not cream/gold cliché).
  * Feels grounded, campus-adjacent, distinct from generic housing apps.
  */
 export const lightColors: Palette = {

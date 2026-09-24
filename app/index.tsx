@@ -14,12 +14,20 @@ import { colors, spacing } from '@/src/theme/colors';
 export default function Gate() {
   const { t } = useTranslation();
   const { textAlign } = useLayout();
-  const { configured, loading, session, profile } = useAuth();
+  const { configured, loading, session, profile, mfaPending, mfaEnrollRequired } = useAuth();
   const [href, setHref] = useState<Href | null>(null);
 
   useEffect(() => {
     if (!configured || loading || (session && !profile)) {
       setHref(null);
+      return;
+    }
+    if (mfaPending) {
+      setHref('/(auth)/mfa');
+      return;
+    }
+    if (mfaEnrollRequired) {
+      setHref('/(auth)/mfa-enroll');
       return;
     }
     if (session && profile) {
@@ -42,7 +50,7 @@ export default function Gate() {
     return () => {
       alive = false;
     };
-  }, [configured, loading, session, profile]);
+  }, [configured, loading, session, profile, mfaPending, mfaEnrollRequired]);
 
   if (!configured) {
     return (

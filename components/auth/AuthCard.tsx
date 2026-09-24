@@ -4,13 +4,22 @@ import { StyleSheet, View } from 'react-native';
 import { elevation, radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
-export function AuthCard({ children, compact }: { children: ReactNode; compact?: boolean }) {
+export function AuthCard({
+  children,
+  compact,
+  dense,
+}: {
+  children: ReactNode;
+  compact?: boolean;
+  dense?: boolean;
+}) {
   const colors = useColors();
   return (
     <View
       style={[
         styles.card,
         compact ? styles.compact : null,
+        dense ? styles.dense : null,
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
@@ -35,7 +44,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: 16,
     gap: 10,
-    flexShrink: 1,
-    overflow: 'hidden',
+  },
+  dense: {
+    borderRadius: radius.lg,
+    padding: 12,
+    gap: 6,
   },
 });
