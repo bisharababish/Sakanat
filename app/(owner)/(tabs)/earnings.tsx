@@ -9,9 +9,11 @@ import { EmptyState } from '@/components/EmptyState';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pager } from '@/components/ui/Pager';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
+import { TabPageHeader } from '@/components/ui/TabPageHeader';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -81,6 +83,8 @@ export default function OwnerEarnings() {
   const colors = useColors();
   const { profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [period, setPeriod] = useState<Period>('month');
   const [percent, setPercent] = useState<number | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -92,20 +96,28 @@ export default function OwnerEarnings() {
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const [bookingRes, settingsRes] = await Promise.all([
-      supabase
-        .from('bookings')
-        .select(
-          '*, apartments(title_ar, title_en, building_name, floor, unit_number)',
-        )
-        .eq('owner_id', profile.id)
-        .in('status', ['confirmed', 'completed'])
-        .order('created_at', { ascending: false }),
-      supabase.from('app_settings').select('commission_percent').eq('id', 1).maybeSingle(),
-    ]);
-    setBookings(await attachStayPeerCards((bookingRes.data as Booking[]) ?? [], 'student'));
-    if (settingsRes.data?.commission_percent != null) setPercent(Number(settingsRes.data.commission_percent));
-  }, [profile]);
+    setLoadError('');
+    try {
+      const [bookingRes, settingsRes] = await Promise.all([
+        supabase
+          .from('bookings')
+          .select(
+            '*, apartments(title_ar, title_en, building_name, floor, unit_number)',
+          )
+          .eq('owner_id', profile.id)
+          .in('status', ['confirmed', 'completed'])
+          .order('created_at', { ascending: false }),
+        supabase.from('app_settings').select('commission_percent').eq('id', 1).maybeSingle(),
+      ]);
+      if (bookingRes.error) throw bookingRes.error;
+      setBookings(await attachStayPeerCards((bookingRes.data as Booking[]) ?? [], 'student'));
+      if (settingsRes.data?.commission_percent != null) setPercent(Number(settingsRes.data.commission_percent));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  }, [profile, t]);
 
   const { refreshing, refresh } = useLiveReload(load, ['bookings', 'app_settings'], `earnings:${profile?.id ?? ''}`);
 
@@ -200,17 +212,17 @@ export default function OwnerEarnings() {
       }}
     >
       <OfflineBanner />
-      <View style={[styles.top, row]}>
-        <View style={styles.topCopy}>
-          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.earnings')}</Text>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('owner.youKeep')}</Text>
-        </View>
-        {percent != null ? (
-          <View style={[styles.feePill, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
-            <Text style={[styles.feePillText, { color: colors.primaryDark }]}>{percent}%</Text>
-          </View>
-        ) : null}
-      </View>
+      <TabPageHeader
+        kicker={t('tabs.earnings')}
+        title={t('owner.youKeep')}
+        trailing={
+          percent != null ? (
+            <View style={[styles.feePill, { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}>
+              <Text style={[styles.feePillText, { color: colors.primaryDark }]}>{percent}%</Text>
+            </View>
+          ) : null
+        }
+      />
       <Button
         title={t('owner.exportCsv')}
         variant="ghost"
@@ -455,9 +467,22 @@ export default function OwnerEarnings() {
           );
         })}
       </View>
-      {list.length === 0 ? (
+      {loading ? <ListSkeleton rows={3} /> : null}
+      {!loading && loadError ? (
+        <EmptyState
+          title={t('common.error')}
+          hint={loadError}
+          actionTitle={t('common.retry')}
+          onAction={() => {
+            setLoading(true);
+            void refresh();
+          }}
+        />
+      ) : null}
+      {!loading && !loadError && list.length === 0 ? (
         <EmptyState title={t('owner.noEarnings')} />
-      ) : (
+      ) : null}
+      {!loading && !loadError && list.length > 0 ? (
       <View style={[styles.ledger, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.text }]}>
         {paged.slice.map((booking, index) => {
           const rent = Number(booking.rent_amount);
@@ -560,8 +585,8 @@ export default function OwnerEarnings() {
           );
         })}
       </View>
-      )}
-      {list.length > 0 ? (
+      ) : null}
+      {!loading && !loadError && list.length > 0 ? (
         <Pager
           page={paged.page}
           pages={paged.pages}

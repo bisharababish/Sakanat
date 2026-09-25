@@ -60,13 +60,14 @@ const styles = StyleSheet.create({
   wrapCompact: { gap: 4, marginBottom: 0 },
   wrapDense: { gap: 2, marginBottom: 0 },
   kicker: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
-    fontFamily: 'Cairo_700Bold',
+    fontFamily: 'Cairo_800ExtraBold',
     textAlign: 'center',
+    letterSpacing: -0.2,
   },
-  kickerCompact: { fontSize: 12 },
-  kickerDense: { fontSize: 11 },
+  kickerCompact: { fontSize: 14 },
+  kickerDense: { fontSize: 13 },
   title: {
     fontSize: 26,
     fontWeight: '800',
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   titleCompact: { fontSize: 22, lineHeight: 28 },
-  titleDense: { fontSize: 18, lineHeight: 22 },
+  titleDense: { fontSize: 20, lineHeight: 26 },
   hint: {
     fontSize: 14,
     fontFamily: 'Cairo_400Regular',
@@ -83,5 +84,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   hintCompact: { fontSize: 13, lineHeight: 18 },
-  hintDense: { fontSize: 11, lineHeight: 14 },
+  hintDense: { fontSize: 12, lineHeight: 16 },
 });

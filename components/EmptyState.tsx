@@ -10,23 +10,28 @@ export function EmptyState({
   hint,
   actionTitle,
   onAction,
+  plain,
 }: {
   title: string;
   hint?: string;
   actionTitle?: string;
   onAction?: () => void;
+  /** Flat empty — use inside Card / section to avoid double boxing. */
+  plain?: boolean;
 }) {
   const { rtlText } = useLayout();
   const colors = useColors();
   return (
     <View
       style={[
-        styles.box,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          shadowColor: colors.text,
-        },
+        plain ? styles.plain : styles.box,
+        plain
+          ? null
+          : {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              shadowColor: colors.text,
+            },
       ]}
     >
       <Text style={[styles.text, rtlText, { color: colors.text }]}>{title}</Text>
@@ -45,6 +50,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderWidth: StyleSheet.hairlineWidth,
     ...elevation.card,
+  },
+  plain: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
   },
   text: { fontSize: 16, lineHeight: 24, fontFamily: 'Cairo_700Bold' },
   hint: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },

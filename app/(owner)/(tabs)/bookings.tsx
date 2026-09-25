@@ -13,10 +13,12 @@ import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { Pager } from '@/components/ui/Pager';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { TabPageHeader } from '@/components/ui/TabPageHeader';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -56,6 +58,8 @@ export default function OwnerBookings() {
   const today = useToday();
   const { focus, listing } = useLocalSearchParams<{ focus?: string; listing?: string }>();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [filter, setFilter] = useState<Filter>('pending');
   const [buildingFilter, setBuildingFilter] = useState('all');
   const [page, setPage] = useState(0);
@@ -96,13 +100,21 @@ export default function OwnerBookings() {
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from('bookings')
-      .select(`*, apartments(*, cities(*))`)
-      .eq('owner_id', profile.id)
-      .order('created_at', { ascending: false });
-    setBookings(await attachStayPeerCards((data as Booking[]) ?? [], 'student'));
-  }, [profile]);
+    setLoadError('');
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`*, apartments(*, cities(*))`)
+        .eq('owner_id', profile.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setBookings(await attachStayPeerCards((data as Booking[]) ?? [], 'student'));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  }, [profile, t]);
 
   const { refreshing, refresh } = useLiveReload(load, ['bookings'], `owner-bookings:${profile?.id ?? ''}`);
 
@@ -376,24 +388,26 @@ export default function OwnerBookings() {
       }}
     >
       <OfflineBanner />
-      <View style={[styles.top, row]}>
-        <View style={styles.topCopy}>
-          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.bookings')}</Text>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.incoming')}</Text>
-        </View>
-        <Button
-          title={t('owner.occupantsTitle')}
-          variant="ghost"
-          compact
-          pill
-          onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'occupants' } })}
-        />
-        {counts.pending > 0 ? (
-          <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
-            <Text style={[styles.countText, { color: colors.warning }]}>{counts.pending}</Text>
+      <TabPageHeader
+        kicker={t('tabs.bookings')}
+        title={t('booking.incoming')}
+        trailing={
+          <View style={[styles.headTrail, row]}>
+            <Button
+              title={t('owner.occupantsTitle')}
+              variant="ghost"
+              compact
+              pill
+              onPress={() => router.push({ pathname: '/(owner)/(tabs)/profile', params: { tab: 'occupants' } })}
+            />
+            {counts.pending > 0 ? (
+              <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+                <Text style={[styles.countText, { color: colors.warning }]}>{counts.pending}</Text>
+              </View>
+            ) : null}
           </View>
-        ) : null}
-      </View>
+        }
+      />
 
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
       {buildings.length > 1 ? (
@@ -408,17 +422,30 @@ export default function OwnerBookings() {
         />
       ) : null}
 
-      {rest.length === 0 && !showStaying ? (
+      {loading ? <ListSkeleton rows={3} /> : null}
+      {!loading && loadError ? (
+        <EmptyState
+          title={t('common.error')}
+          hint={loadError}
+          actionTitle={t('common.retry')}
+          onAction={() => {
+            setLoading(true);
+            void refresh();
+          }}
+        />
+      ) : null}
+      {!loading && !loadError && rest.length === 0 && !showStaying ? (
         <EmptyState
           title={bookings.length === 0 ? t('booking.emptyIncoming') : t('booking.emptyFiltered')}
         />
       ) : null}
 
-      {showStaying ? (
+      {!loading && !loadError && showStaying ? (
         <Text style={[styles.sectionHead, rtlText, { color: colors.accent }]}>{t('owner.stayingNow')}</Text>
       ) : null}
 
-      {[
+      {!loading && !loadError
+        ? [
         ...(showStaying ? stayingNow.map((booking) => ({ booking, featured: true })) : []),
         ...visible.map((booking) => ({ booking, featured: false })),
       ].map(({ booking, featured }) => {
@@ -704,9 +731,10 @@ export default function OwnerBookings() {
             ) : null}
           </View>
         );
-      })}
+      })
+        : null}
 
-      {rest.length > 0 ? (
+      {!loading && !loadError && rest.length > 0 ? (
       <Pager
         page={current}
         pages={pages}
@@ -769,10 +797,7 @@ export default function OwnerBookings() {
 }
 
 const styles = StyleSheet.create({
-  top: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  topCopy: { flex: 1, minWidth: 0, gap: 2 },
-  kicker: { fontSize: 12, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  title: { fontSize: 22, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
+  headTrail: { alignItems: 'center', gap: 8, flexShrink: 0 },
   countPill: {
     minWidth: 36,
     height: 36,

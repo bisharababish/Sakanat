@@ -52,6 +52,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  label: { fontWeight: '600', fontSize: 13 },
-  labelCompact: { fontSize: 12 },
+  label: { fontWeight: '600', fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
+  labelCompact: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
 });

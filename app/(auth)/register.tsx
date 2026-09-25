@@ -218,11 +218,12 @@ export default function RegisterScreen() {
         />
         {step === 1 ? (
           <>
-            <View style={styles.duo}>
-              <View style={styles.duoCol}>
+            <View style={styles.pickers}>
+              <View style={styles.pickerBlock}>
                 <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('auth.chooseRole')}</Text>
                 <FilterPills
                   compact
+                  stretch
                   value={kind}
                   onChange={pickKind}
                   items={[
@@ -231,10 +232,11 @@ export default function RegisterScreen() {
                   ]}
                 />
               </View>
-              <View style={styles.duoCol}>
+              <View style={styles.pickerBlock}>
                 <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
                 <FilterPills
                   compact
+                  stretch
                   value={gender}
                   onChange={setGender}
                   items={[
@@ -244,7 +246,7 @@ export default function RegisterScreen() {
                 />
               </View>
             </View>
-            <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[styles.roleHint, rtlText, { color: colors.textMuted }]} numberOfLines={2}>
               {isStudent ? t('auth.studentHint') : t('auth.renterHint')}
             </Text>
             <NameField
@@ -336,10 +338,10 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  duo: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  duoCol: { flex: 1, minWidth: 0, gap: 4 },
+  pickers: { gap: 10 },
+  pickerBlock: { gap: 6 },
   label: { fontWeight: '700', fontFamily: 'Cairo_700Bold', fontSize: 12 },
-  roleHint: { fontSize: 11, fontFamily: 'Cairo_400Regular', lineHeight: 14, marginTop: -2 },
+  roleHint: { fontSize: 11, fontFamily: 'Cairo_400Regular', lineHeight: 15, marginTop: -2 },
   error: { fontWeight: '600', fontFamily: 'Cairo_600SemiBold', fontSize: 12 },
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   lock: { fontSize: 11, fontFamily: 'Cairo_400Regular' },

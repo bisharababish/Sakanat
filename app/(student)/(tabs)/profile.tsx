@@ -1356,6 +1356,7 @@ export default function StudentProfileScreen() {
           />
           {savedListings.length === 0 ? (
             <EmptyState
+              plain
               title={t('profile.savedEmpty')}
               actionTitle={t('profile.browseListings')}
               onAction={() => router.push('/(student)/(tabs)/search')}

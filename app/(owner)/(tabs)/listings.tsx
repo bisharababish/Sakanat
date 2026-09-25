@@ -13,6 +13,8 @@ import { Pager } from '@/components/ui/Pager';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { TabPageHeader } from '@/components/ui/TabPageHeader';
+import { ListSkeleton } from '@/components/ui/ListSkeleton';
 import { useLayout } from '@/src/hooks/useLayout';
 import { usePaged } from '@/src/hooks/usePaged';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -39,6 +41,8 @@ export default function OwnerListings() {
   const colors = useColors();
   const { profile } = useAuth();
   const [listings, setListings] = useState<Apartment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [stats, setStats] = useState<
     Record<string, { views: number; saves: number; chats: number; bookings: number }>
   >({});
@@ -66,34 +70,42 @@ export default function OwnerListings() {
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from('apartments')
-      .select('*, cities(*), universities(*)')
-      .eq('owner_id', profile.id)
-      .order('created_at', { ascending: false });
-    setListings((data as Apartment[]) ?? []);
+    setLoadError('');
     try {
-      const { data: rows } = await supabase.rpc('owner_listing_stats');
-      const next: Record<string, { views: number; saves: number; chats: number; bookings: number }> = {};
-      for (const row of ((rows as {
-        apartment_id: string;
-        views: number;
-        saves: number;
-        chats?: number;
-        bookings?: number;
-      }[]) ?? [])) {
-        next[row.apartment_id] = {
-          views: Number(row.views) || 0,
-          saves: Number(row.saves) || 0,
-          chats: Number(row.chats) || 0,
-          bookings: Number(row.bookings) || 0,
-        };
+      const { data, error } = await supabase
+        .from('apartments')
+        .select('*, cities(*), universities(*)')
+        .eq('owner_id', profile.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setListings((data as Apartment[]) ?? []);
+      try {
+        const { data: rows } = await supabase.rpc('owner_listing_stats');
+        const next: Record<string, { views: number; saves: number; chats: number; bookings: number }> = {};
+        for (const row of ((rows as {
+          apartment_id: string;
+          views: number;
+          saves: number;
+          chats?: number;
+          bookings?: number;
+        }[]) ?? [])) {
+          next[row.apartment_id] = {
+            views: Number(row.views) || 0,
+            saves: Number(row.saves) || 0,
+            chats: Number(row.chats) || 0,
+            bookings: Number(row.bookings) || 0,
+          };
+        }
+        setStats(next);
+      } catch {
+        setStats({});
       }
-      setStats(next);
-    } catch {
-      setStats({});
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setLoading(false);
     }
-  }, [profile]);
+  }, [profile, t]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments'], `owner-listings:${profile?.id ?? ''}`);
 
@@ -220,16 +232,12 @@ export default function OwnerListings() {
       }}
     >
       <OfflineBanner />
-      <View style={[styles.top, row]}>
-        <View style={styles.topCopy}>
-          <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('tabs.listings')}</Text>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('owner.yourListings')}</Text>
-          <Text style={[styles.count, rtlText, { color: colors.textMuted }]}>
-            {t('owner.listingCount', { count: listings.length })}
-          </Text>
-        </View>
-        <Button title={t('owner.addListing')} onPress={gateAdd} pill compact />
-      </View>
+      <TabPageHeader
+        kicker={t('tabs.listings')}
+        title={t('owner.yourListings')}
+        hint={t('owner.listingCount', { count: listings.length })}
+        trailing={<Button title={t('owner.addListing')} onPress={gateAdd} pill compact />}
+      />
 
       {listingAlert ? (
         <Pressable
@@ -266,7 +274,19 @@ export default function OwnerListings() {
         />
       ) : null}
 
-      {visible.length === 0 ? (
+      {loading ? <ListSkeleton rows={3} cover /> : null}
+      {!loading && loadError ? (
+        <EmptyState
+          title={t('common.error')}
+          hint={loadError}
+          actionTitle={t('common.retry')}
+          onAction={() => {
+            setLoading(true);
+            void refresh();
+          }}
+        />
+      ) : null}
+      {!loading && !loadError && visible.length === 0 ? (
         <EmptyState
           title={listings.length === 0 ? t('owner.empty') : t('owner.emptyFiltered')}
           actionTitle={listings.length === 0 ? t('owner.addFirst') : undefined}
@@ -274,7 +294,8 @@ export default function OwnerListings() {
         />
       ) : null}
 
-      {paged.slice.map((item, index) => {
+      {!loading && !loadError
+        ? paged.slice.map((item, index) => {
         const open = openId === item.id;
         const title = localizedTitle(item, i18n.language);
         const photo = item.photos?.[0];
@@ -432,7 +453,9 @@ export default function OwnerListings() {
           </View>
           </View>
         );
-      })}
+      })
+        : null}
+      {!loading && !loadError ? (
       <Pager
         page={paged.page}
         pages={paged.pages}
@@ -442,6 +465,7 @@ export default function OwnerListings() {
         pageSize={paged.pageSize}
         onPage={paged.setPage}
       />
+      ) : null}
     </Screen>
     <PhotoViewer
       photos={viewer?.photos ?? []}

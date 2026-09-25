@@ -17,6 +17,7 @@ import { NoteModal } from '@/components/ui/NoteModal';
 import { Pager } from '@/components/ui/Pager';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { Screen } from '@/components/ui/Screen';
+import { TabPageHeader } from '@/components/ui/TabPageHeader';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { useToday } from '@/src/hooks/useToday';
@@ -599,17 +600,18 @@ export default function StudentBookings() {
     >
       <ProfileEnter scene="bookings" enterOnMount>
       <OfflineBanner />
-      <View style={[styles.top, row]}>
-        <View style={styles.topCopy}>
-          <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('booking.myBookings')}</Text>
-          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('review.whereHint')}</Text>
-        </View>
-        {counts.pending > 0 ? (
-          <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
-            <Text style={[styles.countText, { color: colors.warning }]}>{counts.pending}</Text>
-          </View>
-        ) : null}
-      </View>
+      <TabPageHeader
+        kicker={t('tabs.bookings')}
+        title={t('booking.myBookings')}
+        hint={t('review.whereHint')}
+        trailing={
+          counts.pending > 0 ? (
+            <View style={[styles.countPill, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+              <Text style={[styles.countText, { color: colors.warning }]}>{counts.pending}</Text>
+            </View>
+          ) : null
+        }
+      />
 
       {needsReview.length > 0 ? (
         <HubRow

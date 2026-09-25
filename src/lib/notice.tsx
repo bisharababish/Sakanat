@@ -49,9 +49,24 @@ export function dismissNotices() {
   boundHide?.();
 }
 
-function inferTone(title: string): Tone {
-  if (title === i18n.t('common.error')) return 'error';
-  if (title === i18n.t('common.done') || title === i18n.t('booking.success')) return 'success';
+function inferTone(title: string, message = ''): Tone {
+  const blob = `${title}\n${message}`.toLowerCase();
+  if (
+    title === i18n.t('common.error') ||
+    /\b(error|fail|failed|invalid|denied|unable|rejected|expired|missing|could not|can't|cannot)\b/.test(blob) ||
+    /(خطأ|فشل|غير صالح|مرفوض|انتهى|تعذر|ناقص)/.test(blob)
+  ) {
+    return 'error';
+  }
+  if (
+    title === i18n.t('common.done') ||
+    title === i18n.t('booking.success') ||
+    title === i18n.t('booking.paidOk') ||
+    /\b(success|saved|sent|approved|paid|settled|confirmed|updated|created)\b/.test(blob) ||
+    /(تم|نجح|حفظ|أُرسل|أرسل|موافق|مدفوع|مسدد|مؤكد|حدّث|أُنشئ)/.test(blob)
+  ) {
+    return 'success';
+  }
   return 'info';
 }
 
@@ -82,7 +97,7 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
         setToast({
           title,
           message: body,
-          tone: inferTone(title),
+          tone: inferTone(title, body),
           onPress: tapAction,
         });
         toastTimer.current = setTimeout(() => {

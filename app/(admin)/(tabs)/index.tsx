@@ -8,8 +8,10 @@ import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { HubRow } from '@/components/ui/HubRow';
 import { NoteModal } from '@/components/ui/NoteModal';
 import { Screen } from '@/components/ui/Screen';
+import { TabPageHeader } from '@/components/ui/TabPageHeader';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
@@ -184,8 +186,7 @@ export default function AdminOverview() {
 
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
-      <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('roles.admin')}</Text>
-      <Text style={[styles.title, rtlText, { color: colors.text }]}>{t('admin.overview')}</Text>
+      <TabPageHeader kicker={t('roles.admin')} title={t('admin.overview')} />
 
       <Pressable
         onPress={() => router.push('/(admin)/(tabs)/bookings')}
@@ -341,39 +342,45 @@ export default function AdminOverview() {
         />
       </View>
 
-      <Card compact onPress={() => router.push('/(admin)/(tabs)/chat')}>
-        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.inboxTitle')}</Text>
-        <Text style={[styles.value, rtlText, { color: colors.primary }]}>{chats}</Text>
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.openChat')}</Text>
-      </Card>
-
-      <Card compact onPress={() => router.push('/(admin)/catalog')}>
-        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.catalogTitle')}</Text>
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.catalogHint')}</Text>
-      </Card>
-
-      <Card compact onPress={() => router.push('/(admin)/ops')}>
-        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.platformSettings')}</Text>
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.opsHubHint')}</Text>
-      </Card>
-
-      <Card compact onPress={() => router.push('/(admin)/payouts')}>
-        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsTitle')}</Text>
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.payoutsHint')}</Text>
-      </Card>
-
-      <Card compact onPress={() => router.push('/(admin)/reviews')}>
-        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.reviewsTitle')}</Text>
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.reviewsHint')}</Text>
-      </Card>
-
-      <Card compact onPress={() => router.push('/(admin)/audit')}>
-        <Text style={[styles.label, rtlText, { color: colors.textMuted }]}>{t('admin.auditTitle')}</Text>
-        <Text style={[styles.meta, rtlText, { color: colors.textMuted }]}>{t('admin.auditHint')}</Text>
-      </Card>
+      <HubRow
+        icon="chatbubbles-outline"
+        label={t('admin.inboxTitle')}
+        hint={`${chats} · ${t('admin.openChat')}`}
+        onPress={() => router.push('/(admin)/(tabs)/chat')}
+      />
+      <HubRow
+        icon="map-outline"
+        label={t('admin.catalogTitle')}
+        hint={t('admin.catalogHint')}
+        onPress={() => router.push('/(admin)/catalog')}
+      />
+      <HubRow
+        icon="settings-outline"
+        label={t('admin.platformSettings')}
+        hint={t('admin.opsHubHint')}
+        onPress={() => router.push('/(admin)/ops')}
+      />
+      <HubRow
+        icon="cash-outline"
+        label={t('admin.payoutsTitle')}
+        hint={t('admin.payoutsHint')}
+        onPress={() => router.push('/(admin)/payouts')}
+      />
+      <HubRow
+        icon="star-outline"
+        label={t('admin.reviewsTitle')}
+        hint={t('admin.reviewsHint')}
+        onPress={() => router.push('/(admin)/reviews')}
+      />
+      <HubRow
+        icon="document-text-outline"
+        label={t('admin.auditTitle')}
+        hint={t('admin.auditHint')}
+        onPress={() => router.push('/(admin)/audit')}
+      />
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingIds')}</Text>
-      {pendingIds.length === 0 ? <EmptyState title={t('admin.idReviewEmpty')} /> : null}
+      {pendingIds.length === 0 ? <EmptyState plain title={t('admin.idReviewEmpty')} /> : null}
       {pendingIds.slice(0, 6).map((user) => (
         <Card key={user.id} compact>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{user.full_name || user.email}</Text>
@@ -397,7 +404,7 @@ export default function AdminOverview() {
       ))}
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingOwners')}</Text>
-      {pendingOwners.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
+      {pendingOwners.length === 0 ? <EmptyState plain title={t('admin.noPending')} /> : null}
       {pendingOwners.slice(0, 6).map((owner) => (
         <Card key={owner.id} compact>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{owner.full_name || owner.email}</Text>
@@ -435,7 +442,7 @@ export default function AdminOverview() {
       ) : null}
 
       <Text style={[styles.section, rtlText, { color: colors.text }]}>{t('admin.pendingListings')}</Text>
-      {pendingListings.length === 0 ? <EmptyState title={t('admin.noPending')} /> : null}
+      {pendingListings.length === 0 ? <EmptyState plain title={t('admin.noPending')} /> : null}
       {pendingListings.slice(0, 6).map((item) => (
         <Card key={item.id} compact>
           <Text style={[styles.name, rtlText, { color: colors.text }]}>{localizedTitle(item, i18n.language)}</Text>

@@ -27,7 +27,6 @@ export default function WelcomeScreen() {
   const { rtlText, row, isRtl } = useLayout();
   const colors = useColors();
   const canGoBack = router.canGoBack();
-  // Arabic wraps taller — keep section air, trim type a touch so gaps stay visible.
   const air = isRtl ? arAir : enAir;
 
   const continueGuest = () => {
@@ -62,8 +61,12 @@ export default function WelcomeScreen() {
         <AuthCard compact>
           <View style={[styles.main, air.main]}>
             <View style={[styles.brandBlock, air.brandBlock]}>
-              <Text style={[styles.brand, air.brand, { color: colors.primaryDark }]}>{t('appName')}</Text>
-              <Text style={[styles.tag, air.tag, { color: colors.textMuted }]}>{t('tagline')}</Text>
+              <Text
+                style={[styles.brand, air.brand, isRtl && styles.brandAr, { color: colors.primaryDark }]}
+              >
+                {t('appName')}
+              </Text>
+              <Text style={[styles.tag, air.tag, { color: colors.primary }]}>{t('tagline')}</Text>
             </View>
             <Text style={[styles.body, air.body, { color: colors.textMuted }]}>{t('auth.welcomeBody')}</Text>
             <View style={[styles.who, air.who]}>
@@ -79,12 +82,9 @@ export default function WelcomeScreen() {
             <Text style={[styles.note, air.note, { color: colors.textMuted }]}>{t('auth.ownersInvited')}</Text>
             <View style={[styles.points, air.points]}>
               {POINTS.map((item) => (
-                <View
-                  key={item.title}
-                  style={[styles.point, air.point, row, { backgroundColor: colors.surfaceMuted }]}
-                >
-                  <View style={[styles.iconWrap, { backgroundColor: colors.surface }]}>
-                    <Ionicons name={item.icon} size={15} color={colors.primary} />
+                <View key={item.title} style={[styles.point, air.point, row]}>
+                  <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+                    <Ionicons name={item.icon} size={16} color={colors.primary} />
                   </View>
                   <View style={styles.pointCopy}>
                     <Text style={[styles.pointTitle, rtlText, { color: colors.text }]}>{t(`auth.${item.title}`)}</Text>
@@ -106,31 +106,31 @@ export default function WelcomeScreen() {
 }
 
 const enAir = StyleSheet.create({
-  main: { gap: 10 },
-  brandBlock: { gap: 6, paddingBottom: 2 },
-  brand: { fontSize: 28, lineHeight: 34 },
-  tag: { fontSize: 12, lineHeight: 17 },
-  body: { fontSize: 12, lineHeight: 18 },
+  main: { gap: 12 },
+  brandBlock: { gap: 8, paddingBottom: 4 },
+  brand: { fontSize: 34, lineHeight: 40 },
+  tag: { fontSize: 13, lineHeight: 18 },
+  body: { fontSize: 13, lineHeight: 19 },
   who: { gap: 8 },
-  whoChip: { paddingHorizontal: 10, paddingVertical: 5 },
+  whoChip: { paddingHorizontal: 11, paddingVertical: 5 },
   note: { fontSize: 11, lineHeight: 16 },
-  points: { gap: 7 },
-  point: { paddingVertical: 8, paddingHorizontal: 10, gap: 10 },
+  points: { gap: 10 },
+  point: { paddingVertical: 2, gap: 10 },
   pointHint: { fontSize: 11, lineHeight: 15 },
   guestNote: { fontSize: 11, lineHeight: 16, paddingVertical: 10 },
 });
 
 const arAir = StyleSheet.create({
-  main: { gap: 10 },
-  brandBlock: { gap: 6, paddingBottom: 2 },
-  brand: { fontSize: 26, lineHeight: 32 },
-  tag: { fontSize: 12, lineHeight: 18 },
-  body: { fontSize: 12, lineHeight: 19 },
+  main: { gap: 11 },
+  brandBlock: { gap: 8, paddingBottom: 4, paddingTop: 2 },
+  brand: { fontSize: 32, lineHeight: 52 },
+  tag: { fontSize: 13, lineHeight: 19 },
+  body: { fontSize: 13, lineHeight: 20 },
   who: { gap: 8 },
   whoChip: { paddingHorizontal: 12, paddingVertical: 6 },
   note: { fontSize: 11, lineHeight: 17 },
-  points: { gap: 8 },
-  point: { paddingVertical: 9, paddingHorizontal: 11, gap: 10 },
+  points: { gap: 10 },
+  point: { paddingVertical: 2, gap: 10 },
   pointHint: { fontSize: 11, lineHeight: 16 },
   guestNote: { fontSize: 11, lineHeight: 17, paddingVertical: 11 },
 });
@@ -140,13 +140,21 @@ const styles = StyleSheet.create({
   brandBlock: {
     alignItems: 'center',
     alignSelf: 'stretch',
+    overflow: 'visible',
   },
   brand: {
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
     textAlign: 'center',
     alignSelf: 'stretch',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    overflow: 'visible',
+  },
+  brandAr: {
+    letterSpacing: 0,
+    paddingTop: 6,
+    paddingBottom: 4,
+    includeFontPadding: true,
   },
   tag: {
     fontFamily: 'Cairo_600SemiBold',
@@ -172,18 +180,17 @@ const styles = StyleSheet.create({
   points: {},
   point: {
     alignItems: 'flex-start',
-    borderRadius: radius.md,
   },
   iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   pointCopy: { flex: 1, minWidth: 0, gap: 2 },
-  pointTitle: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  pointTitle: { fontSize: 13, fontFamily: 'Cairo_700Bold' },
   pointHint: { fontFamily: 'Cairo_400Regular' },
   guestNote: {
     fontFamily: 'Cairo_600SemiBold',

@@ -3,14 +3,17 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
-import { ProfileMenu } from '@/components/profile/ProfileMenu';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Screen } from '@/components/ui/Screen';
+import { TabPageHeader } from '@/components/ui/TabPageHeader';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useLiveReload } from '@/src/hooks/useLiveReload';
 import { openLogin, openRegister } from '@/src/lib/guest';
+import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
 export default function GuestAccount() {
@@ -26,40 +29,25 @@ export default function GuestAccount() {
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <ProfileEnter scene="guest">
-        <Text style={[styles.kicker, rtlText, { color: colors.accent }]}>{t('guest.accountTitle')}</Text>
-        <Text style={[styles.body, rtlText, { color: colors.textMuted }]}>{t('guest.accountBody')}</Text>
+        <OfflineBanner />
+        <TabPageHeader kicker={t('appName')} title={t('guest.accountTitle')} hint={t('guest.accountBody')} />
         <Card compact>
           <View style={[styles.langRow, row]}>
             <Text style={[styles.langLabel, rtlText, { color: colors.text }]}>{t('common.language')}</Text>
             <LanguageToggle />
           </View>
         </Card>
-        <ProfileMenu
-          groups={[
-            [
-              {
-                key: 'login',
-                icon: 'log-in-outline',
-                label: t('auth.login'),
-                onPress: openLogin,
-              },
-              {
-                key: 'register',
-                icon: 'person-add-outline',
-                label: t('auth.register'),
-                onPress: openRegister,
-              },
-            ],
-          ]}
-        />
+        <View style={styles.actions}>
+          <Button title={t('auth.login')} onPress={openLogin} pill />
+          <Button title={t('auth.register')} variant="secondary" onPress={openRegister} pill />
+        </View>
       </ProfileEnter>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  kicker: { fontSize: 13, fontWeight: '800', fontFamily: 'Cairo_800ExtraBold' },
-  body: { fontSize: 13, lineHeight: 20, fontFamily: 'Cairo_400Regular' },
   langRow: { alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   langLabel: { flex: 1, fontSize: 14, fontFamily: 'Cairo_700Bold' },
+  actions: { gap: spacing.sm, marginTop: spacing.xs },
 });

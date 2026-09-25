@@ -18,6 +18,7 @@ export function FilterPills<T extends string>({
   items,
   allowDeselect,
   compact,
+  stretch,
 }: {
   value?: T;
   onChange?: (next: T) => void;
@@ -26,6 +27,8 @@ export function FilterPills<T extends string>({
   items: FilterPillItem<T>[];
   allowDeselect?: boolean;
   compact?: boolean;
+  /** Equal-width pills in one row (good for 2-option choices). */
+  stretch?: boolean;
 }) {
   const { isRtl } = useLayout();
   const colors = useColors();
@@ -35,7 +38,8 @@ export function FilterPills<T extends string>({
       style={[
         styles.wrap,
         compact && styles.wrapCompact,
-        { justifyContent: isRtl ? 'flex-end' : 'flex-start' },
+        stretch && styles.wrapStretch,
+        { justifyContent: stretch ? 'space-between' : isRtl ? 'flex-end' : 'flex-start' },
       ]}
     >
       {items.map((item) => {
@@ -55,6 +59,7 @@ export function FilterPills<T extends string>({
             style={[
               styles.pill,
               compact && styles.pillCompact,
+              stretch && styles.pillStretch,
               {
                 backgroundColor: on ? colors.primary : colors.surface,
                 borderColor: on ? colors.primary : colors.border,
@@ -62,7 +67,12 @@ export function FilterPills<T extends string>({
             ]}
           >
             <Text
-              style={[styles.label, compact && styles.labelCompact, { color: on ? colors.white : colors.text }]}
+              style={[
+                styles.label,
+                compact && styles.labelCompact,
+                stretch && styles.labelStretch,
+                { color: on ? colors.white : colors.text },
+              ]}
               numberOfLines={1}
             >
               {item.label}
@@ -82,6 +92,7 @@ export function FilterPills<T extends string>({
 const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: '100%' },
   wrapCompact: { gap: 6 },
+  wrapStretch: { flexWrap: 'nowrap', width: '100%' },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -98,8 +109,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 11,
   },
+  pillStretch: {
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: undefined,
+    flexShrink: 0,
+  },
   label: { fontSize: 13, fontFamily: 'Cairo_700Bold', flexShrink: 1, letterSpacing: -0.1 },
   labelCompact: { fontSize: 12 },
+  labelStretch: { textAlign: 'center', flexShrink: 1 },
   count: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
   countCompact: { fontSize: 11 },
 });

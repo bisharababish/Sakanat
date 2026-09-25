@@ -143,7 +143,7 @@ export default function AdminListings() {
           count: counts[value],
         }))}
       />
-      {visible.length === 0 ? <EmptyState title={t('admin.noListings')} /> : null}
+      {visible.length === 0 ? <EmptyState plain title={t('admin.noListings')} /> : null}
       {paged.slice.map((item) => (
         <View key={item.id} style={styles.block}>
           {item.profiles?.full_name ? (
