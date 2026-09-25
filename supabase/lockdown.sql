@@ -342,6 +342,15 @@ create policy profiles_read on public.profiles
     or public.is_admin()
   );
 
+-- Self-insert cannot invent owner/admin (trigger still creates the real row).
+drop policy if exists profiles_insert_self on public.profiles;
+create policy profiles_insert_self on public.profiles
+  for insert to authenticated
+  with check (
+    id = auth.uid()
+    and role in ('student', 'renter')
+  );
+
 -- ---------------------------------------------------------------------------
 -- Blocks enforced on chat insert
 -- ---------------------------------------------------------------------------

@@ -113,6 +113,8 @@ create trigger apartments_owner_listing_gates
   for each row
   execute function public.enforce_owner_listing_gates();
 
+-- Keep lockdown MFA (jwt_aal2) AND owner readiness. Do not drop AAL2 when
+-- re-applying this file.
 drop policy if exists apartments_insert on public.apartments;
 create policy apartments_insert on public.apartments
   for insert to authenticated
@@ -120,6 +122,7 @@ create policy apartments_insert on public.apartments
     public.is_admin()
     or (
       owner_id = auth.uid()
+      and public.jwt_aal2()
       and exists (
         select 1
         from public.profiles p
@@ -135,5 +138,5 @@ create policy apartments_insert on public.apartments
 drop policy if exists apartments_update on public.apartments;
 create policy apartments_update on public.apartments
   for update to authenticated
-  using (owner_id = auth.uid() or public.is_admin())
-  with check (owner_id = auth.uid() or public.is_admin());
+  using (public.is_admin() or (owner_id = auth.uid() and public.jwt_aal2()))
+  with check (public.is_admin() or (owner_id = auth.uid() and public.jwt_aal2()));

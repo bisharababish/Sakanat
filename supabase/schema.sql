@@ -342,7 +342,11 @@ create policy profiles_read on public.profiles for select to authenticated using
 
 drop policy if exists profiles_insert_self on public.profiles;
 create policy profiles_insert_self on public.profiles
-  for insert to authenticated with check (id = auth.uid());
+  for insert to authenticated
+  with check (
+    id = auth.uid()
+    and role in ('student', 'renter')
+  );
 
 drop policy if exists profiles_update on public.profiles;
 create policy profiles_update on public.profiles
