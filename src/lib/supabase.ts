@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { authStorage } from '@/src/lib/sessionStorage';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+/** Publishable anon key (RLS-protected). Never put service_role in the app. */
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const isSupabaseConfigured = Boolean(url && key);

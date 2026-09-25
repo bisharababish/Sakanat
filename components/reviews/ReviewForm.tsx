@@ -66,7 +66,8 @@ export function ReviewForm({
       <KeyboardAvoidingView
         {...edgeBack}
         style={[styles.overlay, { backgroundColor: colors.overlay }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={close} />
         <View

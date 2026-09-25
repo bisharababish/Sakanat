@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { LanguageToggle } from '@/components/LanguageToggle';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -29,7 +28,6 @@ export default function GuestAccount() {
   return (
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <ProfileEnter scene="guest">
-        <OfflineBanner />
         <TabPageHeader kicker={t('appName')} title={t('guest.accountTitle')} hint={t('guest.accountBody')} />
         <Card compact>
           <View style={[styles.langRow, row]}>

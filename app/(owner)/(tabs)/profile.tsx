@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { OwnerOccupants } from '@/components/owner/OwnerOccupants';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
@@ -675,7 +674,6 @@ export default function OwnerProfile() {
         ) : null
       }
     >
-      <OfflineBanner />
       <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
       {tab === 'menu' ? (
         <>

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { ListingCard } from '@/components/ListingCard';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
@@ -502,7 +501,6 @@ export default function SearchScreen() {
       onBack={() => setFiltersOpen(false)}
     >
       <ProfileEnter scene="search" enterOnMount>
-      <OfflineBanner />
       <View style={styles.head}>
         <Text style={[styles.title, rtlText, { color: colors.text }]} numberOfLines={1}>
           {hello}

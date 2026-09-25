@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationList, useInbox, type InboxFilter } from '@/components/ConversationList';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { Screen } from '@/components/ui/Screen';
 import { TabPageHeader } from '@/components/ui/TabPageHeader';
@@ -35,11 +34,11 @@ export default function StudentChat() {
   return (
     <Screen onRefresh={() => void inbox.refresh()} refreshing={inbox.refreshing}>
       <ProfileEnter scene="chat" enterOnMount>
-        <OfflineBanner />
         <TabPageHeader kicker={t('tabs.chat')} title={t('chat.title')} />
         <ConversationList
           roleHref="/(student)/conversation/[id]"
           items={inbox.items}
+          loadError={inbox.loadError}
           profileId={inbox.profile?.id}
           isOwner={false}
           onReload={inbox.reload}

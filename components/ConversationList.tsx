@@ -39,7 +39,9 @@ export type InboxFilter = 'inbox' | 'unread' | 'archived';
 
 export function useInbox() {
   const { profile } = useAuth();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Conversation[] | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     if (!profile) return;
@@ -47,11 +49,13 @@ export function useInbox() {
     try {
       const rows = await loadConversations(column, profile.id);
       setItems(rows);
+      setLoadError('');
       void markInboxDelivered(rows, profile.role === 'owner');
-    } catch {
+    } catch (err) {
       setItems([]);
+      setLoadError(err instanceof Error ? err.message : t('common.offlineHint'));
     }
-  }, [profile]);
+  }, [profile, t]);
 
   const patch = useCallback((id: string, next: Partial<Conversation>) => {
     setItems((prev) => (prev ? prev.map((row) => (row.id === id ? { ...row, ...next } : row)) : prev));
@@ -59,12 +63,13 @@ export function useInbox() {
 
   const { refreshing, refresh } = useLiveReload(load, ['conversations', 'messages'], `inbox:${profile?.id ?? ''}`);
 
-  return { items, refreshing, refresh, profile, reload: load, patch };
+  return { items, loadError, refreshing, refresh, profile, reload: load, patch };
 }
 
 export function ConversationList({
   roleHref,
   items,
+  loadError,
   profileId,
   isOwner,
   onReload,
@@ -77,6 +82,7 @@ export function ConversationList({
 }: {
   roleHref: '/(student)/conversation/[id]' | '/(owner)/conversation/[id]';
   items: Conversation[] | null;
+  loadError?: string;
   profileId?: string;
   isOwner?: boolean;
   onReload?: () => void | Promise<void>;
@@ -87,12 +93,23 @@ export function ConversationList({
   pinApartmentId?: string;
   pinApartmentIds?: string[];
 }) {
+  const { t } = useTranslation();
   const colors = useColors();
   if (!items) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} />
       </View>
+    );
+  }
+  if (loadError) {
+    return (
+      <EmptyState
+        title={t('common.loadFailed')}
+        hint={loadError}
+        actionTitle={t('common.retry')}
+        onAction={() => void onReload?.()}
+      />
     );
   }
   const scoped = apartmentId ? items.filter((item) => item.apartment_id === apartmentId) : items;

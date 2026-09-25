@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import { BookingCard } from '@/components/booking/BookingCard';
 import { StatusFilters } from '@/components/booking/StatusFilters';
 import { EmptyState } from '@/components/EmptyState';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { ReviewForm } from '@/components/reviews/ReviewForm';
 import { StarRow } from '@/components/reviews/StarRow';
@@ -67,23 +66,30 @@ export default function StudentBookings() {
   const [noteBusy, setNoteBusy] = useState(false);
   const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({});
   const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from('bookings')
-      .select(`*, apartments(*, cities(*))`)
-      .eq('student_id', profile.id)
-      .order('created_at', { ascending: false });
-    setBookings(await attachStayPeerCards((data as Booking[]) ?? [], 'owner'));
-    if (profile) {
-      try {
-        setReviews(await loadMyReviews(profile.id));
-      } catch {
-        setReviews([]);
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`*, apartments(*, cities(*))`)
+        .eq('student_id', profile.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setBookings(await attachStayPeerCards((data as Booking[]) ?? [], 'owner'));
+      setLoadError('');
+      if (profile) {
+        try {
+          setReviews(await loadMyReviews(profile.id));
+        } catch {
+          setReviews([]);
+        }
       }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : t('common.offlineHint'));
     }
-  }, [profile]);
+  }, [profile, t]);
 
   const { refreshing, refresh } = useLiveReload(
     load,
@@ -599,7 +605,6 @@ export default function StudentBookings() {
       onBack={() => setFilter('all')}
     >
       <ProfileEnter scene="bookings" enterOnMount>
-      <OfflineBanner />
       <TabPageHeader
         kicker={t('tabs.bookings')}
         title={t('booking.myBookings')}
@@ -613,7 +618,16 @@ export default function StudentBookings() {
         }
       />
 
-      {needsReview.length > 0 ? (
+      {loadError ? (
+        <EmptyState
+          title={t('common.loadFailed')}
+          hint={loadError}
+          actionTitle={t('common.retry')}
+          onAction={() => void refresh()}
+        />
+      ) : null}
+
+      {!loadError && needsReview.length > 0 ? (
         <HubRow
           icon="star-outline"
           label={t('review.goWrite')}
@@ -632,7 +646,7 @@ export default function StudentBookings() {
 
       <StatusFilters value={filter} counts={counts} onChange={pickFilter} />
 
-      {filtered.length === 0 && !showCurrent ? (
+      {!loadError && filtered.length === 0 && !showCurrent ? (
         <EmptyState
           title={bookings.length === 0 ? t('booking.empty') : t('booking.emptyFiltered')}
           actionTitle={bookings.length === 0 ? t('booking.findPlace') : undefined}
@@ -640,13 +654,14 @@ export default function StudentBookings() {
         />
       ) : null}
 
-      {showCurrent && currentStay ? renderStay(currentStay, true) : null}
+      {!loadError && showCurrent && currentStay ? renderStay(currentStay, true) : null}
 
-      {showCurrent && rest.length > 0 ? (
+      {!loadError && showCurrent && rest.length > 0 ? (
         <Text style={[styles.history, rtlText, { color: colors.textMuted }]}>{t('booking.historyTitle')}</Text>
       ) : null}
 
-      {visible.map((booking) => renderStay(booking, false))}
+      {!loadError ? visible.map((booking) => renderStay(booking, false)) : null}
+      {!loadError ? (
       <Pager
         page={current}
         pages={pages}
@@ -656,7 +671,7 @@ export default function StudentBookings() {
         pageSize={BOOKING_PAGE_SIZE}
         onPage={setPage}
       />
-      <ReviewForm
+      ) : null}      <ReviewForm
         visible={Boolean(reviewing)}
         title={
           reviewing?.apartments

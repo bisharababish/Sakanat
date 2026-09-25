@@ -2,15 +2,15 @@ import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-/** Native logo.jpeg size — keep this ratio everywhere. */
-const LOGO_W = 918;
-const LOGO_H = 612;
+/** Transparent wordmark (logo-mark.png) — green field removed. */
+const LOGO_W = 548;
+const LOGO_H = 228;
 const ASPECT = LOGO_W / LOGO_H;
 
-const LOGO = require('@/assets/images/logo.jpeg');
+const LOGO = require('@/assets/images/logo-mark.png');
 
 type Props = {
-  /** Display width; height follows the logo’s real shape. */
+  /** Display width; height follows the mark’s real shape. */
   width?: number;
   /** Compact menu / chrome mark (width in px). */
   badge?: boolean;
@@ -18,8 +18,7 @@ type Props = {
 };
 
 /**
- * Renders logo.jpeg at its true aspect — no crop, no stretch, no extra plate.
- * The file already includes the green field + white wordmark.
+ * Renders the Matra7 wordmark with a transparent background.
  */
 export function BrandLogo({ width = 168, badge = false, size = 36 }: Props) {
   const { t } = useTranslation();
@@ -29,7 +28,7 @@ export function BrandLogo({ width = 168, badge = false, size = 36 }: Props) {
   return (
     <Image
       source={LOGO}
-      style={[styles.logo, { width: w, height: h, borderRadius: badge ? 8 : 12 }]}
+      style={[styles.logo, { width: w, height: h }]}
       contentFit="contain"
       accessibilityLabel={t('appName')}
     />
@@ -39,6 +38,5 @@ export function BrandLogo({ width = 168, badge = false, size = 36 }: Props) {
 const styles = StyleSheet.create({
   logo: {
     alignSelf: 'center',
-    overflow: 'hidden',
   },
 });

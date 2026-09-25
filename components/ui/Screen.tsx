@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, View } from
 import { ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -50,6 +51,13 @@ export function Screen({
     />
   ) : undefined;
 
+  const content = (
+    <>
+      <OfflineBanner />
+      {children}
+    </>
+  );
+
   const body = (
     <ScrollView
       ref={scrollRef}
@@ -57,6 +65,7 @@ export function Screen({
       contentContainerStyle={[styles.pad, footer ? styles.padWithFooter : null]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
       contentInsetAdjustmentBehavior="never"
       showsVerticalScrollIndicator={false}
       bounces
@@ -65,7 +74,7 @@ export function Screen({
       nestedScrollEnabled
       refreshControl={refreshControl}
     >
-      {children}
+      {content}
     </ScrollView>
   );
 
@@ -73,8 +82,14 @@ export function Screen({
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
         {bar}
-        <View style={styles.pad}>{children}</View>
-        {bottom}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        >
+          <View style={[styles.pad, styles.flex]}>{content}</View>
+          {bottom}
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -82,17 +97,14 @@ export function Screen({
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {bar}
-      {Platform.OS === 'ios' ? (
-        <KeyboardAvoidingView style={styles.flex} behavior="padding">
-          {body}
-          {bottom}
-        </KeyboardAvoidingView>
-      ) : (
-        <>
-          {body}
-          {bottom}
-        </>
-      )}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+        {body}
+        {bottom}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

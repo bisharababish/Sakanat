@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ConversationList, useInbox, type InboxFilter } from '@/components/ConversationList';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { Screen } from '@/components/ui/Screen';
 import { TabPageHeader } from '@/components/ui/TabPageHeader';
@@ -43,11 +42,11 @@ export default function OwnerChat() {
       onBack={() => router.setParams({ apartmentId: undefined })}
     >
       <ProfileEnter scene="chat" enterOnMount>
-        <OfflineBanner />
         <TabPageHeader kicker={t('tabs.chat')} title={t('chat.title')} />
         <ConversationList
           roleHref="/(owner)/conversation/[id]"
           items={inbox.items}
+          loadError={inbox.loadError}
           profileId={inbox.profile?.id}
           isOwner
           onReload={inbox.reload}

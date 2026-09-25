@@ -6,7 +6,6 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Pager } from '@/components/ui/Pager';
@@ -231,7 +230,6 @@ export default function OwnerListings() {
         else setBuildingFilter('all');
       }}
     >
-      <OfflineBanner />
       <TabPageHeader
         kicker={t('tabs.listings')}
         title={t('owner.yourListings')}

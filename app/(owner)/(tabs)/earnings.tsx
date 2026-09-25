@@ -6,7 +6,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { ListSkeleton } from '@/components/ui/ListSkeleton';
@@ -211,7 +210,6 @@ export default function OwnerEarnings() {
         router.push('/(owner)/(tabs)/profile');
       }}
     >
-      <OfflineBanner />
       <TabPageHeader
         kicker={t('tabs.earnings')}
         title={t('owner.youKeep')}

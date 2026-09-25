@@ -509,7 +509,7 @@ export function ChatThread({
   return (
     <KeyboardAvoidingView
       style={[styles.flex, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
       {!readOnly && profile && isSeeker(profile) && !isSeekerAccountReady(profile) ? (

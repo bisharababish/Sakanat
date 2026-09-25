@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 
 import { StatusFilters } from '@/components/booking/StatusFilters';
 import { EmptyState } from '@/components/EmptyState';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { IdDocsViewer } from '@/components/profile/IdDocsViewer';
 import { Button } from '@/components/ui/Button';
 import { FilterPills } from '@/components/ui/FilterPills';
@@ -387,7 +386,6 @@ export default function OwnerBookings() {
         pickFilter('pending');
       }}
     >
-      <OfflineBanner />
       <TabPageHeader
         kicker={t('tabs.bookings')}
         title={t('booking.incoming')}

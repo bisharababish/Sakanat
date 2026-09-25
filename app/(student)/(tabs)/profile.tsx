@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 
 import { ListingCard } from '@/components/ListingCard';
 import { EmptyState } from '@/components/EmptyState';
-import { OfflineBanner } from '@/components/OfflineBanner';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ProfileAccountFields } from '@/components/profile/ProfileAccountFields';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
@@ -997,7 +996,6 @@ export default function StudentProfileScreen() {
       }
       scrollRef={scrollRef}
     >
-      <OfflineBanner />
       <ProfileEnter scene={tab} reverse={tab === 'menu'} enterOnMount>
       {tab === 'menu' ? (
         <>
