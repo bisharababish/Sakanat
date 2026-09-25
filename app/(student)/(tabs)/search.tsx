@@ -831,7 +831,7 @@ export default function SearchScreen() {
           saved={savedIds.includes(item.id)}
           onToggleSave={() => {
             if (!profile) {
-              requireAccount(item.id);
+              requireAccount(item.id, 'save');
               return;
             }
             const currently = savedIds.includes(item.id);

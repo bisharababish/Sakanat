@@ -164,6 +164,8 @@ export function ChatThread({
   const safe = useModalSafeArea();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [threadReady, setThreadReady] = useState(false);
+  const [threadMissing, setThreadMissing] = useState(false);
   const [showListing, setShowListing] = useState(true);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -224,15 +226,23 @@ export function ChatThread({
 
   useEffect(() => {
     let mounted = true;
+    setThreadReady(false);
+    setThreadMissing(false);
     void loadConversation(conversationId)
       .then((row) => {
-        if (mounted) setConversation(row);
+        if (!mounted) return;
+        setConversation(row);
+        setThreadReady(true);
+        setThreadMissing(false);
         void listingContextHidden(row.apartment_id, row.student_id, row.id).then((hidden) => {
           if (mounted) setShowListing(!hidden);
         });
       })
       .catch(() => {
-        if (mounted) setConversation(null);
+        if (!mounted) return;
+        setConversation(null);
+        setThreadReady(true);
+        setThreadMissing(true);
       });
     void loadMessages();
 
@@ -484,6 +494,17 @@ export function ChatThread({
       },
     ]);
   };
+
+  if (threadReady && threadMissing) {
+    return (
+      <View style={[styles.flex, styles.missingWrap, { backgroundColor: colors.background }]}>
+        <Text style={[styles.missingText, { color: colors.textMuted, textAlign }]}>{t('chat.notFound')}</Text>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Text style={[styles.missingBack, { color: colors.primary }]}>{t('common.back')}</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -794,6 +815,14 @@ export function ChatThread({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  missingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 24,
+  },
+  missingText: { fontSize: 15, fontFamily: 'Cairo_600SemiBold' },
+  missingBack: { fontSize: 15, fontFamily: 'Cairo_700Bold' },
   list: { paddingHorizontal: 10, paddingTop: 8, flexGrow: 1, paddingBottom: spacing.lg },
   emptyBox: {
     alignItems: 'center',

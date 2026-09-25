@@ -7,8 +7,12 @@ import { homeHref } from '@/src/lib/routes';
 import type { UserRole } from '@/src/types/database';
 
 const PENDING_APT = 'sakanat.guest.apartment';
+const PENDING_INTENT = 'sakanat.guest.intent';
+
+export type GuestIntent = 'view' | 'book' | 'chat' | 'save';
 
 let pendingApartmentId: string | null = null;
+let pendingIntent: GuestIntent = 'view';
 const listeners = new Set<(id: string | null) => void>();
 
 function emit(id: string | null) {
@@ -16,10 +20,12 @@ function emit(id: string | null) {
   listeners.forEach((fn) => fn(id));
 }
 
-export function rememberGuestApartment(id: string) {
+export function rememberGuestApartment(id: string, intent: GuestIntent = 'view') {
   if (!id) return;
+  pendingIntent = intent;
   emit(id);
   void AsyncStorage.setItem(PENDING_APT, id);
+  void AsyncStorage.setItem(PENDING_INTENT, intent);
 }
 
 export function takeGuestApartment() {
@@ -33,6 +39,18 @@ export function peekGuestApartment() {
   return pendingApartmentId;
 }
 
+export function peekGuestIntent(): GuestIntent {
+  return pendingIntent;
+}
+
+/** Consume guest book/chat/save intent once the listing screen is ready. */
+export function takeGuestIntent(): GuestIntent {
+  const intent = pendingIntent;
+  pendingIntent = 'view';
+  void AsyncStorage.removeItem(PENDING_INTENT);
+  return intent;
+}
+
 export function subscribeGuestApartment(fn: (id: string | null) => void) {
   listeners.add(fn);
   fn(pendingApartmentId);
@@ -42,7 +60,13 @@ export function subscribeGuestApartment(fn: (id: string | null) => void) {
 }
 
 export async function hydrateGuestApartment() {
-  const stored = await AsyncStorage.getItem(PENDING_APT);
+  const [stored, intent] = await Promise.all([
+    AsyncStorage.getItem(PENDING_APT),
+    AsyncStorage.getItem(PENDING_INTENT),
+  ]);
+  if (intent === 'book' || intent === 'chat' || intent === 'save' || intent === 'view') {
+    pendingIntent = intent;
+  }
   if (stored) emit(stored);
   return stored;
 }
@@ -59,8 +83,8 @@ export function openRegister() {
   router.push('/(auth)/register');
 }
 
-export function requireAccount(apartmentId?: string) {
-  if (apartmentId) rememberGuestApartment(apartmentId);
+export function requireAccount(apartmentId?: string, intent: GuestIntent = 'view') {
+  if (apartmentId) rememberGuestApartment(apartmentId, intent);
   alert(i18n.t('guest.needAccount'), i18n.t('guest.needAccountBody'), [
     { text: i18n.t('common.cancel'), style: 'cancel' },
     { text: i18n.t('auth.login'), onPress: openLogin },

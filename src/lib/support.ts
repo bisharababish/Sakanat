@@ -39,7 +39,10 @@ export function supportWhatsAppUrl(text: string) {
 }
 
 export function rateUrl() {
+  // Soft launch: only show Rate when the store page is actually live.
   if (Platform.OS === 'android') {
+    const live = (process.env.EXPO_PUBLIC_ANDROID_PLAY_LIVE ?? '').trim() === '1';
+    if (!live) return null;
     return `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
   }
   const appleId = (process.env.EXPO_PUBLIC_IOS_APP_STORE_ID ?? '').trim();

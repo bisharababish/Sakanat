@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -25,6 +25,7 @@ import { alert } from '@/src/lib/notice';
 import { OWNER_LISTING_PAGE_SIZE } from '@/src/lib/page';
 import { listingGateMessage, ownerReadyForListing } from '@/src/lib/trust';
 import { ownerListingGapTab } from '@/src/lib/studentProfile';
+import { mailTo, supportWhatsAppUrl } from '@/src/lib/support';
 import { supabase } from '@/src/lib/supabase';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -182,7 +183,11 @@ export default function OwnerListings() {
             color: colors.warning,
             bg: colors.warningSoft,
             text: t('owner.listingNeedApproval'),
-            onPress: undefined,
+            onPress: () => {
+              const url =
+                supportWhatsAppUrl(t('menu.whatsappPrefill')) ?? mailTo(t('menu.supportSubject'));
+              void Linking.openURL(url);
+            },
           }
         : profile?.owner_status === 'approved' && !canList
           ? {

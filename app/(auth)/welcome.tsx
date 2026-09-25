@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthRubber } from '@/components/auth/AuthRubber';
 import { AuthScreen } from '@/components/auth/AuthScreen';
-import { BrandLogo } from '@/components/BrandLogo';
 import { Button } from '@/components/ui/Button';
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius, spacing } from '@/src/theme/colors';
@@ -24,10 +23,12 @@ const POINTS: { icon: IconName; title: string; hint: string }[] = [
 const WHO = ['student', 'renter'] as const;
 
 export default function WelcomeScreen() {
-  const { t } = useTranslation();
-  const { rtlText, row } = useLayout();
+  const { t, i18n } = useTranslation();
+  const { rtlText, row, isRtl } = useLayout();
   const colors = useColors();
   const canGoBack = router.canGoBack();
+  // Arabic wraps taller — keep section air, trim type a touch so gaps stay visible.
+  const air = isRtl ? arAir : enAir;
 
   const continueGuest = () => {
     if (canGoBack) {
@@ -57,37 +58,44 @@ export default function WelcomeScreen() {
         </>
       }
     >
-      <AuthRubber>
-        <AuthCard dense>
-          <View style={styles.main}>
-            <View style={styles.brandBlock}>
-              <BrandLogo width={140} />
-              <Text style={[styles.brand, { color: colors.primaryDark }]}>{t('appName')}</Text>
-              <Text style={[styles.tag, { color: colors.textMuted }]}>{t('tagline')}</Text>
+      <AuthRubber nudge={i18n.language}>
+        <AuthCard compact>
+          <View style={[styles.main, air.main]}>
+            <View style={[styles.brandBlock, air.brandBlock]}>
+              <Text style={[styles.brand, air.brand, { color: colors.primaryDark }]}>{t('appName')}</Text>
+              <Text style={[styles.tag, air.tag, { color: colors.textMuted }]}>{t('tagline')}</Text>
             </View>
-            <Text style={[styles.body, { color: colors.textMuted }]}>{t('auth.welcomeBody')}</Text>
-            <View style={styles.who}>
+            <Text style={[styles.body, air.body, { color: colors.textMuted }]}>{t('auth.welcomeBody')}</Text>
+            <View style={[styles.who, air.who]}>
               {WHO.map((role) => (
-                <View key={role} style={[styles.whoChip, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}>
+                <View
+                  key={role}
+                  style={[styles.whoChip, air.whoChip, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}
+                >
                   <Text style={[styles.whoText, { color: colors.primary }]}>{t(`roles.${role}`)}</Text>
                 </View>
               ))}
             </View>
-            <Text style={[styles.note, { color: colors.textMuted }]}>{t('auth.ownersInvited')}</Text>
-            <View style={styles.points}>
+            <Text style={[styles.note, air.note, { color: colors.textMuted }]}>{t('auth.ownersInvited')}</Text>
+            <View style={[styles.points, air.points]}>
               {POINTS.map((item) => (
-                <View key={item.title} style={[styles.point, row, { backgroundColor: colors.surfaceMuted }]}>
+                <View
+                  key={item.title}
+                  style={[styles.point, air.point, row, { backgroundColor: colors.surfaceMuted }]}
+                >
                   <View style={[styles.iconWrap, { backgroundColor: colors.surface }]}>
                     <Ionicons name={item.icon} size={15} color={colors.primary} />
                   </View>
                   <View style={styles.pointCopy}>
                     <Text style={[styles.pointTitle, rtlText, { color: colors.text }]}>{t(`auth.${item.title}`)}</Text>
-                    <Text style={[styles.pointHint, rtlText, { color: colors.textMuted }]}>{t(`auth.${item.hint}`)}</Text>
+                    <Text style={[styles.pointHint, air.pointHint, rtlText, { color: colors.textMuted }]}>
+                      {t(`auth.${item.hint}`)}
+                    </Text>
                   </View>
                 </View>
               ))}
             </View>
-            <Text style={[styles.guestNote, { color: colors.text, backgroundColor: colors.accentSoft }]}>
+            <Text style={[styles.guestNote, air.guestNote, { color: colors.text, backgroundColor: colors.accentSoft }]}>
               {t('auth.welcomeGuestNote')}
             </Text>
           </View>
@@ -97,58 +105,74 @@ export default function WelcomeScreen() {
   );
 }
 
+const enAir = StyleSheet.create({
+  main: { gap: 10 },
+  brandBlock: { gap: 6, paddingBottom: 2 },
+  brand: { fontSize: 28, lineHeight: 34 },
+  tag: { fontSize: 12, lineHeight: 17 },
+  body: { fontSize: 12, lineHeight: 18 },
+  who: { gap: 8 },
+  whoChip: { paddingHorizontal: 10, paddingVertical: 5 },
+  note: { fontSize: 11, lineHeight: 16 },
+  points: { gap: 7 },
+  point: { paddingVertical: 8, paddingHorizontal: 10, gap: 10 },
+  pointHint: { fontSize: 11, lineHeight: 15 },
+  guestNote: { fontSize: 11, lineHeight: 16, paddingVertical: 10 },
+});
+
+const arAir = StyleSheet.create({
+  main: { gap: 10 },
+  brandBlock: { gap: 6, paddingBottom: 2 },
+  brand: { fontSize: 26, lineHeight: 32 },
+  tag: { fontSize: 12, lineHeight: 18 },
+  body: { fontSize: 12, lineHeight: 19 },
+  who: { gap: 8 },
+  whoChip: { paddingHorizontal: 12, paddingVertical: 6 },
+  note: { fontSize: 11, lineHeight: 17 },
+  points: { gap: 8 },
+  point: { paddingVertical: 9, paddingHorizontal: 11, gap: 10 },
+  pointHint: { fontSize: 11, lineHeight: 16 },
+  guestNote: { fontSize: 11, lineHeight: 17, paddingVertical: 11 },
+});
+
 const styles = StyleSheet.create({
-  main: { gap: 7 },
+  main: {},
   brandBlock: {
     alignItems: 'center',
     alignSelf: 'stretch',
-    gap: 5,
   },
   brand: {
-    fontSize: 24,
     fontWeight: '800',
     fontFamily: 'Cairo_800ExtraBold',
     textAlign: 'center',
     alignSelf: 'stretch',
-    lineHeight: 30,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   tag: {
-    fontSize: 12,
     fontFamily: 'Cairo_600SemiBold',
     textAlign: 'center',
     alignSelf: 'stretch',
-    lineHeight: 16,
   },
   body: {
-    fontSize: 12,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
     alignSelf: 'stretch',
-    lineHeight: 17,
   },
-  who: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  who: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   whoChip: {
     borderRadius: radius.full,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
     borderWidth: StyleSheet.hairlineWidth,
   },
   whoText: { fontSize: 11, fontFamily: 'Cairo_700Bold' },
   note: {
-    fontSize: 11,
     fontFamily: 'Cairo_400Regular',
     textAlign: 'center',
     alignSelf: 'stretch',
-    lineHeight: 15,
   },
-  points: { gap: 5 },
+  points: {},
   point: {
     alignItems: 'flex-start',
-    gap: 8,
     borderRadius: radius.md,
-    paddingVertical: 6,
-    paddingHorizontal: 9,
   },
   iconWrap: {
     width: 28,
@@ -158,17 +182,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 1,
   },
-  pointCopy: { flex: 1, minWidth: 0, gap: 1 },
+  pointCopy: { flex: 1, minWidth: 0, gap: 2 },
   pointTitle: { fontSize: 12, fontFamily: 'Cairo_700Bold' },
-  pointHint: { fontSize: 11, fontFamily: 'Cairo_400Regular', lineHeight: 15 },
+  pointHint: { fontFamily: 'Cairo_400Regular' },
   guestNote: {
-    fontSize: 11,
     fontFamily: 'Cairo_600SemiBold',
     textAlign: 'center',
     alignSelf: 'stretch',
-    lineHeight: 15,
     borderRadius: radius.md,
-    paddingVertical: 8,
     paddingHorizontal: spacing.sm,
   },
 });

@@ -14,7 +14,7 @@ import { useAuth } from '@/src/lib/auth';
 import { trackEvent } from '@/src/lib/analytics';
 import { openListingChat } from '@/src/lib/chat';
 import { listingDistanceKm } from '@/src/lib/distance';
-import { apartmentPath, requireAccount } from '@/src/lib/guest';
+import { apartmentPath, requireAccount, takeGuestIntent } from '@/src/lib/guest';
 import { loadActiveStay, loadOccupiedStays, listingOccupiedStay, loadMyListingStay, occupiedUntil, type OccupiedStay } from '@/src/lib/booking';
 import { formatBookingDate, localizedTitle } from '@/src/lib/format';
 import { alert } from '@/src/lib/notice';
@@ -167,7 +167,7 @@ export default function ApartmentDetails() {
 
   const startChat = async () => {
     if (!profile) {
-      requireAccount(apartment?.id);
+      requireAccount(apartment?.id, 'chat');
       return;
     }
     if (!apartment) return;
@@ -201,7 +201,7 @@ export default function ApartmentDetails() {
       return;
     }
     if (!profile) {
-      requireAccount(apartment.id);
+      requireAccount(apartment.id, 'book');
       return;
     }
     if (bookGate?.kind === 'profile') {
@@ -220,6 +220,25 @@ export default function ApartmentDetails() {
     }
     router.push({ pathname: '/(student)/book/[id]', params: { id: apartment.id } });
   };
+
+  useEffect(() => {
+    if (!profile || !apartment || missing) return;
+    const intent = takeGuestIntent();
+    if (intent === 'book') goBook();
+    else if (intent === 'chat') void startChat();
+    else if (intent === 'save' && !saved) {
+      void (async () => {
+        setSaving(true);
+        try {
+          setSaved(await toggleSavedApartment(profile.id, apartment.id, false));
+        } finally {
+          setSaving(false);
+        }
+      })();
+    }
+    // Resume once when the listing becomes available after guest auth.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot after load
+  }, [profile?.id, apartment?.id, missing]);
 
   const sendListingReport = async () => {
     if (!profile || !apartment) return;
@@ -266,7 +285,7 @@ export default function ApartmentDetails() {
         onRequireAccount={() => requireAccount(apartment?.id)}
         onToggleSave={() => {
           if (!profile) {
-            requireAccount(apartment?.id);
+            requireAccount(apartment?.id, 'save');
             return;
           }
           if (!apartment) return;
