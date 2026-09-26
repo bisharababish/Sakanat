@@ -17,8 +17,8 @@
         <img src="/assets/logo-mark.png" width="140" height="48" alt="Matra7" />
       </a>
       <nav class="top-nav">
-        <a href="/admin/">لوحة الإدارة</a>
-        <a href="/reset.html">استعادة كلمة المرور</a>
+        <a href="/admin/">تسجيل دخول الإدارة</a>
+        <a href="/reset.html">نسيت كلمة المرور</a>
       </nav>
     </header>
 
@@ -28,9 +28,12 @@
         <h1>مَطْرَح</h1>
         <p class="lede">سكن طلابي موثوق قرب الجامعات الفلسطينية — بحث، حجز، ومحادثة في مكان واحد.</p>
         <div class="cta">
-          <a class="btn primary" href="sakanat://">فتح التطبيق</a>
-          <a class="btn secondary" href="/admin/">دخول الإدارة</a>
+          <a class="btn primary" href="/admin/">تسجيل دخول الإدارة</a>
+          <a class="btn secondary" id="openApp" href="sakanat://">فتح تطبيق مَطْرَح (جوال)</a>
         </div>
+        <p class="hero-note" id="appHint" hidden>
+          رابط التطبيق يشتغل على الجوال بعد تثبيت مَطْرَح. من الكمبيوتر استخدم «تسجيل دخول الإدارة».
+        </p>
       </div>
     </section>
 
@@ -53,8 +56,29 @@
 
     <footer class="foot">
       <img src="/assets/logo-mark.png" width="100" height="34" alt="" />
-      <p>روابط البريد: <a href="/confirmed.html">تأكيد الحساب</a> · <a href="/reset.html">كلمة المرور</a></p>
+      <p>
+        روابط البريد الإلكتروني:
+        <a href="/confirmed.html">تأكيد الحساب</a>
+        ·
+        <a href="/reset.html">إعادة تعيين كلمة المرور</a>
+      </p>
       <p class="copy">© Matra7 · مَطْرَح</p>
     </footer>
+    <script>
+      (function () {
+        var btn = document.getElementById('openApp');
+        var hint = document.getElementById('appHint');
+        if (!btn || !hint) return;
+        var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (!mobile) {
+          hint.hidden = false;
+          btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            hint.hidden = false;
+            hint.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          });
+        }
+      })();
+    </script>
   </body>
 </html>

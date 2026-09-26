@@ -95,6 +95,13 @@ body.site {
   line-height: 1.75;
   color: rgba(255, 255, 255, 0.88);
 }
+.hero-note {
+  margin: 18px auto 0;
+  max-width: 32em;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+}
 .cta {
   display: flex;
   flex-wrap: wrap;
