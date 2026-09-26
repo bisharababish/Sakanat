@@ -4,23 +4,57 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Matra7 — مَطْرَح</title>
+    <meta name="description" content="مَطْرَح — سكن طلابي قرب الجامعات الفلسطينية" />
+    <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/site.css" />
   </head>
-  <body>
-    <main class="card">
-      <div class="mark">م</div>
-      <h1>مَطْرَح · Matra7</h1>
-      <p>سكن طلابي قرب الجامعات الفلسطينية. افتح التطبيق للبحث والحجز والمحادثة.</p>
-      <p lang="en" dir="ltr" class="muted">Student housing near Palestinian campuses. Use the mobile app to search, book, and chat.</p>
-      <div class="actions">
-        <a class="btn" href="sakanat://">فتح التطبيق</a>
-        <a class="btn ghost" href="/admin/">لوحة الإدارة الكاملة</a>
+  <body class="site">
+    <header class="top">
+      <a class="brand" href="/">
+        <img src="/assets/logo-mark.png" width="140" height="48" alt="Matra7" />
+      </a>
+      <nav class="top-nav">
+        <a href="/admin/">لوحة الإدارة</a>
+        <a href="/reset.html">استعادة كلمة المرور</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <img class="hero-logo" src="/assets/logo-mark.png" width="280" height="96" alt="مَطْرَح" />
+        <h1>مَطْرَح</h1>
+        <p class="lede">سكن طلابي موثوق قرب الجامعات الفلسطينية — بحث، حجز، ومحادثة في مكان واحد.</p>
+        <div class="cta">
+          <a class="btn primary" href="sakanat://">فتح التطبيق</a>
+          <a class="btn secondary" href="/admin/">دخول الإدارة</a>
+        </div>
       </div>
-      <p class="fine muted">روابط البريد: <a href="/confirmed.html">تأكيد</a> · <a href="/reset.html">كلمة المرور</a></p>
-      <p class="fine muted">الإدارة من المتصفح: مستخدمون، إعلانات، حجوزات، تحقق هوية، بلاغات، إعدادات — نفس Supabase.</p>
-    </main>
+    </section>
+
+    <section class="strip">
+      <div class="strip-inner">
+        <div>
+          <h2>للطلاب والمستأجرين</h2>
+          <p>اكتشف السكن المناسب لحرمك، احجز بخطوات واضحة، وتواصل مع المالك مباشرة.</p>
+        </div>
+        <div>
+          <h2>للملاك</h2>
+          <p>انشر وحداتك، تابع الحجوزات، وأدر المحادثات من تطبيق مَطْرَح.</p>
+        </div>
+        <div>
+          <h2>للإدارة</h2>
+          <p>مراجعة المستخدمين والإعلانات والحجوزات والبلاغات من المتصفح — نفس قاعدة البيانات.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <img src="/assets/logo-mark.png" width="100" height="34" alt="" />
+      <p>روابط البريد: <a href="/confirmed.html">تأكيد الحساب</a> · <a href="/reset.html">كلمة المرور</a></p>
+      <p class="copy">© Matra7 · مَطْرَح</p>
+    </footer>
   </body>
 </html>
