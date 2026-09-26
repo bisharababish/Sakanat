@@ -23,6 +23,8 @@ const cfgHint = document.getElementById('cfgHint');
 
   if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).includes('REPLACE')) {
     cfgHint.textContent = t('admin.cfgHint');
+  } else if (!String(cfg.adminEmail || '').trim() || String(cfg.adminEmail).includes('REPLACE')) {
+    cfgHint.textContent = 'Set EXPO_PUBLIC_ADMIN_EMAIL in hosting env before admin sign-in works.';
   }
 
 const supabase = createClient(cfg.supabaseUrl || '', cfg.supabaseAnonKey || '', {
@@ -108,7 +110,8 @@ function allowedAdminEmail(email) {
   const allow = String(cfg.adminEmail || '')
     .trim()
     .toLowerCase();
-  if (!allow || allow.includes('REPLACE')) return true;
+  // Fail closed: missing allowlist blocks every sign-in (do not open admin to all DB admins).
+  if (!allow || allow.includes('replace')) return false;
   return String(email || '')
     .trim()
     .toLowerCase() === allow;
