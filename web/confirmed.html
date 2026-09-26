@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>تم تأكيد بريدك — Matra7</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <div class="mark" id="mark">✓</div>
+      <h1 id="title">تم تأكيد بريدك</h1>
+      <p id="body">حسابك صار جاهز. ارجع لتطبيق مَطْرَح وسجّل الدخول بنفس الإيميل وكلمة المرور.</p>
+      <p lang="en" dir="ltr" class="muted">Your email is confirmed. Open the Matra7 app and log in.</p>
+      <a class="btn" id="open" href="sakanat://confirmed">فتح التطبيق</a>
+    </main>
+    <script>
+      (function () {
+        var params = new URLSearchParams(location.search + location.hash.replace('#', '&'));
+        var open = document.getElementById('open');
+        if (params.get('error') || params.get('error_description')) {
+          document.getElementById('mark').textContent = '!';
+          document.getElementById('title').textContent = 'ما قدرنا نأكد البريد';
+          document.getElementById('body').textContent =
+            params.get('error_description') || 'جرب تسجّل الدخول أو اطلب رمز جديد من التطبيق.';
+          return;
+        }
+        setTimeout(function () {
+          location.href = 'sakanat://confirmed';
+        }, 1100);
+      })();
+    </script>
+  </body>
+</html>

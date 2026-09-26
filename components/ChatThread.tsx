@@ -29,6 +29,7 @@ import { useTranslation } from 'react-i18next';
 import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ChatContextCard } from '@/components/chat/ChatContextCard';
 import { ChatVoiceBubble } from '@/components/chat/ChatVoiceBubble';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { Button } from '@/components/ui/Button';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
@@ -512,6 +513,9 @@ export function ChatThread({
       behavior="padding"
       keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
+      <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm }}>
+        <OfflineBanner />
+      </View>
       {!readOnly && profile && isSeeker(profile) && !isSeekerAccountReady(profile) ? (
         <ProfileBanner
           icon="sparkles"

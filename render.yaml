@@ -1,0 +1,27 @@
+# Matra7 public web (auth bridges + full admin console)
+# Static hosting: Render / Cloudflare Pages / Netlify / Vercel all work.
+# Root Directory = web | Build = bash build.sh | Publish = .
+
+services:
+  - type: web
+    name: matra7-web
+    runtime: static
+    rootDir: web
+    buildCommand: bash build.sh
+    staticPublishPath: .
+    routes:
+      - type: rewrite
+        source: /admin
+        destination: /admin/index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    envVars:
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

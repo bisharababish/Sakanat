@@ -87,8 +87,10 @@ export default function AdminOverview() {
   const [rejecting, setRejecting] = useState<Apartment | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
+    setLoadError('');
     const [profileRes, listingRes, bookingRes, chatRes, analyticsRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email, role, owner_status, phone, id_verify_status, national_id_url, university_card_url'),
       supabase.from('apartments').select('id, title_ar, title_en, status, owner_id, reject_reason'),
@@ -96,6 +98,16 @@ export default function AdminOverview() {
       supabase.from('conversations').select('id', { count: 'exact', head: true }),
       loadAnalyticsSummary(analyticsDays).catch(() => null),
     ]);
+    const firstErr =
+      profileRes.error?.message ||
+      listingRes.error?.message ||
+      bookingRes.error?.message ||
+      chatRes.error?.message ||
+      '';
+    if (firstErr) {
+      setLoadError(firstErr);
+      return;
+    }
     const profiles = (profileRes.data as Profile[]) ?? [];
     setStudents(profiles.filter((item) => item.role === 'student').length);
     setRenters(profiles.filter((item) => item.role === 'renter').length);
@@ -188,6 +200,17 @@ export default function AdminOverview() {
     <Screen onRefresh={() => void refresh()} refreshing={refreshing}>
       <TabPageHeader kicker={t('roles.admin')} title={t('admin.overview')} />
 
+      {loadError ? (
+        <EmptyState
+          title={t('common.error')}
+          hint={loadError}
+          actionTitle={t('common.retry')}
+          onAction={() => void refresh()}
+        />
+      ) : null}
+
+      {!loadError ? (
+      <>
       <Pressable
         onPress={() => router.push('/(admin)/(tabs)/bookings')}
         style={[styles.hero, { backgroundColor: colors.primary, shadowColor: colors.text }]}
@@ -493,6 +516,8 @@ export default function AdminOverview() {
         onConfirm={() => rejecting && void setListingStatus(rejecting, 'rejected', rejectNote)}
         onClose={() => setRejecting(null)}
       />
+      </>
+      ) : null}
     </Screen>
   );
 }

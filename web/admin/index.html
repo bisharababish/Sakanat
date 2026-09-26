@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>لوحة الإدارة — Matra7</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-body centered" id="body">
+    <main class="card" id="loginCard">
+      <div class="mark">م</div>
+      <h1>لوحة الإدارة</h1>
+      <p>دخول بحساب أدمن فقط — نفس قاعدة بيانات التطبيق (Supabase).</p>
+      <div id="loginErr" class="err hidden"></div>
+      <div class="field">
+        <label for="email">البريد</label>
+        <input id="email" type="email" autocomplete="username" dir="ltr" />
+      </div>
+      <div class="field">
+        <label for="password">كلمة المرور</label>
+        <input id="password" type="password" autocomplete="current-password" dir="ltr" />
+      </div>
+      <button class="btn" id="loginBtn" type="button">دخول</button>
+      <p class="fine muted" id="cfgHint"></p>
+    </main>
+
+    <div class="shell hidden" id="shell">
+      <aside class="side">
+        <p class="brand">مَطْرَح · Admin</p>
+        <p class="who" id="who"></p>
+        <nav class="nav" id="nav">
+          <button type="button" data-panel="overview" class="active">نظرة عامة</button>
+          <button type="button" data-panel="users">المستخدمون</button>
+          <button type="button" data-panel="listings">الإعلانات</button>
+          <button type="button" data-panel="bookings">الحجوزات</button>
+          <button type="button" data-panel="ids">تحقق الهوية</button>
+          <button type="button" data-panel="reports">البلاغات</button>
+          <button type="button" data-panel="settings">الإعدادات</button>
+          <button type="button" data-panel="audit">سجل الأدمن</button>
+        </nav>
+        <div style="margin-top:18px" class="actions">
+          <button class="btn ghost sm" id="refreshBtn" type="button" style="color:#fff;border-color:rgba(255,255,255,.35)">تحديث</button>
+          <button class="btn ghost sm" id="logoutBtn" type="button" style="color:#fff;border-color:rgba(255,255,255,.35)">خروج</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div id="toast" class="okbox hidden"></div>
+        <div id="dashErr" class="err hidden"></div>
+
+        <section class="panel active" id="panel-overview">
+          <h1>نظرة عامة</h1>
+          <div class="grid" id="stats"></div>
+          <h2>أحداث آخر 7 أيام</h2>
+          <div class="scroll" style="max-height:260px;margin-bottom:16px">
+            <table><thead><tr><th>الحدث</th><th>العدد</th></tr></thead><tbody id="eventRows"></tbody></table>
+          </div>
+          <h2>طوابير تحتاج إجراء</h2>
+          <div class="scroll" style="max-height:320px">
+            <table>
+              <thead><tr><th>النوع</th><th>التفاصيل</th><th></th></tr></thead>
+              <tbody id="queueRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-users">
+          <h1>المستخدمون</h1>
+          <div id="usersListWrap">
+            <div class="toolbar">
+              <input id="userQ" placeholder="بحث اسم / إيميل / هاتف / رقم وطني" />
+              <select id="userRole">
+                <option value="">كل الأدوار</option>
+                <option value="student">طالب</option>
+                <option value="renter">مستأجر</option>
+                <option value="owner">مالك</option>
+                <option value="admin">أدمن</option>
+              </select>
+              <select id="userFilter">
+                <option value="">الكل</option>
+                <option value="owner_pending">ملاك بانتظار</option>
+                <option value="suspended">موقوفون</option>
+                <option value="id_pending">هوية بانتظار</option>
+              </select>
+              <button class="btn sm" id="newOwnerBtn" type="button">+ مالك جديد</button>
+            </div>
+            <div class="scroll" style="max-height:70vh">
+              <table>
+                <thead>
+                  <tr><th>الاسم</th><th>الدور</th><th>الحالة</th><th>تواصل</th><th>إجراءات</th></tr>
+                </thead>
+                <tbody id="userRows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="userDetailWrap" class="hidden">
+            <button class="btn ghost sm user-detail-back" id="userBackBtn" type="button">← رجوع للقائمة</button>
+            <div class="bar">
+              <div>
+                <h1 style="margin:0" id="udTitle">تعديل مستخدم</h1>
+                <div class="detail-meta" id="udMeta"></div>
+              </div>
+              <div class="actions">
+                <button class="btn" id="udSaveBtn" type="button">حفظ كل التغييرات</button>
+              </div>
+            </div>
+            <div id="udMsg" class="hidden"></div>
+            <div class="card wide" style="padding:16px;margin:0 0 14px;width:100%">
+              <div class="form-grid" id="udForm"></div>
+            </div>
+            <div class="card wide" style="padding:16px;margin:0 0 14px;width:100%">
+              <h2>نشاط مرتبط</h2>
+              <div id="udActivity" class="muted">—</div>
+            </div>
+            <div class="danger-zone">
+              <h2 style="color:var(--danger)">إجراءات قوية</h2>
+              <div class="actions" id="udDanger"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-listings">
+          <h1>الإعلانات</h1>
+          <div class="toolbar">
+            <input id="listingQ" placeholder="بحث عنوان" />
+            <select id="listingStatus">
+              <option value="pending">بانتظار</option>
+              <option value="approved">معتمد</option>
+              <option value="rejected">مرفوض</option>
+              <option value="hidden">مخفي</option>
+              <option value="">الكل</option>
+            </select>
+          </div>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr><th>العنوان</th><th>الحالة</th><th>المالك</th><th>السعر</th><th>إجراءات</th></tr>
+              </thead>
+              <tbody id="listingRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-bookings">
+          <h1>الحجوزات</h1>
+          <div class="toolbar">
+            <select id="bookingStatus">
+              <option value="">كل الحالات</option>
+              <option value="pending">بانتظار</option>
+              <option value="confirmed">مؤكد</option>
+              <option value="completed">مكتمل</option>
+              <option value="cancelled">ملغى</option>
+            </select>
+          </div>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr><th>التاريخ</th><th>الإعلان</th><th>الطالب</th><th>الحالة</th><th>الدفع</th><th>إجراءات</th></tr>
+              </thead>
+              <tbody id="bookingRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-ids">
+          <h1>تحقق الهوية</h1>
+          <p class="muted">طلبات بانتظار المراجعة (وثائق مرفوعة).</p>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr><th>الاسم</th><th>الدور</th><th>ملاحظة</th><th>إجراءات</th></tr>
+              </thead>
+              <tbody id="idRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-reports">
+          <h1>البلاغات</h1>
+          <div class="toolbar">
+            <select id="reportStatus">
+              <option value="open">مفتوح</option>
+              <option value="reviewing">قيد المراجعة</option>
+              <option value="closed">مغلق</option>
+              <option value="">الكل</option>
+            </select>
+          </div>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr><th>التاريخ</th><th>السبب</th><th>الحالة</th><th>إجراءات</th></tr>
+              </thead>
+              <tbody id="reportRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-settings">
+          <h1>إعدادات المنصة</h1>
+          <div class="card wide" style="padding:18px;margin:0">
+            <div id="settingsMsg" class="hidden"></div>
+            <div class="field">
+              <label for="commission">عمولة المنصة %</label>
+              <input id="commission" type="number" min="0" max="100" step="0.1" dir="ltr" />
+            </div>
+            <div class="field">
+              <label for="adminEmail">بريد الأدمن</label>
+              <input id="adminEmail" type="email" dir="ltr" />
+            </div>
+            <div class="actions">
+              <button class="btn" id="saveSettingsBtn" type="button">حفظ</button>
+              <button class="btn ghost" id="runOpsBtn" type="button">تشغيل مهام الحجوزات</button>
+            </div>
+            <p class="fine muted" id="opsStatus"></p>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-audit">
+          <h1>سجل الأدمن</h1>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr><th>الوقت</th><th>الإجراء</th><th>هدف</th><th>ملاحظة</th></tr>
+              </thead>
+              <tbody id="auditRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-back hidden" id="modalBack">
+      <div class="modal" id="modal">
+        <h3 id="modalTitle"></h3>
+        <div id="modalBody"></div>
+        <div class="actions" style="margin-top:14px;justify-content:flex-end">
+          <button class="btn ghost" type="button" id="modalCancel">إلغاء</button>
+          <button class="btn" type="button" id="modalOk">تأكيد</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/config.js"></script>
+    <script type="module" src="/admin/app.js"></script>
+  </body>
+</html>

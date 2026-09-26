@@ -14,8 +14,12 @@ export const isSupabaseConfigured = Boolean(url && key);
 export const EMAIL_OTP_LENGTH = 8;
 
 /** Public confirmation page after email verify. Also add this in Supabase Auth redirect URLs. */
-export const AUTH_REDIRECT_URL = 'https://bisharababish.github.io/Sakanat/confirmed.html';
-export const AUTH_RESET_URL = 'https://bisharababish.github.io/Sakanat/reset.html';
+const DEFAULT_AUTH_REDIRECT = 'https://bisharababish.github.io/Sakanat/confirmed.html';
+const DEFAULT_AUTH_RESET = 'https://bisharababish.github.io/Sakanat/reset.html';
+export const AUTH_REDIRECT_URL =
+  process.env.EXPO_PUBLIC_AUTH_REDIRECT_URL?.trim() || DEFAULT_AUTH_REDIRECT;
+export const AUTH_RESET_URL =
+  process.env.EXPO_PUBLIC_AUTH_RESET_URL?.trim() || DEFAULT_AUTH_RESET;
 
 const canUseNativeStorage = typeof window !== 'undefined';
 

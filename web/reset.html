@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>استعادة كلمة المرور — Matra7</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <div class="mark" id="mark">⌂</div>
+      <h1 id="title">رجع للتطبيق</h1>
+      <p id="body">افتح تطبيق مَطْرَح عشان تحط كلمة مرور جديدة.</p>
+      <p lang="en" dir="ltr" class="muted">Open the Matra7 app to choose a new password.</p>
+      <a class="btn" id="open" href="sakanat://reset-password">فتح التطبيق</a>
+    </main>
+    <script>
+      (function () {
+        var query = location.search || '';
+        var hash = location.hash || '';
+        var deep = 'sakanat://reset-password' + query + hash;
+        document.getElementById('open').setAttribute('href', deep);
+        var params = new URLSearchParams(query + hash.replace('#', '&'));
+        if (params.get('error') || params.get('error_description')) {
+          document.getElementById('mark').textContent = '!';
+          document.getElementById('title').textContent = 'ما قدرنا نفتح الرابط';
+          document.getElementById('body').textContent =
+            params.get('error_description') || 'اطلب رابط جديد من التطبيق.';
+          return;
+        }
+        setTimeout(function () {
+          location.href = deep;
+        }, 800);
+      })();
+    </script>
+  </body>
+</html>

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { useOnlineStatus } from '@/src/hooks/useOnlineStatus';
+import { flushChatOutbox } from '@/src/lib/chatOutbox';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -20,7 +21,12 @@ export function OfflineBanner() {
       <Ionicons name="cloud-offline-outline" size={18} color={colors.warning} />
       <Text style={[styles.text, rtlText, { color: colors.text }]}>{t('common.offlineHint')}</Text>
       <Pressable
-        onPress={() => void refreshOnline()}
+        onPress={() => {
+          void (async () => {
+            await refreshOnline();
+            void flushChatOutbox();
+          })();
+        }}
         hitSlop={8}
         accessibilityRole="button"
         style={[styles.retry, { borderColor: colors.warning }]}
