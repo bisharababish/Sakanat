@@ -211,10 +211,12 @@ function setPanel(name) {
 
 function showLogin() {
   adminProfile = null;
+  pendingMfaFactorId = '';
   if (idleTimer) clearTimeout(idleTimer);
   shell.classList.add('hidden');
   loginCard.classList.remove('hidden');
   body.classList.add('centered');
+  showPasswordStep();
 }
 
 function showShell(profile) {
@@ -1252,6 +1254,63 @@ document.getElementById('modalOk').onclick = async () => {
 };
 
 /* —— Wire UI —— */
+async function verifiedTotpFactor() {
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  if (error) throw error;
+  return (data?.totp || []).find((item) => item.status === 'verified') || null;
+}
+
+async function mfaNeedsChallenge() {
+  const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (data?.currentLevel === 'aal2') return false;
+  if (data?.nextLevel === 'aal2') return true;
+  return Boolean(await verifiedTotpFactor());
+}
+
+async function verifyTotpCode(factorId, code) {
+  const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+    factorId,
+    code: String(code || '').replace(/\s/g, ''),
+  });
+  if (error) throw error;
+  return data;
+}
+
+function showPasswordStep() {
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('mfaForm').classList.add('hidden');
+  document.getElementById('mfaCode').value = '';
+}
+
+function showMfaStep() {
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('mfaForm').classList.remove('hidden');
+  document.getElementById('mfaCode').value = '';
+  setTimeout(() => document.getElementById('mfaCode').focus(), 50);
+}
+
+let pendingMfaFactorId = '';
+
+async function finishAdminGate() {
+  const needsMfa = await mfaNeedsChallenge();
+  const factor = await verifiedTotpFactor();
+  if (needsMfa) {
+    if (!factor?.id) {
+      await supabase.auth.signOut();
+      throw new Error(t('admin.mfaRequired'));
+    }
+    pendingMfaFactorId = factor.id;
+    showMfaStep();
+    return null;
+  }
+  // Admin must have MFA enrolled even if AAL already looks fine without factors.
+  if (!factor?.id) {
+    await supabase.auth.signOut();
+    throw new Error(t('admin.mfaRequired'));
+  }
+  return requireAdmin();
+}
+
 async function handleLogin(e) {
   if (e) e.preventDefault();
   show(loginErr, '');
@@ -1279,28 +1338,85 @@ async function handleLogin(e) {
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    const admin = await requireAdmin();
-    if (!admin) {
+
+    // Password ok — still must be admin + MFA before dashboard.
+    const pre = await requireAdmin();
+    if (!pre) {
       recordLoginFail();
       throw new Error(t('admin.denied'));
     }
-    clearLoginFails();
     document.getElementById('password').value = '';
+    const admin = await finishAdminGate();
+    if (admin) {
+      clearLoginFails();
+      showShell(admin);
+    }
+  } catch (err) {
+    recordLoginFail();
+    showPasswordStep();
+    const msg = /network|fetch|failed to fetch/i.test(err.message || '')
+      ? err.message
+      : err.message === t('admin.mfaRequired')
+        ? t('admin.mfaRequired')
+        : t('admin.denied');
+    show(loginErr, msg);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handleMfa(e) {
+  if (e) e.preventDefault();
+  show(loginErr, '');
+  const code = document.getElementById('mfaCode').value.trim();
+  const btn = document.getElementById('mfaBtn');
+  if (!pendingMfaFactorId || code.replace(/\s/g, '').length < 6) {
+    show(loginErr, t('admin.mfaInvalid'));
+    return;
+  }
+  btn.disabled = true;
+  try {
+    await verifyTotpCode(pendingMfaFactorId, code);
+    const admin = await requireAdmin();
+    if (!admin) throw new Error(t('admin.denied'));
+    // Confirm AAL2 after verify
+    const still = await mfaNeedsChallenge();
+    if (still) throw new Error(t('admin.mfaInvalid'));
+    clearLoginFails();
+    pendingMfaFactorId = '';
+    showPasswordStep();
     showShell(admin);
   } catch (err) {
     recordLoginFail();
-    const msg = /network|fetch|failed to fetch/i.test(err.message || '')
-      ? err.message
-      : t('admin.denied');
-    show(loginErr, msg);
+    show(loginErr, t('admin.mfaInvalid'));
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function cancelMfa() {
+  pendingMfaFactorId = '';
+  showPasswordStep();
+  show(loginErr, '');
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    /* ignore */
   }
 }
 
 const loginForm = document.getElementById('loginForm');
 if (loginForm) loginForm.addEventListener('submit', (e) => void handleLogin(e));
 else document.getElementById('loginBtn').addEventListener('click', () => void handleLogin());
+
+const mfaForm = document.getElementById('mfaForm');
+if (mfaForm) mfaForm.addEventListener('submit', (e) => void handleMfa(e));
+document.getElementById('mfaCancelBtn')?.addEventListener('click', () => void cancelMfa());
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await supabase.auth.signOut();

@@ -30,6 +30,28 @@
         </div>
         <button class="btn" id="loginBtn" type="submit" data-i18n="admin.signIn">تسجيل الدخول</button>
       </form>
+      <form id="mfaForm" class="hidden" autocomplete="off">
+        <h2 data-i18n="admin.mfaTitle">رمز المصادقة</h2>
+        <p class="muted" data-i18n="admin.mfaHint">افتح Google Authenticator (أو تطبيق مشابه) وأدخل الرمز من 6 أرقام.</p>
+        <div class="field">
+          <label for="mfaCode" data-i18n="admin.mfaCode">رمز المصادقة</label>
+          <input
+            id="mfaCode"
+            name="mfaCode"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9 ]*"
+            maxlength="8"
+            autocomplete="one-time-code"
+            dir="ltr"
+            required
+          />
+        </div>
+        <button class="btn" id="mfaBtn" type="submit" data-i18n="admin.mfaContinue">متابعة</button>
+        <button class="btn ghost" id="mfaCancelBtn" type="button" data-i18n="admin.mfaCancel" style="width:100%;margin-top:8px">
+          رجوع لتسجيل الدخول
+        </button>
+      </form>
       <p class="fine muted" id="cfgHint"></p>
       <p class="fine"><a href="/" data-i18n="nav.home">الرئيسية</a></p>
     </main>
