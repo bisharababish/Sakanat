@@ -1,4 +1,13 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+/* global supabase, Matra7I18n, MATRA7 */
+(function () {
+'use strict';
+
+const createClient = window.supabase && window.supabase.createClient;
+if (!createClient) {
+  document.body.innerHTML =
+    '<main class="card" style="margin:40px auto"><h1>Admin</h1><p class="err">Failed to load Supabase SDK. Hard-refresh and try again.</p></main>';
+  throw new Error('supabase UMD missing');
+}
 
 const t = (key, fallback) =>
   (window.Matra7I18n && window.Matra7I18n.t(key, fallback)) || fallback || key;
@@ -445,78 +454,76 @@ async function openUserDetail(userId) {
     `<option value="">â€”</option>` +
     optList(catalog.universities, u.university_id, (x) => x.name_ar || x.name_en);
   const langs = Array.isArray(u.spoken_languages) ? u.spoken_languages.join(', ') : u.spoken_languages || '';
+  const opt = (values, current, blank) =>
+    (blank ? '<option value="">-</option>' : '') +
+    values
+      .map((r) => '<option value="' + r + '"' + (String(current || '') === String(r) ? ' selected' : '') + '>' + r + '</option>')
+      .join('');
 
-  document.getElementById('udForm').innerHTML = `
-    <div class="section-label">Ø§Ù„Ù‡ÙˆÙŠØ© ÙˆØ§Ù„Ø­Ø³Ø§Ø¨</div>
-    ${field('ud_full_name', 'Ø§Ù„Ø§Ø³Ù… Ø¨Ø§Ù„Ø¹Ø±Ø¨ÙŠ', inp('ud_full_name', u.full_name))}
-    ${field('ud_full_name_en', 'Ø§Ù„Ø§Ø³Ù… EN', inp('ud_full_name_en', u.full_name_en, 'dir="ltr"'))}
-    ${field('ud_email', 'Ø§Ù„Ø¨Ø±ÙŠØ¯ (Ø¹Ø±Ø¶ ÙÙ‚Ø·)', inp('ud_email', u.email, 'dir="ltr" disabled'))}
-    ${field('ud_role', 'Ø§Ù„Ø¯ÙˆØ±', sel('ud_role', ['student', 'renter', 'owner', 'admin'].map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_owner_status', 'Ø­Ø§Ù„Ø© Ø§Ù„Ù…Ø§Ù„Ùƒ', sel('ud_owner_status', ['pending', 'approved', 'rejected'].map((r) => `<option value="${r}" ${u.owner_status === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_account_status', 'Ø­Ø§Ù„Ø© Ø§Ù„Ø­Ø³Ø§Ø¨', sel('ud_account_status', ['active', 'suspended'].map((r) => `<option value="${r}" ${(u.account_status || 'active') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_language', 'Ù„ØºØ© Ø§Ù„ØªØ·Ø¨ÙŠÙ‚', sel('ud_language', ['ar', 'en'].map((r) => `<option value="${r}" ${(u.language || 'ar') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_avatar_url', 'Ø±Ø§Ø¨Ø· Ø§Ù„ØµÙˆØ±Ø©', inp('ud_avatar_url', u.avatar_url, 'dir="ltr"'), true)}
-
-    <div class="section-label">ØªÙˆØ§ØµÙ„</div>
-    ${field('ud_phone', 'Ù‡Ø§ØªÙ', inp('ud_phone', u.phone, 'dir="ltr"'))}
-    ${field('ud_whatsapp', 'ÙˆØ§ØªØ³Ø§Ø¨', inp('ud_whatsapp', u.whatsapp, 'dir="ltr"'))}
-    ${field('ud_recovery_email', 'Ø¨Ø±ÙŠØ¯ Ø§Ø³ØªØ¹Ø§Ø¯Ø©', inp('ud_recovery_email', u.recovery_email, 'dir="ltr"'))}
-    ${field('ud_recovery_phone', 'Ù‡Ø§ØªÙ Ø§Ø³ØªØ¹Ø§Ø¯Ø©', inp('ud_recovery_phone', u.recovery_phone, 'dir="ltr"'))}
-    ${field('ud_phone_visibility', 'Ø¸Ù‡ÙˆØ± Ø§Ù„Ù‡Ø§ØªÙ', sel('ud_phone_visibility', ['booking', 'confirmed', 'none'].map((r) => `<option value="${r}" ${(u.phone_visibility || 'booking') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_whatsapp_visibility', 'Ø¸Ù‡ÙˆØ± ÙˆØ§ØªØ³Ø§Ø¨', sel('ud_whatsapp_visibility', ['booking', 'confirmed', 'none'].map((r) => `<option value="${r}" ${(u.whatsapp_visibility || 'booking') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-
-    <div class="section-label">Ø´Ø®ØµÙŠ ÙˆØ¯Ø±Ø§Ø³Ø©</div>
-    ${field('ud_gender', 'Ø§Ù„Ø¬Ù†Ø³', sel('ud_gender', `<option value="">â€”</option>${['female', 'male'].map((r) => `<option value="${r}" ${u.gender === r ? 'selected' : ''}>${r}</option>`).join('')}`)}
-    ${field('ud_date_of_birth', 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ù…ÙŠÙ„Ø§Ø¯', inp('ud_date_of_birth', u.date_of_birth ? String(u.date_of_birth).slice(0, 10) : '', 'type="date" dir="ltr"'))}
-    ${field('ud_city_id', 'Ø§Ù„Ù…Ø¯ÙŠÙ†Ø©', sel('ud_city_id', cityOpts))}
-    ${field('ud_university_id', 'Ø§Ù„Ø¬Ø§Ù…Ø¹Ø©', sel('ud_university_id', uniOpts))}
-    ${field('ud_student_id_number', 'Ø±Ù‚Ù… Ø¬Ø§Ù…Ø¹ÙŠ', inp('ud_student_id_number', u.student_id_number, 'dir="ltr"'))}
-    ${field('ud_major', 'Ø§Ù„ØªØ®ØµØµ', inp('ud_major', u.major))}
-    ${field('ud_degree_level', 'Ø§Ù„Ø¯Ø±Ø¬Ø©', inp('ud_degree_level', u.degree_level))}
-    ${field('ud_study_year', 'Ø§Ù„Ø³Ù†Ø© Ø§Ù„Ø¯Ø±Ø§Ø³ÙŠØ©', inp('ud_study_year', u.study_year))}
-    ${field('ud_graduation_term', 'ÙØµÙ„ Ø§Ù„ØªØ®Ø±Ø¬', inp('ud_graduation_term', u.graduation_term))}
-    ${field('ud_spoken_languages', 'Ù„ØºØ§Øª (Ù…ÙØµÙˆÙ„Ø© Ø¨ÙØ§ØµÙ„Ø©)', inp('ud_spoken_languages', langs, 'dir="ltr"'), true)}
-    ${field('ud_bio', 'Ù†Ø¨Ø°Ø©', `<textarea id="ud_bio">${esc(u.bio || '')}</textarea>`, true)}
-    ${field('ud_home_address', 'Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ø¨ÙŠØª', `<textarea id="ud_home_address">${esc(u.home_address || '')}</textarea>`, true)}
-
-    <div class="section-label">Ù‡ÙˆÙŠØ© ÙˆØ·Ù†ÙŠØ© / ØªØ­Ù‚Ù‚</div>
-    ${field('ud_national_id_number', 'Ø±Ù‚Ù… Ø§Ù„Ù‡ÙˆÙŠØ©', inp('ud_national_id_number', u.national_id_number, 'dir="ltr"'))}
-    ${field('ud_national_id_expires_at', 'Ø§Ù†ØªÙ‡Ø§Ø¡ Ø§Ù„Ù‡ÙˆÙŠØ©', inp('ud_national_id_expires_at', u.national_id_expires_at ? String(u.national_id_expires_at).slice(0, 10) : '', 'type="date" dir="ltr"'))}
-    ${field('ud_id_verify_status', 'Ø­Ø§Ù„Ø© Ø§Ù„ØªØ­Ù‚Ù‚', sel('ud_id_verify_status', ['none', 'pending', 'approved', 'rejected'].map((r) => `<option value="${r}" ${(u.id_verify_status || 'none') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_id_verify_note', 'Ù…Ù„Ø§Ø­Ø¸Ø© Ø§Ù„ØªØ­Ù‚Ù‚', inp('ud_id_verify_note', u.id_verify_note), true)}
-    ${field('ud_national_id_url', 'Ø±Ø§Ø¨Ø· Ù‡ÙˆÙŠØ©', inp('ud_national_id_url', u.national_id_url, 'dir="ltr"'), true)}
-    ${field('ud_university_card_url', 'Ø±Ø§Ø¨Ø· Ø¨Ø·Ø§Ù‚Ø© Ø¬Ø§Ù…Ø¹Ø©', inp('ud_university_card_url', u.university_card_url, 'dir="ltr"'), true)}
-    ${field('ud_id_docs_consent_at', 'Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚ (ISO)', inp('ud_id_docs_consent_at', u.id_docs_consent_at, 'dir="ltr"'), true)}
-
-    <div class="section-label">Ø·ÙˆØ§Ø±Ø¦</div>
-    ${field('ud_emergency_name', 'Ø§Ø³Ù… Ø§Ù„Ø·ÙˆØ§Ø±Ø¦', inp('ud_emergency_name', u.emergency_name))}
-    ${field('ud_emergency_phone', 'Ù‡Ø§ØªÙ Ø§Ù„Ø·ÙˆØ§Ø±Ø¦', inp('ud_emergency_phone', u.emergency_phone, 'dir="ltr"'))}
-    ${field('ud_share_emergency', 'Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ø·ÙˆØ§Ø±Ø¦', boolSel('ud_share_emergency', u.share_emergency))}
-
-    <div class="section-label">ØªÙØ¶ÙŠÙ„Ø§Øª Ø³ÙƒÙ†</div>
-    ${field('ud_pref_budget_max', 'Ù…ÙŠØ²Ø§Ù†ÙŠØ© Ø£Ù‚ØµÙ‰', inp('ud_pref_budget_max', u.pref_budget_max, 'type="number" dir="ltr"'))}
-    ${field('ud_pref_lease_months', 'Ø£Ø´Ù‡Ø± Ø§Ù„Ø¥ÙŠØ¬Ø§Ø±', inp('ud_pref_lease_months', u.pref_lease_months, 'type="number" dir="ltr"'))}
-    ${field('ud_pref_occupants', 'Ø¹Ø¯Ø¯ Ø§Ù„Ø³Ø§ÙƒÙ†ÙŠÙ†', inp('ud_pref_occupants', u.pref_occupants, 'type="number" dir="ltr"'))}
-    ${field('ud_pref_move_in', 'Ù…ÙˆØ¹Ø¯ Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„', inp('ud_pref_move_in', u.pref_move_in ? String(u.pref_move_in).slice(0, 10) : '', 'type="date" dir="ltr"'))}
-    ${field('ud_pref_gender_policy', 'Ø³ÙŠØ§Ø³Ø© Ø§Ù„Ø¬Ù†Ø³', sel('ud_pref_gender_policy', `<option value="">â€”</option>${['any', 'female', 'male'].map((r) => `<option value="${r}" ${u.pref_gender_policy === r ? 'selected' : ''}>${r}</option>`).join(''))})}
-
-    <div class="section-label">Ø¥Ø´Ø¹Ø§Ø±Ø§Øª ÙˆØ®ØµÙˆØµÙŠØ©</div>
-    ${field('ud_notify_booking', 'Ø¥Ø´Ø¹Ø§Ø± Ø­Ø¬ÙˆØ²Ø§Øª', boolSel('ud_notify_booking', u.notify_booking !== false))}
-    ${field('ud_notify_chat', 'Ø¥Ø´Ø¹Ø§Ø± Ù…Ø­Ø§Ø¯Ø«Ø©', boolSel('ud_notify_chat', u.notify_chat !== false))}
-    ${field('ud_notify_listing', 'Ø¥Ø´Ø¹Ø§Ø± Ø¥Ø¹Ù„Ø§Ù†Ø§Øª', boolSel('ud_notify_listing', u.notify_listing !== false))}
-    ${field('ud_notify_review', 'Ø¥Ø´Ø¹Ø§Ø± ØªÙ‚ÙŠÙŠÙ…Ø§Øª', boolSel('ud_notify_review', u.notify_review !== false))}
-    ${field('ud_hide_last_seen', 'Ø¥Ø®ÙØ§Ø¡ Ø¢Ø®Ø± Ø¸Ù‡ÙˆØ±', boolSel('ud_hide_last_seen', u.hide_last_seen))}
-    ${field('ud_hide_saved_count', 'Ø¥Ø®ÙØ§Ø¡ Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø§Øª', boolSel('ud_hide_saved_count', u.hide_saved_count))}
-    ${field('ud_analytics_consent', 'Ù…ÙˆØ§ÙÙ‚Ø© ØªØ­Ù„ÙŠÙ„Ø§Øª', boolSel('ud_analytics_consent', u.analytics_consent !== false))}
-    ${field('ud_keep_signed_in', 'Ø§Ù„Ø¨Ù‚Ø§Ø¡ Ù…Ø³Ø¬Ù„Ø§Ù‹', boolSel('ud_keep_signed_in', u.keep_signed_in !== false))}
-
-    <div class="section-label">ØªÙ‚Ù†ÙŠ</div>
-    ${field('ud_expo_push_token', 'Push token', inp('ud_expo_push_token', u.expo_push_token, 'dir="ltr"'), true)}
-    ${field('ud_last_seen_ip', 'Ø¢Ø®Ø± IP', inp('ud_last_seen_ip', u.last_seen_ip, 'dir="ltr" disabled'))}
-    ${field('ud_accepted_terms_at', 'Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø´Ø±ÙˆØ·', inp('ud_accepted_terms_at', u.accepted_terms_at, 'dir="ltr"'))}
-    ${field('ud_accepted_legal_version', 'Ù†Ø³Ø®Ø© Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©', inp('ud_accepted_legal_version', u.accepted_legal_version, 'type="number" dir="ltr"'))}
-    ${field('ud_created_at', 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡', inp('ud_created_at', u.created_at, 'dir="ltr" disabled'))}
-  `;
+  document.getElementById('udForm').innerHTML = [
+    '<div class="section-label">Identity & account</div>',
+    field('ud_full_name', 'Full name (AR)', inp('ud_full_name', u.full_name)),
+    field('ud_full_name_en', 'Full name (EN)', inp('ud_full_name_en', u.full_name_en, 'dir="ltr"')),
+    field('ud_email', 'Email (read-only)', inp('ud_email', u.email, 'dir="ltr" disabled')),
+    field('ud_role', 'Role', sel('ud_role', opt(['student', 'renter', 'owner', 'admin'], u.role))),
+    field('ud_owner_status', 'Owner status', sel('ud_owner_status', opt(['pending', 'approved', 'rejected'], u.owner_status))),
+    field('ud_account_status', 'Account status', sel('ud_account_status', opt(['active', 'suspended'], u.account_status || 'active'))),
+    field('ud_language', 'App language', sel('ud_language', opt(['ar', 'en'], u.language || 'ar'))),
+    field('ud_avatar_url', 'Avatar URL', inp('ud_avatar_url', u.avatar_url, 'dir="ltr"'), true),
+    '<div class="section-label">Contact</div>',
+    field('ud_phone', 'Phone', inp('ud_phone', u.phone, 'dir="ltr"')),
+    field('ud_whatsapp', 'WhatsApp', inp('ud_whatsapp', u.whatsapp, 'dir="ltr"')),
+    field('ud_recovery_email', 'Recovery email', inp('ud_recovery_email', u.recovery_email, 'dir="ltr"')),
+    field('ud_recovery_phone', 'Recovery phone', inp('ud_recovery_phone', u.recovery_phone, 'dir="ltr"')),
+    field('ud_phone_visibility', 'Phone visibility', sel('ud_phone_visibility', opt(['booking', 'confirmed', 'none'], u.phone_visibility || 'booking'))),
+    field('ud_whatsapp_visibility', 'WhatsApp visibility', sel('ud_whatsapp_visibility', opt(['booking', 'confirmed', 'none'], u.whatsapp_visibility || 'booking'))),
+    '<div class="section-label">Personal & study</div>',
+    field('ud_gender', 'Gender', sel('ud_gender', opt(['female', 'male'], u.gender, true))),
+    field('ud_date_of_birth', 'Date of birth', inp('ud_date_of_birth', u.date_of_birth ? String(u.date_of_birth).slice(0, 10) : '', 'type="date" dir="ltr"')),
+    field('ud_city_id', 'City', sel('ud_city_id', cityOpts)),
+    field('ud_university_id', 'University', sel('ud_university_id', uniOpts)),
+    field('ud_student_id_number', 'Student ID', inp('ud_student_id_number', u.student_id_number, 'dir="ltr"')),
+    field('ud_major', 'Major', inp('ud_major', u.major)),
+    field('ud_degree_level', 'Degree', inp('ud_degree_level', u.degree_level)),
+    field('ud_study_year', 'Study year', inp('ud_study_year', u.study_year)),
+    field('ud_graduation_term', 'Graduation term', inp('ud_graduation_term', u.graduation_term)),
+    field('ud_spoken_languages', 'Languages (comma-separated)', inp('ud_spoken_languages', langs, 'dir="ltr"'), true),
+    field('ud_bio', 'Bio', '<textarea id="ud_bio">' + esc(u.bio || '') + '</textarea>', true),
+    field('ud_home_address', 'Home address', '<textarea id="ud_home_address">' + esc(u.home_address || '') + '</textarea>', true),
+    '<div class="section-label">National ID / verify</div>',
+    field('ud_national_id_number', 'National ID', inp('ud_national_id_number', u.national_id_number, 'dir="ltr"')),
+    field('ud_national_id_expires_at', 'ID expiry', inp('ud_national_id_expires_at', u.national_id_expires_at ? String(u.national_id_expires_at).slice(0, 10) : '', 'type="date" dir="ltr"')),
+    field('ud_id_verify_status', 'Verify status', sel('ud_id_verify_status', opt(['none', 'pending', 'approved', 'rejected'], u.id_verify_status || 'none'))),
+    field('ud_id_verify_note', 'Verify note', inp('ud_id_verify_note', u.id_verify_note), true),
+    field('ud_national_id_url', 'National ID URL', inp('ud_national_id_url', u.national_id_url, 'dir="ltr"'), true),
+    field('ud_university_card_url', 'University card URL', inp('ud_university_card_url', u.university_card_url, 'dir="ltr"'), true),
+    field('ud_id_docs_consent_at', 'Docs consent (ISO)', inp('ud_id_docs_consent_at', u.id_docs_consent_at, 'dir="ltr"'), true),
+    '<div class="section-label">Emergency</div>',
+    field('ud_emergency_name', 'Emergency name', inp('ud_emergency_name', u.emergency_name)),
+    field('ud_emergency_phone', 'Emergency phone', inp('ud_emergency_phone', u.emergency_phone, 'dir="ltr"')),
+    field('ud_share_emergency', 'Share emergency', boolSel('ud_share_emergency', u.share_emergency)),
+    '<div class="section-label">Housing prefs</div>',
+    field('ud_pref_budget_max', 'Max budget', inp('ud_pref_budget_max', u.pref_budget_max, 'type="number" dir="ltr"')),
+    field('ud_pref_lease_months', 'Lease months', inp('ud_pref_lease_months', u.pref_lease_months, 'type="number" dir="ltr"')),
+    field('ud_pref_occupants', 'Occupants', inp('ud_pref_occupants', u.pref_occupants, 'type="number" dir="ltr"')),
+    field('ud_pref_move_in', 'Move-in date', inp('ud_pref_move_in', u.pref_move_in ? String(u.pref_move_in).slice(0, 10) : '', 'type="date" dir="ltr"')),
+    field('ud_pref_gender_policy', 'Gender policy', sel('ud_pref_gender_policy', opt(['any', 'female', 'male'], u.pref_gender_policy, true))),
+    '<div class="section-label">Notifications & privacy</div>',
+    field('ud_notify_booking', 'Notify bookings', boolSel('ud_notify_booking', u.notify_booking !== false)),
+    field('ud_notify_chat', 'Notify chat', boolSel('ud_notify_chat', u.notify_chat !== false)),
+    field('ud_notify_listing', 'Notify listings', boolSel('ud_notify_listing', u.notify_listing !== false)),
+    field('ud_notify_review', 'Notify reviews', boolSel('ud_notify_review', u.notify_review !== false)),
+    field('ud_hide_last_seen', 'Hide last seen', boolSel('ud_hide_last_seen', u.hide_last_seen)),
+    field('ud_hide_saved_count', 'Hide saved count', boolSel('ud_hide_saved_count', u.hide_saved_count)),
+    field('ud_analytics_consent', 'Analytics consent', boolSel('ud_analytics_consent', u.analytics_consent !== false)),
+    field('ud_keep_signed_in', 'Keep signed in', boolSel('ud_keep_signed_in', u.keep_signed_in !== false)),
+    '<div class="section-label">Technical</div>',
+    field('ud_expo_push_token', 'Push token', inp('ud_expo_push_token', u.expo_push_token, 'dir="ltr"'), true),
+    field('ud_last_seen_ip', 'Last IP', inp('ud_last_seen_ip', u.last_seen_ip, 'dir="ltr" disabled')),
+    field('ud_accepted_terms_at', 'Accepted terms', inp('ud_accepted_terms_at', u.accepted_terms_at, 'dir="ltr"')),
+    field('ud_accepted_legal_version', 'Legal version', inp('ud_accepted_legal_version', u.accepted_legal_version, 'type="number" dir="ltr"')),
+    field('ud_created_at', 'Created at', inp('ud_created_at', u.created_at, 'dir="ltr" disabled')),
+  ].join('');
 
   // Activity
   const [{ data: bookings }, reportsRes, blocksRes] = await Promise.all([
@@ -1162,25 +1169,37 @@ document.getElementById('modalOk').onclick = async () => {
   }
 };
 
-/* â€”â€” Wire UI â€”â€” */
-document.getElementById('loginBtn').addEventListener('click', async () => {
+/* —— Wire UI —— */
+async function handleLogin(e) {
+  if (e) e.preventDefault();
   show(loginErr, '');
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const btn = document.getElementById('loginBtn');
+  if (!email || !password) {
+    show(loginErr, t('admin.loginFail'));
+    return;
+  }
   btn.disabled = true;
   try {
+    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).includes('REPLACE')) {
+      throw new Error(t('admin.cfgHint'));
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     const admin = await requireAdmin();
     if (!admin) throw new Error(t('admin.notAdmin'));
     showShell(admin);
-  } catch (e) {
-    show(loginErr, e.message || t('admin.loginFail'));
+  } catch (err) {
+    show(loginErr, err.message || t('admin.loginFail'));
   } finally {
     btn.disabled = false;
   }
-});
+}
+
+const loginForm = document.getElementById('loginForm');
+if (loginForm) loginForm.addEventListener('submit', (e) => void handleLogin(e));
+else document.getElementById('loginBtn').addEventListener('click', () => void handleLogin());
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await supabase.auth.signOut();
@@ -1247,6 +1266,17 @@ if (window.Matra7I18n) {
   });
 }
 
-const boot = await requireAdmin();
-if (boot) showShell(boot);
-else showLogin();
+async function bootAdmin() {
+  try {
+    const boot = await requireAdmin();
+    if (boot) showShell(boot);
+    else showLogin();
+  } catch (e) {
+    console.error(e);
+    showLogin();
+    show(loginErr, e.message || t('admin.loginFail'));
+  }
+}
+
+void bootAdmin();
+})();

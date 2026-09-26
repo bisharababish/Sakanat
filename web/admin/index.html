@@ -19,15 +19,17 @@
       <h1 data-i18n="admin.loginTitle">تسجيل دخول الإدارة</h1>
       <p data-i18n="admin.loginHint">ادخل ببريد وكلمة مرور حساب الأدمن (نفس حساب التطبيق).</p>
       <div id="loginErr" class="err hidden"></div>
-      <div class="field">
-        <label for="email" data-i18n="admin.email">البريد</label>
-        <input id="email" type="email" autocomplete="username" dir="ltr" />
-      </div>
-      <div class="field">
-        <label for="password" data-i18n="admin.password">كلمة المرور</label>
-        <input id="password" type="password" autocomplete="current-password" dir="ltr" />
-      </div>
-      <button class="btn" id="loginBtn" type="button" data-i18n="admin.signIn">تسجيل الدخول</button>
+      <form id="loginForm" autocomplete="on">
+        <div class="field">
+          <label for="email" data-i18n="admin.email">البريد</label>
+          <input id="email" type="email" autocomplete="username" dir="ltr" required />
+        </div>
+        <div class="field">
+          <label for="password" data-i18n="admin.password">كلمة المرور</label>
+          <input id="password" type="password" autocomplete="current-password" dir="ltr" required />
+        </div>
+        <button class="btn" id="loginBtn" type="submit" data-i18n="admin.signIn">تسجيل الدخول</button>
+      </form>
       <p class="fine muted" id="cfgHint"></p>
       <p class="fine"><a href="/" data-i18n="nav.home">الرئيسية</a></p>
     </main>
@@ -301,8 +303,9 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
     <script src="/config.js"></script>
     <script src="/js/i18n.js"></script>
-    <script type="module" src="/admin/app.js"></script>
+    <script src="/admin/app.js"></script>
   </body>
 </html>
