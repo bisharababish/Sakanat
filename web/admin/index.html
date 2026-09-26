@@ -67,6 +67,10 @@
           <button type="button" data-panel="bookings">Bookings</button>
           <button type="button" data-panel="ids">ID verify</button>
           <button type="button" data-panel="reports">Reports</button>
+          <button type="button" data-panel="reviews">Reviews</button>
+          <button type="button" data-panel="payouts">Payouts</button>
+          <button type="button" data-panel="chats">Chats</button>
+          <button type="button" data-panel="catalog">Catalog</button>
           <button type="button" data-panel="settings">Settings</button>
           <button type="button" data-panel="audit">Audit log</button>
         </nav>
@@ -184,6 +188,7 @@
                 <option value="hidden">Hidden</option>
                 <option value="">All</option>
               </select>
+              <button class="btn sm" id="newListingBtn" type="button">+ New listing</button>
             </div>
             <div class="scroll" style="max-height:70vh">
               <table>
@@ -288,6 +293,119 @@
                 </tr>
               </thead>
               <tbody id="reportRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-reviews">
+          <h1>Reviews</h1>
+          <div class="toolbar">
+            <input id="reviewQ" placeholder="Search author / note / listing" />
+          </div>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr>
+                  <th>Author</th>
+                  <th>Stars</th>
+                  <th>Note</th>
+                  <th>Listing</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reviewRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-payouts">
+          <h1>Payouts</h1>
+          <p class="muted">Commission owed by owners on confirmed/completed bookings.</p>
+          <div class="toolbar">
+            <input id="payoutQ" placeholder="Search owner" />
+            <select id="payoutFilter">
+              <option value="owed">Owed</option>
+              <option value="clear">Cleared</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+          <div class="scroll" style="max-height:70vh">
+            <table>
+              <thead>
+                <tr>
+                  <th>Owner</th>
+                  <th>Bookings</th>
+                  <th>Gross</th>
+                  <th>Commission</th>
+                  <th>Unpaid</th>
+                  <th>Net</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="payoutRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-chats">
+          <h1>Chats</h1>
+          <div id="chatsListWrap">
+            <div class="toolbar">
+              <input id="chatQ" placeholder="Search people / listing / last message" />
+            </div>
+            <div class="scroll" style="max-height:70vh">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Listing</th>
+                    <th>Student</th>
+                    <th>Owner</th>
+                    <th>Last message</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="chatRows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="chatThreadWrap" class="hidden">
+            <button class="btn ghost sm user-detail-back" id="chatBackBtn" type="button">← Back to inbox</button>
+            <div class="bar">
+              <div>
+                <h1 style="margin:0" id="chatTitle">Conversation</h1>
+                <div class="detail-meta" id="chatMeta"></div>
+              </div>
+              <div class="actions">
+                <button class="btn danger sm" id="chatDeleteBtn" type="button">Delete conversation</button>
+              </div>
+            </div>
+            <div id="chatThread" class="card wide surface-card chat-thread"></div>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-catalog">
+          <h1>Catalog</h1>
+          <p class="muted">Cities and universities used across the app.</p>
+          <div class="toolbar">
+            <select id="catalogPane">
+              <option value="cities">Cities</option>
+              <option value="universities">Universities</option>
+            </select>
+            <input id="catalogQ" placeholder="Search catalog" />
+          </div>
+          <div class="card wide surface-card" style="margin-bottom:16px">
+            <h2 id="catalogFormTitle">Add city</h2>
+            <div id="catalogMsg" class="hidden"></div>
+            <div class="form-grid" id="catalogForm"></div>
+            <div class="actions" style="margin-top:12px">
+              <button class="btn" id="catalogSaveBtn" type="button">Save</button>
+              <button class="btn ghost" id="catalogResetBtn" type="button">Clear form</button>
+            </div>
+          </div>
+          <div class="scroll" style="max-height:50vh">
+            <table>
+              <thead id="catalogHead"></thead>
+              <tbody id="catalogRows"></tbody>
             </table>
           </div>
         </section>

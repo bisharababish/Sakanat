@@ -203,6 +203,10 @@ function setPanel(name) {
     bookings: loadBookings,
     ids: loadIds,
     reports: loadReports,
+    reviews: loadReviews,
+    payouts: loadPayouts,
+    chats: loadChats,
+    catalog: loadCatalog,
     settings: loadSettings,
     audit: loadAudit,
   };
@@ -1055,55 +1059,6 @@ async function openListingDetail(listingId) {
   ].join('');
 }
 
-async function saveListingDetail() {
-  if (!editingListing) return;
-  const msg = document.getElementById('ldMsg');
-  show(msg, '');
-  const amenitiesRaw = emptyToNull(val('ld_amenities'));
-  const amenities = amenitiesRaw
-    ? amenitiesRaw.split(/[,\u060C]/).map((s) => s.trim()).filter(Boolean)
-    : [];
-  const photosRaw = emptyToNull(val('ld_photos'));
-  const photos = photosRaw
-    ? photosRaw.split(/\n/).map((s) => s.trim()).filter(Boolean)
-    : [];
-  const title_ar = emptyToNull(val('ld_title_ar'));
-  if (!title_ar) {
-    show(msg, 'Title (AR) is required', 'err');
-    return;
-  }
-  const patch = {
-    title_ar,
-    title_en: emptyToNull(val('ld_title_en')) || '',
-    description_ar: emptyToNull(val('ld_description_ar')) || '',
-    description_en: emptyToNull(val('ld_description_en')) || '',
-    status: val('ld_status'),
-    reject_reason: emptyToNull(val('ld_reject_reason')),
-    price_month: numOrNull(val('ld_price_month')),
-    rooms: numOrNull(val('ld_rooms')),
-    bathrooms: numOrNull(val('ld_bathrooms')),
-    area_m2: numOrNull(val('ld_area_m2')),
-    gender_policy: val('ld_gender_policy') || 'any',
-    city_id: emptyToNull(val('ld_city_id')),
-    nearest_university_id: emptyToNull(val('ld_nearest_university_id')),
-    lat: numOrNull(val('ld_lat')),
-    lng: numOrNull(val('ld_lng')),
-    campus_distance_km: numOrNull(val('ld_campus_distance_km')),
-    amenities,
-    photos,
-  };
-  try {
-    const { error } = await supabase.from('apartments').update(patch).eq('id', editingListing.id);
-    if (error) throw error;
-    await audit('listing.update', { targetId: editingListing.id, detail: { status: patch.status } });
-    show(msg, 'All fields saved', 'ok');
-    flash('Saved');
-    await openListingDetail(editingListing.id);
-  } catch (e) {
-    show(msg, e.message || 'Save failed', 'err');
-  }
-}
-
 /* —— Bookings —— */
 async function loadBookings() {
   show(dashErr, '');
@@ -1409,6 +1364,818 @@ document.getElementById('modalOk').onclick = async () => {
   }
 };
 
+/* —— Reviews —— */
+async function loadReviews() {
+  show(dashErr, '');
+  const { data, error } = await supabase
+    .from('apartment_reviews')
+    .select('*, apartments(id, title_ar, title_en)')
+    .order('created_at', { ascending: false })
+    .limit(300);
+  if (error) {
+    show(dashErr, error.message);
+    return;
+  }
+  cache.reviews = data || [];
+  renderReviews();
+}
+
+function renderReviews() {
+  const q = (document.getElementById('reviewQ')?.value || '').trim().toLowerCase();
+  let rows = cache.reviews || [];
+  if (q) {
+    rows = rows.filter((r) =>
+      [r.author_name, r.note, titleOf(r.apartments), r.apartment_id, r.student_id]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }
+  document.getElementById('reviewRows').innerHTML =
+    rows
+      .map((r) => {
+        const when = r.created_at ? new Date(r.created_at).toLocaleDateString('en') : '';
+        return `<tr>
+          <td><b>${esc(r.author_name || '—')}</b><div class="muted">${esc(when)}</div></td>
+          <td>${esc(r.stars)}/5</td>
+          <td>${esc(r.note || '')}</td>
+          <td>${esc(titleOf(r.apartments))}</td>
+          <td><div class="row-actions">
+            ${r.apartment_id ? `<button class="btn sm" data-act="rev-listing" data-id="${r.apartment_id}">Open listing</button>` : ''}
+            ${r.student_id ? `<button class="btn sm ghost" data-act="rev-user" data-id="${r.student_id}">Open user</button>` : ''}
+            <button class="btn sm danger" data-act="rev-del" data-id="${r.id}" data-student="${r.student_id || ''}">Delete</button>
+          </div></td>
+        </tr>`;
+      })
+      .join('') || `<tr><td colspan="5" class="empty">${t('admin.noResults')}</td></tr>`;
+
+  document.querySelectorAll('#reviewRows [data-act]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        if (btn.dataset.act === 'rev-listing') {
+          setPanel('listings');
+          await openListingDetail(btn.dataset.id);
+          return;
+        }
+        if (btn.dataset.act === 'rev-user') {
+          setPanel('users');
+          await openUserDetail(btn.dataset.id);
+          return;
+        }
+        if (btn.dataset.act === 'rev-del') {
+          if (!confirm('Delete this review?')) return;
+          const { error } = await supabase.from('apartment_reviews').delete().eq('id', btn.dataset.id);
+          if (error) throw error;
+          await audit('review.delete', {
+            targetId: btn.dataset.id,
+            targetUserId: btn.dataset.student || null,
+          });
+          flash('Done');
+          await loadReviews();
+        }
+      } catch (e) {
+        show(dashErr, e.message || 'Failed');
+      }
+    };
+  });
+}
+
+/* —— Payouts —— */
+async function loadPayouts() {
+  show(dashErr, '');
+  const [{ data: owners, error: oErr }, { data: bookings, error: bErr }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email, phone').eq('role', 'owner'),
+    supabase
+      .from('bookings')
+      .select('owner_id, rent_amount, commission_amount, payment_status, status')
+      .in('status', ['confirmed', 'completed']),
+  ]);
+  if (oErr || bErr) {
+    show(dashErr, (oErr || bErr).message);
+    return;
+  }
+  const map = new Map();
+  for (const owner of owners || []) {
+    map.set(owner.id, {
+      id: owner.id,
+      full_name: owner.full_name,
+      email: owner.email,
+      phone: owner.phone,
+      gross: 0,
+      fee: 0,
+      net: 0,
+      unpaidFee: 0,
+      bookings: 0,
+    });
+  }
+  for (const booking of bookings || []) {
+    const row = map.get(booking.owner_id);
+    if (!row) continue;
+    const rent = Number(booking.rent_amount) || 0;
+    const fee = Number(booking.commission_amount) || 0;
+    row.gross += rent;
+    row.fee += fee;
+    row.net += Math.max(0, rent - fee);
+    row.bookings += 1;
+    if (booking.payment_status !== 'paid') row.unpaidFee += fee;
+  }
+  cache.payouts = Array.from(map.values()).sort(
+    (a, b) => b.unpaidFee - a.unpaidFee || b.fee - a.fee,
+  );
+  renderPayouts();
+}
+
+function money(n) {
+  return `₪${Math.round(Number(n) || 0).toLocaleString('en')}`;
+}
+
+function renderPayouts() {
+  const q = (document.getElementById('payoutQ')?.value || '').trim().toLowerCase();
+  const filter = document.getElementById('payoutFilter')?.value || 'owed';
+  let rows = cache.payouts || [];
+  if (filter === 'owed') rows = rows.filter((r) => r.unpaidFee > 0);
+  if (filter === 'clear') rows = rows.filter((r) => r.fee > 0 && r.unpaidFee <= 0);
+  if (q) {
+    rows = rows.filter((r) =>
+      [r.full_name, r.email, r.phone].filter(Boolean).join(' ').toLowerCase().includes(q),
+    );
+  }
+  document.getElementById('payoutRows').innerHTML =
+    rows
+      .map(
+        (r) => `<tr>
+          <td><b>${esc(r.full_name || r.email || '—')}</b><div class="muted" dir="ltr">${esc(r.email || '')}</div></td>
+          <td>${r.bookings}</td>
+          <td dir="ltr">${money(r.gross)}</td>
+          <td dir="ltr">${money(r.fee)}</td>
+          <td dir="ltr"><b>${money(r.unpaidFee)}</b></td>
+          <td dir="ltr">${money(r.net)}</td>
+          <td><div class="row-actions">
+            <button class="btn sm" data-act="pay-user" data-id="${r.id}">Open user</button>
+            ${
+              r.unpaidFee > 0
+                ? `<button class="btn sm ok" data-act="pay-mark" data-id="${r.id}">Mark paid</button>`
+                : ''
+            }
+          </div></td>
+        </tr>`,
+      )
+      .join('') || `<tr><td colspan="7" class="empty">${t('admin.noResults')}</td></tr>`;
+
+  document.querySelectorAll('#payoutRows [data-act]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        if (btn.dataset.act === 'pay-user') {
+          setPanel('users');
+          await openUserDetail(btn.dataset.id);
+          return;
+        }
+        if (btn.dataset.act === 'pay-mark') {
+          if (!confirm('Mark all unpaid commission for this owner as paid?')) return;
+          const { error } = await supabase
+            .from('bookings')
+            .update({ payment_status: 'paid' })
+            .eq('owner_id', btn.dataset.id)
+            .in('status', ['confirmed', 'completed'])
+            .neq('payment_status', 'paid');
+          if (error) throw error;
+          await audit('payout.mark_paid', { targetUserId: btn.dataset.id });
+          flash('Done');
+          await loadPayouts();
+        }
+      } catch (e) {
+        show(dashErr, e.message || 'Failed');
+      }
+    };
+  });
+}
+
+/* —— Chats —— */
+let activeChatId = '';
+
+function showChatsList() {
+  activeChatId = '';
+  document.getElementById('chatsListWrap')?.classList.remove('hidden');
+  document.getElementById('chatThreadWrap')?.classList.add('hidden');
+}
+
+async function loadChats() {
+  show(dashErr, '');
+  showChatsList();
+  const { data, error } = await supabase
+    .from('conversations')
+    .select(
+      `id, last_message, last_message_at, apartment_id, student_id, owner_id,
+       apartments(id, title_ar, title_en),
+       student:profiles!student_id(id, full_name, email, phone),
+       owner:profiles!owner_id(id, full_name, email, phone)`,
+    )
+    .order('last_message_at', { ascending: false })
+    .limit(400);
+  if (error) {
+    show(dashErr, error.message);
+    return;
+  }
+  cache.chats = data || [];
+  renderChats();
+}
+
+function renderChats() {
+  const q = (document.getElementById('chatQ')?.value || '').trim().toLowerCase();
+  let rows = cache.chats || [];
+  if (q) {
+    rows = rows.filter((c) =>
+      [
+        titleOf(c.apartments),
+        nameOf(c.student),
+        nameOf(c.owner),
+        c.student?.email,
+        c.owner?.email,
+        c.last_message,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }
+  document.getElementById('chatRows').innerHTML =
+    rows
+      .map((c) => {
+        const when = c.last_message_at ? new Date(c.last_message_at).toLocaleString('en') : '—';
+        return `<tr>
+          <td>${esc(titleOf(c.apartments))}</td>
+          <td>${esc(nameOf(c.student))}<div class="muted" dir="ltr">${esc(c.student?.email || '')}</div></td>
+          <td>${esc(nameOf(c.owner))}</td>
+          <td>${esc((c.last_message || '').slice(0, 80))}<div class="muted">${esc(when)}</div></td>
+          <td><div class="row-actions">
+            <button class="btn sm" data-act="chat-open" data-id="${c.id}">Open</button>
+            <button class="btn sm danger" data-act="chat-del" data-id="${c.id}">Delete</button>
+          </div></td>
+        </tr>`;
+      })
+      .join('') || `<tr><td colspan="5" class="empty">${t('admin.noResults')}</td></tr>`;
+
+  document.querySelectorAll('#chatRows [data-act]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        if (btn.dataset.act === 'chat-open') {
+          await openChatThread(btn.dataset.id);
+          return;
+        }
+        if (btn.dataset.act === 'chat-del') {
+          if (!confirm('Delete this conversation and its messages?')) return;
+          const { error } = await supabase.from('conversations').delete().eq('id', btn.dataset.id);
+          if (error) throw error;
+          await audit('chat.delete', { targetId: btn.dataset.id });
+          flash('Done');
+          await loadChats();
+        }
+      } catch (e) {
+        show(dashErr, e.message || 'Failed');
+      }
+    };
+  });
+}
+
+async function openChatThread(id) {
+  activeChatId = id;
+  const conv = (cache.chats || []).find((c) => c.id === id);
+  document.getElementById('chatsListWrap').classList.add('hidden');
+  document.getElementById('chatThreadWrap').classList.remove('hidden');
+  document.getElementById('chatTitle').textContent = titleOf(conv?.apartments) || 'Conversation';
+  document.getElementById('chatMeta').innerHTML = `
+    <span>${esc(nameOf(conv?.student))} (student)</span>
+    <span>${esc(nameOf(conv?.owner))} (owner)</span>
+    <code>${esc(id)}</code>
+  `;
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, body, sender_id, created_at, image_url, audio_url, profiles:sender_id(full_name, email)')
+    .eq('conversation_id', id)
+    .order('created_at', { ascending: true })
+    .limit(500);
+  if (error) {
+    // Fallback without optional media columns / join alias
+    const fallback = await supabase
+      .from('messages')
+      .select('id, body, sender_id, created_at')
+      .eq('conversation_id', id)
+      .order('created_at', { ascending: true })
+      .limit(500);
+    if (fallback.error) {
+      show(dashErr, error.message || fallback.error.message);
+      return;
+    }
+    document.getElementById('chatThread').innerHTML =
+      (fallback.data || [])
+        .map((m) => {
+          const when = m.created_at ? new Date(m.created_at).toLocaleString('en') : '';
+          const who =
+            m.sender_id === conv?.student_id
+              ? nameOf(conv?.student)
+              : m.sender_id === conv?.owner_id
+                ? nameOf(conv?.owner)
+                : String(m.sender_id || '').slice(0, 8);
+          return `<div class="chat-bubble"><div class="chat-who">${esc(who)} · ${esc(when)}</div><div>${esc(m.body || '')}</div></div>`;
+        })
+        .join('') || '<p class="empty">No messages</p>';
+    return;
+  }
+
+  document.getElementById('chatThread').innerHTML =
+    (data || [])
+      .map((m) => {
+        const when = m.created_at ? new Date(m.created_at).toLocaleString('en') : '';
+        const who = m.profiles?.full_name || m.profiles?.email || String(m.sender_id || '').slice(0, 8);
+        let body = esc(m.body || '');
+        if (m.image_url) body += `<div><a href="${esc(m.image_url)}" target="_blank" rel="noopener">Photo</a></div>`;
+        if (m.audio_url) body += `<div><a href="${esc(m.audio_url)}" target="_blank" rel="noopener">Voice</a></div>`;
+        return `<div class="chat-bubble"><div class="chat-who">${esc(who)} · ${esc(when)}</div><div>${body}</div></div>`;
+      })
+      .join('') || '<p class="empty">No messages</p>';
+}
+
+/* —— Catalog —— */
+let catalogEdit = { kind: 'cities', id: null };
+
+function slugify(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function parseCoord(raw) {
+  const value = Number(String(raw).replace(',', '.').trim());
+  return Number.isFinite(value) ? value : null;
+}
+
+function parseDomains(raw) {
+  return [
+    ...new Set(
+      String(raw || '')
+        .split(/[,;\n]+/)
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+async function uniqueSlug(table, base, exceptId) {
+  const root = slugify(base) || `item-${Date.now()}`;
+  let slug = root;
+  for (let n = 2; n < 50; n += 1) {
+    let query = supabase.from(table).select('id').eq('slug', slug);
+    if (exceptId) query = query.neq('id', exceptId);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    if (!data) return slug;
+    slug = `${root}-${n}`;
+  }
+  return `${root}-${Date.now()}`;
+}
+
+async function loadCatalog() {
+  show(dashErr, '');
+  show(document.getElementById('catalogMsg'), '');
+  catalog.cities = [];
+  await ensureCatalog();
+  const [c, u] = await Promise.all([
+    supabase.from('cities').select('*').order('name_en'),
+    supabase.from('universities').select('*, cities(name_en, name_ar)').order('name_en'),
+  ]);
+  if (c.error || u.error) {
+    show(dashErr, (c.error || u.error).message);
+    return;
+  }
+  catalog.cities = c.data || [];
+  catalog.universities = u.data || [];
+  resetCatalogForm();
+  renderCatalog();
+}
+
+function resetCatalogForm() {
+  catalogEdit.id = null;
+  const pane = document.getElementById('catalogPane')?.value || 'cities';
+  catalogEdit.kind = pane;
+  document.getElementById('catalogFormTitle').textContent =
+    pane === 'cities' ? 'Add city' : 'Add university';
+  if (pane === 'cities') {
+    document.getElementById('catalogForm').innerHTML = [
+      field('cat_name_ar', 'Name (AR)', inp('cat_name_ar', '')),
+      field('cat_name_en', 'Name (EN)', inp('cat_name_en', '', 'dir="ltr"')),
+      field('cat_lat', 'Latitude', inp('cat_lat', '', 'dir="ltr"')),
+      field('cat_lng', 'Longitude', inp('cat_lng', '', 'dir="ltr"')),
+    ].join('');
+  } else {
+    const cityOpts =
+      `<option value="">—</option>` +
+      optList(catalog.cities, '', (x) => x.name_en || x.name_ar);
+    document.getElementById('catalogForm').innerHTML = [
+      field('cat_name_ar', 'Name (AR)', inp('cat_name_ar', '')),
+      field('cat_name_en', 'Name (EN)', inp('cat_name_en', '', 'dir="ltr"')),
+      field('cat_city_id', 'City', sel('cat_city_id', cityOpts)),
+      field('cat_lat', 'Latitude', inp('cat_lat', '', 'dir="ltr"')),
+      field('cat_lng', 'Longitude', inp('cat_lng', '', 'dir="ltr"')),
+      field('cat_domains', 'Email domains (comma-separated)', inp('cat_domains', '', 'dir="ltr"'), true),
+    ].join('');
+  }
+}
+
+function editCatalogCity(city) {
+  catalogEdit = { kind: 'cities', id: city.id };
+  document.getElementById('catalogPane').value = 'cities';
+  document.getElementById('catalogFormTitle').textContent = 'Edit city';
+  document.getElementById('catalogForm').innerHTML = [
+    field('cat_name_ar', 'Name (AR)', inp('cat_name_ar', city.name_ar)),
+    field('cat_name_en', 'Name (EN)', inp('cat_name_en', city.name_en, 'dir="ltr"')),
+    field('cat_lat', 'Latitude', inp('cat_lat', city.lat, 'dir="ltr"')),
+    field('cat_lng', 'Longitude', inp('cat_lng', city.lng, 'dir="ltr"')),
+  ].join('');
+}
+
+function editCatalogUni(item) {
+  catalogEdit = { kind: 'universities', id: item.id };
+  document.getElementById('catalogPane').value = 'universities';
+  document.getElementById('catalogFormTitle').textContent = 'Edit university';
+  const cityOpts =
+    `<option value="">—</option>` +
+    optList(catalog.cities, item.city_id, (x) => x.name_en || x.name_ar);
+  document.getElementById('catalogForm').innerHTML = [
+    field('cat_name_ar', 'Name (AR)', inp('cat_name_ar', item.name_ar)),
+    field('cat_name_en', 'Name (EN)', inp('cat_name_en', item.name_en, 'dir="ltr"')),
+    field('cat_city_id', 'City', sel('cat_city_id', cityOpts)),
+    field('cat_lat', 'Latitude', inp('cat_lat', item.lat, 'dir="ltr"')),
+    field('cat_lng', 'Longitude', inp('cat_lng', item.lng, 'dir="ltr"')),
+    field(
+      'cat_domains',
+      'Email domains (comma-separated)',
+      inp('cat_domains', (item.email_domains || []).join(', '), 'dir="ltr"'),
+      true,
+    ),
+  ].join('');
+}
+
+function renderCatalog() {
+  const pane = document.getElementById('catalogPane')?.value || 'cities';
+  const q = (document.getElementById('catalogQ')?.value || '').trim().toLowerCase();
+  if (pane === 'cities') {
+    document.getElementById('catalogHead').innerHTML =
+      '<tr><th>Name</th><th>Coords</th><th>Slug</th><th>Actions</th></tr>';
+    let rows = catalog.cities || [];
+    if (q) {
+      rows = rows.filter((c) =>
+        [c.name_ar, c.name_en, c.slug].join(' ').toLowerCase().includes(q),
+      );
+    }
+    document.getElementById('catalogRows').innerHTML =
+      rows
+        .map(
+          (c) => `<tr>
+            <td><b>${esc(c.name_en || c.name_ar)}</b><div class="muted">${esc(c.name_ar || '')}</div></td>
+            <td dir="ltr">${esc(c.lat)}, ${esc(c.lng)}</td>
+            <td dir="ltr">${esc(c.slug)}</td>
+            <td><div class="row-actions">
+              <button class="btn sm" data-act="cat-edit-city" data-id="${c.id}">Edit</button>
+              <button class="btn sm danger" data-act="cat-del-city" data-id="${c.id}">Delete</button>
+            </div></td>
+          </tr>`,
+        )
+        .join('') || `<tr><td colspan="4" class="empty">${t('admin.noResults')}</td></tr>`;
+  } else {
+    document.getElementById('catalogHead').innerHTML =
+      '<tr><th>Name</th><th>City</th><th>Domains</th><th>Actions</th></tr>';
+    let rows = catalog.universities || [];
+    if (q) {
+      rows = rows.filter((u) =>
+        [u.name_ar, u.name_en, u.slug, u.cities?.name_en, ...(u.email_domains || [])]
+          .join(' ')
+          .toLowerCase()
+          .includes(q),
+      );
+    }
+    document.getElementById('catalogRows').innerHTML =
+      rows
+        .map(
+          (u) => `<tr>
+            <td><b>${esc(u.name_en || u.name_ar)}</b><div class="muted">${esc(u.name_ar || '')}</div></td>
+            <td>${esc(u.cities?.name_en || u.cities?.name_ar || '—')}</td>
+            <td dir="ltr">${esc((u.email_domains || []).join(', ') || '—')}</td>
+            <td><div class="row-actions">
+              <button class="btn sm" data-act="cat-edit-uni" data-id="${u.id}">Edit</button>
+              <button class="btn sm danger" data-act="cat-del-uni" data-id="${u.id}">Delete</button>
+            </div></td>
+          </tr>`,
+        )
+        .join('') || `<tr><td colspan="4" class="empty">${t('admin.noResults')}</td></tr>`;
+  }
+
+  document.querySelectorAll('#catalogRows [data-act]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        if (btn.dataset.act === 'cat-edit-city') {
+          const city = catalog.cities.find((c) => c.id === btn.dataset.id);
+          if (city) editCatalogCity(city);
+          return;
+        }
+        if (btn.dataset.act === 'cat-edit-uni') {
+          const uni = catalog.universities.find((u) => u.id === btn.dataset.id);
+          if (uni) editCatalogUni(uni);
+          return;
+        }
+        if (btn.dataset.act === 'cat-del-city') {
+          if (!confirm('Delete this city?')) return;
+          const id = btn.dataset.id;
+          const [unis, homes, people] = await Promise.all([
+            supabase.from('universities').select('id', { count: 'exact', head: true }).eq('city_id', id),
+            supabase.from('apartments').select('id', { count: 'exact', head: true }).eq('city_id', id),
+            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('city_id', id),
+          ]);
+          if ((unis.count ?? 0) + (homes.count ?? 0) + (people.count ?? 0) > 0) {
+            throw new Error('City is still referenced by universities, listings, or users');
+          }
+          const { error } = await supabase.from('cities').delete().eq('id', id);
+          if (error) throw error;
+          await audit('catalog.city_delete', { targetId: id });
+          flash('Done');
+          catalog.cities = [];
+          await loadCatalog();
+          return;
+        }
+        if (btn.dataset.act === 'cat-del-uni') {
+          if (!confirm('Delete this university?')) return;
+          const id = btn.dataset.id;
+          const [homes, people] = await Promise.all([
+            supabase
+              .from('apartments')
+              .select('id', { count: 'exact', head: true })
+              .eq('nearest_university_id', id),
+            supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('university_id', id),
+          ]);
+          if ((homes.count ?? 0) + (people.count ?? 0) > 0) {
+            throw new Error('University is still referenced by listings or users');
+          }
+          const { error } = await supabase.from('universities').delete().eq('id', id);
+          if (error) throw error;
+          await audit('catalog.uni_delete', { targetId: id });
+          flash('Done');
+          catalog.cities = [];
+          await loadCatalog();
+        }
+      } catch (e) {
+        show(dashErr, e.message || 'Failed');
+      }
+    };
+  });
+}
+
+async function saveCatalogForm() {
+  const msg = document.getElementById('catalogMsg');
+  show(msg, '');
+  const pane = document.getElementById('catalogPane')?.value || 'cities';
+  const name_ar = (val('cat_name_ar') || '').trim();
+  const name_en = (val('cat_name_en') || '').trim();
+  const lat = parseCoord(val('cat_lat') || '');
+  const lng = parseCoord(val('cat_lng') || '');
+  try {
+    if (!name_ar || !name_en || lat == null || lng == null) {
+      throw new Error('Name (AR/EN) and coordinates are required');
+    }
+    if (pane === 'cities') {
+      const slug = await uniqueSlug('cities', name_en, catalogEdit.id || undefined);
+      const row = { slug, name_ar, name_en, lat, lng };
+      const query = catalogEdit.id
+        ? supabase.from('cities').update(row).eq('id', catalogEdit.id)
+        : supabase.from('cities').insert(row);
+      const { error } = await query;
+      if (error) throw error;
+      await audit(catalogEdit.id ? 'catalog.city_update' : 'catalog.city_create', {
+        targetId: catalogEdit.id || null,
+        note: name_en,
+      });
+    } else {
+      const city_id = emptyToNull(val('cat_city_id'));
+      if (!city_id) throw new Error('City is required');
+      const slug = await uniqueSlug('universities', name_en, catalogEdit.id || undefined);
+      const row = {
+        slug,
+        name_ar,
+        name_en,
+        city_id,
+        lat,
+        lng,
+        email_domains: parseDomains(val('cat_domains') || ''),
+      };
+      const query = catalogEdit.id
+        ? supabase.from('universities').update(row).eq('id', catalogEdit.id)
+        : supabase.from('universities').insert(row);
+      const { error } = await query;
+      if (error) throw error;
+      await audit(catalogEdit.id ? 'catalog.uni_update' : 'catalog.uni_create', {
+        targetId: catalogEdit.id || null,
+        note: name_en,
+      });
+    }
+    show(msg, 'Saved', 'ok');
+    flash('Saved');
+    catalog.cities = [];
+    await loadCatalog();
+  } catch (e) {
+    show(msg, e.message || 'Save failed', 'err');
+  }
+}
+
+/* —— Create listing —— */
+async function openNewListing() {
+  show(dashErr, '');
+  show(document.getElementById('ldMsg'), '');
+  await ensureCatalog();
+  const { data: owners, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, owner_status')
+    .eq('role', 'owner')
+    .order('full_name');
+  if (error) {
+    show(dashErr, error.message);
+    return;
+  }
+  editingListing = { __new: true };
+  document.getElementById('listingsListWrap').classList.add('hidden');
+  document.getElementById('listingDetailWrap').classList.remove('hidden');
+  document.getElementById('ldTitle').textContent = 'New listing';
+  document.getElementById('ldMeta').innerHTML = '<span class="chip">draft</span>';
+
+  const ownerOpts =
+    `<option value="">— pick owner —</option>` +
+    (owners || [])
+      .map((o) => {
+        const label = `${o.full_name || o.email}${o.owner_status !== 'approved' ? ' (pending)' : ''}`;
+        return `<option value="${esc(o.id)}">${esc(label)}</option>`;
+      })
+      .join('');
+  const cityOpts =
+    `<option value="">—</option>` +
+    optList(catalog.cities, '', (c) => c.name_en || c.name_ar);
+  const uniOpts =
+    `<option value="">—</option>` +
+    optList(catalog.universities, '', (x) => x.name_en || x.name_ar);
+  const opt = (values, current) =>
+    values
+      .map(
+        (r) =>
+          '<option value="' +
+          r +
+          '"' +
+          (String(current || '') === String(r) ? ' selected' : '') +
+          '>' +
+          r +
+          '</option>',
+      )
+      .join('');
+
+  document.getElementById('ldForm').innerHTML = [
+    '<div class="section-label">Owner</div>',
+    field('ld_owner_pick', 'Owner', sel('ld_owner_pick', ownerOpts), true),
+    '<div class="section-label">Titles & copy</div>',
+    field('ld_title_ar', 'Title (AR)', inp('ld_title_ar', ''), true),
+    field('ld_title_en', 'Title (EN)', inp('ld_title_en', '', 'dir="ltr"'), true),
+    field('ld_description_ar', 'Description (AR)', '<textarea id="ld_description_ar"></textarea>', true),
+    field(
+      'ld_description_en',
+      'Description (EN)',
+      '<textarea id="ld_description_en" dir="ltr"></textarea>',
+      true,
+    ),
+    '<div class="section-label">Status & pricing</div>',
+    field('ld_status', 'Status', sel('ld_status', opt(['pending', 'approved', 'rejected', 'hidden'], 'pending'))),
+    field('ld_reject_reason', 'Reject reason', inp('ld_reject_reason', ''), true),
+    field('ld_price_month', 'Price / month', inp('ld_price_month', '', 'type="number" dir="ltr"')),
+    field('ld_rooms', 'Rooms', inp('ld_rooms', '1', 'type="number" dir="ltr"')),
+    field('ld_bathrooms', 'Bathrooms', inp('ld_bathrooms', '1', 'type="number" dir="ltr"')),
+    field('ld_area_m2', 'Area m²', inp('ld_area_m2', '', 'type="number" dir="ltr"')),
+    field('ld_gender_policy', 'Gender policy', sel('ld_gender_policy', opt(['any', 'female', 'male'], 'any'))),
+    '<div class="section-label">Location</div>',
+    field('ld_city_id', 'City', sel('ld_city_id', cityOpts)),
+    field('ld_nearest_university_id', 'Nearest university', sel('ld_nearest_university_id', uniOpts)),
+    field('ld_lat', 'Latitude', inp('ld_lat', '', 'type="number" step="any" dir="ltr"')),
+    field('ld_lng', 'Longitude', inp('ld_lng', '', 'type="number" step="any" dir="ltr"')),
+    field(
+      'ld_campus_distance_km',
+      'Campus distance km',
+      inp('ld_campus_distance_km', '', 'type="number" step="any" dir="ltr"'),
+    ),
+    '<div class="section-label">Media & amenities</div>',
+    field('ld_amenities', 'Amenities (comma-separated)', inp('ld_amenities', '', 'dir="ltr"'), true),
+    field('ld_photos', 'Photo URLs (one per line)', '<textarea id="ld_photos" dir="ltr"></textarea>', true),
+  ].join('');
+}
+
+async function saveListingDetail() {
+  const msg = document.getElementById('ldMsg');
+  show(msg, '');
+  const amenitiesRaw = emptyToNull(val('ld_amenities'));
+  const amenities = amenitiesRaw
+    ? amenitiesRaw
+        .split(/[,\u060C]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const photosRaw = emptyToNull(val('ld_photos'));
+  const photos = photosRaw
+    ? photosRaw
+        .split(/\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+  const title_ar = emptyToNull(val('ld_title_ar'));
+  if (!title_ar) {
+    show(msg, 'Title (AR) is required', 'err');
+    return;
+  }
+
+  if (editingListing?.__new) {
+    const owner_id = emptyToNull(val('ld_owner_pick'));
+    const city_id = emptyToNull(val('ld_city_id'));
+    const price_month = numOrNull(val('ld_price_month'));
+    if (!owner_id || !city_id || !price_month) {
+      show(msg, 'Owner, city, and price are required', 'err');
+      return;
+    }
+    const city = catalog.cities.find((c) => c.id === city_id);
+    const uniId = emptyToNull(val('ld_nearest_university_id'));
+    const uni = catalog.universities.find((u) => u.id === uniId);
+    const patch = {
+      owner_id,
+      city_id,
+      nearest_university_id: uniId,
+      title_ar,
+      title_en: emptyToNull(val('ld_title_en')) || title_ar,
+      description_ar: emptyToNull(val('ld_description_ar')) || '',
+      description_en: emptyToNull(val('ld_description_en')) || '',
+      status: val('ld_status') || 'pending',
+      reject_reason: emptyToNull(val('ld_reject_reason')),
+      price_month,
+      rooms: numOrNull(val('ld_rooms')) || 1,
+      bathrooms: numOrNull(val('ld_bathrooms')) || 1,
+      area_m2: numOrNull(val('ld_area_m2')),
+      gender_policy: val('ld_gender_policy') || 'any',
+      lat: numOrNull(val('ld_lat')) ?? uni?.lat ?? city?.lat ?? 31.9,
+      lng: numOrNull(val('ld_lng')) ?? uni?.lng ?? city?.lng ?? 35.2,
+      campus_distance_km: numOrNull(val('ld_campus_distance_km')),
+      amenities,
+      photos,
+    };
+    try {
+      const { data, error } = await supabase.from('apartments').insert(patch).select('id').single();
+      if (error) throw error;
+      await audit('listing.create', { targetId: data.id, targetUserId: owner_id });
+      show(msg, 'Listing created', 'ok');
+      flash('Saved');
+      await openListingDetail(data.id);
+    } catch (e) {
+      show(msg, e.message || 'Save failed', 'err');
+    }
+    return;
+  }
+
+  if (!editingListing) return;
+  const patch = {
+    title_ar,
+    title_en: emptyToNull(val('ld_title_en')) || '',
+    description_ar: emptyToNull(val('ld_description_ar')) || '',
+    description_en: emptyToNull(val('ld_description_en')) || '',
+    status: val('ld_status'),
+    reject_reason: emptyToNull(val('ld_reject_reason')),
+    price_month: numOrNull(val('ld_price_month')),
+    rooms: numOrNull(val('ld_rooms')),
+    bathrooms: numOrNull(val('ld_bathrooms')),
+    area_m2: numOrNull(val('ld_area_m2')),
+    gender_policy: val('ld_gender_policy') || 'any',
+    city_id: emptyToNull(val('ld_city_id')),
+    nearest_university_id: emptyToNull(val('ld_nearest_university_id')),
+    lat: numOrNull(val('ld_lat')),
+    lng: numOrNull(val('ld_lng')),
+    campus_distance_km: numOrNull(val('ld_campus_distance_km')),
+    amenities,
+    photos,
+  };
+  try {
+    const { error } = await supabase.from('apartments').update(patch).eq('id', editingListing.id);
+    if (error) throw error;
+    await audit('listing.update', { targetId: editingListing.id, detail: { status: patch.status } });
+    show(msg, 'All fields saved', 'ok');
+    flash('Saved');
+    await openListingDetail(editingListing.id);
+  } catch (e) {
+    show(msg, e.message || 'Save failed', 'err');
+  }
+}
+
+
 /* —— Wire UI —— */
 async function verifiedTotpFactor() {
   const { data, error } = await supabase.auth.mfa.listFactors();
@@ -1578,6 +2345,37 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   await supabase.auth.signOut();
   showLogin();
 });
+
+
+document.getElementById('newListingBtn')?.addEventListener('click', () => void openNewListing());
+document.getElementById('reviewQ')?.addEventListener('input', renderReviews);
+document.getElementById('payoutQ')?.addEventListener('input', renderPayouts);
+document.getElementById('payoutFilter')?.addEventListener('change', renderPayouts);
+document.getElementById('chatQ')?.addEventListener('input', renderChats);
+document.getElementById('chatBackBtn')?.addEventListener('click', () => {
+  showChatsList();
+  void loadChats();
+});
+document.getElementById('chatDeleteBtn')?.addEventListener('click', async () => {
+  if (!activeChatId) return;
+  if (!confirm('Delete this conversation and its messages?')) return;
+  try {
+    const { error } = await supabase.from('conversations').delete().eq('id', activeChatId);
+    if (error) throw error;
+    await audit('chat.delete', { targetId: activeChatId });
+    flash('Done');
+    await loadChats();
+  } catch (e) {
+    show(dashErr, e.message || 'Failed');
+  }
+});
+document.getElementById('catalogPane')?.addEventListener('change', () => {
+  resetCatalogForm();
+  renderCatalog();
+});
+document.getElementById('catalogQ')?.addEventListener('input', renderCatalog);
+document.getElementById('catalogSaveBtn')?.addEventListener('click', () => void saveCatalogForm());
+document.getElementById('catalogResetBtn')?.addEventListener('click', () => resetCatalogForm());
 
 document.getElementById('refreshBtn').addEventListener('click', () => {
   const active = document.querySelector('#nav button.active')?.dataset.panel || 'overview';
