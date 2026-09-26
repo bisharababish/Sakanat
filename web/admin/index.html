@@ -3,47 +3,56 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>لوحة الإدارة — Matra7</title>
+    <title data-i18n-title="admin.metaTitle">لوحة الإدارة — Matra7</title>
+    <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="admin-body centered" id="body">
-    <main class="card" id="loginCard">
-      <div class="mark">م</div>
-      <h1>تسجيل دخول الإدارة</h1>
-      <p>ادخل ببريد وكلمة مرور حساب الأدمن (نفس حساب التطبيق).</p>
+    <main class="card login-card" id="loginCard">
+      <div class="login-top">
+        <div class="lang-switch" data-lang-switch></div>
+      </div>
+      <img class="login-logo" src="/assets/logo-mark.png" alt="Matra7" width="150" height="50" />
+      <h1 data-i18n="admin.loginTitle">تسجيل دخول الإدارة</h1>
+      <p data-i18n="admin.loginHint">ادخل ببريد وكلمة مرور حساب الأدمن (نفس حساب التطبيق).</p>
       <div id="loginErr" class="err hidden"></div>
       <div class="field">
-        <label for="email">البريد</label>
+        <label for="email" data-i18n="admin.email">البريد</label>
         <input id="email" type="email" autocomplete="username" dir="ltr" />
       </div>
       <div class="field">
-        <label for="password">كلمة المرور</label>
+        <label for="password" data-i18n="admin.password">كلمة المرور</label>
         <input id="password" type="password" autocomplete="current-password" dir="ltr" />
       </div>
-      <button class="btn" id="loginBtn" type="button">تسجيل الدخول</button>
+      <button class="btn" id="loginBtn" type="button" data-i18n="admin.signIn">تسجيل الدخول</button>
       <p class="fine muted" id="cfgHint"></p>
+      <p class="fine"><a href="/" data-i18n="nav.home">الرئيسية</a></p>
     </main>
 
     <div class="shell hidden" id="shell">
       <aside class="side">
-        <p class="brand">مَطْرَح · Admin</p>
-        <p class="who" id="who"></p>
+        <div class="side-head">
+          <img src="/assets/logo-mark.png" alt="" class="side-logo" />
+          <p class="brand" data-i18n="admin.brand">مَطْرَح · إدارة</p>
+          <p class="who" id="who"></p>
+          <div class="lang-switch on-dark" data-lang-switch></div>
+        </div>
         <nav class="nav" id="nav">
-          <button type="button" data-panel="overview" class="active">نظرة عامة</button>
-          <button type="button" data-panel="users">المستخدمون</button>
-          <button type="button" data-panel="listings">الإعلانات</button>
-          <button type="button" data-panel="bookings">الحجوزات</button>
-          <button type="button" data-panel="ids">تحقق الهوية</button>
-          <button type="button" data-panel="reports">البلاغات</button>
-          <button type="button" data-panel="settings">الإعدادات</button>
-          <button type="button" data-panel="audit">سجل الأدمن</button>
+          <button type="button" data-panel="overview" class="active" data-i18n="admin.nav.overview">نظرة عامة</button>
+          <button type="button" data-panel="users" data-i18n="admin.nav.users">المستخدمون</button>
+          <button type="button" data-panel="listings" data-i18n="admin.nav.listings">الإعلانات</button>
+          <button type="button" data-panel="bookings" data-i18n="admin.nav.bookings">الحجوزات</button>
+          <button type="button" data-panel="ids" data-i18n="admin.nav.ids">تحقق الهوية</button>
+          <button type="button" data-panel="reports" data-i18n="admin.nav.reports">البلاغات</button>
+          <button type="button" data-panel="settings" data-i18n="admin.nav.settings">الإعدادات</button>
+          <button type="button" data-panel="audit" data-i18n="admin.nav.audit">سجل الأدمن</button>
         </nav>
-        <div style="margin-top:18px" class="actions">
-          <button class="btn ghost sm" id="refreshBtn" type="button" style="color:#fff;border-color:rgba(255,255,255,.35)">تحديث</button>
-          <button class="btn ghost sm" id="logoutBtn" type="button" style="color:#fff;border-color:rgba(255,255,255,.35)">خروج</button>
+        <div class="side-actions">
+          <button class="btn ghost sm side-btn" id="refreshBtn" type="button" data-i18n="admin.refresh">تحديث</button>
+          <button class="btn ghost sm side-btn" id="logoutBtn" type="button" data-i18n="admin.logout">تسجيل الخروج</button>
         </div>
       </aside>
 
@@ -52,45 +61,65 @@
         <div id="dashErr" class="err hidden"></div>
 
         <section class="panel active" id="panel-overview">
-          <h1>نظرة عامة</h1>
+          <h1 data-i18n="admin.overview">نظرة عامة</h1>
           <div class="grid" id="stats"></div>
-          <h2>أحداث آخر 7 أيام</h2>
+          <h2 data-i18n="admin.events7">أحداث آخر 7 أيام</h2>
           <div class="scroll" style="max-height:260px;margin-bottom:16px">
-            <table><thead><tr><th>الحدث</th><th>العدد</th></tr></thead><tbody id="eventRows"></tbody></table>
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="admin.event">الحدث</th>
+                  <th data-i18n="admin.count">العدد</th>
+                </tr>
+              </thead>
+              <tbody id="eventRows"></tbody>
+            </table>
           </div>
-          <h2>طوابير تحتاج إجراء</h2>
+          <h2 data-i18n="admin.queues">طوابير تحتاج إجراء</h2>
           <div class="scroll" style="max-height:320px">
             <table>
-              <thead><tr><th>النوع</th><th>التفاصيل</th><th></th></tr></thead>
+              <thead>
+                <tr>
+                  <th data-i18n="admin.type">النوع</th>
+                  <th data-i18n="admin.details">التفاصيل</th>
+                  <th></th>
+                </tr>
+              </thead>
               <tbody id="queueRows"></tbody>
             </table>
           </div>
         </section>
 
         <section class="panel" id="panel-users">
-          <h1>المستخدمون</h1>
+          <h1 data-i18n="admin.users">المستخدمون</h1>
           <div id="usersListWrap">
             <div class="toolbar">
-              <input id="userQ" placeholder="بحث اسم / إيميل / هاتف / رقم وطني" />
+              <input id="userQ" data-i18n-placeholder="admin.userSearch" placeholder="بحث اسم / إيميل / هاتف / رقم وطني" />
               <select id="userRole">
-                <option value="">كل الأدوار</option>
-                <option value="student">طالب</option>
-                <option value="renter">مستأجر</option>
-                <option value="owner">مالك</option>
-                <option value="admin">أدمن</option>
+                <option value="" data-i18n="admin.allRoles">كل الأدوار</option>
+                <option value="student" data-i18n="admin.role.student">طالب</option>
+                <option value="renter" data-i18n="admin.role.renter">مستأجر</option>
+                <option value="owner" data-i18n="admin.role.owner">مالك</option>
+                <option value="admin" data-i18n="admin.role.admin">أدمن</option>
               </select>
               <select id="userFilter">
-                <option value="">الكل</option>
-                <option value="owner_pending">ملاك بانتظار</option>
-                <option value="suspended">موقوفون</option>
-                <option value="id_pending">هوية بانتظار</option>
+                <option value="" data-i18n="admin.filter.all">الكل</option>
+                <option value="owner_pending" data-i18n="admin.filter.ownerPending">ملاك بانتظار</option>
+                <option value="suspended" data-i18n="admin.filter.suspended">موقوفون</option>
+                <option value="id_pending" data-i18n="admin.filter.idPending">هوية بانتظار</option>
               </select>
-              <button class="btn sm" id="newOwnerBtn" type="button">+ مالك جديد</button>
+              <button class="btn sm" id="newOwnerBtn" type="button" data-i18n="admin.newOwner">+ مالك جديد</button>
             </div>
             <div class="scroll" style="max-height:70vh">
               <table>
                 <thead>
-                  <tr><th>الاسم</th><th>الدور</th><th>الحالة</th><th>تواصل</th><th>إجراءات</th></tr>
+                  <tr>
+                    <th data-i18n="admin.col.name">الاسم</th>
+                    <th data-i18n="admin.col.role">الدور</th>
+                    <th data-i18n="admin.col.status">الحالة</th>
+                    <th data-i18n="admin.col.contact">تواصل</th>
+                    <th data-i18n="admin.col.actions">إجراءات</th>
+                  </tr>
                 </thead>
                 <tbody id="userRows"></tbody>
               </table>
@@ -98,47 +127,53 @@
           </div>
 
           <div id="userDetailWrap" class="hidden">
-            <button class="btn ghost sm user-detail-back" id="userBackBtn" type="button">← رجوع للقائمة</button>
+            <button class="btn ghost sm user-detail-back" id="userBackBtn" type="button" data-i18n="admin.back">← رجوع للقائمة</button>
             <div class="bar">
               <div>
-                <h1 style="margin:0" id="udTitle">تعديل مستخدم</h1>
+                <h1 style="margin:0" id="udTitle" data-i18n="admin.editUser">تعديل مستخدم</h1>
                 <div class="detail-meta" id="udMeta"></div>
               </div>
               <div class="actions">
-                <button class="btn" id="udSaveBtn" type="button">حفظ كل التغييرات</button>
+                <button class="btn" id="udSaveBtn" type="button" data-i18n="admin.saveAll">حفظ كل التغييرات</button>
               </div>
             </div>
             <div id="udMsg" class="hidden"></div>
-            <div class="card wide" style="padding:16px;margin:0 0 14px;width:100%">
+            <div class="card wide surface-card">
               <div class="form-grid" id="udForm"></div>
             </div>
-            <div class="card wide" style="padding:16px;margin:0 0 14px;width:100%">
-              <h2>نشاط مرتبط</h2>
+            <div class="card wide surface-card">
+              <h2 data-i18n="admin.activity">نشاط مرتبط</h2>
               <div id="udActivity" class="muted">—</div>
             </div>
             <div class="danger-zone">
-              <h2 style="color:var(--danger)">إجراءات قوية</h2>
+              <h2 data-i18n="admin.danger">إجراءات قوية</h2>
               <div class="actions" id="udDanger"></div>
             </div>
           </div>
         </section>
 
         <section class="panel" id="panel-listings">
-          <h1>الإعلانات</h1>
+          <h1 data-i18n="admin.listings">الإعلانات</h1>
           <div class="toolbar">
-            <input id="listingQ" placeholder="بحث عنوان" />
+            <input id="listingQ" data-i18n-placeholder="admin.listingSearch" placeholder="بحث عنوان" />
             <select id="listingStatus">
-              <option value="pending">بانتظار</option>
-              <option value="approved">معتمد</option>
-              <option value="rejected">مرفوض</option>
-              <option value="hidden">مخفي</option>
-              <option value="">الكل</option>
+              <option value="pending" data-i18n="admin.status.pending">بانتظار</option>
+              <option value="approved" data-i18n="admin.status.approved">معتمد</option>
+              <option value="rejected" data-i18n="admin.status.rejected">مرفوض</option>
+              <option value="hidden" data-i18n="admin.status.hidden">مخفي</option>
+              <option value="" data-i18n="admin.status.all">الكل</option>
             </select>
           </div>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
-                <tr><th>العنوان</th><th>الحالة</th><th>المالك</th><th>السعر</th><th>إجراءات</th></tr>
+                <tr>
+                  <th data-i18n="admin.col.title">العنوان</th>
+                  <th data-i18n="admin.col.status">الحالة</th>
+                  <th data-i18n="admin.col.owner">المالك</th>
+                  <th data-i18n="admin.col.price">السعر</th>
+                  <th data-i18n="admin.col.actions">إجراءات</th>
+                </tr>
               </thead>
               <tbody id="listingRows"></tbody>
             </table>
@@ -146,20 +181,27 @@
         </section>
 
         <section class="panel" id="panel-bookings">
-          <h1>الحجوزات</h1>
+          <h1 data-i18n="admin.bookings">الحجوزات</h1>
           <div class="toolbar">
             <select id="bookingStatus">
-              <option value="">كل الحالات</option>
-              <option value="pending">بانتظار</option>
-              <option value="confirmed">مؤكد</option>
-              <option value="completed">مكتمل</option>
-              <option value="cancelled">ملغى</option>
+              <option value="" data-i18n="admin.allStatuses">كل الحالات</option>
+              <option value="pending" data-i18n="admin.status.pending">بانتظار</option>
+              <option value="confirmed" data-i18n="admin.status.confirmed">مؤكد</option>
+              <option value="completed" data-i18n="admin.status.completed">مكتمل</option>
+              <option value="cancelled" data-i18n="admin.status.cancelled">ملغى</option>
             </select>
           </div>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
-                <tr><th>التاريخ</th><th>الإعلان</th><th>الطالب</th><th>الحالة</th><th>الدفع</th><th>إجراءات</th></tr>
+                <tr>
+                  <th data-i18n="admin.col.date">التاريخ</th>
+                  <th data-i18n="admin.col.listing">الإعلان</th>
+                  <th data-i18n="admin.col.student">الطالب</th>
+                  <th data-i18n="admin.col.status">الحالة</th>
+                  <th data-i18n="admin.col.payment">الدفع</th>
+                  <th data-i18n="admin.col.actions">إجراءات</th>
+                </tr>
               </thead>
               <tbody id="bookingRows"></tbody>
             </table>
@@ -167,12 +209,17 @@
         </section>
 
         <section class="panel" id="panel-ids">
-          <h1>تحقق الهوية</h1>
-          <p class="muted">طلبات بانتظار المراجعة (وثائق مرفوعة).</p>
+          <h1 data-i18n="admin.ids">تحقق الهوية</h1>
+          <p class="muted" data-i18n="admin.idsHint">طلبات بانتظار المراجعة (وثائق مرفوعة).</p>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
-                <tr><th>الاسم</th><th>الدور</th><th>ملاحظة</th><th>إجراءات</th></tr>
+                <tr>
+                  <th data-i18n="admin.col.name">الاسم</th>
+                  <th data-i18n="admin.col.role">الدور</th>
+                  <th data-i18n="admin.col.note">ملاحظة</th>
+                  <th data-i18n="admin.col.actions">إجراءات</th>
+                </tr>
               </thead>
               <tbody id="idRows"></tbody>
             </table>
@@ -180,19 +227,24 @@
         </section>
 
         <section class="panel" id="panel-reports">
-          <h1>البلاغات</h1>
+          <h1 data-i18n="admin.reports">البلاغات</h1>
           <div class="toolbar">
             <select id="reportStatus">
-              <option value="open">مفتوح</option>
-              <option value="reviewing">قيد المراجعة</option>
-              <option value="closed">مغلق</option>
-              <option value="">الكل</option>
+              <option value="open" data-i18n="admin.report.open">مفتوح</option>
+              <option value="reviewing" data-i18n="admin.report.reviewing">قيد المراجعة</option>
+              <option value="closed" data-i18n="admin.report.closed">مغلق</option>
+              <option value="" data-i18n="admin.filter.all">الكل</option>
             </select>
           </div>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
-                <tr><th>التاريخ</th><th>السبب</th><th>الحالة</th><th>إجراءات</th></tr>
+                <tr>
+                  <th data-i18n="admin.col.date">التاريخ</th>
+                  <th data-i18n="admin.col.reason">السبب</th>
+                  <th data-i18n="admin.col.status">الحالة</th>
+                  <th data-i18n="admin.col.actions">إجراءات</th>
+                </tr>
               </thead>
               <tbody id="reportRows"></tbody>
             </table>
@@ -200,31 +252,36 @@
         </section>
 
         <section class="panel" id="panel-settings">
-          <h1>إعدادات المنصة</h1>
-          <div class="card wide" style="padding:18px;margin:0">
+          <h1 data-i18n="admin.settings">إعدادات المنصة</h1>
+          <div class="card wide surface-card">
             <div id="settingsMsg" class="hidden"></div>
             <div class="field">
-              <label for="commission">عمولة المنصة %</label>
+              <label for="commission" data-i18n="admin.commission">عمولة المنصة %</label>
               <input id="commission" type="number" min="0" max="100" step="0.1" dir="ltr" />
             </div>
             <div class="field">
-              <label for="adminEmail">بريد الأدمن</label>
+              <label for="adminEmail" data-i18n="admin.adminEmail">بريد الأدمن</label>
               <input id="adminEmail" type="email" dir="ltr" />
             </div>
             <div class="actions">
-              <button class="btn" id="saveSettingsBtn" type="button">حفظ</button>
-              <button class="btn ghost" id="runOpsBtn" type="button">تشغيل مهام الحجوزات</button>
+              <button class="btn" id="saveSettingsBtn" type="button" data-i18n="admin.save">حفظ</button>
+              <button class="btn ghost" id="runOpsBtn" type="button" data-i18n="admin.runOps">تشغيل مهام الحجوزات</button>
             </div>
             <p class="fine muted" id="opsStatus"></p>
           </div>
         </section>
 
         <section class="panel" id="panel-audit">
-          <h1>سجل الأدمن</h1>
+          <h1 data-i18n="admin.audit">سجل الأدمن</h1>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
-                <tr><th>الوقت</th><th>الإجراء</th><th>هدف</th><th>ملاحظة</th></tr>
+                <tr>
+                  <th data-i18n="admin.col.time">الوقت</th>
+                  <th data-i18n="admin.col.action">الإجراء</th>
+                  <th data-i18n="admin.col.target">هدف</th>
+                  <th data-i18n="admin.col.note">ملاحظة</th>
+                </tr>
               </thead>
               <tbody id="auditRows"></tbody>
             </table>
@@ -238,13 +295,14 @@
         <h3 id="modalTitle"></h3>
         <div id="modalBody"></div>
         <div class="actions" style="margin-top:14px;justify-content:flex-end">
-          <button class="btn ghost" type="button" id="modalCancel">إلغاء</button>
-          <button class="btn" type="button" id="modalOk">تأكيد</button>
+          <button class="btn ghost" type="button" id="modalCancel" data-i18n="admin.modalCancel">إلغاء</button>
+          <button class="btn" type="button" id="modalOk" data-i18n="admin.modalOk">تأكيد</button>
         </div>
       </div>
     </div>
 
     <script src="/config.js"></script>
+    <script src="/js/i18n.js"></script>
     <script type="module" src="/admin/app.js"></script>
   </body>
 </html>

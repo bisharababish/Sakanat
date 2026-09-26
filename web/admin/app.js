@@ -1,5 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
+const t = (key, fallback) =>
+  (window.Matra7I18n && window.Matra7I18n.t(key, fallback)) || fallback || key;
+
 const cfg = window.MATRA7 || {};
 const body = document.getElementById('body');
 const loginCard = document.getElementById('loginCard');
@@ -9,10 +12,9 @@ const dashErr = document.getElementById('dashErr');
 const toast = document.getElementById('toast');
 const cfgHint = document.getElementById('cfgHint');
 
-if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).includes('REPLACE')) {
-  cfgHint.textContent =
-    'ضع EXPO_PUBLIC_SUPABASE_URL و EXPO_PUBLIC_SUPABASE_ANON_KEY في بيئة الاستضافة (build يولّد config.js).';
-}
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).includes('REPLACE')) {
+    cfgHint.textContent = t('admin.cfgHint');
+  }
 
 const supabase = createClient(cfg.supabaseUrl || '', cfg.supabaseAnonKey || '', {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -45,7 +47,7 @@ function flash(msg) {
 }
 
 function chip(status) {
-  const s = String(status || '—');
+  const s = String(status || 'â€”');
   return `<span class="chip ${s}">${s}</span>`;
 }
 
@@ -58,13 +60,13 @@ function esc(s) {
 }
 
 function titleOf(apt) {
-  if (!apt) return '—';
-  return apt.title_ar || apt.title_en || apt.id?.slice(0, 8) || '—';
+  if (!apt) return 'â€”';
+  return apt.title_ar || apt.title_en || apt.id?.slice(0, 8) || 'â€”';
 }
 
 function nameOf(p) {
-  if (!p) return '—';
-  return p.full_name || p.full_name_en || p.email || p.id?.slice(0, 8) || '—';
+  if (!p) return 'â€”';
+  return p.full_name || p.full_name_en || p.email || p.id?.slice(0, 8) || 'â€”';
 }
 
 async function audit(action, meta = {}) {
@@ -134,7 +136,7 @@ function showShell(profile) {
   setPanel('overview');
 }
 
-/* —— Overview —— */
+/* â€”â€” Overview â€”â€” */
 async function loadOverview() {
   show(dashErr, '');
   const since = new Date(Date.now() - 7 * 864e5).toISOString();
@@ -178,14 +180,14 @@ async function loadOverview() {
   const commission = earned.reduce((s, b) => s + Number(b.commission_amount || 0), 0);
 
   document.getElementById('stats').innerHTML = [
-    ['إعلانات', apartments.count ?? '—'],
-    ['حجوزات', (bookings.data || []).length],
-    ['مستخدمون', profiles.count ?? '—'],
-    ['محادثات', conversations.count ?? '—'],
-    ['عمولة مؤكدة', Math.round(commission)],
-    ['بانتظار مالك', pendingOwners.count ?? 0],
-    ['بانتظار إعلان', pendingListings.count ?? 0],
-    ['بلاغات مفتوحة', openReports.count ?? 0],
+    [t('admin.stat.listings'), apartments.count ?? 'â€”'],
+    [t('admin.stat.bookings'), (bookings.data || []).length],
+    [t('admin.stat.users'), profiles.count ?? 'â€”'],
+    [t('admin.stat.chats'), conversations.count ?? 'â€”'],
+    [t('admin.stat.commission'), Math.round(commission)],
+    [t('admin.stat.pendingOwners'), pendingOwners.count ?? 0],
+    [t('admin.stat.pendingListings'), pendingListings.count ?? 0],
+    [t('admin.stat.openReports'), openReports.count ?? 0],
   ]
     .map(([label, value]) => `<div class="stat"><b>${esc(value)}</b><span>${label}</span></div>`)
     .join('');
@@ -197,18 +199,18 @@ async function loadOverview() {
     .slice(0, 20);
   document.getElementById('eventRows').innerHTML =
     sorted.map(([n, c]) => `<tr><td dir="ltr">${esc(n)}</td><td>${c}</td></tr>`).join('') ||
-    '<tr><td colspan="2" class="empty">لا أحداث</td></tr>';
+    `<tr><td colspan="2" class="empty">${t('admin.noEvents')}</td></tr>`;
 
   document.getElementById('queueRows').innerHTML = [
-    ['ملاك بانتظار', pendingOwners.count || 0, 'users'],
-    ['إعلانات بانتظار', pendingListings.count || 0, 'listings'],
-    ['حجوزات بانتظار', pendingBookings.count || 0, 'bookings'],
-    ['تحقق هوية', pendingIds.count || 0, 'ids'],
-    ['بلاغات', openReports.count || 0, 'reports'],
+    [t('admin.queue.owners'), pendingOwners.count || 0, 'users'],
+    [t('admin.queue.listings'), pendingListings.count || 0, 'listings'],
+    [t('admin.queue.bookings'), pendingBookings.count || 0, 'bookings'],
+    [t('admin.queue.ids'), pendingIds.count || 0, 'ids'],
+    [t('admin.queue.reports'), openReports.count || 0, 'reports'],
   ]
     .map(
       ([label, n, panel]) =>
-        `<tr><td>${label}</td><td><b>${n}</b></td><td><button class="btn sm ghost" data-goto="${panel}">فتح</button></td></tr>`,
+        `<tr><td>${label}</td><td><b>${n}</b></td><td><button class="btn sm ghost" data-goto="${panel}">${t('admin.openQueue')}</button></td></tr>`,
     )
     .join('');
 
@@ -217,7 +219,7 @@ async function loadOverview() {
   });
 }
 
-/* —— Users —— */
+/* â€”â€” Users â€”â€” */
 let catalog = { cities: [], universities: [] };
 let editingUser = null;
 
@@ -257,7 +259,7 @@ function boolSel(id, value) {
   const on = value === true || value === 'true';
   return sel(
     id,
-    `<option value="true" ${on ? 'selected' : ''}>نعم</option><option value="false" ${!on ? 'selected' : ''}>لا</option>`,
+    `<option value="true" ${on ? 'selected' : ''}>Ù†Ø¹Ù…</option><option value="false" ${!on ? 'selected' : ''}>Ù„Ø§</option>`,
   );
 }
 
@@ -269,14 +271,14 @@ function val(id) {
 }
 
 function emptyToNull(s) {
-  const t = String(s ?? '').trim();
-  return t ? t : null;
+  const trimmed = String(s ?? '').trim();
+  return trimmed ? trimmed : null;
 }
 
 function numOrNull(s) {
-  const t = String(s ?? '').trim();
-  if (!t) return null;
-  const n = Number(t);
+  const trimmed = String(s ?? '').trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -327,28 +329,28 @@ function renderUsers() {
         const statusBits = [];
         if (u.account_status === 'suspended') statusBits.push(chip('suspended'));
         else statusBits.push(chip(u.account_status || 'active'));
-        if (u.role === 'owner') statusBits.push(chip(u.owner_status || '—'));
+        if (u.role === 'owner') statusBits.push(chip(u.owner_status || 'â€”'));
         if (u.id_verify_status) statusBits.push(chip(u.id_verify_status));
         const actions = [];
         if (u.role === 'owner' && u.owner_status === 'pending') {
-          actions.push(`<button class="btn sm ok" data-act="owner-ok" data-id="${u.id}">اعتماد</button>`);
-          actions.push(`<button class="btn sm danger" data-act="owner-no" data-id="${u.id}">رفض</button>`);
+          actions.push(`<button class="btn sm ok" data-act="owner-ok" data-id="${u.id}">${t('admin.approve')}</button>`);
+          actions.push(`<button class="btn sm danger" data-act="owner-no" data-id="${u.id}">${t('admin.reject')}</button>`);
         }
         if (u.account_status === 'suspended') {
-          actions.push(`<button class="btn sm" data-act="restore" data-id="${u.id}">استعادة</button>`);
+          actions.push(`<button class="btn sm" data-act="restore" data-id="${u.id}">${t('admin.restore')}</button>`);
         } else if (u.role !== 'admin') {
-          actions.push(`<button class="btn sm warn" data-act="suspend" data-id="${u.id}">إيقاف</button>`);
+          actions.push(`<button class="btn sm warn" data-act="suspend" data-id="${u.id}">${t('admin.suspend')}</button>`);
         }
-        actions.push(`<button class="btn sm" data-act="edit-user" data-id="${u.id}">التحكم الكامل</button>`);
+        actions.push(`<button class="btn sm" data-act="edit-user" data-id="${u.id}">${t('admin.fullControl')}</button>`);
         return `<tr>
           <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div></td>
           <td>${esc(u.role)}</td>
           <td>${statusBits.join(' ')}</td>
-          <td dir="ltr">${esc(u.phone || '—')}</td>
+          <td dir="ltr">${esc(u.phone || 'â€”')}</td>
           <td><div class="row-actions">${actions.join('')}</div></td>
         </tr>`;
       })
-      .join('') || '<tr><td colspan="5" class="empty">لا نتائج</td></tr>';
+      .join('') || `<tr><td colspan="5" class="empty">${t('admin.noResults')}</td></tr>`;
 
   bindUserActions();
 }
@@ -390,8 +392,8 @@ function bindUserActions() {
         if (btn.dataset.act === 'owner-ok') await setOwnerStatus(id, 'approved');
         if (btn.dataset.act === 'owner-no') await setOwnerStatus(id, 'rejected');
         if (btn.dataset.act === 'suspend') {
-          if (!confirm('إيقاف هذا الحساب؟')) return;
-          const reason = prompt('سبب الإيقاف (اختياري)') || '';
+          if (!confirm('Ø¥ÙŠÙ‚Ø§Ù Ù‡Ø°Ø§ Ø§Ù„Ø­Ø³Ø§Ø¨ØŸ')) return;
+          const reason = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø¥ÙŠÙ‚Ø§Ù (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)') || '';
           await setSuspended(user, true, reason);
         }
         if (btn.dataset.act === 'restore') await setSuspended(user, false);
@@ -399,11 +401,11 @@ function bindUserActions() {
           await openUserDetail(id);
           return;
         }
-        flash('تم');
+        flash(t('admin.done'));
         await loadUsers();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'فشل');
+        show(dashErr, e.message || 'ÙØ´Ù„');
       }
     };
   });
@@ -419,7 +421,7 @@ async function openUserDetail(userId) {
     .eq('id', userId)
     .single();
   if (error || !data) {
-    show(dashErr, error?.message || 'المستخدم غير موجود');
+    show(dashErr, error?.message || 'Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯');
     return;
   }
   editingUser = data;
@@ -429,7 +431,7 @@ async function openUserDetail(userId) {
   document.getElementById('udMeta').innerHTML = `
     <span>${chip(data.role)}</span>
     <span>${chip(data.account_status || 'active')}</span>
-    <span>${chip(data.owner_status || '—')}</span>
+    <span>${chip(data.owner_status || 'â€”')}</span>
     <span>${chip(data.id_verify_status || 'none')}</span>
     <code>${esc(data.id)}</code>
     <span dir="ltr">${esc(data.email || '')}</span>
@@ -437,83 +439,83 @@ async function openUserDetail(userId) {
 
   const u = data;
   const cityOpts =
-    `<option value="">—</option>` +
+    `<option value="">â€”</option>` +
     optList(catalog.cities, u.city_id, (c) => c.name_ar || c.name_en);
   const uniOpts =
-    `<option value="">—</option>` +
+    `<option value="">â€”</option>` +
     optList(catalog.universities, u.university_id, (x) => x.name_ar || x.name_en);
   const langs = Array.isArray(u.spoken_languages) ? u.spoken_languages.join(', ') : u.spoken_languages || '';
 
   document.getElementById('udForm').innerHTML = `
-    <div class="section-label">الهوية والحساب</div>
-    ${field('ud_full_name', 'الاسم بالعربي', inp('ud_full_name', u.full_name))}
-    ${field('ud_full_name_en', 'الاسم EN', inp('ud_full_name_en', u.full_name_en, 'dir="ltr"'))}
-    ${field('ud_email', 'البريد (عرض فقط)', inp('ud_email', u.email, 'dir="ltr" disabled'))}
-    ${field('ud_role', 'الدور', sel('ud_role', ['student', 'renter', 'owner', 'admin'].map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_owner_status', 'حالة المالك', sel('ud_owner_status', ['pending', 'approved', 'rejected'].map((r) => `<option value="${r}" ${u.owner_status === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_account_status', 'حالة الحساب', sel('ud_account_status', ['active', 'suspended'].map((r) => `<option value="${r}" ${(u.account_status || 'active') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_language', 'لغة التطبيق', sel('ud_language', ['ar', 'en'].map((r) => `<option value="${r}" ${(u.language || 'ar') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_avatar_url', 'رابط الصورة', inp('ud_avatar_url', u.avatar_url, 'dir="ltr"'), true)}
+    <div class="section-label">Ø§Ù„Ù‡ÙˆÙŠØ© ÙˆØ§Ù„Ø­Ø³Ø§Ø¨</div>
+    ${field('ud_full_name', 'Ø§Ù„Ø§Ø³Ù… Ø¨Ø§Ù„Ø¹Ø±Ø¨ÙŠ', inp('ud_full_name', u.full_name))}
+    ${field('ud_full_name_en', 'Ø§Ù„Ø§Ø³Ù… EN', inp('ud_full_name_en', u.full_name_en, 'dir="ltr"'))}
+    ${field('ud_email', 'Ø§Ù„Ø¨Ø±ÙŠØ¯ (Ø¹Ø±Ø¶ ÙÙ‚Ø·)', inp('ud_email', u.email, 'dir="ltr" disabled'))}
+    ${field('ud_role', 'Ø§Ù„Ø¯ÙˆØ±', sel('ud_role', ['student', 'renter', 'owner', 'admin'].map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    ${field('ud_owner_status', 'Ø­Ø§Ù„Ø© Ø§Ù„Ù…Ø§Ù„Ùƒ', sel('ud_owner_status', ['pending', 'approved', 'rejected'].map((r) => `<option value="${r}" ${u.owner_status === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    ${field('ud_account_status', 'Ø­Ø§Ù„Ø© Ø§Ù„Ø­Ø³Ø§Ø¨', sel('ud_account_status', ['active', 'suspended'].map((r) => `<option value="${r}" ${(u.account_status || 'active') === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    ${field('ud_language', 'Ù„ØºØ© Ø§Ù„ØªØ·Ø¨ÙŠÙ‚', sel('ud_language', ['ar', 'en'].map((r) => `<option value="${r}" ${(u.language || 'ar') === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    ${field('ud_avatar_url', 'Ø±Ø§Ø¨Ø· Ø§Ù„ØµÙˆØ±Ø©', inp('ud_avatar_url', u.avatar_url, 'dir="ltr"'), true)}
 
-    <div class="section-label">تواصل</div>
-    ${field('ud_phone', 'هاتف', inp('ud_phone', u.phone, 'dir="ltr"'))}
-    ${field('ud_whatsapp', 'واتساب', inp('ud_whatsapp', u.whatsapp, 'dir="ltr"'))}
-    ${field('ud_recovery_email', 'بريد استعادة', inp('ud_recovery_email', u.recovery_email, 'dir="ltr"'))}
-    ${field('ud_recovery_phone', 'هاتف استعادة', inp('ud_recovery_phone', u.recovery_phone, 'dir="ltr"'))}
-    ${field('ud_phone_visibility', 'ظهور الهاتف', sel('ud_phone_visibility', ['booking', 'confirmed', 'none'].map((r) => `<option value="${r}" ${(u.phone_visibility || 'booking') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_whatsapp_visibility', 'ظهور واتساب', sel('ud_whatsapp_visibility', ['booking', 'confirmed', 'none'].map((r) => `<option value="${r}" ${(u.whatsapp_visibility || 'booking') === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    <div class="section-label">ØªÙˆØ§ØµÙ„</div>
+    ${field('ud_phone', 'Ù‡Ø§ØªÙ', inp('ud_phone', u.phone, 'dir="ltr"'))}
+    ${field('ud_whatsapp', 'ÙˆØ§ØªØ³Ø§Ø¨', inp('ud_whatsapp', u.whatsapp, 'dir="ltr"'))}
+    ${field('ud_recovery_email', 'Ø¨Ø±ÙŠØ¯ Ø§Ø³ØªØ¹Ø§Ø¯Ø©', inp('ud_recovery_email', u.recovery_email, 'dir="ltr"'))}
+    ${field('ud_recovery_phone', 'Ù‡Ø§ØªÙ Ø§Ø³ØªØ¹Ø§Ø¯Ø©', inp('ud_recovery_phone', u.recovery_phone, 'dir="ltr"'))}
+    ${field('ud_phone_visibility', 'Ø¸Ù‡ÙˆØ± Ø§Ù„Ù‡Ø§ØªÙ', sel('ud_phone_visibility', ['booking', 'confirmed', 'none'].map((r) => `<option value="${r}" ${(u.phone_visibility || 'booking') === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    ${field('ud_whatsapp_visibility', 'Ø¸Ù‡ÙˆØ± ÙˆØ§ØªØ³Ø§Ø¨', sel('ud_whatsapp_visibility', ['booking', 'confirmed', 'none'].map((r) => `<option value="${r}" ${(u.whatsapp_visibility || 'booking') === r ? 'selected' : ''}>${r}</option>`).join('')))}
 
-    <div class="section-label">شخصي ودراسة</div>
-    ${field('ud_gender', 'الجنس', sel('ud_gender', `<option value="">—</option>${['female', 'male'].map((r) => `<option value="${r}" ${u.gender === r ? 'selected' : ''}>${r}</option>`).join('')}`)}
-    ${field('ud_date_of_birth', 'تاريخ الميلاد', inp('ud_date_of_birth', u.date_of_birth ? String(u.date_of_birth).slice(0, 10) : '', 'type="date" dir="ltr"'))}
-    ${field('ud_city_id', 'المدينة', sel('ud_city_id', cityOpts))}
-    ${field('ud_university_id', 'الجامعة', sel('ud_university_id', uniOpts))}
-    ${field('ud_student_id_number', 'رقم جامعي', inp('ud_student_id_number', u.student_id_number, 'dir="ltr"'))}
-    ${field('ud_major', 'التخصص', inp('ud_major', u.major))}
-    ${field('ud_degree_level', 'الدرجة', inp('ud_degree_level', u.degree_level))}
-    ${field('ud_study_year', 'السنة الدراسية', inp('ud_study_year', u.study_year))}
-    ${field('ud_graduation_term', 'فصل التخرج', inp('ud_graduation_term', u.graduation_term))}
-    ${field('ud_spoken_languages', 'لغات (مفصولة بفاصلة)', inp('ud_spoken_languages', langs, 'dir="ltr"'), true)}
-    ${field('ud_bio', 'نبذة', `<textarea id="ud_bio">${esc(u.bio || '')}</textarea>`, true)}
-    ${field('ud_home_address', 'عنوان البيت', `<textarea id="ud_home_address">${esc(u.home_address || '')}</textarea>`, true)}
+    <div class="section-label">Ø´Ø®ØµÙŠ ÙˆØ¯Ø±Ø§Ø³Ø©</div>
+    ${field('ud_gender', 'Ø§Ù„Ø¬Ù†Ø³', sel('ud_gender', `<option value="">â€”</option>${['female', 'male'].map((r) => `<option value="${r}" ${u.gender === r ? 'selected' : ''}>${r}</option>`).join('')}`)}
+    ${field('ud_date_of_birth', 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ù…ÙŠÙ„Ø§Ø¯', inp('ud_date_of_birth', u.date_of_birth ? String(u.date_of_birth).slice(0, 10) : '', 'type="date" dir="ltr"'))}
+    ${field('ud_city_id', 'Ø§Ù„Ù…Ø¯ÙŠÙ†Ø©', sel('ud_city_id', cityOpts))}
+    ${field('ud_university_id', 'Ø§Ù„Ø¬Ø§Ù…Ø¹Ø©', sel('ud_university_id', uniOpts))}
+    ${field('ud_student_id_number', 'Ø±Ù‚Ù… Ø¬Ø§Ù…Ø¹ÙŠ', inp('ud_student_id_number', u.student_id_number, 'dir="ltr"'))}
+    ${field('ud_major', 'Ø§Ù„ØªØ®ØµØµ', inp('ud_major', u.major))}
+    ${field('ud_degree_level', 'Ø§Ù„Ø¯Ø±Ø¬Ø©', inp('ud_degree_level', u.degree_level))}
+    ${field('ud_study_year', 'Ø§Ù„Ø³Ù†Ø© Ø§Ù„Ø¯Ø±Ø§Ø³ÙŠØ©', inp('ud_study_year', u.study_year))}
+    ${field('ud_graduation_term', 'ÙØµÙ„ Ø§Ù„ØªØ®Ø±Ø¬', inp('ud_graduation_term', u.graduation_term))}
+    ${field('ud_spoken_languages', 'Ù„ØºØ§Øª (Ù…ÙØµÙˆÙ„Ø© Ø¨ÙØ§ØµÙ„Ø©)', inp('ud_spoken_languages', langs, 'dir="ltr"'), true)}
+    ${field('ud_bio', 'Ù†Ø¨Ø°Ø©', `<textarea id="ud_bio">${esc(u.bio || '')}</textarea>`, true)}
+    ${field('ud_home_address', 'Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ø¨ÙŠØª', `<textarea id="ud_home_address">${esc(u.home_address || '')}</textarea>`, true)}
 
-    <div class="section-label">هوية وطنية / تحقق</div>
-    ${field('ud_national_id_number', 'رقم الهوية', inp('ud_national_id_number', u.national_id_number, 'dir="ltr"'))}
-    ${field('ud_national_id_expires_at', 'انتهاء الهوية', inp('ud_national_id_expires_at', u.national_id_expires_at ? String(u.national_id_expires_at).slice(0, 10) : '', 'type="date" dir="ltr"'))}
-    ${field('ud_id_verify_status', 'حالة التحقق', sel('ud_id_verify_status', ['none', 'pending', 'approved', 'rejected'].map((r) => `<option value="${r}" ${(u.id_verify_status || 'none') === r ? 'selected' : ''}>${r}</option>`).join('')))}
-    ${field('ud_id_verify_note', 'ملاحظة التحقق', inp('ud_id_verify_note', u.id_verify_note), true)}
-    ${field('ud_national_id_url', 'رابط هوية', inp('ud_national_id_url', u.national_id_url, 'dir="ltr"'), true)}
-    ${field('ud_university_card_url', 'رابط بطاقة جامعة', inp('ud_university_card_url', u.university_card_url, 'dir="ltr"'), true)}
-    ${field('ud_id_docs_consent_at', 'موافقة الوثائق (ISO)', inp('ud_id_docs_consent_at', u.id_docs_consent_at, 'dir="ltr"'), true)}
+    <div class="section-label">Ù‡ÙˆÙŠØ© ÙˆØ·Ù†ÙŠØ© / ØªØ­Ù‚Ù‚</div>
+    ${field('ud_national_id_number', 'Ø±Ù‚Ù… Ø§Ù„Ù‡ÙˆÙŠØ©', inp('ud_national_id_number', u.national_id_number, 'dir="ltr"'))}
+    ${field('ud_national_id_expires_at', 'Ø§Ù†ØªÙ‡Ø§Ø¡ Ø§Ù„Ù‡ÙˆÙŠØ©', inp('ud_national_id_expires_at', u.national_id_expires_at ? String(u.national_id_expires_at).slice(0, 10) : '', 'type="date" dir="ltr"'))}
+    ${field('ud_id_verify_status', 'Ø­Ø§Ù„Ø© Ø§Ù„ØªØ­Ù‚Ù‚', sel('ud_id_verify_status', ['none', 'pending', 'approved', 'rejected'].map((r) => `<option value="${r}" ${(u.id_verify_status || 'none') === r ? 'selected' : ''}>${r}</option>`).join('')))}
+    ${field('ud_id_verify_note', 'Ù…Ù„Ø§Ø­Ø¸Ø© Ø§Ù„ØªØ­Ù‚Ù‚', inp('ud_id_verify_note', u.id_verify_note), true)}
+    ${field('ud_national_id_url', 'Ø±Ø§Ø¨Ø· Ù‡ÙˆÙŠØ©', inp('ud_national_id_url', u.national_id_url, 'dir="ltr"'), true)}
+    ${field('ud_university_card_url', 'Ø±Ø§Ø¨Ø· Ø¨Ø·Ø§Ù‚Ø© Ø¬Ø§Ù…Ø¹Ø©', inp('ud_university_card_url', u.university_card_url, 'dir="ltr"'), true)}
+    ${field('ud_id_docs_consent_at', 'Ù…ÙˆØ§ÙÙ‚Ø© Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚ (ISO)', inp('ud_id_docs_consent_at', u.id_docs_consent_at, 'dir="ltr"'), true)}
 
-    <div class="section-label">طوارئ</div>
-    ${field('ud_emergency_name', 'اسم الطوارئ', inp('ud_emergency_name', u.emergency_name))}
-    ${field('ud_emergency_phone', 'هاتف الطوارئ', inp('ud_emergency_phone', u.emergency_phone, 'dir="ltr"'))}
-    ${field('ud_share_emergency', 'مشاركة الطوارئ', boolSel('ud_share_emergency', u.share_emergency))}
+    <div class="section-label">Ø·ÙˆØ§Ø±Ø¦</div>
+    ${field('ud_emergency_name', 'Ø§Ø³Ù… Ø§Ù„Ø·ÙˆØ§Ø±Ø¦', inp('ud_emergency_name', u.emergency_name))}
+    ${field('ud_emergency_phone', 'Ù‡Ø§ØªÙ Ø§Ù„Ø·ÙˆØ§Ø±Ø¦', inp('ud_emergency_phone', u.emergency_phone, 'dir="ltr"'))}
+    ${field('ud_share_emergency', 'Ù…Ø´Ø§Ø±ÙƒØ© Ø§Ù„Ø·ÙˆØ§Ø±Ø¦', boolSel('ud_share_emergency', u.share_emergency))}
 
-    <div class="section-label">تفضيلات سكن</div>
-    ${field('ud_pref_budget_max', 'ميزانية أقصى', inp('ud_pref_budget_max', u.pref_budget_max, 'type="number" dir="ltr"'))}
-    ${field('ud_pref_lease_months', 'أشهر الإيجار', inp('ud_pref_lease_months', u.pref_lease_months, 'type="number" dir="ltr"'))}
-    ${field('ud_pref_occupants', 'عدد الساكنين', inp('ud_pref_occupants', u.pref_occupants, 'type="number" dir="ltr"'))}
-    ${field('ud_pref_move_in', 'موعد الانتقال', inp('ud_pref_move_in', u.pref_move_in ? String(u.pref_move_in).slice(0, 10) : '', 'type="date" dir="ltr"'))}
-    ${field('ud_pref_gender_policy', 'سياسة الجنس', sel('ud_pref_gender_policy', `<option value="">—</option>${['any', 'female', 'male'].map((r) => `<option value="${r}" ${u.pref_gender_policy === r ? 'selected' : ''}>${r}</option>`).join(''))})}
+    <div class="section-label">ØªÙØ¶ÙŠÙ„Ø§Øª Ø³ÙƒÙ†</div>
+    ${field('ud_pref_budget_max', 'Ù…ÙŠØ²Ø§Ù†ÙŠØ© Ø£Ù‚ØµÙ‰', inp('ud_pref_budget_max', u.pref_budget_max, 'type="number" dir="ltr"'))}
+    ${field('ud_pref_lease_months', 'Ø£Ø´Ù‡Ø± Ø§Ù„Ø¥ÙŠØ¬Ø§Ø±', inp('ud_pref_lease_months', u.pref_lease_months, 'type="number" dir="ltr"'))}
+    ${field('ud_pref_occupants', 'Ø¹Ø¯Ø¯ Ø§Ù„Ø³Ø§ÙƒÙ†ÙŠÙ†', inp('ud_pref_occupants', u.pref_occupants, 'type="number" dir="ltr"'))}
+    ${field('ud_pref_move_in', 'Ù…ÙˆØ¹Ø¯ Ø§Ù„Ø§Ù†ØªÙ‚Ø§Ù„', inp('ud_pref_move_in', u.pref_move_in ? String(u.pref_move_in).slice(0, 10) : '', 'type="date" dir="ltr"'))}
+    ${field('ud_pref_gender_policy', 'Ø³ÙŠØ§Ø³Ø© Ø§Ù„Ø¬Ù†Ø³', sel('ud_pref_gender_policy', `<option value="">â€”</option>${['any', 'female', 'male'].map((r) => `<option value="${r}" ${u.pref_gender_policy === r ? 'selected' : ''}>${r}</option>`).join(''))})}
 
-    <div class="section-label">إشعارات وخصوصية</div>
-    ${field('ud_notify_booking', 'إشعار حجوزات', boolSel('ud_notify_booking', u.notify_booking !== false))}
-    ${field('ud_notify_chat', 'إشعار محادثة', boolSel('ud_notify_chat', u.notify_chat !== false))}
-    ${field('ud_notify_listing', 'إشعار إعلانات', boolSel('ud_notify_listing', u.notify_listing !== false))}
-    ${field('ud_notify_review', 'إشعار تقييمات', boolSel('ud_notify_review', u.notify_review !== false))}
-    ${field('ud_hide_last_seen', 'إخفاء آخر ظهور', boolSel('ud_hide_last_seen', u.hide_last_seen))}
-    ${field('ud_hide_saved_count', 'إخفاء المحفوظات', boolSel('ud_hide_saved_count', u.hide_saved_count))}
-    ${field('ud_analytics_consent', 'موافقة تحليلات', boolSel('ud_analytics_consent', u.analytics_consent !== false))}
-    ${field('ud_keep_signed_in', 'البقاء مسجلاً', boolSel('ud_keep_signed_in', u.keep_signed_in !== false))}
+    <div class="section-label">Ø¥Ø´Ø¹Ø§Ø±Ø§Øª ÙˆØ®ØµÙˆØµÙŠØ©</div>
+    ${field('ud_notify_booking', 'Ø¥Ø´Ø¹Ø§Ø± Ø­Ø¬ÙˆØ²Ø§Øª', boolSel('ud_notify_booking', u.notify_booking !== false))}
+    ${field('ud_notify_chat', 'Ø¥Ø´Ø¹Ø§Ø± Ù…Ø­Ø§Ø¯Ø«Ø©', boolSel('ud_notify_chat', u.notify_chat !== false))}
+    ${field('ud_notify_listing', 'Ø¥Ø´Ø¹Ø§Ø± Ø¥Ø¹Ù„Ø§Ù†Ø§Øª', boolSel('ud_notify_listing', u.notify_listing !== false))}
+    ${field('ud_notify_review', 'Ø¥Ø´Ø¹Ø§Ø± ØªÙ‚ÙŠÙŠÙ…Ø§Øª', boolSel('ud_notify_review', u.notify_review !== false))}
+    ${field('ud_hide_last_seen', 'Ø¥Ø®ÙØ§Ø¡ Ø¢Ø®Ø± Ø¸Ù‡ÙˆØ±', boolSel('ud_hide_last_seen', u.hide_last_seen))}
+    ${field('ud_hide_saved_count', 'Ø¥Ø®ÙØ§Ø¡ Ø§Ù„Ù…Ø­ÙÙˆØ¸Ø§Øª', boolSel('ud_hide_saved_count', u.hide_saved_count))}
+    ${field('ud_analytics_consent', 'Ù…ÙˆØ§ÙÙ‚Ø© ØªØ­Ù„ÙŠÙ„Ø§Øª', boolSel('ud_analytics_consent', u.analytics_consent !== false))}
+    ${field('ud_keep_signed_in', 'Ø§Ù„Ø¨Ù‚Ø§Ø¡ Ù…Ø³Ø¬Ù„Ø§Ù‹', boolSel('ud_keep_signed_in', u.keep_signed_in !== false))}
 
-    <div class="section-label">تقني</div>
+    <div class="section-label">ØªÙ‚Ù†ÙŠ</div>
     ${field('ud_expo_push_token', 'Push token', inp('ud_expo_push_token', u.expo_push_token, 'dir="ltr"'), true)}
-    ${field('ud_last_seen_ip', 'آخر IP', inp('ud_last_seen_ip', u.last_seen_ip, 'dir="ltr" disabled'))}
-    ${field('ud_accepted_terms_at', 'قبول الشروط', inp('ud_accepted_terms_at', u.accepted_terms_at, 'dir="ltr"'))}
-    ${field('ud_accepted_legal_version', 'نسخة قانونية', inp('ud_accepted_legal_version', u.accepted_legal_version, 'type="number" dir="ltr"'))}
-    ${field('ud_created_at', 'تاريخ الإنشاء', inp('ud_created_at', u.created_at, 'dir="ltr" disabled'))}
+    ${field('ud_last_seen_ip', 'Ø¢Ø®Ø± IP', inp('ud_last_seen_ip', u.last_seen_ip, 'dir="ltr" disabled'))}
+    ${field('ud_accepted_terms_at', 'Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø´Ø±ÙˆØ·', inp('ud_accepted_terms_at', u.accepted_terms_at, 'dir="ltr"'))}
+    ${field('ud_accepted_legal_version', 'Ù†Ø³Ø®Ø© Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©', inp('ud_accepted_legal_version', u.accepted_legal_version, 'type="number" dir="ltr"'))}
+    ${field('ud_created_at', 'ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡', inp('ud_created_at', u.created_at, 'dir="ltr" disabled'))}
   `;
 
   // Activity
@@ -535,35 +537,35 @@ async function openUserDetail(userId) {
       .limit(20),
   ]);
   const bookingLines = (bookings || [])
-    .map((b) => `${b.status} · ${b.start_date || ''} · ${String(b.id).slice(0, 8)}`)
-    .join('<br>') || 'لا حجوزات';
+    .map((b) => `${b.status} Â· ${b.start_date || ''} Â· ${String(b.id).slice(0, 8)}`)
+    .join('<br>') || 'Ù„Ø§ Ø­Ø¬ÙˆØ²Ø§Øª';
   document.getElementById('udActivity').innerHTML = `
-    <p><b>بلاغات مرتبطة:</b> ${reportsRes.count ?? 0} · <b>حظر:</b> ${(blocksRes.data || []).length}</p>
-    <p><b>حجوزات حديثة:</b><br>${bookingLines}</p>
-    ${u.national_id_url ? `<p><a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">فتح وثيقة الهوية</a></p>` : ''}
-    ${u.university_card_url ? `<p><a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">فتح بطاقة الجامعة</a></p>` : ''}
+    <p><b>Ø¨Ù„Ø§ØºØ§Øª Ù…Ø±ØªØ¨Ø·Ø©:</b> ${reportsRes.count ?? 0} Â· <b>Ø­Ø¸Ø±:</b> ${(blocksRes.data || []).length}</p>
+    <p><b>Ø­Ø¬ÙˆØ²Ø§Øª Ø­Ø¯ÙŠØ«Ø©:</b><br>${bookingLines}</p>
+    ${u.national_id_url ? `<p><a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">ÙØªØ­ ÙˆØ«ÙŠÙ‚Ø© Ø§Ù„Ù‡ÙˆÙŠØ©</a></p>` : ''}
+    ${u.university_card_url ? `<p><a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">ÙØªØ­ Ø¨Ø·Ø§Ù‚Ø© Ø§Ù„Ø¬Ø§Ù…Ø¹Ø©</a></p>` : ''}
   `;
 
   const danger = [];
   if (u.account_status === 'suspended') {
-    danger.push(`<button class="btn" type="button" id="udRestore">استعادة الحساب</button>`);
+    danger.push(`<button class="btn" type="button" id="udRestore">Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø§Ù„Ø­Ø³Ø§Ø¨</button>`);
   } else if (u.role !== 'admin') {
-    danger.push(`<button class="btn warn" type="button" id="udSuspend">إيقاف الحساب</button>`);
+    danger.push(`<button class="btn warn" type="button" id="udSuspend">Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ø­Ø³Ø§Ø¨</button>`);
   }
-  danger.push(`<button class="btn ghost" type="button" id="udClearPush">مسح Push token</button>`);
-  danger.push(`<button class="btn ghost" type="button" id="udClearMfa">إلغاء MFA</button>`);
-  danger.push(`<button class="btn ghost" type="button" id="udClearDocs">مسح روابط الوثائق</button>`);
+  danger.push(`<button class="btn ghost" type="button" id="udClearPush">Ù…Ø³Ø­ Push token</button>`);
+  danger.push(`<button class="btn ghost" type="button" id="udClearMfa">Ø¥Ù„ØºØ§Ø¡ MFA</button>`);
+  danger.push(`<button class="btn ghost" type="button" id="udClearDocs">Ù…Ø³Ø­ Ø±ÙˆØ§Ø¨Ø· Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚</button>`);
   if (u.role !== 'admin' && u.id !== adminProfile?.id) {
-    danger.push(`<button class="btn danger" type="button" id="udDelete">حذف المستخدم نهائياً</button>`);
+    danger.push(`<button class="btn danger" type="button" id="udDelete">Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹</button>`);
   }
   document.getElementById('udDanger').innerHTML = danger.join('');
 
   document.getElementById('udSuspend')?.addEventListener('click', async () => {
-    if (!confirm('إيقاف الحساب؟')) return;
-    const reason = prompt('السبب') || '';
+    if (!confirm('Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ø­Ø³Ø§Ø¨ØŸ')) return;
+    const reason = prompt('Ø§Ù„Ø³Ø¨Ø¨') || '';
     try {
       await setSuspended(editingUser, true, reason);
-      flash('تم الإيقاف');
+      flash('ØªÙ… Ø§Ù„Ø¥ÙŠÙ‚Ø§Ù');
       await openUserDetail(userId);
       void loadOverview();
     } catch (e) {
@@ -573,7 +575,7 @@ async function openUserDetail(userId) {
   document.getElementById('udRestore')?.addEventListener('click', async () => {
     try {
       await setSuspended(editingUser, false);
-      flash('تمت الاستعادة');
+      flash('ØªÙ…Øª Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø©');
       await openUserDetail(userId);
     } catch (e) {
       show(document.getElementById('udMsg'), e.message, 'err');
@@ -582,37 +584,37 @@ async function openUserDetail(userId) {
   document.getElementById('udClearPush')?.addEventListener('click', async () => {
     const { error: err } = await supabase.from('profiles').update({ expo_push_token: null }).eq('id', userId);
     if (err) return show(document.getElementById('udMsg'), err.message, 'err');
-    flash('تم مسح التوكن');
+    flash('ØªÙ… Ù…Ø³Ø­ Ø§Ù„ØªÙˆÙƒÙ†');
     await openUserDetail(userId);
   });
   document.getElementById('udClearDocs')?.addEventListener('click', async () => {
-    if (!confirm('مسح روابط الوثائق من الملف؟')) return;
+    if (!confirm('Ù…Ø³Ø­ Ø±ÙˆØ§Ø¨Ø· Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚ Ù…Ù† Ø§Ù„Ù…Ù„ÙØŸ')) return;
     const { error: err } = await supabase
       .from('profiles')
       .update({ national_id_url: null, university_card_url: null })
       .eq('id', userId);
     if (err) return show(document.getElementById('udMsg'), err.message, 'err');
     await audit('user.update', { targetUserId: userId, note: 'clear id docs' });
-    flash('تم');
+    flash('ØªÙ…');
     await openUserDetail(userId);
   });
   document.getElementById('udClearMfa')?.addEventListener('click', async () => {
-    if (!confirm('إلغاء المصادقة الثنائية لهذا المستخدم؟')) return;
+    if (!confirm('Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø§Ù„Ø«Ù†Ø§Ø¦ÙŠØ© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ØŸ')) return;
     const { error: err } = await supabase.rpc('admin_unenroll_mfa', { target: userId });
     if (err) return show(document.getElementById('udMsg'), err.message, 'err');
     await audit('user.mfa_off', { targetUserId: userId });
-    flash('تم إلغاء MFA');
+    flash('ØªÙ… Ø¥Ù„ØºØ§Ø¡ MFA');
   });
   document.getElementById('udDelete')?.addEventListener('click', async () => {
-    if (!confirm('حذف المستخدم نهائياً؟ لا رجعة.')) return;
-    if (!confirm('تأكيد نهائي للحذف؟')) return;
+    if (!confirm('Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹ØŸ Ù„Ø§ Ø±Ø¬Ø¹Ø©.')) return;
+    if (!confirm('ØªØ£ÙƒÙŠØ¯ Ù†Ù‡Ø§Ø¦ÙŠ Ù„Ù„Ø­Ø°ÙØŸ')) return;
     let { error: err } = await supabase.rpc('admin_delete_user', { target: userId });
     if (err) {
       const fallback = await supabase.from('profiles').delete().eq('id', userId);
       if (fallback.error) return show(document.getElementById('udMsg'), err.message || fallback.error.message, 'err');
     }
     await audit('user.delete', { targetUserId: userId });
-    flash('تم الحذف');
+    flash('ØªÙ… Ø§Ù„Ø­Ø°Ù');
     await loadUsers();
     void loadOverview();
   });
@@ -628,7 +630,7 @@ async function saveUserDetail() {
   const id_verify_status = val('ud_id_verify_status');
   const spokenRaw = emptyToNull(val('ud_spoken_languages'));
   const spoken_languages = spokenRaw
-    ? spokenRaw.split(/[,،]/).map((s) => s.trim()).filter(Boolean)
+    ? spokenRaw.split(/[,ØŒ]/).map((s) => s.trim()).filter(Boolean)
     : null;
 
   const patch = {
@@ -686,7 +688,7 @@ async function saveUserDetail() {
   };
 
   if (!patch.full_name) {
-    show(msg, 'الاسم مطلوب', 'err');
+    show(msg, 'Ø§Ù„Ø§Ø³Ù… Ù…Ø·Ù„ÙˆØ¨', 'err');
     return;
   }
 
@@ -738,27 +740,27 @@ async function saveUserDetail() {
     }
 
     await audit('user.update', { targetUserId: editingUser.id, detail: { fields: Object.keys(patch) } });
-    show(msg, 'تم حفظ كل الحقول', 'ok');
-    flash('تم الحفظ');
+    show(msg, 'ØªÙ… Ø­ÙØ¸ ÙƒÙ„ Ø§Ù„Ø­Ù‚ÙˆÙ„', 'ok');
+    flash('ØªÙ… Ø§Ù„Ø­ÙØ¸');
     await openUserDetail(editingUser.id);
     void loadOverview();
   } catch (e) {
-    show(msg, e.message || 'فشل الحفظ', 'err');
+    show(msg, e.message || 'ÙØ´Ù„ Ø§Ù„Ø­ÙØ¸', 'err');
   }
 }
 
 function openNewOwner() {
-  openModal('مالك جديد', `
-    <div class="field"><label>الاسم</label><input id="m_full_name" /></div>
-    <div class="field"><label>البريد</label><input id="m_email" type="email" dir="ltr" /></div>
-    <div class="field"><label>كلمة المرور</label><input id="m_password" type="password" dir="ltr" /></div>
-    <div class="field"><label>هاتف</label><input id="m_phone" dir="ltr" /></div>
+  openModal('Ù…Ø§Ù„Ùƒ Ø¬Ø¯ÙŠØ¯', `
+    <div class="field"><label>Ø§Ù„Ø§Ø³Ù…</label><input id="m_full_name" /></div>
+    <div class="field"><label>Ø§Ù„Ø¨Ø±ÙŠØ¯</label><input id="m_email" type="email" dir="ltr" /></div>
+    <div class="field"><label>ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±</label><input id="m_password" type="password" dir="ltr" /></div>
+    <div class="field"><label>Ù‡Ø§ØªÙ</label><input id="m_phone" dir="ltr" /></div>
   `, async () => {
     const full_name = document.getElementById('m_full_name').value.trim();
     const email = document.getElementById('m_email').value.trim();
     const password = document.getElementById('m_password').value;
     const phone = document.getElementById('m_phone').value.trim() || null;
-    if (!full_name || !email || !password) throw new Error('أكمل الحقول');
+    if (!full_name || !email || !password) throw new Error('Ø£ÙƒÙ…Ù„ Ø§Ù„Ø­Ù‚ÙˆÙ„');
     const detached = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
@@ -768,20 +770,20 @@ function openNewOwner() {
       options: { data: { full_name, phone, role: 'owner', language: 'ar' } },
     });
     if (error) throw error;
-    if (!data.user?.id) throw new Error('ما قدرنا ننشئ الحساب');
+    if (!data.user?.id) throw new Error('Ù…Ø§ Ù‚Ø¯Ø±Ù†Ø§ Ù†Ù†Ø´Ø¦ Ø§Ù„Ø­Ø³Ø§Ø¨');
     const { error: upErr } = await supabase
       .from('profiles')
       .update({ role: 'owner', owner_status: 'approved', full_name, phone, email })
       .eq('id', data.user.id);
     if (upErr) throw upErr;
     await audit('user.update', { targetUserId: data.user.id, note: 'create owner', detail: { email } });
-    flash('تم إنشاء المالك');
+    flash('ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø§Ù„Ùƒ');
     await loadUsers();
     await openUserDetail(data.user.id);
   });
 }
 
-/* —— Listings —— */
+/* â€”â€” Listings â€”â€” */
 async function loadListings() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -809,24 +811,24 @@ function renderListings() {
         const owner = a.profiles;
         const actions = [];
         if (a.status !== 'approved') {
-          actions.push(`<button class="btn sm ok" data-act="list-ok" data-id="${a.id}">اعتماد</button>`);
+          actions.push(`<button class="btn sm ok" data-act="list-ok" data-id="${a.id}">${t('admin.approve')}</button>`);
         }
         if (a.status !== 'rejected') {
-          actions.push(`<button class="btn sm danger" data-act="list-no" data-id="${a.id}">رفض</button>`);
+          actions.push(`<button class="btn sm danger" data-act="list-no" data-id="${a.id}">${t('admin.reject')}</button>`);
         }
         if (a.status !== 'hidden') {
-          actions.push(`<button class="btn sm warn" data-act="list-hide" data-id="${a.id}">إخفاء</button>`);
+          actions.push(`<button class="btn sm warn" data-act="list-hide" data-id="${a.id}">${t('admin.hide')}</button>`);
         }
-        actions.push(`<button class="btn sm ghost" data-act="list-del" data-id="${a.id}">حذف</button>`);
+        actions.push(`<button class="btn sm ghost" data-act="list-del" data-id="${a.id}">${t('admin.delete')}</button>`);
         return `<tr>
           <td><b>${esc(titleOf(a))}</b></td>
           <td>${chip(a.status)}</td>
           <td>${esc(nameOf(owner))}</td>
-          <td dir="ltr">${esc(a.price_month ?? '—')}</td>
+          <td dir="ltr">${esc(a.price_month ?? 'â€”')}</td>
           <td><div class="row-actions">${actions.join('')}</div></td>
         </tr>`;
       })
-      .join('') || '<tr><td colspan="5" class="empty">لا نتائج</td></tr>';
+      .join('') || `<tr><td colspan="5" class="empty">${t('admin.noResults')}</td></tr>`;
 
   document.querySelectorAll('#listingRows [data-act]').forEach((btn) => {
     btn.onclick = async () => {
@@ -841,7 +843,7 @@ function renderListings() {
           await audit('listing.approve', { targetId: id });
         }
         if (btn.dataset.act === 'list-no') {
-          const reason = prompt('سبب الرفض (اختياري)') || null;
+          const reason = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø±ÙØ¶ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)') || null;
           const { error } = await supabase
             .from('apartments')
             .update({ status: 'rejected', reject_reason: reason })
@@ -858,22 +860,22 @@ function renderListings() {
           await audit('listing.reject', { targetId: id, detail: { status: 'hidden' } });
         }
         if (btn.dataset.act === 'list-del') {
-          if (!confirm('حذف الإعلان نهائياً؟')) return;
+          if (!confirm('Ø­Ø°Ù Ø§Ù„Ø¥Ø¹Ù„Ø§Ù† Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹ØŸ')) return;
           const { error } = await supabase.from('apartments').delete().eq('id', id);
           if (error) throw error;
           await audit('listing.delete', { targetId: id });
         }
-        flash('تم');
+        flash('ØªÙ…');
         await loadListings();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'فشل');
+        show(dashErr, e.message || 'ÙØ´Ù„');
       }
     };
   });
 }
 
-/* —— Bookings —— */
+/* â€”â€” Bookings â€”â€” */
 async function loadBookings() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -901,23 +903,23 @@ function renderBookings() {
   document.getElementById('bookingRows').innerHTML =
     rows
       .map((b) => {
-        const when = b.created_at ? new Date(b.created_at).toLocaleString('ar') : '—';
+        const when = b.created_at ? new Date(b.created_at).toLocaleString('ar') : 'â€”';
         return `<tr>
           <td>${esc(when)}</td>
           <td>${esc(titleOf(b.apartments))}</td>
           <td>${esc(nameOf(b.student))}</td>
           <td>${chip(b.status)}</td>
-          <td>${chip(b.payment_status || '—')}</td>
+          <td>${chip(b.payment_status || 'â€”')}</td>
           <td><div class="row-actions">
-            <button class="btn sm ok" data-act="bk-confirm" data-id="${b.id}">تأكيد</button>
-            <button class="btn sm" data-act="bk-done" data-id="${b.id}">إكمال</button>
-            <button class="btn sm danger" data-act="bk-cancel" data-id="${b.id}">إلغاء</button>
-            <button class="btn sm ghost" data-act="bk-paid" data-id="${b.id}">دفع ✓</button>
-            <button class="btn sm ghost" data-act="bk-del" data-id="${b.id}">حذف</button>
+            <button class="btn sm ok" data-act="bk-confirm" data-id="${b.id}">${t('admin.confirm')}</button>
+            <button class="btn sm" data-act="bk-done" data-id="${b.id}">${t('admin.complete')}</button>
+            <button class="btn sm danger" data-act="bk-cancel" data-id="${b.id}">${t('admin.cancel')}</button>
+            <button class="btn sm ghost" data-act="bk-paid" data-id="${b.id}">${t('admin.markPaid')}</button>
+            <button class="btn sm ghost" data-act="bk-del" data-id="${b.id}">${t('admin.delete')}</button>
           </div></td>
         </tr>`;
       })
-      .join('') || '<tr><td colspan="6" class="empty">لا نتائج</td></tr>';
+      .join('') || `<tr><td colspan="6" class="empty">${t('admin.noResults')}</td></tr>`;
 
   document.querySelectorAll('#bookingRows [data-act]').forEach((btn) => {
     btn.onclick = async () => {
@@ -930,7 +932,7 @@ function renderBookings() {
           const { error } = await supabase.from('bookings').update({ status: 'completed' }).eq('id', id);
           if (error) throw error;
         } else if (btn.dataset.act === 'bk-cancel') {
-          const reason = prompt('سبب الإلغاء') || null;
+          const reason = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø¥Ù„ØºØ§Ø¡') || null;
           const { error } = await supabase
             .from('bookings')
             .update({ status: 'cancelled', cancel_reason: reason })
@@ -940,26 +942,26 @@ function renderBookings() {
           const { error } = await supabase.from('bookings').update({ payment_status: 'paid' }).eq('id', id);
           if (error) throw error;
         } else if (btn.dataset.act === 'bk-del') {
-          if (!confirm('حذف الحجز؟')) return;
+          if (!confirm('Ø­Ø°Ù Ø§Ù„Ø­Ø¬Ø²ØŸ')) return;
           const { error } = await supabase.from('bookings').delete().eq('id', id);
           if (error) throw error;
           await audit('booking.delete', { targetId: id });
-          flash('تم');
+          flash('ØªÙ…');
           await loadBookings();
           return;
         }
         await audit('booking.update', { targetId: id, detail: { act: btn.dataset.act } });
-        flash('تم');
+        flash('ØªÙ…');
         await loadBookings();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'فشل');
+        show(dashErr, e.message || 'ÙØ´Ù„');
       }
     };
   });
 }
 
-/* —— ID verify —— */
+/* â€”â€” ID verify â€”â€” */
 async function loadIds() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -980,19 +982,19 @@ async function loadIds() {
     cache.ids
       .map((u) => {
         const docs = [];
-        if (u.national_id_url) docs.push('هوية');
-        if (u.university_card_url) docs.push('جامعة');
+        if (u.national_id_url) docs.push('Ù‡ÙˆÙŠØ©');
+        if (u.university_card_url) docs.push('Ø¬Ø§Ù…Ø¹Ø©');
         return `<tr>
           <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div></td>
           <td>${esc(u.role)}</td>
-          <td>${esc(docs.join(' · ') || '—')}</td>
+          <td>${esc(docs.join(' Â· ') || 'â€”')}</td>
           <td><div class="row-actions">
-            <button class="btn sm ok" data-act="id-ok" data-id="${u.id}">اعتماد</button>
-            <button class="btn sm danger" data-act="id-no" data-id="${u.id}">رفض</button>
+            <button class="btn sm ok" data-act="id-ok" data-id="${u.id}">${t('admin.approve')}</button>
+            <button class="btn sm danger" data-act="id-no" data-id="${u.id}">${t('admin.reject')}</button>
           </div></td>
         </tr>`;
       })
-      .join('') || '<tr><td colspan="4" class="empty">لا طلبات بانتظار</td></tr>';
+      .join('') || `<tr><td colspan="4" class="empty">${t('admin.noResults')}</td></tr>`;
 
   document.querySelectorAll('#idRows [data-act]').forEach((btn) => {
     btn.onclick = async () => {
@@ -1007,7 +1009,7 @@ async function loadIds() {
             id_verified_by: adminProfile?.id ?? null,
           };
         } else {
-          const note = prompt('سبب الرفض') || null;
+          const note = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø±ÙØ¶') || null;
           patch = {
             id_verify_status: 'rejected',
             id_verify_note: note,
@@ -1018,17 +1020,17 @@ async function loadIds() {
         const { error } = await supabase.from('profiles').update(patch).eq('id', id);
         if (error) throw error;
         await audit('id.verify', { targetUserId: id, detail: { status: patch.id_verify_status } });
-        flash('تم');
+        flash('ØªÙ…');
         await loadIds();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'فشل');
+        show(dashErr, e.message || 'ÙØ´Ù„');
       }
     };
   });
 }
 
-/* —— Reports —— */
+/* â€”â€” Reports â€”â€” */
 async function loadReports() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -1051,26 +1053,26 @@ function renderReports() {
   document.getElementById('reportRows').innerHTML =
     rows
       .map((r) => {
-        const when = r.created_at ? new Date(r.created_at).toLocaleString('ar') : '—';
+        const when = r.created_at ? new Date(r.created_at).toLocaleString('ar') : 'â€”';
         return `<tr>
           <td>${esc(when)}</td>
-          <td>${esc(r.reason || '—')}<div class="muted">${esc(r.admin_note || '')}</div></td>
+          <td>${esc(r.reason || 'â€”')}<div class="muted">${esc(r.admin_note || '')}</div></td>
           <td>${chip(r.status)}</td>
           <td><div class="row-actions">
-            <button class="btn sm" data-act="rep-rev" data-id="${r.id}">مراجعة</button>
-            <button class="btn sm ok" data-act="rep-close" data-id="${r.id}">إغلاق</button>
-            <button class="btn sm ghost" data-act="rep-open" data-id="${r.id}">فتح</button>
+            <button class="btn sm" data-act="rep-rev" data-id="${r.id}">${t('admin.review')}</button>
+            <button class="btn sm ok" data-act="rep-close" data-id="${r.id}">${t('admin.close')}</button>
+            <button class="btn sm ghost" data-act="rep-open" data-id="${r.id}">${t('admin.open')}</button>
           </div></td>
         </tr>`;
       })
-      .join('') || '<tr><td colspan="4" class="empty">لا بلاغات</td></tr>';
+      .join('') || `<tr><td colspan="4" class="empty">${t('admin.noResults')}</td></tr>`;
 
   document.querySelectorAll('#reportRows [data-act]').forEach((btn) => {
     btn.onclick = async () => {
       const id = btn.dataset.id;
       const map = { 'rep-rev': 'reviewing', 'rep-close': 'closed', 'rep-open': 'open' };
       const status = map[btn.dataset.act];
-      const admin_note = btn.dataset.act === 'rep-close' ? prompt('ملاحظة إغلاق (اختياري)') : null;
+      const admin_note = btn.dataset.act === 'rep-close' ? prompt('Ù…Ù„Ø§Ø­Ø¸Ø© Ø¥ØºÙ„Ø§Ù‚ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)') : null;
       try {
         const { error } = await supabase
           .from('app_reports')
@@ -1078,17 +1080,17 @@ function renderReports() {
           .eq('id', id);
         if (error) throw error;
         await audit('report.update', { targetId: id, detail: { status } });
-        flash('تم');
+        flash('ØªÙ…');
         await loadReports();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'فشل');
+        show(dashErr, e.message || 'ÙØ´Ù„');
       }
     };
   });
 }
 
-/* —— Settings —— */
+/* â€”â€” Settings â€”â€” */
 async function loadSettings() {
   show(document.getElementById('settingsMsg'), '');
   try {
@@ -1101,20 +1103,20 @@ async function loadSettings() {
     // fallback app_settings
     const { data } = await supabase.from('app_settings').select('commission_percent').eq('id', 1).maybeSingle();
     if (data) document.getElementById('commission').value = data.commission_percent ?? '';
-    show(document.getElementById('settingsMsg'), e.message || 'تعذر قراءة بعض الإعدادات', 'err');
+    show(document.getElementById('settingsMsg'), e.message || 'ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ø¨Ø¹Ø¶ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª', 'err');
   }
   try {
     const { data } = await supabase.rpc('booking_ops_status');
     const row = Array.isArray(data) ? data[0] : data;
     document.getElementById('opsStatus').textContent = row
-      ? `آخر تشغيل: ${row.last_run_at || row.updated_at || '—'} · ${JSON.stringify(row).slice(0, 120)}`
+      ? `Ø¢Ø®Ø± ØªØ´ØºÙŠÙ„: ${row.last_run_at || row.updated_at || 'â€”'} Â· ${JSON.stringify(row).slice(0, 120)}`
       : '';
   } catch {
     document.getElementById('opsStatus').textContent = '';
   }
 }
 
-/* —— Audit —— */
+/* â€”â€” Audit â€”â€” */
 async function loadAudit() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -1129,14 +1131,14 @@ async function loadAudit() {
   document.getElementById('auditRows').innerHTML =
     (data || [])
       .map((r) => {
-        const when = r.created_at ? new Date(r.created_at).toLocaleString('ar') : '—';
-        const target = (r.target_user_id || r.target_id || '—').toString().slice(0, 8);
+        const when = r.created_at ? new Date(r.created_at).toLocaleString('ar') : 'â€”';
+        const target = (r.target_user_id || r.target_id || 'â€”').toString().slice(0, 8);
         return `<tr><td>${esc(when)}</td><td dir="ltr">${esc(r.action)}</td><td dir="ltr">${esc(target)}</td><td>${esc(r.note || '')}</td></tr>`;
       })
-      .join('') || '<tr><td colspan="4" class="empty">فارغ</td></tr>';
+      .join('') || '<tr><td colspan="4" class="empty">ÙØ§Ø±Øº</td></tr>';
 }
 
-/* —— Modal —— */
+/* â€”â€” Modal â€”â€” */
 let modalOkHandler = null;
 function openModal(title, bodyHtml, onOk) {
   document.getElementById('modalTitle').textContent = title;
@@ -1156,11 +1158,11 @@ document.getElementById('modalOk').onclick = async () => {
     await modalOkHandler();
     closeModal();
   } catch (e) {
-    alert(e.message || 'فشل');
+    alert(e.message || 'ÙØ´Ù„');
   }
 };
 
-/* —— Wire UI —— */
+/* â€”â€” Wire UI â€”â€” */
 document.getElementById('loginBtn').addEventListener('click', async () => {
   show(loginErr, '');
   const email = document.getElementById('email').value.trim();
@@ -1171,10 +1173,10 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     const admin = await requireAdmin();
-    if (!admin) throw new Error('هذا الحساب مش أدمن.');
+    if (!admin) throw new Error(t('admin.notAdmin'));
     showShell(admin);
   } catch (e) {
-    show(loginErr, e.message || 'فشل الدخول');
+    show(loginErr, e.message || t('admin.loginFail'));
   } finally {
     btn.disabled = false;
   }
@@ -1217,9 +1219,9 @@ document.getElementById('saveSettingsBtn').addEventListener('click', async () =>
     const { error } = await supabase.rpc('save_platform_settings', { p_commission, p_admin_email });
     if (error) throw error;
     await audit('settings.update', { detail: { p_commission, p_admin_email } });
-    show(msg, 'تم الحفظ', 'ok');
+    show(msg, t('admin.saved'), 'ok');
   } catch (e) {
-    show(msg, e.message || 'فشل الحفظ', 'err');
+    show(msg, e.message || 'ÙØ´Ù„ Ø§Ù„Ø­ÙØ¸', 'err');
   }
 });
 
@@ -1229,12 +1231,21 @@ document.getElementById('runOpsBtn').addEventListener('click', async () => {
     const { error } = await supabase.rpc('run_booking_ops');
     if (error) throw error;
     await audit('ops.booking_run', {});
-    show(msg, 'تم تشغيل المهام', 'ok');
+    show(msg, t('admin.done'), 'ok');
     await loadSettings();
   } catch (e) {
-    show(msg, e.message || 'فشل التشغيل', 'err');
+    show(msg, e.message || 'ÙØ´Ù„ Ø§Ù„ØªØ´ØºÙŠÙ„', 'err');
   }
 });
+
+if (window.Matra7I18n) {
+  Matra7I18n.mountSwitchers();
+  window.addEventListener('matra7:lang', () => {
+    Matra7I18n.apply(document);
+    const active = document.querySelector('#nav button.active')?.dataset.panel;
+    if (active && !shell.classList.contains('hidden')) setPanel(active);
+  });
+}
 
 const boot = await requireAdmin();
 if (boot) showShell(boot);

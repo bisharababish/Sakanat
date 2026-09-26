@@ -3,21 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>استعادة كلمة المرور — Matra7</title>
+    <title data-i18n-title="reset.title">استعادة كلمة المرور — Matra7</title>
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/site.css" />
   </head>
-  <body class="centered">
-    <main class="card">
-      <img src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" style="display:block;margin:0 auto 18px;height:54px;width:auto" />
-      <h1 id="title">رجع للتطبيق</h1>
-      <p id="body">افتح تطبيق مَطْرَح عشان تحط كلمة مرور جديدة.</p>
-      <a class="btn" id="open" href="sakanat://reset-password">فتح التطبيق</a>
+  <body class="bridge">
+    <div class="bridge-top"><div class="lang-switch" data-lang-switch></div></div>
+    <main class="bridge-card">
+      <img class="logo" src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" />
+      <h1 id="title" data-i18n="reset.h1">رجع للتطبيق</h1>
+      <p id="body" data-i18n="reset.body">افتح تطبيق مَطْرَح عشان تحط كلمة مرور جديدة.</p>
+      <a class="btn" id="open" href="sakanat://reset-password" data-i18n="reset.open">فتح التطبيق</a>
     </main>
+    <script src="/js/i18n.js"></script>
     <script>
+      Matra7I18n.mountSwitchers();
       (function () {
         var query = location.search || '';
         var hash = location.hash || '';
@@ -25,9 +28,9 @@
         document.getElementById('open').setAttribute('href', deep);
         var params = new URLSearchParams(query + hash.replace('#', '&'));
         if (params.get('error') || params.get('error_description')) {
-          document.getElementById('title').textContent = 'ما قدرنا نفتح الرابط';
+          document.getElementById('title').textContent = Matra7I18n.t('reset.failTitle');
           document.getElementById('body').textContent =
-            params.get('error_description') || 'اطلب رابط جديد من التطبيق.';
+            params.get('error_description') || Matra7I18n.t('reset.failBody');
           return;
         }
         setTimeout(function () {

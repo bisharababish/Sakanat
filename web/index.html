@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Matra7 — مَطْرَح</title>
+    <title data-i18n-title="meta.homeTitle">مَطْرَح · Matra7</title>
     <meta name="description" content="مَطْرَح — سكن طلابي قرب الجامعات الفلسطينية" />
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,55 +16,64 @@
       <a class="brand" href="/">
         <img src="/assets/logo-mark.png" width="140" height="48" alt="Matra7" />
       </a>
-      <nav class="top-nav">
-        <a href="/admin/">تسجيل دخول الإدارة</a>
-        <a href="/reset.html">نسيت كلمة المرور</a>
-      </nav>
+      <div class="top-actions">
+        <nav class="top-nav">
+          <a href="/admin/" data-i18n="nav.admin">تسجيل دخول الإدارة</a>
+          <a href="/reset.html" data-i18n="nav.reset">نسيت كلمة المرور</a>
+        </nav>
+        <div class="lang-switch" data-lang-switch></div>
+      </div>
     </header>
 
     <section class="hero">
       <div class="hero-inner">
-        <img class="hero-logo" src="/assets/logo-mark.png" width="280" height="96" alt="مَطْرَح" />
+        <img class="hero-logo" src="/assets/logo-mark.png" width="300" height="100" alt="مَطْرَح" />
         <h1>مَطْرَح</h1>
-        <p class="lede">سكن طلابي موثوق قرب الجامعات الفلسطينية — بحث، حجز، ومحادثة في مكان واحد.</p>
-        <div class="cta">
-          <a class="btn primary" href="/admin/">تسجيل دخول الإدارة</a>
-          <a class="btn secondary" id="openApp" href="sakanat://">فتح تطبيق مَطْرَح (جوال)</a>
-        </div>
-        <p class="hero-note" id="appHint" hidden>
-          رابط التطبيق يشتغل على الجوال بعد تثبيت مَطْرَح. من الكمبيوتر استخدم «تسجيل دخول الإدارة».
+        <p class="lede" data-i18n="hero.lede">
+          سكن طلابي موثوق قرب الجامعات الفلسطينية — بحث، حجز، ومحادثة في مكان واحد.
         </p>
+        <div class="cta">
+          <a class="btn primary" href="/admin/" data-i18n="cta.admin">تسجيل دخول الإدارة</a>
+          <a class="btn secondary" id="openApp" href="sakanat://" data-i18n="cta.app">فتح تطبيق مَطْرَح (جوال)</a>
+        </div>
+        <p class="hero-note" id="appHint" hidden data-i18n="cta.appHint"></p>
       </div>
     </section>
 
     <section class="strip">
       <div class="strip-inner">
-        <div>
-          <h2>للطلاب والمستأجرين</h2>
-          <p>اكتشف السكن المناسب لحرمك، احجز بخطوات واضحة، وتواصل مع المالك مباشرة.</p>
-        </div>
-        <div>
-          <h2>للملاك</h2>
-          <p>انشر وحداتك، تابع الحجوزات، وأدر المحادثات من تطبيق مَطْرَح.</p>
-        </div>
-        <div>
-          <h2>للإدارة</h2>
-          <p>مراجعة المستخدمين والإعلانات والحجوزات والبلاغات من المتصفح — نفس قاعدة البيانات.</p>
-        </div>
+        <article>
+          <h2 data-i18n="strip.studentsTitle">للطلاب والمستأجرين</h2>
+          <p data-i18n="strip.studentsBody">
+            اكتشف السكن المناسب لحرمك، احجز بخطوات واضحة، وتواصل مع المالك مباشرة.
+          </p>
+        </article>
+        <article>
+          <h2 data-i18n="strip.ownersTitle">للملاك</h2>
+          <p data-i18n="strip.ownersBody">انشر وحداتك، تابع الحجوزات، وأدر المحادثات من تطبيق مَطْرَح.</p>
+        </article>
+        <article>
+          <h2 data-i18n="strip.adminTitle">للإدارة</h2>
+          <p data-i18n="strip.adminBody">
+            مراجعة المستخدمين والإعلانات والحجوزات والبلاغات من المتصفح — نفس قاعدة البيانات.
+          </p>
+        </article>
       </div>
     </section>
 
     <footer class="foot">
       <img src="/assets/logo-mark.png" width="100" height="34" alt="" />
       <p>
-        روابط البريد الإلكتروني:
-        <a href="/confirmed.html">تأكيد الحساب</a>
+        <span data-i18n="foot.emailLinks">روابط البريد الإلكتروني:</span>
+        <a href="/confirmed.html" data-i18n="foot.confirm">تأكيد الحساب</a>
         ·
-        <a href="/reset.html">إعادة تعيين كلمة المرور</a>
+        <a href="/reset.html" data-i18n="foot.reset">إعادة تعيين كلمة المرور</a>
       </p>
-      <p class="copy">© Matra7 · مَطْرَح</p>
+      <p class="copy" data-i18n="foot.copy">© Matra7 · مَطْرَح</p>
     </footer>
+    <script src="/js/i18n.js"></script>
     <script>
+      Matra7I18n.mountSwitchers();
       (function () {
         var btn = document.getElementById('openApp');
         var hint = document.getElementById('appHint');

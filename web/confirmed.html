@@ -3,27 +3,30 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>تم تأكيد بريدك — Matra7</title>
+    <title data-i18n-title="confirm.title">تم تأكيد بريدك — Matra7</title>
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/site.css" />
   </head>
-  <body class="centered">
-    <main class="card">
-      <img src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" style="display:block;margin:0 auto 18px;height:54px;width:auto" />
-      <h1 id="title">تم تأكيد بريدك</h1>
-      <p id="body">حسابك صار جاهز. ارجع لتطبيق مَطْرَح وسجّل الدخول بنفس الإيميل وكلمة المرور.</p>
-      <a class="btn" id="open" href="sakanat://confirmed">فتح التطبيق</a>
+  <body class="bridge">
+    <div class="bridge-top"><div class="lang-switch" data-lang-switch></div></div>
+    <main class="bridge-card">
+      <img class="logo" src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" />
+      <h1 id="title" data-i18n="confirm.h1">تم تأكيد بريدك</h1>
+      <p id="body" data-i18n="confirm.body">حسابك صار جاهز. ارجع لتطبيق مَطْرَح وسجّل الدخول بنفس الإيميل وكلمة المرور.</p>
+      <a class="btn" id="open" href="sakanat://confirmed" data-i18n="confirm.open">فتح التطبيق</a>
     </main>
+    <script src="/js/i18n.js"></script>
     <script>
+      Matra7I18n.mountSwitchers();
       (function () {
         var params = new URLSearchParams(location.search + location.hash.replace('#', '&'));
         if (params.get('error') || params.get('error_description')) {
-          document.getElementById('title').textContent = 'ما قدرنا نأكد البريد';
+          document.getElementById('title').textContent = Matra7I18n.t('confirm.failTitle');
           document.getElementById('body').textContent =
-            params.get('error_description') || 'جرب تسجّل الدخول أو اطلب رمز جديد من التطبيق.';
+            params.get('error_description') || Matra7I18n.t('confirm.failBody');
           return;
         }
         setTimeout(function () {
