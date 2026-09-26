@@ -56,7 +56,7 @@ function flash(msg) {
 }
 
 function chip(status) {
-  const s = String(status || 'â€”');
+  const s = String(status || '—');
   return `<span class="chip ${s}">${s}</span>`;
 }
 
@@ -69,13 +69,13 @@ function esc(s) {
 }
 
 function titleOf(apt) {
-  if (!apt) return 'â€”';
-  return apt.title_ar || apt.title_en || apt.id?.slice(0, 8) || 'â€”';
+  if (!apt) return '—';
+  return apt.title_ar || apt.title_en || apt.id?.slice(0, 8) || '—';
 }
 
 function nameOf(p) {
-  if (!p) return 'â€”';
-  return p.full_name || p.full_name_en || p.email || p.id?.slice(0, 8) || 'â€”';
+  if (!p) return '—';
+  return p.full_name || p.full_name_en || p.email || p.id?.slice(0, 8) || '—';
 }
 
 async function audit(action, meta = {}) {
@@ -229,7 +229,7 @@ function showShell(profile) {
   setPanel('overview');
 }
 
-/* â€”â€” Overview â€”â€” */
+/* —— Overview —— */
 async function loadOverview() {
   show(dashErr, '');
   const since = new Date(Date.now() - 7 * 864e5).toISOString();
@@ -273,10 +273,10 @@ async function loadOverview() {
   const commission = earned.reduce((s, b) => s + Number(b.commission_amount || 0), 0);
 
   document.getElementById('stats').innerHTML = [
-    [t('admin.stat.listings'), apartments.count ?? 'â€”'],
+    [t('admin.stat.listings'), apartments.count ?? '—'],
     [t('admin.stat.bookings'), (bookings.data || []).length],
-    [t('admin.stat.users'), profiles.count ?? 'â€”'],
-    [t('admin.stat.chats'), conversations.count ?? 'â€”'],
+    [t('admin.stat.users'), profiles.count ?? '—'],
+    [t('admin.stat.chats'), conversations.count ?? '—'],
     [t('admin.stat.commission'), Math.round(commission)],
     [t('admin.stat.pendingOwners'), pendingOwners.count ?? 0],
     [t('admin.stat.pendingListings'), pendingListings.count ?? 0],
@@ -312,7 +312,7 @@ async function loadOverview() {
   });
 }
 
-/* â€”â€” Users â€”â€” */
+/* —— Users —— */
 let catalog = { cities: [], universities: [] };
 let editingUser = null;
 
@@ -352,7 +352,7 @@ function boolSel(id, value) {
   const on = value === true || value === 'true';
   return sel(
     id,
-    `<option value="true" ${on ? 'selected' : ''}>Ù†Ø¹Ù…</option><option value="false" ${!on ? 'selected' : ''}>Ù„Ø§</option>`,
+    `<option value="true" ${on ? 'selected' : ''}>Yes</option><option value="false" ${!on ? 'selected' : ''}>No</option>`,
   );
 }
 
@@ -422,7 +422,7 @@ function renderUsers() {
         const statusBits = [];
         if (u.account_status === 'suspended') statusBits.push(chip('suspended'));
         else statusBits.push(chip(u.account_status || 'active'));
-        if (u.role === 'owner') statusBits.push(chip(u.owner_status || 'â€”'));
+        if (u.role === 'owner') statusBits.push(chip(u.owner_status || '—'));
         if (u.id_verify_status) statusBits.push(chip(u.id_verify_status));
         const actions = [];
         if (u.role === 'owner' && u.owner_status === 'pending') {
@@ -439,7 +439,7 @@ function renderUsers() {
           <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div></td>
           <td>${esc(u.role)}</td>
           <td>${statusBits.join(' ')}</td>
-          <td dir="ltr">${esc(u.phone || 'â€”')}</td>
+          <td dir="ltr">${esc(u.phone || '—')}</td>
           <td><div class="row-actions">${actions.join('')}</div></td>
         </tr>`;
       })
@@ -485,8 +485,8 @@ function bindUserActions() {
         if (btn.dataset.act === 'owner-ok') await setOwnerStatus(id, 'approved');
         if (btn.dataset.act === 'owner-no') await setOwnerStatus(id, 'rejected');
         if (btn.dataset.act === 'suspend') {
-          if (!confirm('Ø¥ÙŠÙ‚Ø§Ù Ù‡Ø°Ø§ Ø§Ù„Ø­Ø³Ø§Ø¨ØŸ')) return;
-          const reason = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø¥ÙŠÙ‚Ø§Ù (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)') || '';
+          if (!confirm('Suspend this account?')) return;
+          const reason = prompt('Suspension reason (optional)') || '';
           await setSuspended(user, true, reason);
         }
         if (btn.dataset.act === 'restore') await setSuspended(user, false);
@@ -498,7 +498,7 @@ function bindUserActions() {
         await loadUsers();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'ÙØ´Ù„');
+        show(dashErr, e.message || 'Failed');
       }
     };
   });
@@ -514,7 +514,7 @@ async function openUserDetail(userId) {
     .eq('id', userId)
     .single();
   if (error || !data) {
-    show(dashErr, error?.message || 'Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯');
+    show(dashErr, error?.message || 'User not found');
     return;
   }
   editingUser = data;
@@ -524,7 +524,7 @@ async function openUserDetail(userId) {
   document.getElementById('udMeta').innerHTML = `
     <span>${chip(data.role)}</span>
     <span>${chip(data.account_status || 'active')}</span>
-    <span>${chip(data.owner_status || 'â€”')}</span>
+    <span>${chip(data.owner_status || '—')}</span>
     <span>${chip(data.id_verify_status || 'none')}</span>
     <code>${esc(data.id)}</code>
     <span dir="ltr">${esc(data.email || '')}</span>
@@ -532,11 +532,11 @@ async function openUserDetail(userId) {
 
   const u = data;
   const cityOpts =
-    `<option value="">â€”</option>` +
-    optList(catalog.cities, u.city_id, (c) => c.name_ar || c.name_en);
+    `<option value="">—</option>` +
+    optList(catalog.cities, u.city_id, (c) => c.name_en || c.name_ar);
   const uniOpts =
-    `<option value="">â€”</option>` +
-    optList(catalog.universities, u.university_id, (x) => x.name_ar || x.name_en);
+    `<option value="">—</option>` +
+    optList(catalog.universities, u.university_id, (x) => x.name_en || x.name_ar);
   const langs = Array.isArray(u.spoken_languages) ? u.spoken_languages.join(', ') : u.spoken_languages || '';
   const opt = (values, current, blank) =>
     (blank ? '<option value="">-</option>' : '') +
@@ -592,6 +592,8 @@ async function openUserDetail(userId) {
     field('ud_pref_occupants', 'Occupants', inp('ud_pref_occupants', u.pref_occupants, 'type="number" dir="ltr"')),
     field('ud_pref_move_in', 'Move-in date', inp('ud_pref_move_in', u.pref_move_in ? String(u.pref_move_in).slice(0, 10) : '', 'type="date" dir="ltr"')),
     field('ud_pref_gender_policy', 'Gender policy', sel('ud_pref_gender_policy', opt(['any', 'female', 'male'], u.pref_gender_policy, true))),
+    field('ud_pref_allows_smoking', 'Allows smoking', boolSel('ud_pref_allows_smoking', u.pref_allows_smoking)),
+    field('ud_pref_allows_pets', 'Allows pets', boolSel('ud_pref_allows_pets', u.pref_allows_pets)),
     '<div class="section-label">Notifications & privacy</div>',
     field('ud_notify_booking', 'Notify bookings', boolSel('ud_notify_booking', u.notify_booking !== false)),
     field('ud_notify_chat', 'Notify chat', boolSel('ud_notify_chat', u.notify_chat !== false)),
@@ -628,35 +630,35 @@ async function openUserDetail(userId) {
       .limit(20),
   ]);
   const bookingLines = (bookings || [])
-    .map((b) => `${b.status} Â· ${b.start_date || ''} Â· ${String(b.id).slice(0, 8)}`)
-    .join('<br>') || 'Ù„Ø§ Ø­Ø¬ÙˆØ²Ø§Øª';
+    .map((b) => `${b.status} · ${b.start_date || ''} · ${String(b.id).slice(0, 8)}`)
+    .join('<br>') || 'No bookings';
   document.getElementById('udActivity').innerHTML = `
-    <p><b>Ø¨Ù„Ø§ØºØ§Øª Ù…Ø±ØªØ¨Ø·Ø©:</b> ${reportsRes.count ?? 0} Â· <b>Ø­Ø¸Ø±:</b> ${(blocksRes.data || []).length}</p>
-    <p><b>Ø­Ø¬ÙˆØ²Ø§Øª Ø­Ø¯ÙŠØ«Ø©:</b><br>${bookingLines}</p>
-    ${u.national_id_url ? `<p><a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">ÙØªØ­ ÙˆØ«ÙŠÙ‚Ø© Ø§Ù„Ù‡ÙˆÙŠØ©</a></p>` : ''}
-    ${u.university_card_url ? `<p><a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">ÙØªØ­ Ø¨Ø·Ø§Ù‚Ø© Ø§Ù„Ø¬Ø§Ù…Ø¹Ø©</a></p>` : ''}
+    <p><b>Related reports:</b> ${reportsRes.count ?? 0} · <b>Blocks:</b> ${(blocksRes.data || []).length}</p>
+    <p><b>Recent bookings:</b><br>${bookingLines}</p>
+    ${u.national_id_url ? `<p><a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">Open national ID</a></p>` : ''}
+    ${u.university_card_url ? `<p><a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">Open university card</a></p>` : ''}
   `;
 
   const danger = [];
   if (u.account_status === 'suspended') {
-    danger.push(`<button class="btn" type="button" id="udRestore">Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ø§Ù„Ø­Ø³Ø§Ø¨</button>`);
+    danger.push(`<button class="btn" type="button" id="udRestore">Restore account</button>`);
   } else if (u.role !== 'admin') {
-    danger.push(`<button class="btn warn" type="button" id="udSuspend">Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ø­Ø³Ø§Ø¨</button>`);
+    danger.push(`<button class="btn warn" type="button" id="udSuspend">Suspend account</button>`);
   }
-  danger.push(`<button class="btn ghost" type="button" id="udClearPush">Ù…Ø³Ø­ Push token</button>`);
-  danger.push(`<button class="btn ghost" type="button" id="udClearMfa">Ø¥Ù„ØºØ§Ø¡ MFA</button>`);
-  danger.push(`<button class="btn ghost" type="button" id="udClearDocs">Ù…Ø³Ø­ Ø±ÙˆØ§Ø¨Ø· Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚</button>`);
+  danger.push(`<button class="btn ghost" type="button" id="udClearPush">Clear push token</button>`);
+  danger.push(`<button class="btn ghost" type="button" id="udClearMfa">Clear MFA</button>`);
+  danger.push(`<button class="btn ghost" type="button" id="udClearDocs">Clear document links</button>`);
   if (u.role !== 'admin' && u.id !== adminProfile?.id) {
-    danger.push(`<button class="btn danger" type="button" id="udDelete">Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹</button>`);
+    danger.push(`<button class="btn danger" type="button" id="udDelete">Delete user permanently</button>`);
   }
   document.getElementById('udDanger').innerHTML = danger.join('');
 
   document.getElementById('udSuspend')?.addEventListener('click', async () => {
-    if (!confirm('Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ø­Ø³Ø§Ø¨ØŸ')) return;
-    const reason = prompt('Ø§Ù„Ø³Ø¨Ø¨') || '';
+    if (!confirm('Suspend account?')) return;
+    const reason = prompt('Reason') || '';
     try {
       await setSuspended(editingUser, true, reason);
-      flash('ØªÙ… Ø§Ù„Ø¥ÙŠÙ‚Ø§Ù');
+      flash('Suspended');
       await openUserDetail(userId);
       void loadOverview();
     } catch (e) {
@@ -666,7 +668,7 @@ async function openUserDetail(userId) {
   document.getElementById('udRestore')?.addEventListener('click', async () => {
     try {
       await setSuspended(editingUser, false);
-      flash('ØªÙ…Øª Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø©');
+      flash('Restored');
       await openUserDetail(userId);
     } catch (e) {
       show(document.getElementById('udMsg'), e.message, 'err');
@@ -675,37 +677,37 @@ async function openUserDetail(userId) {
   document.getElementById('udClearPush')?.addEventListener('click', async () => {
     const { error: err } = await supabase.from('profiles').update({ expo_push_token: null }).eq('id', userId);
     if (err) return show(document.getElementById('udMsg'), err.message, 'err');
-    flash('ØªÙ… Ù…Ø³Ø­ Ø§Ù„ØªÙˆÙƒÙ†');
+    flash('Push token cleared');
     await openUserDetail(userId);
   });
   document.getElementById('udClearDocs')?.addEventListener('click', async () => {
-    if (!confirm('Ù…Ø³Ø­ Ø±ÙˆØ§Ø¨Ø· Ø§Ù„ÙˆØ«Ø§Ø¦Ù‚ Ù…Ù† Ø§Ù„Ù…Ù„ÙØŸ')) return;
+    if (!confirm('Clear document URLs from this profile?')) return;
     const { error: err } = await supabase
       .from('profiles')
       .update({ national_id_url: null, university_card_url: null })
       .eq('id', userId);
     if (err) return show(document.getElementById('udMsg'), err.message, 'err');
     await audit('user.update', { targetUserId: userId, note: 'clear id docs' });
-    flash('ØªÙ…');
+    flash('Done');
     await openUserDetail(userId);
   });
   document.getElementById('udClearMfa')?.addEventListener('click', async () => {
-    if (!confirm('Ø¥Ù„ØºØ§Ø¡ Ø§Ù„Ù…ØµØ§Ø¯Ù‚Ø© Ø§Ù„Ø«Ù†Ø§Ø¦ÙŠØ© Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ØŸ')) return;
+    if (!confirm('Clear MFA for this user?')) return;
     const { error: err } = await supabase.rpc('admin_unenroll_mfa', { target: userId });
     if (err) return show(document.getElementById('udMsg'), err.message, 'err');
     await audit('user.mfa_off', { targetUserId: userId });
-    flash('ØªÙ… Ø¥Ù„ØºØ§Ø¡ MFA');
+    flash('MFA cleared');
   });
   document.getElementById('udDelete')?.addEventListener('click', async () => {
-    if (!confirm('Ø­Ø°Ù Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹ØŸ Ù„Ø§ Ø±Ø¬Ø¹Ø©.')) return;
-    if (!confirm('ØªØ£ÙƒÙŠØ¯ Ù†Ù‡Ø§Ø¦ÙŠ Ù„Ù„Ø­Ø°ÙØŸ')) return;
+    if (!confirm('Permanently delete this user? This cannot be undone.')) return;
+    if (!confirm('Final confirmation to delete?')) return;
     let { error: err } = await supabase.rpc('admin_delete_user', { target: userId });
     if (err) {
       const fallback = await supabase.from('profiles').delete().eq('id', userId);
       if (fallback.error) return show(document.getElementById('udMsg'), err.message || fallback.error.message, 'err');
     }
     await audit('user.delete', { targetUserId: userId });
-    flash('ØªÙ… Ø§Ù„Ø­Ø°Ù');
+    flash('Deleted');
     await loadUsers();
     void loadOverview();
   });
@@ -721,7 +723,7 @@ async function saveUserDetail() {
   const id_verify_status = val('ud_id_verify_status');
   const spokenRaw = emptyToNull(val('ud_spoken_languages'));
   const spoken_languages = spokenRaw
-    ? spokenRaw.split(/[,ØŒ]/).map((s) => s.trim()).filter(Boolean)
+    ? spokenRaw.split(/[,\u060C]/).map((s) => s.trim()).filter(Boolean)
     : null;
 
   const patch = {
@@ -736,7 +738,7 @@ async function saveUserDetail() {
     role,
     owner_status: role === 'owner' ? owner_status : editingUser.owner_status,
     account_status,
-    language: val('ud_language') || 'ar',
+    language: val('ud_language') || 'en',
     avatar_url: emptyToNull(val('ud_avatar_url')),
     gender: emptyToNull(val('ud_gender')),
     date_of_birth: emptyToNull(val('ud_date_of_birth')),
@@ -765,6 +767,8 @@ async function saveUserDetail() {
     pref_occupants: numOrNull(val('ud_pref_occupants')),
     pref_move_in: emptyToNull(val('ud_pref_move_in')),
     pref_gender_policy: emptyToNull(val('ud_pref_gender_policy')),
+    pref_allows_smoking: val('ud_pref_allows_smoking') === 'true',
+    pref_allows_pets: val('ud_pref_allows_pets') === 'true',
     notify_booking: val('ud_notify_booking') === 'true',
     notify_chat: val('ud_notify_chat') === 'true',
     notify_listing: val('ud_notify_listing') === 'true',
@@ -779,7 +783,7 @@ async function saveUserDetail() {
   };
 
   if (!patch.full_name) {
-    show(msg, 'Ø§Ù„Ø§Ø³Ù… Ù…Ø·Ù„ÙˆØ¨', 'err');
+    show(msg, 'Name is required', 'err');
     return;
   }
 
@@ -831,55 +835,69 @@ async function saveUserDetail() {
     }
 
     await audit('user.update', { targetUserId: editingUser.id, detail: { fields: Object.keys(patch) } });
-    show(msg, 'ØªÙ… Ø­ÙØ¸ ÙƒÙ„ Ø§Ù„Ø­Ù‚ÙˆÙ„', 'ok');
-    flash('ØªÙ… Ø§Ù„Ø­ÙØ¸');
+    show(msg, 'All fields saved', 'ok');
+    flash('Saved');
     await openUserDetail(editingUser.id);
     void loadOverview();
   } catch (e) {
-    show(msg, e.message || 'ÙØ´Ù„ Ø§Ù„Ø­ÙØ¸', 'err');
+    show(msg, e.message || 'Save failed', 'err');
   }
 }
 
 function openNewOwner() {
-  openModal('Ù…Ø§Ù„Ùƒ Ø¬Ø¯ÙŠØ¯', `
-    <div class="field"><label>Ø§Ù„Ø§Ø³Ù…</label><input id="m_full_name" /></div>
-    <div class="field"><label>Ø§Ù„Ø¨Ø±ÙŠØ¯</label><input id="m_email" type="email" dir="ltr" /></div>
-    <div class="field"><label>ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±</label><input id="m_password" type="password" dir="ltr" /></div>
-    <div class="field"><label>Ù‡Ø§ØªÙ</label><input id="m_phone" dir="ltr" /></div>
+  openModal('New owner', `
+    <div class="field"><label>Full name</label><input id="m_full_name" /></div>
+    <div class="field"><label>Email</label><input id="m_email" type="email" dir="ltr" /></div>
+    <div class="field"><label>Password</label><input id="m_password" type="password" dir="ltr" /></div>
+    <div class="field"><label>Phone</label><input id="m_phone" dir="ltr" /></div>
   `, async () => {
     const full_name = document.getElementById('m_full_name').value.trim();
     const email = document.getElementById('m_email').value.trim();
     const password = document.getElementById('m_password').value;
     const phone = document.getElementById('m_phone').value.trim() || null;
-    if (!full_name || !email || !password) throw new Error('Ø£ÙƒÙ…Ù„ Ø§Ù„Ø­Ù‚ÙˆÙ„');
+    if (!full_name || !email || !password) throw new Error('Fill all required fields');
     const detached = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     const { data, error } = await detached.auth.signUp({
       email,
       password,
-      options: { data: { full_name, phone, role: 'owner', language: 'ar' } },
+      options: { data: { full_name, phone, role: 'owner', language: 'en' } },
     });
     if (error) throw error;
-    if (!data.user?.id) throw new Error('Ù…Ø§ Ù‚Ø¯Ø±Ù†Ø§ Ù†Ù†Ø´Ø¦ Ø§Ù„Ø­Ø³Ø§Ø¨');
+    if (!data.user?.id) throw new Error('Could not create account');
     const { error: upErr } = await supabase
       .from('profiles')
       .update({ role: 'owner', owner_status: 'approved', full_name, phone, email })
       .eq('id', data.user.id);
     if (upErr) throw upErr;
     await audit('user.update', { targetUserId: data.user.id, note: 'create owner', detail: { email } });
-    flash('ØªÙ… Ø¥Ù†Ø´Ø§Ø¡ Ø§Ù„Ù…Ø§Ù„Ùƒ');
+    flash('Owner created');
     await loadUsers();
     await openUserDetail(data.user.id);
   });
 }
 
-/* â€”â€” Listings â€”â€” */
+/* —— Listings —— */
+let editingListing = null;
+
+function showListingsList() {
+  editingListing = null;
+  document.getElementById('listingsListWrap')?.classList.remove('hidden');
+  document.getElementById('listingDetailWrap')?.classList.add('hidden');
+}
+
 async function loadListings() {
   show(dashErr, '');
+  showListingsList();
+  await ensureCatalog();
   const { data, error } = await supabase
     .from('apartments')
-    .select('id, title_ar, title_en, status, price_month, owner_id, reject_reason, created_at, profiles!owner_id(full_name, email)')
+    .select(
+      `id, title_ar, title_en, description_ar, description_en, status, price_month, rooms, bathrooms, area_m2,
+       gender_policy, amenities, photos, lat, lng, campus_distance_km, reject_reason, city_id, nearest_university_id,
+       owner_id, created_at, profiles!owner_id(full_name, email)`,
+    )
     .order('created_at', { ascending: false })
     .limit(400);
   if (error) {
@@ -901,6 +919,7 @@ function renderListings() {
       .map((a) => {
         const owner = a.profiles;
         const actions = [];
+        actions.push(`<button class="btn sm" data-act="list-edit" data-id="${a.id}">${t('admin.edit')}</button>`);
         if (a.status !== 'approved') {
           actions.push(`<button class="btn sm ok" data-act="list-ok" data-id="${a.id}">${t('admin.approve')}</button>`);
         }
@@ -912,10 +931,10 @@ function renderListings() {
         }
         actions.push(`<button class="btn sm ghost" data-act="list-del" data-id="${a.id}">${t('admin.delete')}</button>`);
         return `<tr>
-          <td><b>${esc(titleOf(a))}</b></td>
+          <td><b>${esc(titleOf(a))}</b><div class="muted">${esc((a.description_en || a.description_ar || '').slice(0, 80))}</div></td>
           <td>${chip(a.status)}</td>
-          <td>${esc(nameOf(owner))}</td>
-          <td dir="ltr">${esc(a.price_month ?? 'â€”')}</td>
+          <td>${esc(nameOf(owner))}<div class="muted" dir="ltr">${esc(owner?.email || '')}</div></td>
+          <td dir="ltr">${esc(a.price_month ?? '—')}</td>
           <td><div class="row-actions">${actions.join('')}</div></td>
         </tr>`;
       })
@@ -925,6 +944,10 @@ function renderListings() {
     btn.onclick = async () => {
       const id = btn.dataset.id;
       try {
+        if (btn.dataset.act === 'list-edit') {
+          await openListingDetail(id);
+          return;
+        }
         if (btn.dataset.act === 'list-ok') {
           const { error } = await supabase
             .from('apartments')
@@ -934,7 +957,7 @@ function renderListings() {
           await audit('listing.approve', { targetId: id });
         }
         if (btn.dataset.act === 'list-no') {
-          const reason = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø±ÙØ¶ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)') || null;
+          const reason = prompt('Reject reason (optional)') || null;
           const { error } = await supabase
             .from('apartments')
             .update({ status: 'rejected', reject_reason: reason })
@@ -951,28 +974,144 @@ function renderListings() {
           await audit('listing.reject', { targetId: id, detail: { status: 'hidden' } });
         }
         if (btn.dataset.act === 'list-del') {
-          if (!confirm('Ø­Ø°Ù Ø§Ù„Ø¥Ø¹Ù„Ø§Ù† Ù†Ù‡Ø§Ø¦ÙŠØ§Ù‹ØŸ')) return;
+          if (!confirm('Permanently delete this listing?')) return;
           const { error } = await supabase.from('apartments').delete().eq('id', id);
           if (error) throw error;
           await audit('listing.delete', { targetId: id });
         }
-        flash('ØªÙ…');
+        flash('Done');
         await loadListings();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'ÙØ´Ù„');
+        show(dashErr, e.message || 'Failed');
       }
     };
   });
 }
 
-/* â€”â€” Bookings â€”â€” */
+async function openListingDetail(listingId) {
+  show(dashErr, '');
+  show(document.getElementById('ldMsg'), '');
+  await ensureCatalog();
+  const { data, error } = await supabase
+    .from('apartments')
+    .select('*, profiles!owner_id(full_name, email)')
+    .eq('id', listingId)
+    .single();
+  if (error || !data) {
+    show(dashErr, error?.message || 'Listing not found');
+    return;
+  }
+  editingListing = data;
+  document.getElementById('listingsListWrap').classList.add('hidden');
+  document.getElementById('listingDetailWrap').classList.remove('hidden');
+  document.getElementById('ldTitle').textContent = titleOf(data);
+  document.getElementById('ldMeta').innerHTML = `
+    <span>${chip(data.status)}</span>
+    <code>${esc(data.id)}</code>
+    <span>${esc(nameOf(data.profiles))}</span>
+    <span dir="ltr">${esc(data.profiles?.email || '')}</span>
+  `;
+
+  const a = data;
+  const cityOpts =
+    `<option value="">—</option>` +
+    optList(catalog.cities, a.city_id, (c) => c.name_en || c.name_ar);
+  const uniOpts =
+    `<option value="">—</option>` +
+    optList(catalog.universities, a.nearest_university_id, (x) => x.name_en || x.name_ar);
+  const amenities = Array.isArray(a.amenities) ? a.amenities.join(', ') : a.amenities || '';
+  const photos = Array.isArray(a.photos) ? a.photos.join('\n') : a.photos || '';
+  const opt = (values, current) =>
+    values
+      .map((r) => '<option value="' + r + '"' + (String(current || '') === String(r) ? ' selected' : '') + '>' + r + '</option>')
+      .join('');
+
+  document.getElementById('ldForm').innerHTML = [
+    '<div class="section-label">Titles & copy</div>',
+    field('ld_title_ar', 'Title (AR)', inp('ld_title_ar', a.title_ar), true),
+    field('ld_title_en', 'Title (EN)', inp('ld_title_en', a.title_en, 'dir="ltr"'), true),
+    field('ld_description_ar', 'Description (AR)', '<textarea id="ld_description_ar">' + esc(a.description_ar || '') + '</textarea>', true),
+    field('ld_description_en', 'Description (EN)', '<textarea id="ld_description_en" dir="ltr">' + esc(a.description_en || '') + '</textarea>', true),
+    '<div class="section-label">Status & pricing</div>',
+    field('ld_status', 'Status', sel('ld_status', opt(['pending', 'approved', 'rejected', 'hidden'], a.status))),
+    field('ld_reject_reason', 'Reject reason', inp('ld_reject_reason', a.reject_reason), true),
+    field('ld_price_month', 'Price / month', inp('ld_price_month', a.price_month, 'type="number" dir="ltr"')),
+    field('ld_rooms', 'Rooms', inp('ld_rooms', a.rooms, 'type="number" dir="ltr"')),
+    field('ld_bathrooms', 'Bathrooms', inp('ld_bathrooms', a.bathrooms, 'type="number" dir="ltr"')),
+    field('ld_area_m2', 'Area m²', inp('ld_area_m2', a.area_m2, 'type="number" dir="ltr"')),
+    field('ld_gender_policy', 'Gender policy', sel('ld_gender_policy', opt(['any', 'female', 'male'], a.gender_policy || 'any'))),
+    '<div class="section-label">Location</div>',
+    field('ld_city_id', 'City', sel('ld_city_id', cityOpts)),
+    field('ld_nearest_university_id', 'Nearest university', sel('ld_nearest_university_id', uniOpts)),
+    field('ld_lat', 'Latitude', inp('ld_lat', a.lat, 'type="number" step="any" dir="ltr"')),
+    field('ld_lng', 'Longitude', inp('ld_lng', a.lng, 'type="number" step="any" dir="ltr"')),
+    field('ld_campus_distance_km', 'Campus distance km', inp('ld_campus_distance_km', a.campus_distance_km, 'type="number" step="any" dir="ltr"')),
+    '<div class="section-label">Media & amenities</div>',
+    field('ld_amenities', 'Amenities (comma-separated)', inp('ld_amenities', amenities, 'dir="ltr"'), true),
+    field('ld_photos', 'Photo URLs (one per line)', '<textarea id="ld_photos" dir="ltr">' + esc(photos) + '</textarea>', true),
+    field('ld_owner_id', 'Owner ID', inp('ld_owner_id', a.owner_id, 'dir="ltr" disabled')),
+    field('ld_created_at', 'Created at', inp('ld_created_at', a.created_at, 'dir="ltr" disabled')),
+  ].join('');
+}
+
+async function saveListingDetail() {
+  if (!editingListing) return;
+  const msg = document.getElementById('ldMsg');
+  show(msg, '');
+  const amenitiesRaw = emptyToNull(val('ld_amenities'));
+  const amenities = amenitiesRaw
+    ? amenitiesRaw.split(/[,\u060C]/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const photosRaw = emptyToNull(val('ld_photos'));
+  const photos = photosRaw
+    ? photosRaw.split(/\n/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const title_ar = emptyToNull(val('ld_title_ar'));
+  if (!title_ar) {
+    show(msg, 'Title (AR) is required', 'err');
+    return;
+  }
+  const patch = {
+    title_ar,
+    title_en: emptyToNull(val('ld_title_en')) || '',
+    description_ar: emptyToNull(val('ld_description_ar')) || '',
+    description_en: emptyToNull(val('ld_description_en')) || '',
+    status: val('ld_status'),
+    reject_reason: emptyToNull(val('ld_reject_reason')),
+    price_month: numOrNull(val('ld_price_month')),
+    rooms: numOrNull(val('ld_rooms')),
+    bathrooms: numOrNull(val('ld_bathrooms')),
+    area_m2: numOrNull(val('ld_area_m2')),
+    gender_policy: val('ld_gender_policy') || 'any',
+    city_id: emptyToNull(val('ld_city_id')),
+    nearest_university_id: emptyToNull(val('ld_nearest_university_id')),
+    lat: numOrNull(val('ld_lat')),
+    lng: numOrNull(val('ld_lng')),
+    campus_distance_km: numOrNull(val('ld_campus_distance_km')),
+    amenities,
+    photos,
+  };
+  try {
+    const { error } = await supabase.from('apartments').update(patch).eq('id', editingListing.id);
+    if (error) throw error;
+    await audit('listing.update', { targetId: editingListing.id, detail: { status: patch.status } });
+    show(msg, 'All fields saved', 'ok');
+    flash('Saved');
+    await openListingDetail(editingListing.id);
+  } catch (e) {
+    show(msg, e.message || 'Save failed', 'err');
+  }
+}
+
+/* —— Bookings —— */
 async function loadBookings() {
   show(dashErr, '');
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      `id, status, payment_status, payment_method, commission_amount, cancel_reason, created_at,
+      `id, status, payment_status, payment_method, rent_amount, commission_percent, commission_amount,
+       months, occupants, start_date, cancel_reason, created_at,
        apartments(title_ar, title_en),
        student:profiles!student_id(full_name, email),
        owner:profiles!owner_id(full_name, email)`,
@@ -994,13 +1133,16 @@ function renderBookings() {
   document.getElementById('bookingRows').innerHTML =
     rows
       .map((b) => {
-        const when = b.created_at ? new Date(b.created_at).toLocaleString('ar') : 'â€”';
+        const when = b.created_at ? new Date(b.created_at).toLocaleString('en') : '—';
         return `<tr>
-          <td>${esc(when)}</td>
+          <td>${esc(when)}<div class="muted">${esc(b.start_date || '')}</div></td>
           <td>${esc(titleOf(b.apartments))}</td>
-          <td>${esc(nameOf(b.student))}</td>
-          <td>${chip(b.status)}</td>
-          <td>${chip(b.payment_status || 'â€”')}</td>
+          <td>${esc(nameOf(b.student))}<div class="muted" dir="ltr">${esc(b.student?.email || '')}</div></td>
+          <td>${esc(nameOf(b.owner))}</td>
+          <td dir="ltr">${esc(b.rent_amount ?? '—')}</td>
+          <td dir="ltr">${esc(b.months ?? '—')}</td>
+          <td>${chip(b.status)}${b.cancel_reason ? `<div class="muted">${esc(b.cancel_reason)}</div>` : ''}</td>
+          <td>${chip(b.payment_status || '—')}<div class="muted">${esc(b.payment_method || '')}</div></td>
           <td><div class="row-actions">
             <button class="btn sm ok" data-act="bk-confirm" data-id="${b.id}">${t('admin.confirm')}</button>
             <button class="btn sm" data-act="bk-done" data-id="${b.id}">${t('admin.complete')}</button>
@@ -1010,7 +1152,7 @@ function renderBookings() {
           </div></td>
         </tr>`;
       })
-      .join('') || `<tr><td colspan="6" class="empty">${t('admin.noResults')}</td></tr>`;
+      .join('') || `<tr><td colspan="9" class="empty">${t('admin.noResults')}</td></tr>`;
 
   document.querySelectorAll('#bookingRows [data-act]').forEach((btn) => {
     btn.onclick = async () => {
@@ -1023,7 +1165,7 @@ function renderBookings() {
           const { error } = await supabase.from('bookings').update({ status: 'completed' }).eq('id', id);
           if (error) throw error;
         } else if (btn.dataset.act === 'bk-cancel') {
-          const reason = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø¥Ù„ØºØ§Ø¡') || null;
+          const reason = prompt('Cancel reason') || null;
           const { error } = await supabase
             .from('bookings')
             .update({ status: 'cancelled', cancel_reason: reason })
@@ -1033,26 +1175,26 @@ function renderBookings() {
           const { error } = await supabase.from('bookings').update({ payment_status: 'paid' }).eq('id', id);
           if (error) throw error;
         } else if (btn.dataset.act === 'bk-del') {
-          if (!confirm('Ø­Ø°Ù Ø§Ù„Ø­Ø¬Ø²ØŸ')) return;
+          if (!confirm('Delete this booking?')) return;
           const { error } = await supabase.from('bookings').delete().eq('id', id);
           if (error) throw error;
           await audit('booking.delete', { targetId: id });
-          flash('ØªÙ…');
+          flash('Done');
           await loadBookings();
           return;
         }
         await audit('booking.update', { targetId: id, detail: { act: btn.dataset.act } });
-        flash('ØªÙ…');
+        flash('Done');
         await loadBookings();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'ÙØ´Ù„');
+        show(dashErr, e.message || 'Failed');
       }
     };
   });
 }
 
-/* â€”â€” ID verify â€”â€” */
+/* —— ID verify —— */
 async function loadIds() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -1073,12 +1215,12 @@ async function loadIds() {
     cache.ids
       .map((u) => {
         const docs = [];
-        if (u.national_id_url) docs.push('Ù‡ÙˆÙŠØ©');
-        if (u.university_card_url) docs.push('Ø¬Ø§Ù…Ø¹Ø©');
+        if (u.national_id_url) docs.push('National ID');
+        if (u.university_card_url) docs.push('University card');
         return `<tr>
           <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div></td>
           <td>${esc(u.role)}</td>
-          <td>${esc(docs.join(' Â· ') || 'â€”')}</td>
+          <td>${esc(docs.join(' · ') || '—')}</td>
           <td><div class="row-actions">
             <button class="btn sm ok" data-act="id-ok" data-id="${u.id}">${t('admin.approve')}</button>
             <button class="btn sm danger" data-act="id-no" data-id="${u.id}">${t('admin.reject')}</button>
@@ -1100,7 +1242,7 @@ async function loadIds() {
             id_verified_by: adminProfile?.id ?? null,
           };
         } else {
-          const note = prompt('Ø³Ø¨Ø¨ Ø§Ù„Ø±ÙØ¶') || null;
+          const note = prompt('Reject reason') || null;
           patch = {
             id_verify_status: 'rejected',
             id_verify_note: note,
@@ -1111,17 +1253,17 @@ async function loadIds() {
         const { error } = await supabase.from('profiles').update(patch).eq('id', id);
         if (error) throw error;
         await audit('id.verify', { targetUserId: id, detail: { status: patch.id_verify_status } });
-        flash('ØªÙ…');
+        flash('Done');
         await loadIds();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'ÙØ´Ù„');
+        show(dashErr, e.message || 'Failed');
       }
     };
   });
 }
 
-/* â€”â€” Reports â€”â€” */
+/* —— Reports —— */
 async function loadReports() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -1144,10 +1286,10 @@ function renderReports() {
   document.getElementById('reportRows').innerHTML =
     rows
       .map((r) => {
-        const when = r.created_at ? new Date(r.created_at).toLocaleString('ar') : 'â€”';
+        const when = r.created_at ? new Date(r.created_at).toLocaleString('en') : '—';
         return `<tr>
           <td>${esc(when)}</td>
-          <td>${esc(r.reason || 'â€”')}<div class="muted">${esc(r.admin_note || '')}</div></td>
+          <td>${esc(r.reason || '—')}<div class="muted">${esc(r.admin_note || '')}</div></td>
           <td>${chip(r.status)}</td>
           <td><div class="row-actions">
             <button class="btn sm" data-act="rep-rev" data-id="${r.id}">${t('admin.review')}</button>
@@ -1163,7 +1305,7 @@ function renderReports() {
       const id = btn.dataset.id;
       const map = { 'rep-rev': 'reviewing', 'rep-close': 'closed', 'rep-open': 'open' };
       const status = map[btn.dataset.act];
-      const admin_note = btn.dataset.act === 'rep-close' ? prompt('Ù…Ù„Ø§Ø­Ø¸Ø© Ø¥ØºÙ„Ø§Ù‚ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)') : null;
+      const admin_note = btn.dataset.act === 'rep-close' ? prompt('Close note (optional)') : null;
       try {
         const { error } = await supabase
           .from('app_reports')
@@ -1171,17 +1313,17 @@ function renderReports() {
           .eq('id', id);
         if (error) throw error;
         await audit('report.update', { targetId: id, detail: { status } });
-        flash('ØªÙ…');
+        flash('Done');
         await loadReports();
         void loadOverview();
       } catch (e) {
-        show(dashErr, e.message || 'ÙØ´Ù„');
+        show(dashErr, e.message || 'Failed');
       }
     };
   });
 }
 
-/* â€”â€” Settings â€”â€” */
+/* —— Settings —— */
 async function loadSettings() {
   show(document.getElementById('settingsMsg'), '');
   try {
@@ -1194,20 +1336,34 @@ async function loadSettings() {
     // fallback app_settings
     const { data } = await supabase.from('app_settings').select('commission_percent').eq('id', 1).maybeSingle();
     if (data) document.getElementById('commission').value = data.commission_percent ?? '';
-    show(document.getElementById('settingsMsg'), e.message || 'ØªØ¹Ø°Ø± Ù‚Ø±Ø§Ø¡Ø© Ø¨Ø¹Ø¶ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª', 'err');
+    show(document.getElementById('settingsMsg'), e.message || 'Could not load some settings', 'err');
   }
   try {
     const { data } = await supabase.rpc('booking_ops_status');
     const row = Array.isArray(data) ? data[0] : data;
     document.getElementById('opsStatus').textContent = row
-      ? `Ø¢Ø®Ø± ØªØ´ØºÙŠÙ„: ${row.last_run_at || row.updated_at || 'â€”'} Â· ${JSON.stringify(row).slice(0, 120)}`
+      ? `Last run: ${row.last_run_at || row.updated_at || '—'} · ${JSON.stringify(row).slice(0, 120)}`
       : '';
   } catch {
     document.getElementById('opsStatus').textContent = '';
   }
+
+  const host = document.getElementById('hostingInfo');
+  if (host) {
+    const allow = (cfg.adminEmail || '').trim().toLowerCase() || '(not set in Render env)';
+    host.innerHTML = [
+      `<div><b>Site</b>: <span dir="ltr">${esc(location.origin)}</span></div>`,
+      `<div><b>Supabase URL</b>: <span dir="ltr">${esc(cfg.supabaseUrl || '—')}</span></div>`,
+      `<div><b>Allowlist email (EXPO_PUBLIC_ADMIN_EMAIL)</b>: <span dir="ltr">${esc(allow)}</span></div>`,
+      `<div><b>Signed-in admin</b>: <span dir="ltr">${esc(adminProfile?.email || '—')}</span></div>`,
+      `<div><b>Confirm bridge</b>: <span dir="ltr">${esc(location.origin + '/confirmed.html')}</span></div>`,
+      `<div><b>Reset bridge</b>: <span dir="ltr">${esc(location.origin + '/reset.html')}</span></div>`,
+      `<div class="fine">MFA is required for admin web login. Enroll TOTP in the Matra7 app first.</div>`,
+    ].join('');
+  }
 }
 
-/* â€”â€” Audit â€”â€” */
+/* —— Audit —— */
 async function loadAudit() {
   show(dashErr, '');
   const { data, error } = await supabase
@@ -1222,14 +1378,14 @@ async function loadAudit() {
   document.getElementById('auditRows').innerHTML =
     (data || [])
       .map((r) => {
-        const when = r.created_at ? new Date(r.created_at).toLocaleString('ar') : 'â€”';
-        const target = (r.target_user_id || r.target_id || 'â€”').toString().slice(0, 8);
+        const when = r.created_at ? new Date(r.created_at).toLocaleString('en') : '—';
+        const target = (r.target_user_id || r.target_id || '—').toString().slice(0, 8);
         return `<tr><td>${esc(when)}</td><td dir="ltr">${esc(r.action)}</td><td dir="ltr">${esc(target)}</td><td>${esc(r.note || '')}</td></tr>`;
       })
-      .join('') || '<tr><td colspan="4" class="empty">ÙØ§Ø±Øº</td></tr>';
+      .join('') || '<tr><td colspan="4" class="empty">Empty</td></tr>';
 }
 
-/* â€”â€” Modal â€”â€” */
+/* —— Modal —— */
 let modalOkHandler = null;
 function openModal(title, bodyHtml, onOk) {
   document.getElementById('modalTitle').textContent = title;
@@ -1249,7 +1405,7 @@ document.getElementById('modalOk').onclick = async () => {
     await modalOkHandler();
     closeModal();
   } catch (e) {
-    alert(e.message || 'ÙØ´Ù„');
+    alert(e.message || 'Failed');
   }
 };
 
@@ -1442,6 +1598,11 @@ document.getElementById('userBackBtn').addEventListener('click', () => {
   void loadUsers();
 });
 document.getElementById('udSaveBtn').addEventListener('click', () => void saveUserDetail());
+document.getElementById('listingBackBtn')?.addEventListener('click', () => {
+  showListingsList();
+  void loadListings();
+});
+document.getElementById('ldSaveBtn')?.addEventListener('click', () => void saveListingDetail());
 document.getElementById('listingQ').addEventListener('input', renderListings);
 document.getElementById('listingStatus').addEventListener('change', renderListings);
 document.getElementById('bookingStatus').addEventListener('change', renderBookings);
@@ -1457,7 +1618,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', async () =>
     await audit('settings.update', { detail: { p_commission, p_admin_email } });
     show(msg, t('admin.saved'), 'ok');
   } catch (e) {
-    show(msg, e.message || 'ÙØ´Ù„ Ø§Ù„Ø­ÙØ¸', 'err');
+    show(msg, e.message || 'Save failed', 'err');
   }
 });
 
@@ -1470,17 +1631,12 @@ document.getElementById('runOpsBtn').addEventListener('click', async () => {
     show(msg, t('admin.done'), 'ok');
     await loadSettings();
   } catch (e) {
-    show(msg, e.message || 'ÙØ´Ù„ Ø§Ù„ØªØ´ØºÙŠÙ„', 'err');
+    show(msg, e.message || 'Job failed', 'err');
   }
 });
 
 if (window.Matra7I18n) {
   Matra7I18n.mountSwitchers();
-  window.addEventListener('matra7:lang', () => {
-    Matra7I18n.apply(document);
-    const active = document.querySelector('#nav button.active')?.dataset.panel;
-    if (active && !shell.classList.contains('hidden')) setPanel(active);
-  });
 }
 
 async function bootAdmin() {

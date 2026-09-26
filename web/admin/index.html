@@ -1,40 +1,37 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title data-i18n-title="admin.metaTitle">لوحة الإدارة — Matra7</title>
+    <title>Admin — Matra7</title>
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="admin-body centered" id="body">
     <main class="card login-card" id="loginCard">
-      <div class="login-top">
-        <div class="lang-switch" data-lang-switch></div>
-      </div>
       <img class="login-logo" src="/assets/logo-mark.png" alt="Matra7" width="150" height="50" />
-      <h1 data-i18n="admin.loginTitle">تسجيل دخول الإدارة</h1>
-      <p data-i18n="admin.loginHint">ادخل ببريد وكلمة مرور حساب الأدمن (نفس حساب التطبيق).</p>
+      <h1>Admin sign in</h1>
+      <p>Use your admin email and password (same as the app).</p>
       <div id="loginErr" class="err hidden"></div>
       <form id="loginForm" autocomplete="off">
         <div class="field">
-          <label for="email" data-i18n="admin.email">البريد</label>
+          <label for="email">Email</label>
           <input id="email" name="email" type="email" autocomplete="username" dir="ltr" required spellcheck="false" />
         </div>
         <div class="field">
-          <label for="password" data-i18n="admin.password">كلمة المرور</label>
+          <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" dir="ltr" required minlength="8" />
         </div>
-        <button class="btn" id="loginBtn" type="submit" data-i18n="admin.signIn">تسجيل الدخول</button>
+        <button class="btn" id="loginBtn" type="submit">Sign in</button>
       </form>
       <form id="mfaForm" class="hidden" autocomplete="off">
-        <h2 data-i18n="admin.mfaTitle">رمز المصادقة</h2>
-        <p class="muted" data-i18n="admin.mfaHint">افتح Google Authenticator (أو تطبيق مشابه) وأدخل الرمز من 6 أرقام.</p>
+        <h2>Authenticator code</h2>
+        <p class="muted">Open Google Authenticator (or similar) and enter the 6-digit code.</p>
         <div class="field">
-          <label for="mfaCode" data-i18n="admin.mfaCode">رمز المصادقة</label>
+          <label for="mfaCode">Authenticator code</label>
           <input
             id="mfaCode"
             name="mfaCode"
@@ -47,36 +44,35 @@
             required
           />
         </div>
-        <button class="btn" id="mfaBtn" type="submit" data-i18n="admin.mfaContinue">متابعة</button>
-        <button class="btn ghost" id="mfaCancelBtn" type="button" data-i18n="admin.mfaCancel" style="width:100%;margin-top:8px">
-          رجوع لتسجيل الدخول
+        <button class="btn" id="mfaBtn" type="submit">Continue</button>
+        <button class="btn ghost" id="mfaCancelBtn" type="button" style="width:100%;margin-top:8px">
+          Back to sign in
         </button>
       </form>
       <p class="fine muted" id="cfgHint"></p>
-      <p class="fine"><a href="/" data-i18n="nav.home">الرئيسية</a></p>
+      <p class="fine"><a href="/">Home</a></p>
     </main>
 
     <div class="shell hidden" id="shell">
       <aside class="side">
         <div class="side-head">
           <img src="/assets/logo-mark.png" alt="" class="side-logo" />
-          <p class="brand" data-i18n="admin.brand">مَطْرَح · إدارة</p>
+          <p class="brand">Matra7 · Admin</p>
           <p class="who" id="who"></p>
-          <div class="lang-switch on-dark" data-lang-switch></div>
         </div>
         <nav class="nav" id="nav">
-          <button type="button" data-panel="overview" class="active" data-i18n="admin.nav.overview">نظرة عامة</button>
-          <button type="button" data-panel="users" data-i18n="admin.nav.users">المستخدمون</button>
-          <button type="button" data-panel="listings" data-i18n="admin.nav.listings">الإعلانات</button>
-          <button type="button" data-panel="bookings" data-i18n="admin.nav.bookings">الحجوزات</button>
-          <button type="button" data-panel="ids" data-i18n="admin.nav.ids">تحقق الهوية</button>
-          <button type="button" data-panel="reports" data-i18n="admin.nav.reports">البلاغات</button>
-          <button type="button" data-panel="settings" data-i18n="admin.nav.settings">الإعدادات</button>
-          <button type="button" data-panel="audit" data-i18n="admin.nav.audit">سجل الأدمن</button>
+          <button type="button" data-panel="overview" class="active">Overview</button>
+          <button type="button" data-panel="users">Users</button>
+          <button type="button" data-panel="listings">Listings</button>
+          <button type="button" data-panel="bookings">Bookings</button>
+          <button type="button" data-panel="ids">ID verify</button>
+          <button type="button" data-panel="reports">Reports</button>
+          <button type="button" data-panel="settings">Settings</button>
+          <button type="button" data-panel="audit">Audit log</button>
         </nav>
         <div class="side-actions">
-          <button class="btn ghost sm side-btn" id="refreshBtn" type="button" data-i18n="admin.refresh">تحديث</button>
-          <button class="btn ghost sm side-btn" id="logoutBtn" type="button" data-i18n="admin.logout">تسجيل الخروج</button>
+          <button class="btn ghost sm side-btn" id="refreshBtn" type="button">Refresh</button>
+          <button class="btn ghost sm side-btn" id="logoutBtn" type="button">Sign out</button>
         </div>
       </aside>
 
@@ -85,27 +81,27 @@
         <div id="dashErr" class="err hidden"></div>
 
         <section class="panel active" id="panel-overview">
-          <h1 data-i18n="admin.overview">نظرة عامة</h1>
+          <h1>Overview</h1>
           <div class="grid" id="stats"></div>
-          <h2 data-i18n="admin.events7">أحداث آخر 7 أيام</h2>
+          <h2>Events (last 7 days)</h2>
           <div class="scroll" style="max-height:260px;margin-bottom:16px">
             <table>
               <thead>
                 <tr>
-                  <th data-i18n="admin.event">الحدث</th>
-                  <th data-i18n="admin.count">العدد</th>
+                  <th>Event</th>
+                  <th>Count</th>
                 </tr>
               </thead>
               <tbody id="eventRows"></tbody>
             </table>
           </div>
-          <h2 data-i18n="admin.queues">طوابير تحتاج إجراء</h2>
+          <h2>Queues needing action</h2>
           <div class="scroll" style="max-height:320px">
             <table>
               <thead>
                 <tr>
-                  <th data-i18n="admin.type">النوع</th>
-                  <th data-i18n="admin.details">التفاصيل</th>
+                  <th>Type</th>
+                  <th>Details</th>
                   <th></th>
                 </tr>
               </thead>
@@ -115,34 +111,34 @@
         </section>
 
         <section class="panel" id="panel-users">
-          <h1 data-i18n="admin.users">المستخدمون</h1>
+          <h1>Users</h1>
           <div id="usersListWrap">
             <div class="toolbar">
-              <input id="userQ" data-i18n-placeholder="admin.userSearch" placeholder="بحث اسم / إيميل / هاتف / رقم وطني" />
+              <input id="userQ" placeholder="Search name / email / phone / ID" />
               <select id="userRole">
-                <option value="" data-i18n="admin.allRoles">كل الأدوار</option>
-                <option value="student" data-i18n="admin.role.student">طالب</option>
-                <option value="renter" data-i18n="admin.role.renter">مستأجر</option>
-                <option value="owner" data-i18n="admin.role.owner">مالك</option>
-                <option value="admin" data-i18n="admin.role.admin">أدمن</option>
+                <option value="">All roles</option>
+                <option value="student">Student</option>
+                <option value="renter">Renter</option>
+                <option value="owner">Owner</option>
+                <option value="admin">Admin</option>
               </select>
               <select id="userFilter">
-                <option value="" data-i18n="admin.filter.all">الكل</option>
-                <option value="owner_pending" data-i18n="admin.filter.ownerPending">ملاك بانتظار</option>
-                <option value="suspended" data-i18n="admin.filter.suspended">موقوفون</option>
-                <option value="id_pending" data-i18n="admin.filter.idPending">هوية بانتظار</option>
+                <option value="">All</option>
+                <option value="owner_pending">Owners pending</option>
+                <option value="suspended">Suspended</option>
+                <option value="id_pending">ID pending</option>
               </select>
-              <button class="btn sm" id="newOwnerBtn" type="button" data-i18n="admin.newOwner">+ مالك جديد</button>
+              <button class="btn sm" id="newOwnerBtn" type="button">+ New owner</button>
             </div>
             <div class="scroll" style="max-height:70vh">
               <table>
                 <thead>
                   <tr>
-                    <th data-i18n="admin.col.name">الاسم</th>
-                    <th data-i18n="admin.col.role">الدور</th>
-                    <th data-i18n="admin.col.status">الحالة</th>
-                    <th data-i18n="admin.col.contact">تواصل</th>
-                    <th data-i18n="admin.col.actions">إجراءات</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Contact</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="userRows"></tbody>
@@ -151,14 +147,14 @@
           </div>
 
           <div id="userDetailWrap" class="hidden">
-            <button class="btn ghost sm user-detail-back" id="userBackBtn" type="button" data-i18n="admin.back">← رجوع للقائمة</button>
+            <button class="btn ghost sm user-detail-back" id="userBackBtn" type="button">← Back to list</button>
             <div class="bar">
               <div>
-                <h1 style="margin:0" id="udTitle" data-i18n="admin.editUser">تعديل مستخدم</h1>
+                <h1 style="margin:0" id="udTitle">Edit user</h1>
                 <div class="detail-meta" id="udMeta"></div>
               </div>
               <div class="actions">
-                <button class="btn" id="udSaveBtn" type="button" data-i18n="admin.saveAll">حفظ كل التغييرات</button>
+                <button class="btn" id="udSaveBtn" type="button">Save all changes</button>
               </div>
             </div>
             <div id="udMsg" class="hidden"></div>
@@ -166,65 +162,86 @@
               <div class="form-grid" id="udForm"></div>
             </div>
             <div class="card wide surface-card">
-              <h2 data-i18n="admin.activity">نشاط مرتبط</h2>
+              <h2>Related activity</h2>
               <div id="udActivity" class="muted">—</div>
             </div>
             <div class="danger-zone">
-              <h2 data-i18n="admin.danger">إجراءات قوية</h2>
+              <h2>Danger zone</h2>
               <div class="actions" id="udDanger"></div>
             </div>
           </div>
         </section>
 
         <section class="panel" id="panel-listings">
-          <h1 data-i18n="admin.listings">الإعلانات</h1>
-          <div class="toolbar">
-            <input id="listingQ" data-i18n-placeholder="admin.listingSearch" placeholder="بحث عنوان" />
-            <select id="listingStatus">
-              <option value="pending" data-i18n="admin.status.pending">بانتظار</option>
-              <option value="approved" data-i18n="admin.status.approved">معتمد</option>
-              <option value="rejected" data-i18n="admin.status.rejected">مرفوض</option>
-              <option value="hidden" data-i18n="admin.status.hidden">مخفي</option>
-              <option value="" data-i18n="admin.status.all">الكل</option>
-            </select>
+          <h1>Listings</h1>
+          <div id="listingsListWrap">
+            <div class="toolbar">
+              <input id="listingQ" placeholder="Search title" />
+              <select id="listingStatus">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="hidden">Hidden</option>
+                <option value="">All</option>
+              </select>
+            </div>
+            <div class="scroll" style="max-height:70vh">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Owner</th>
+                    <th>Price</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="listingRows"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="scroll" style="max-height:70vh">
-            <table>
-              <thead>
-                <tr>
-                  <th data-i18n="admin.col.title">العنوان</th>
-                  <th data-i18n="admin.col.status">الحالة</th>
-                  <th data-i18n="admin.col.owner">المالك</th>
-                  <th data-i18n="admin.col.price">السعر</th>
-                  <th data-i18n="admin.col.actions">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="listingRows"></tbody>
-            </table>
+          <div id="listingDetailWrap" class="hidden">
+            <button class="btn ghost sm user-detail-back" id="listingBackBtn" type="button">← Back to list</button>
+            <div class="bar">
+              <div>
+                <h1 style="margin:0" id="ldTitle">Edit listing</h1>
+                <div class="detail-meta" id="ldMeta"></div>
+              </div>
+              <div class="actions">
+                <button class="btn" id="ldSaveBtn" type="button">Save all changes</button>
+              </div>
+            </div>
+            <div id="ldMsg" class="hidden"></div>
+            <div class="card wide surface-card">
+              <div class="form-grid" id="ldForm"></div>
+            </div>
           </div>
         </section>
 
         <section class="panel" id="panel-bookings">
-          <h1 data-i18n="admin.bookings">الحجوزات</h1>
+          <h1>Bookings</h1>
           <div class="toolbar">
             <select id="bookingStatus">
-              <option value="" data-i18n="admin.allStatuses">كل الحالات</option>
-              <option value="pending" data-i18n="admin.status.pending">بانتظار</option>
-              <option value="confirmed" data-i18n="admin.status.confirmed">مؤكد</option>
-              <option value="completed" data-i18n="admin.status.completed">مكتمل</option>
-              <option value="cancelled" data-i18n="admin.status.cancelled">ملغى</option>
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
                 <tr>
-                  <th data-i18n="admin.col.date">التاريخ</th>
-                  <th data-i18n="admin.col.listing">الإعلان</th>
-                  <th data-i18n="admin.col.student">الطالب</th>
-                  <th data-i18n="admin.col.status">الحالة</th>
-                  <th data-i18n="admin.col.payment">الدفع</th>
-                  <th data-i18n="admin.col.actions">إجراءات</th>
+                  <th>Date</th>
+                  <th>Listing</th>
+                  <th>Student</th>
+                  <th>Owner</th>
+                  <th>Rent</th>
+                  <th>Months</th>
+                  <th>Status</th>
+                  <th>Payment</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="bookingRows"></tbody>
@@ -233,16 +250,16 @@
         </section>
 
         <section class="panel" id="panel-ids">
-          <h1 data-i18n="admin.ids">تحقق الهوية</h1>
-          <p class="muted" data-i18n="admin.idsHint">طلبات بانتظار المراجعة (وثائق مرفوعة).</p>
+          <h1>ID verification</h1>
+          <p class="muted">Pending requests with uploaded documents.</p>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
                 <tr>
-                  <th data-i18n="admin.col.name">الاسم</th>
-                  <th data-i18n="admin.col.role">الدور</th>
-                  <th data-i18n="admin.col.note">ملاحظة</th>
-                  <th data-i18n="admin.col.actions">إجراءات</th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Note</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="idRows"></tbody>
@@ -251,23 +268,23 @@
         </section>
 
         <section class="panel" id="panel-reports">
-          <h1 data-i18n="admin.reports">البلاغات</h1>
+          <h1>Reports</h1>
           <div class="toolbar">
             <select id="reportStatus">
-              <option value="open" data-i18n="admin.report.open">مفتوح</option>
-              <option value="reviewing" data-i18n="admin.report.reviewing">قيد المراجعة</option>
-              <option value="closed" data-i18n="admin.report.closed">مغلق</option>
-              <option value="" data-i18n="admin.filter.all">الكل</option>
+              <option value="open">Open</option>
+              <option value="reviewing">Reviewing</option>
+              <option value="closed">Closed</option>
+              <option value="">All</option>
             </select>
           </div>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
                 <tr>
-                  <th data-i18n="admin.col.date">التاريخ</th>
-                  <th data-i18n="admin.col.reason">السبب</th>
-                  <th data-i18n="admin.col.status">الحالة</th>
-                  <th data-i18n="admin.col.actions">إجراءات</th>
+                  <th>Date</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="reportRows"></tbody>
@@ -276,35 +293,39 @@
         </section>
 
         <section class="panel" id="panel-settings">
-          <h1 data-i18n="admin.settings">إعدادات المنصة</h1>
+          <h1>Platform settings</h1>
           <div class="card wide surface-card">
             <div id="settingsMsg" class="hidden"></div>
             <div class="field">
-              <label for="commission" data-i18n="admin.commission">عمولة المنصة %</label>
+              <label for="commission">Platform commission %</label>
               <input id="commission" type="number" min="0" max="100" step="0.1" dir="ltr" />
             </div>
             <div class="field">
-              <label for="adminEmail" data-i18n="admin.adminEmail">بريد الأدمن</label>
+              <label for="adminEmail">Admin email (platform table)</label>
               <input id="adminEmail" type="email" dir="ltr" />
             </div>
             <div class="actions">
-              <button class="btn" id="saveSettingsBtn" type="button" data-i18n="admin.save">حفظ</button>
-              <button class="btn ghost" id="runOpsBtn" type="button" data-i18n="admin.runOps">تشغيل مهام الحجوزات</button>
+              <button class="btn" id="saveSettingsBtn" type="button">Save</button>
+              <button class="btn ghost" id="runOpsBtn" type="button">Run booking jobs</button>
             </div>
             <p class="fine muted" id="opsStatus"></p>
+          </div>
+          <div class="card wide surface-card" style="margin-top:16px">
+            <h2>Hosting / access (read-only)</h2>
+            <div id="hostingInfo" class="muted" style="line-height:1.7;font-size:14px"></div>
           </div>
         </section>
 
         <section class="panel" id="panel-audit">
-          <h1 data-i18n="admin.audit">سجل الأدمن</h1>
+          <h1>Audit log</h1>
           <div class="scroll" style="max-height:70vh">
             <table>
               <thead>
                 <tr>
-                  <th data-i18n="admin.col.time">الوقت</th>
-                  <th data-i18n="admin.col.action">الإجراء</th>
-                  <th data-i18n="admin.col.target">هدف</th>
-                  <th data-i18n="admin.col.note">ملاحظة</th>
+                  <th>Time</th>
+                  <th>Action</th>
+                  <th>Target</th>
+                  <th>Note</th>
                 </tr>
               </thead>
               <tbody id="auditRows"></tbody>
@@ -319,8 +340,8 @@
         <h3 id="modalTitle"></h3>
         <div id="modalBody"></div>
         <div class="actions" style="margin-top:14px;justify-content:flex-end">
-          <button class="btn ghost" type="button" id="modalCancel" data-i18n="admin.modalCancel">إلغاء</button>
-          <button class="btn" type="button" id="modalOk" data-i18n="admin.modalOk">تأكيد</button>
+          <button class="btn ghost" type="button" id="modalCancel">Cancel</button>
+          <button class="btn" type="button" id="modalOk">Confirm</button>
         </div>
       </div>
     </div>

@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title data-i18n-title="meta.homeTitle">مَطْرَح · Matra7</title>
-    <meta name="description" content="مَطْرَح — سكن طلابي قرب الجامعات الفلسطينية" />
+    <title>Matra7</title>
+    <meta name="description" content="Matra7 — student housing near Palestinian universities" />
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/site.css" />
   </head>
   <body class="site">
@@ -18,45 +18,42 @@
       </a>
       <div class="top-actions">
         <nav class="top-nav">
-          <a href="/admin/" data-i18n="nav.admin">تسجيل دخول الإدارة</a>
-          <a href="/reset.html" data-i18n="nav.reset">نسيت كلمة المرور</a>
+          <a href="/admin/">Admin sign in</a>
+          <a href="/reset.html">Forgot password</a>
         </nav>
-        <div class="lang-switch" data-lang-switch></div>
       </div>
     </header>
 
     <section class="hero">
       <div class="hero-inner">
-        <img class="hero-logo" src="/assets/logo-mark.png" width="300" height="100" alt="مَطْرَح" />
-        <h1>مَطْرَح</h1>
-        <p class="lede" data-i18n="hero.lede">
-          سكن طلابي موثوق قرب الجامعات الفلسطينية — بحث، حجز، ومحادثة في مكان واحد.
+        <img class="hero-logo" src="/assets/logo-mark.png" width="300" height="100" alt="Matra7" />
+        <h1>Matra7</h1>
+        <p class="lede">
+          Trusted student housing near Palestinian universities — search, book, and chat in one place.
         </p>
         <div class="cta">
-          <a class="btn primary" href="/admin/" data-i18n="cta.admin">تسجيل دخول الإدارة</a>
-          <a class="btn secondary" id="openApp" href="sakanat://" data-i18n="cta.app">فتح تطبيق مَطْرَح (جوال)</a>
+          <a class="btn primary" href="/admin/">Admin sign in</a>
+          <a class="btn secondary" id="openApp" href="sakanat://">Open Matra7 app (mobile)</a>
         </div>
-        <p class="hero-note" id="appHint" hidden data-i18n="cta.appHint"></p>
+        <p class="hero-note" id="appHint" hidden>
+          Install Matra7 on your phone, then tap Open app. On desktop, use Admin sign in.
+        </p>
       </div>
     </section>
 
     <section class="strip">
       <div class="strip-inner">
         <article>
-          <h2 data-i18n="strip.studentsTitle">للطلاب والمستأجرين</h2>
-          <p data-i18n="strip.studentsBody">
-            اكتشف السكن المناسب لحرمك، احجز بخطوات واضحة، وتواصل مع المالك مباشرة.
-          </p>
+          <h2>Students &amp; renters</h2>
+          <p>Find housing near your campus, book in clear steps, and message the owner directly.</p>
         </article>
         <article>
-          <h2 data-i18n="strip.ownersTitle">للملاك</h2>
-          <p data-i18n="strip.ownersBody">انشر وحداتك، تابع الحجوزات، وأدر المحادثات من تطبيق مَطْرَح.</p>
+          <h2>Owners</h2>
+          <p>List units, track bookings, and manage chats in the Matra7 app.</p>
         </article>
         <article>
-          <h2 data-i18n="strip.adminTitle">للإدارة</h2>
-          <p data-i18n="strip.adminBody">
-            مراجعة المستخدمين والإعلانات والحجوزات والبلاغات من المتصفح — نفس قاعدة البيانات.
-          </p>
+          <h2>Admins</h2>
+          <p>Review users, listings, bookings, and reports in the browser — same database as the app.</p>
         </article>
       </div>
     </section>
@@ -64,16 +61,14 @@
     <footer class="foot">
       <img src="/assets/logo-mark.png" width="100" height="34" alt="" />
       <p>
-        <span data-i18n="foot.emailLinks">روابط البريد الإلكتروني:</span>
-        <a href="/confirmed.html" data-i18n="foot.confirm">تأكيد الحساب</a>
+        Email links:
+        <a href="/confirmed.html">Confirm account</a>
         ·
-        <a href="/reset.html" data-i18n="foot.reset">إعادة تعيين كلمة المرور</a>
+        <a href="/reset.html">Reset password</a>
       </p>
-      <p class="copy" data-i18n="foot.copy">© Matra7 · مَطْرَح</p>
+      <p class="copy">© Matra7</p>
     </footer>
-    <script src="/js/i18n.js"></script>
     <script>
-      Matra7I18n.mountSwitchers();
       (function () {
         var btn = document.getElementById('openApp');
         var hint = document.getElementById('appHint');
