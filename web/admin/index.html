@@ -225,32 +225,50 @@
 
         <section class="panel" id="panel-bookings">
           <h1>Bookings</h1>
-          <div class="toolbar">
-            <select id="bookingStatus">
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+          <div id="bookingsListWrap">
+            <div class="toolbar">
+              <select id="bookingStatus">
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="scroll" style="max-height:70vh">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Listing</th>
+                    <th>Student</th>
+                    <th>Owner</th>
+                    <th>Rent</th>
+                    <th>Months</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bookingRows"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="scroll" style="max-height:70vh">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Listing</th>
-                  <th>Student</th>
-                  <th>Owner</th>
-                  <th>Rent</th>
-                  <th>Months</th>
-                  <th>Status</th>
-                  <th>Payment</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="bookingRows"></tbody>
-            </table>
+          <div id="bookingDetailWrap" class="hidden">
+            <button class="btn ghost sm user-detail-back" id="bookingBackBtn" type="button">← Back to list</button>
+            <div class="bar">
+              <div>
+                <h1 style="margin:0" id="bdTitle">Edit booking</h1>
+                <div class="detail-meta" id="bdMeta"></div>
+              </div>
+              <div class="actions">
+                <button class="btn" id="bdSaveBtn" type="button">Save changes</button>
+              </div>
+            </div>
+            <div id="bdMsg" class="hidden"></div>
+            <div class="card wide surface-card">
+              <div class="form-grid" id="bdForm"></div>
+            </div>
           </div>
         </section>
 
@@ -287,7 +305,7 @@
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Reason</th>
+                  <th>Report</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -428,6 +446,42 @@
             </div>
             <p class="fine muted" id="opsStatus"></p>
           </div>
+
+          <div class="card wide surface-card" style="margin-top:16px">
+            <h2>Export CSV</h2>
+            <p class="muted">Download platform data for backup or spreadsheets.</p>
+            <div class="actions" style="flex-wrap:wrap;gap:8px">
+              <button class="btn ghost sm" type="button" data-export="users">Users</button>
+              <button class="btn ghost sm" type="button" data-export="listings">Listings</button>
+              <button class="btn ghost sm" type="button" data-export="bookings">Bookings</button>
+              <button class="btn ghost sm" type="button" data-export="reports">Reports</button>
+              <button class="btn ghost sm" type="button" data-export="reviews">Reviews</button>
+            </div>
+            <p class="fine muted" id="exportStatus"></p>
+          </div>
+
+          <div class="card wide surface-card" style="margin-top:16px">
+            <h2>Push broadcast</h2>
+            <p class="muted">Send a push notification to selected roles (requires push-send edge function).</p>
+            <div class="toolbar" style="margin-bottom:10px">
+              <label><input type="checkbox" id="bcStudent" checked /> Students</label>
+              <label><input type="checkbox" id="bcRenter" checked /> Renters</label>
+              <label><input type="checkbox" id="bcOwner" checked /> Owners</label>
+            </div>
+            <div class="field">
+              <label for="bcTitle">Title</label>
+              <input id="bcTitle" dir="ltr" maxlength="80" />
+            </div>
+            <div class="field">
+              <label for="bcBody">Body</label>
+              <textarea id="bcBody" dir="ltr" rows="3"></textarea>
+            </div>
+            <div class="actions">
+              <button class="btn" id="bcSendBtn" type="button">Send broadcast</button>
+            </div>
+            <p class="fine muted" id="bcStatus"></p>
+          </div>
+
           <div class="card wide surface-card" style="margin-top:16px">
             <h2>Hosting / access (read-only)</h2>
             <div id="hostingInfo" class="muted" style="line-height:1.7;font-size:14px"></div>

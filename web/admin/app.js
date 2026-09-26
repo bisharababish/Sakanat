@@ -649,6 +649,7 @@ async function openUserDetail(userId) {
   } else if (u.role !== 'admin') {
     danger.push(`<button class="btn warn" type="button" id="udSuspend">Suspend account</button>`);
   }
+  danger.push(`<button class="btn ghost" type="button" id="udExport">Export user CSV</button>`);
   danger.push(`<button class="btn ghost" type="button" id="udClearPush">Clear push token</button>`);
   danger.push(`<button class="btn ghost" type="button" id="udClearMfa">Clear MFA</button>`);
   danger.push(`<button class="btn ghost" type="button" id="udClearDocs">Clear document links</button>`);
@@ -676,6 +677,28 @@ async function openUserDetail(userId) {
       await openUserDetail(userId);
     } catch (e) {
       show(document.getElementById('udMsg'), e.message, 'err');
+    }
+  });
+  document.getElementById('udExport')?.addEventListener('click', async () => {
+    try {
+      const bundle = {
+        id: editingUser.id,
+        email: editingUser.email,
+        full_name: editingUser.full_name,
+        full_name_en: editingUser.full_name_en,
+        role: editingUser.role,
+        phone: editingUser.phone,
+        account_status: editingUser.account_status,
+        owner_status: editingUser.owner_status,
+        id_verify_status: editingUser.id_verify_status,
+        national_id_number: editingUser.national_id_number,
+        created_at: editingUser.created_at,
+      };
+      downloadCsv('matra7-user-' + editingUser.id.slice(0, 8) + '.csv', rowsToCsv([bundle]));
+      await audit('export.user', { targetUserId: editingUser.id });
+      flash('Exported');
+    } catch (e) {
+      show(document.getElementById('udMsg'), e.message || 'Export failed', 'err');
     }
   });
   document.getElementById('udClearPush')?.addEventListener('click', async () => {
@@ -1062,6 +1085,7 @@ async function openListingDetail(listingId) {
 /* —— Bookings —— */
 async function loadBookings() {
   show(dashErr, '');
+  showBookingsList();
   const { data, error } = await supabase
     .from('bookings')
     .select(
@@ -1099,6 +1123,7 @@ function renderBookings() {
           <td>${chip(b.status)}${b.cancel_reason ? `<div class="muted">${esc(b.cancel_reason)}</div>` : ''}</td>
           <td>${chip(b.payment_status || '—')}<div class="muted">${esc(b.payment_method || '')}</div></td>
           <td><div class="row-actions">
+            <button class="btn sm" data-act="bk-edit" data-id="${b.id}">Edit</button>
             <button class="btn sm ok" data-act="bk-confirm" data-id="${b.id}">${t('admin.confirm')}</button>
             <button class="btn sm" data-act="bk-done" data-id="${b.id}">${t('admin.complete')}</button>
             <button class="btn sm danger" data-act="bk-cancel" data-id="${b.id}">${t('admin.cancel')}</button>
@@ -1113,7 +1138,10 @@ function renderBookings() {
     btn.onclick = async () => {
       const id = btn.dataset.id;
       try {
-        if (btn.dataset.act === 'bk-confirm') {
+        if (btn.dataset.act === 'bk-edit') {
+          await openBookingDetail(id);
+          return;
+        } else if (btn.dataset.act === 'bk-confirm') {
           const { error } = await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', id);
           if (error) throw error;
         } else if (btn.dataset.act === 'bk-done') {
@@ -1155,7 +1183,7 @@ async function loadIds() {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id, full_name, email, role, id_verify_status, id_verify_note, national_id_url, university_card_url',
+      'id, full_name, email, role, id_verify_status, id_verify_note, national_id_url, university_card_url, national_id_number, created_at',
     )
     .eq('id_verify_status', 'pending')
     .or('national_id_url.not.is.null,university_card_url.not.is.null')
@@ -1170,13 +1198,19 @@ async function loadIds() {
     cache.ids
       .map((u) => {
         const docs = [];
-        if (u.national_id_url) docs.push('National ID');
-        if (u.university_card_url) docs.push('University card');
+        if (u.national_id_url) {
+          docs.push(`<a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">National ID</a>`);
+        }
+        if (u.university_card_url) {
+          docs.push(`<a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">University card</a>`);
+        }
         return `<tr>
-          <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div></td>
+          <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div>
+            <div class="muted" dir="ltr">${esc(u.national_id_number || '')}</div></td>
           <td>${esc(u.role)}</td>
-          <td>${esc(docs.join(' · ') || '—')}</td>
+          <td>${docs.join(' · ') || '—'}</td>
           <td><div class="row-actions">
+            <button class="btn sm" data-act="id-user" data-id="${u.id}">Open user</button>
             <button class="btn sm ok" data-act="id-ok" data-id="${u.id}">${t('admin.approve')}</button>
             <button class="btn sm danger" data-act="id-no" data-id="${u.id}">${t('admin.reject')}</button>
           </div></td>
@@ -1188,6 +1222,11 @@ async function loadIds() {
     btn.onclick = async () => {
       const id = btn.dataset.id;
       try {
+        if (btn.dataset.act === 'id-user') {
+          setPanel('users');
+          await openUserDetail(id);
+          return;
+        }
         let patch;
         if (btn.dataset.act === 'id-ok') {
           patch = {
@@ -1223,14 +1262,28 @@ async function loadReports() {
   show(dashErr, '');
   const { data, error } = await supabase
     .from('app_reports')
-    .select('id, status, reason, admin_note, created_at, reporter_id, target_user_id')
+    .select(
+      `id, status, kind, subject, body, admin_note, created_at, reporter_id, target_user_id, target_apartment_id,
+       reporter:profiles!reporter_id(full_name, email),
+       target:profiles!target_user_id(full_name, email)`,
+    )
     .order('created_at', { ascending: false })
     .limit(300);
   if (error) {
-    show(dashErr, error.message);
-    return;
+    // Fallback without joins
+    const fallback = await supabase
+      .from('app_reports')
+      .select('id, status, kind, subject, body, admin_note, created_at, reporter_id, target_user_id, target_apartment_id')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (fallback.error) {
+      show(dashErr, error.message || fallback.error.message);
+      return;
+    }
+    cache.reports = fallback.data || [];
+  } else {
+    cache.reports = data || [];
   }
-  cache.reports = data || [];
   renderReports();
 }
 
@@ -1242,11 +1295,17 @@ function renderReports() {
     rows
       .map((r) => {
         const when = r.created_at ? new Date(r.created_at).toLocaleString('en') : '—';
+        const who = nameOf(r.reporter) || String(r.reporter_id || '').slice(0, 8);
+        const target = nameOf(r.target) || (r.target_user_id ? String(r.target_user_id).slice(0, 8) : '—');
         return `<tr>
-          <td>${esc(when)}</td>
-          <td>${esc(r.reason || '—')}<div class="muted">${esc(r.admin_note || '')}</div></td>
+          <td>${esc(when)}<div class="muted">${esc(r.kind || '')}</div></td>
+          <td><b>${esc(r.subject || '—')}</b><div class="muted">${esc((r.body || '').slice(0, 120))}</div>
+            <div class="muted">From: ${esc(who)} · Target: ${esc(target)}</div>
+            <div class="muted">${esc(r.admin_note || '')}</div></td>
           <td>${chip(r.status)}</td>
           <td><div class="row-actions">
+            ${r.reporter_id ? `<button class="btn sm ghost" data-act="rep-reporter" data-id="${r.reporter_id}">Reporter</button>` : ''}
+            ${r.target_user_id ? `<button class="btn sm ghost" data-act="rep-target" data-id="${r.target_user_id}">Target</button>` : ''}
             <button class="btn sm" data-act="rep-rev" data-id="${r.id}">${t('admin.review')}</button>
             <button class="btn sm ok" data-act="rep-close" data-id="${r.id}">${t('admin.close')}</button>
             <button class="btn sm ghost" data-act="rep-open" data-id="${r.id}">${t('admin.open')}</button>
@@ -1257,11 +1316,16 @@ function renderReports() {
 
   document.querySelectorAll('#reportRows [data-act]').forEach((btn) => {
     btn.onclick = async () => {
-      const id = btn.dataset.id;
-      const map = { 'rep-rev': 'reviewing', 'rep-close': 'closed', 'rep-open': 'open' };
-      const status = map[btn.dataset.act];
-      const admin_note = btn.dataset.act === 'rep-close' ? prompt('Close note (optional)') : null;
       try {
+        if (btn.dataset.act === 'rep-reporter' || btn.dataset.act === 'rep-target') {
+          setPanel('users');
+          await openUserDetail(btn.dataset.id);
+          return;
+        }
+        const id = btn.dataset.id;
+        const map = { 'rep-rev': 'reviewing', 'rep-close': 'closed', 'rep-open': 'open' };
+        const status = map[btn.dataset.act];
+        const admin_note = btn.dataset.act === 'rep-close' ? prompt('Close note (optional)') : null;
         const { error } = await supabase
           .from('app_reports')
           .update({ status, admin_note: admin_note?.trim() || null, updated_at: new Date().toISOString() })
@@ -2176,6 +2240,254 @@ async function saveListingDetail() {
 }
 
 
+/* —— Platform exports / broadcast —— */
+function csvEscape(value) {
+  const raw = value == null ? '' : String(value);
+  if (/[",\n\r]/.test(raw)) return `"${raw.replace(/"/g, '""')}"`;
+  return raw;
+}
+
+function rowsToCsv(rows) {
+  if (!rows.length) return 'id\n';
+  const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+  const header = keys.map(csvEscape).join(',');
+  const body = rows.map((row) => keys.map((key) => csvEscape(row[key])).join(',')).join('\n');
+  return `${header}\n${body}`;
+}
+
+function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function exportCsv(kind) {
+  const stamp = new Date().toISOString().slice(0, 10);
+  const status = document.getElementById('exportStatus');
+  if (status) status.textContent = 'Exporting…';
+  try {
+    let rows = [];
+    let name = kind;
+    if (kind === 'users') {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(
+          'id, email, full_name, full_name_en, role, phone, city_id, university_id, owner_status, id_verify_status, account_status, created_at',
+        )
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      rows = data || [];
+    } else if (kind === 'listings') {
+      const { data, error } = await supabase
+        .from('apartments')
+        .select(
+          'id, title_ar, title_en, status, price_month, rooms, bathrooms, city_id, nearest_university_id, owner_id, review_avg, review_count, created_at',
+        )
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      rows = data || [];
+    } else if (kind === 'bookings') {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(
+          `id, status, payment_method, payment_status, start_date, months, occupants, rent_amount, commission_amount, created_at,
+           student:profiles!student_id(full_name, email), owner:profiles!owner_id(full_name, email), apartments(title_ar, title_en)`,
+        )
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      rows = (data || []).map((item) => ({
+        id: item.id,
+        status: item.status,
+        payment_method: item.payment_method,
+        payment_status: item.payment_status,
+        start_date: item.start_date,
+        months: item.months,
+        occupants: item.occupants,
+        rent_amount: item.rent_amount,
+        commission_amount: item.commission_amount,
+        created_at: item.created_at,
+        student_name: item.student?.full_name,
+        student_email: item.student?.email,
+        owner_name: item.owner?.full_name,
+        owner_email: item.owner?.email,
+        listing_ar: item.apartments?.title_ar,
+        listing_en: item.apartments?.title_en,
+      }));
+    } else if (kind === 'reports') {
+      const { data, error } = await supabase
+        .from('app_reports')
+        .select(
+          'id, kind, subject, body, status, admin_note, reporter_id, target_user_id, target_apartment_id, created_at, updated_at',
+        )
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      rows = data || [];
+    } else if (kind === 'reviews') {
+      const { data, error } = await supabase
+        .from('apartment_reviews')
+        .select('id, apartment_id, student_id, stars, note, author_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      rows = data || [];
+    } else {
+      throw new Error('Unknown export');
+    }
+    downloadCsv(`matra7-${name}-${stamp}.csv`, rowsToCsv(rows));
+    await audit('export.platform', { detail: { kind, rows: rows.length } });
+    if (status) status.textContent = `Downloaded ${rows.length} ${kind} row(s).`;
+    flash('Export ready');
+  } catch (e) {
+    if (status) status.textContent = e.message || 'Export failed';
+    show(document.getElementById('settingsMsg'), e.message || 'Export failed', 'err');
+  }
+}
+
+async function sendBroadcast() {
+  const status = document.getElementById('bcStatus');
+  const title = (document.getElementById('bcTitle')?.value || '').trim();
+  const body = (document.getElementById('bcBody')?.value || '').trim();
+  const roles = [];
+  if (document.getElementById('bcStudent')?.checked) roles.push('student');
+  if (document.getElementById('bcRenter')?.checked) roles.push('renter');
+  if (document.getElementById('bcOwner')?.checked) roles.push('owner');
+  if (!title || body.length < 8) {
+    if (status) status.textContent = 'Title and body (min 8 chars) required.';
+    return;
+  }
+  if (!roles.length) {
+    if (status) status.textContent = 'Pick at least one role.';
+    return;
+  }
+  if (!confirm(`Send push to ${roles.join(', ')}?`)) return;
+  if (status) status.textContent = 'Sending…';
+  try {
+    const { data, error } = await supabase.functions.invoke('push-send', {
+      body: { mode: 'broadcast', roles, title, body },
+    });
+    if (error) throw error;
+    const recipients = data?.recipients ?? 0;
+    await audit('broadcast', { note: title, detail: { roles, recipients } });
+    document.getElementById('bcTitle').value = '';
+    document.getElementById('bcBody').value = '';
+    if (status) status.textContent = `Sent to ${recipients} recipient(s).`;
+    flash('Broadcast sent');
+  } catch (e) {
+    if (status) status.textContent = e.message || 'Broadcast failed';
+  }
+}
+
+/* —— Booking detail —— */
+let editingBooking = null;
+
+function showBookingsList() {
+  editingBooking = null;
+  document.getElementById('bookingsListWrap')?.classList.remove('hidden');
+  document.getElementById('bookingDetailWrap')?.classList.add('hidden');
+}
+
+async function openBookingDetail(id) {
+  show(dashErr, '');
+  show(document.getElementById('bdMsg'), '');
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(
+      `*, apartments(title_ar, title_en),
+       student:profiles!student_id(id, full_name, email),
+       owner:profiles!owner_id(id, full_name, email)`,
+    )
+    .eq('id', id)
+    .single();
+  if (error || !data) {
+    show(dashErr, error?.message || 'Booking not found');
+    return;
+  }
+  editingBooking = data;
+  document.getElementById('bookingsListWrap')?.classList.add('hidden');
+  document.getElementById('bookingDetailWrap')?.classList.remove('hidden');
+  document.getElementById('bdTitle').textContent = titleOf(data.apartments) || 'Booking';
+  document.getElementById('bdMeta').innerHTML = `
+    <span>${chip(data.status)}</span>
+    <code>${esc(data.id)}</code>
+    <span>${esc(nameOf(data.student))}</span>
+    <span>${esc(nameOf(data.owner))}</span>
+  `;
+  const opt = (values, current) =>
+    values
+      .map(
+        (r) =>
+          '<option value="' +
+          r +
+          '"' +
+          (String(current || '') === String(r) ? ' selected' : '') +
+          '>' +
+          r +
+          '</option>',
+      )
+      .join('');
+  document.getElementById('bdForm').innerHTML = [
+    field('bd_status', 'Status', sel('bd_status', opt(['pending', 'confirmed', 'completed', 'cancelled'], data.status))),
+    field(
+      'bd_payment_status',
+      'Payment status',
+      sel('bd_payment_status', opt(['unpaid', 'paid'], data.payment_status || 'unpaid')),
+    ),
+    field(
+      'bd_payment_method',
+      'Payment method',
+      sel('bd_payment_method', opt(['pay_now', 'pay_later', 'visa', 'cash'], data.payment_method || 'pay_later')),
+    ),
+    field('bd_start_date', 'Start date', inp('bd_start_date', data.start_date ? String(data.start_date).slice(0, 10) : '', 'type="date" dir="ltr"')),
+    field('bd_months', 'Months', inp('bd_months', data.months, 'type="number" dir="ltr"')),
+    field('bd_occupants', 'Occupants', inp('bd_occupants', data.occupants, 'type="number" dir="ltr"')),
+    field('bd_rent_amount', 'Rent amount', inp('bd_rent_amount', data.rent_amount, 'type="number" dir="ltr"')),
+    field('bd_commission_percent', 'Commission %', inp('bd_commission_percent', data.commission_percent, 'type="number" dir="ltr"')),
+    field('bd_commission_amount', 'Commission amount', inp('bd_commission_amount', data.commission_amount, 'type="number" dir="ltr"')),
+    field('bd_cancel_reason', 'Cancel reason', inp('bd_cancel_reason', data.cancel_reason || ''), true),
+    field('bd_student', 'Student', inp('bd_student', `${nameOf(data.student)} · ${data.student?.email || ''}`, 'disabled'), true),
+    field('bd_owner', 'Owner', inp('bd_owner', `${nameOf(data.owner)} · ${data.owner?.email || ''}`, 'disabled'), true),
+  ].join('');
+}
+
+async function saveBookingDetail() {
+  if (!editingBooking) return;
+  const msg = document.getElementById('bdMsg');
+  show(msg, '');
+  const patch = {
+    status: val('bd_status'),
+    payment_status: val('bd_payment_status'),
+    payment_method: val('bd_payment_method'),
+    start_date: emptyToNull(val('bd_start_date')),
+    months: numOrNull(val('bd_months')),
+    occupants: numOrNull(val('bd_occupants')),
+    rent_amount: numOrNull(val('bd_rent_amount')),
+    commission_percent: numOrNull(val('bd_commission_percent')),
+    commission_amount: numOrNull(val('bd_commission_amount')),
+    cancel_reason: emptyToNull(val('bd_cancel_reason')),
+  };
+  try {
+    const { error } = await supabase.from('bookings').update(patch).eq('id', editingBooking.id);
+    if (error) throw error;
+    await audit('booking.update', { targetId: editingBooking.id, detail: patch });
+    show(msg, 'Saved', 'ok');
+    flash('Saved');
+    await openBookingDetail(editingBooking.id);
+  } catch (e) {
+    show(msg, e.message || 'Save failed', 'err');
+  }
+}
+
+
 /* —— Wire UI —— */
 async function verifiedTotpFactor() {
   const { data, error } = await supabase.auth.mfa.listFactors();
@@ -2376,6 +2688,17 @@ document.getElementById('catalogPane')?.addEventListener('change', () => {
 document.getElementById('catalogQ')?.addEventListener('input', renderCatalog);
 document.getElementById('catalogSaveBtn')?.addEventListener('click', () => void saveCatalogForm());
 document.getElementById('catalogResetBtn')?.addEventListener('click', () => resetCatalogForm());
+
+
+document.querySelectorAll('[data-export]').forEach((btn) => {
+  btn.addEventListener('click', () => void exportCsv(btn.dataset.export));
+});
+document.getElementById('bcSendBtn')?.addEventListener('click', () => void sendBroadcast());
+document.getElementById('bookingBackBtn')?.addEventListener('click', () => {
+  showBookingsList();
+  void loadBookings();
+});
+document.getElementById('bdSaveBtn')?.addEventListener('click', () => void saveBookingDetail());
 
 document.getElementById('refreshBtn').addEventListener('click', () => {
   const active = document.querySelector('#nav button.active')?.dataset.panel || 'overview';
