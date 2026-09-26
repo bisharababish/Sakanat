@@ -26,7 +26,7 @@
       'foot.confirm': 'تأكيد الحساب',
       'foot.reset': 'إعادة تعيين كلمة المرور',
       'foot.copy': '© Matra7 · مَطْرَح',
-      'lang.ar': 'عربي',
+      'lang.ar': 'العربية',
       'lang.en': 'English',
 
       'confirm.title': 'تم تأكيد بريدك — Matra7',
@@ -139,8 +139,11 @@
       'admin.back': '← رجوع للقائمة',
       'admin.done': 'تم',
       'admin.saved': 'تم الحفظ',
-      'admin.notAdmin': 'هذا الحساب مش أدمن.',
-      'admin.loginFail': 'فشل الدخول',
+      'admin.notAdmin': 'تعذر تسجيل الدخول. تحقق من البيانات.',
+      'admin.loginFail': 'تعذر تسجيل الدخول. تحقق من البيانات.',
+      'admin.lockout': 'محاولات كثيرة فاشلة. حاول بعد دقيقة.',
+      'admin.denied': 'تعذر تسجيل الدخول. تحقق من البيانات.',
+      'admin.idle': 'تم تسجيل الخروج بسبب عدم النشاط.',
       'admin.event': 'الحدث',
       'admin.count': 'العدد',
       'admin.type': 'النوع',
@@ -187,7 +190,7 @@
       'foot.confirm': 'Confirm account',
       'foot.reset': 'Reset password',
       'foot.copy': '© Matra7',
-      'lang.ar': 'عربي',
+      'lang.ar': 'Arabic',
       'lang.en': 'English',
 
       'confirm.title': 'Email confirmed — Matra7',
@@ -299,8 +302,11 @@
       'admin.back': '← Back to list',
       'admin.done': 'Done',
       'admin.saved': 'Saved',
-      'admin.notAdmin': 'This account is not an admin.',
-      'admin.loginFail': 'Sign-in failed',
+      'admin.notAdmin': 'Sign-in failed. Check your credentials.',
+      'admin.loginFail': 'Sign-in failed. Check your credentials.',
+      'admin.lockout': 'Too many failed attempts. Try again in a minute.',
+      'admin.denied': 'Sign-in failed. Check your credentials.',
+      'admin.idle': 'Signed out due to inactivity.',
       'admin.event': 'Event',
       'admin.count': 'Count',
       'admin.type': 'Type',
@@ -379,17 +385,27 @@
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     apply(document);
+    document.querySelectorAll('[data-lang-switch]').forEach((wrap) => {
+      wrap.querySelectorAll('.lang-btn').forEach((btn) => {
+        const code = btn.getAttribute('data-lang-active');
+        btn.textContent = t(code === 'en' ? 'lang.en' : 'lang.ar');
+        btn.classList.toggle('active', code === lang);
+        btn.setAttribute('aria-pressed', code === lang ? 'true' : 'false');
+      });
+    });
     global.dispatchEvent(new CustomEvent('matra7:lang', { detail: { lang } }));
   }
 
   function mountSwitchers(selector) {
     document.querySelectorAll(selector || '[data-lang-switch]').forEach((wrap) => {
-      wrap.innerHTML = `
-        <button type="button" class="lang-btn" data-lang-active="ar" aria-label="Arabic">${t('lang.ar')}</button>
-        <button type="button" class="lang-btn" data-lang-active="en" aria-label="English">${t('lang.en')}</button>
-      `;
+      wrap.innerHTML =
+        '<button type="button" class="lang-btn" data-lang-active="ar" aria-label="Arabic"></button>' +
+        '<button type="button" class="lang-btn" data-lang-active="en" aria-label="English"></button>';
       wrap.querySelectorAll('.lang-btn').forEach((btn) => {
-        btn.addEventListener('click', () => setLang(btn.getAttribute('data-lang-active')));
+        const code = btn.getAttribute('data-lang-active');
+        btn.textContent = t(code === 'en' ? 'lang.en' : 'lang.ar');
+        btn.classList.toggle('active', code === lang);
+        btn.addEventListener('click', () => setLang(code));
       });
     });
     apply(document);

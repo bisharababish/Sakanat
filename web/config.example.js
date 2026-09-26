@@ -3,4 +3,5 @@
 window.MATRA7 = {
   supabaseUrl: 'REPLACE_SUPABASE_URL',
   supabaseAnonKey: 'REPLACE_SUPABASE_ANON_KEY',
+  adminEmail: 'REPLACE_ADMIN_EMAIL',
 };

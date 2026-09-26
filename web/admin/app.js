@@ -97,17 +97,96 @@ async function audit(action, meta = {}) {
   }
 }
 
+const FAIL_KEY = 'matra7.admin.fails';
+const LOCK_KEY = 'matra7.admin.lockUntil';
+const MAX_FAILS = 5;
+const LOCK_MS = 60 * 1000;
+const IDLE_MS = 15 * 60 * 1000;
+let idleTimer = null;
+
+function allowedAdminEmail(email) {
+  const allow = String(cfg.adminEmail || '')
+    .trim()
+    .toLowerCase();
+  if (!allow || allow.includes('REPLACE')) return true;
+  return String(email || '')
+    .trim()
+    .toLowerCase() === allow;
+}
+
+function lockRemainingMs() {
+  try {
+    const until = Number(localStorage.getItem(LOCK_KEY) || 0);
+    return Math.max(0, until - Date.now());
+  } catch {
+    return 0;
+  }
+}
+
+function recordLoginFail() {
+  try {
+    const n = Number(localStorage.getItem(FAIL_KEY) || 0) + 1;
+    localStorage.setItem(FAIL_KEY, String(n));
+    if (n >= MAX_FAILS) {
+      localStorage.setItem(LOCK_KEY, String(Date.now() + LOCK_MS));
+      localStorage.setItem(FAIL_KEY, '0');
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearLoginFails() {
+  try {
+    localStorage.removeItem(FAIL_KEY);
+    localStorage.removeItem(LOCK_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function bumpIdle() {
+  if (idleTimer) clearTimeout(idleTimer);
+  if (!adminProfile) return;
+  idleTimer = setTimeout(() => {
+    void (async () => {
+      await supabase.auth.signOut();
+      adminProfile = null;
+      showLogin();
+      show(loginErr, t('admin.idle'));
+    })();
+  }, IDLE_MS);
+}
+
+['click', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach((evt) => {
+  document.addEventListener(evt, () => bumpIdle(), { passive: true });
+});
+
 async function requireAdmin() {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) return null;
+  if (!session?.user) return null;
+
+  const email = session.user.email || '';
+  if (!allowedAdminEmail(email)) {
+    await supabase.auth.signOut();
+    return null;
+  }
+
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role')
+    .select('id, full_name, email, role, account_status')
     .eq('id', session.user.id)
     .maybeSingle();
-  if (error || !profile || profile.role !== 'admin') {
+
+  if (
+    error ||
+    !profile ||
+    profile.role !== 'admin' ||
+    profile.account_status === 'suspended' ||
+    !allowedAdminEmail(profile.email || email)
+  ) {
     await supabase.auth.signOut();
     return null;
   }
@@ -131,6 +210,8 @@ function setPanel(name) {
 }
 
 function showLogin() {
+  adminProfile = null;
+  if (idleTimer) clearTimeout(idleTimer);
   shell.classList.add('hidden');
   loginCard.classList.remove('hidden');
   body.classList.add('centered');
@@ -142,6 +223,7 @@ function showShell(profile) {
   shell.classList.remove('hidden');
   body.classList.remove('centered');
   document.getElementById('who').textContent = profile.full_name || profile.email || 'Admin';
+  bumpIdle();
   setPanel('overview');
 }
 
@@ -1173,11 +1255,21 @@ document.getElementById('modalOk').onclick = async () => {
 async function handleLogin(e) {
   if (e) e.preventDefault();
   show(loginErr, '');
+  const wait = lockRemainingMs();
+  if (wait > 0) {
+    show(loginErr, t('admin.lockout'));
+    return;
+  }
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const btn = document.getElementById('loginBtn');
   if (!email || !password) {
-    show(loginErr, t('admin.loginFail'));
+    show(loginErr, t('admin.denied'));
+    return;
+  }
+  if (!allowedAdminEmail(email)) {
+    recordLoginFail();
+    show(loginErr, t('admin.denied'));
     return;
   }
   btn.disabled = true;
@@ -1188,10 +1280,19 @@ async function handleLogin(e) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     const admin = await requireAdmin();
-    if (!admin) throw new Error(t('admin.notAdmin'));
+    if (!admin) {
+      recordLoginFail();
+      throw new Error(t('admin.denied'));
+    }
+    clearLoginFails();
+    document.getElementById('password').value = '';
     showShell(admin);
   } catch (err) {
-    show(loginErr, err.message || t('admin.loginFail'));
+    recordLoginFail();
+    const msg = /network|fetch|failed to fetch/i.test(err.message || '')
+      ? err.message
+      : t('admin.denied');
+    show(loginErr, msg);
   } finally {
     btn.disabled = false;
   }

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { changeAppLanguage } from '@/src/i18n';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function LanguageToggle({ onDark }: Props) {
+  const { t } = useTranslation();
   const { lang } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
@@ -19,8 +21,8 @@ export function LanguageToggle({ onDark }: Props) {
   const setLang = async (next: 'ar' | 'en') => {
     if (next === lang) return;
     await changeAppLanguage(next);
-    if (profile) {
-      await supabase.from('profiles').update({ language: next }).eq('id', profile.id);
+    if (profile?.id) {
+      void supabase.from('profiles').update({ language: next }).eq('id', profile.id);
     }
   };
 
@@ -32,10 +34,14 @@ export function LanguageToggle({ onDark }: Props) {
           ? styles.wrapDark
           : { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
+      accessibilityRole="tablist"
     >
       <Pressable
         onPress={() => void setLang('ar')}
-        hitSlop={12}
+        hitSlop={8}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: lang === 'ar' }}
+        accessibilityLabel={t('common.arabic')}
         style={[styles.btn, lang === 'ar' && { backgroundColor: onDark ? colors.accent : colors.primary }]}
       >
         <Text
@@ -45,12 +51,15 @@ export function LanguageToggle({ onDark }: Props) {
             lang === 'ar' && { color: onDark ? colors.primaryDark : colors.white },
           ]}
         >
-          ع
+          {t('common.arabic')}
         </Text>
       </Pressable>
       <Pressable
         onPress={() => void setLang('en')}
-        hitSlop={12}
+        hitSlop={8}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: lang === 'en' }}
+        accessibilityLabel={t('common.english')}
         style={[styles.btn, lang === 'en' && { backgroundColor: onDark ? colors.accent : colors.primary }]}
       >
         <Text
@@ -60,7 +69,7 @@ export function LanguageToggle({ onDark }: Props) {
             lang === 'en' && { color: onDark ? colors.primaryDark : colors.white },
           ]}
         >
-          EN
+          {t('common.english')}
         </Text>
       </Pressable>
     </View>
@@ -77,9 +86,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   btn: {
-    minWidth: 36,
     minHeight: 32,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',

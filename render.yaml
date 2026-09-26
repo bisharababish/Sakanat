@@ -25,3 +25,5 @@ services:
         sync: false
       - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
         sync: false
+      - key: EXPO_PUBLIC_ADMIN_EMAIL
+        sync: false

@@ -19,14 +19,14 @@
       <h1 data-i18n="admin.loginTitle">تسجيل دخول الإدارة</h1>
       <p data-i18n="admin.loginHint">ادخل ببريد وكلمة مرور حساب الأدمن (نفس حساب التطبيق).</p>
       <div id="loginErr" class="err hidden"></div>
-      <form id="loginForm" autocomplete="on">
+      <form id="loginForm" autocomplete="off">
         <div class="field">
           <label for="email" data-i18n="admin.email">البريد</label>
-          <input id="email" type="email" autocomplete="username" dir="ltr" required />
+          <input id="email" name="email" type="email" autocomplete="username" dir="ltr" required spellcheck="false" />
         </div>
         <div class="field">
           <label for="password" data-i18n="admin.password">كلمة المرور</label>
-          <input id="password" type="password" autocomplete="current-password" dir="ltr" required />
+          <input id="password" name="password" type="password" autocomplete="current-password" dir="ltr" required minlength="8" />
         </div>
         <button class="btn" id="loginBtn" type="submit" data-i18n="admin.signIn">تسجيل الدخول</button>
       </form>

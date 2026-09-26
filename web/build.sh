@@ -4,6 +4,7 @@ cd "$(dirname "$0")"
 
 URL="${EXPO_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-}}"
 KEY="${EXPO_PUBLIC_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY:-}}"
+ADMIN_EMAIL="${EXPO_PUBLIC_ADMIN_EMAIL:-${ADMIN_EMAIL:-}}"
 
 if [ -z "$URL" ] || [ -z "$KEY" ]; then
   echo "Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY — writing placeholder config.js"
@@ -11,13 +12,13 @@ if [ -z "$URL" ] || [ -z "$KEY" ]; then
   exit 0
 fi
 
-# Escape for JS single-quoted strings
 esc() { printf '%s' "$1" | sed "s/'/\\\\'/g"; }
 
 cat > config.js <<EOF
 window.MATRA7 = {
   supabaseUrl: '$(esc "$URL")',
   supabaseAnonKey: '$(esc "$KEY")',
+  adminEmail: '$(esc "$ADMIN_EMAIL")',
 };
 EOF
 
