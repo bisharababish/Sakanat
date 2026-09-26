@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { MenuButton } from '@/components/menu/MenuButton';
 import { BackButton, goBack } from '@/components/ui/BackButton';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
@@ -13,28 +12,18 @@ type Props = {
   showMenu?: boolean;
   onBack?: () => void;
   extra?: ReactNode;
-  /** Hide the global language toggle (rare). */
-  hideLanguage?: boolean;
 };
 
-export function ChromeBar({
-  back = false,
-  compactBack = false,
-  showMenu,
-  onBack,
-  extra,
-  hideLanguage = false,
-}: Props) {
+export function ChromeBar({ back = false, compactBack = false, showMenu, onBack, extra }: Props) {
   const menu = showMenu ?? !back;
   useEdgeBack(Boolean(back), onBack ?? goBack);
-  if (!back && !menu && !extra && hideLanguage) return null;
+  if (!back && !menu && !extra) return null;
 
   return (
-    <View style={[styles.bar, back || extra || !hideLanguage ? styles.spread : styles.end]}>
+    <View style={[styles.bar, back || extra ? styles.spread : styles.end]}>
       {back ? <BackButton compact={compactBack} onPress={onBack} /> : null}
       <View style={styles.trail}>
         {extra}
-        {hideLanguage ? null : <LanguageToggle />}
         {menu ? <MenuButton /> : null}
       </View>
     </View>

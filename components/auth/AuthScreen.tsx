@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { ChromeBar } from '@/components/ui/ChromeBar';
 import { spacing } from '@/src/theme/colors';
@@ -14,14 +15,14 @@ type Props = {
   onBack?: () => void;
   center?: boolean;
   scroll?: boolean;
-  /** Show language toggle (default on). */
+  /** Auth-only language control (welcome). Everywhere else: hamburger menu. */
   language?: boolean;
 };
 
 const KB_OFFSET_IOS = 8;
 const KB_OFFSET_ANDROID = 0;
 
-export function AuthScreen({ children, footer, back = false, onBack, center = true, scroll = true, language = true }: Props) {
+export function AuthScreen({ children, footer, back = false, onBack, center = true, scroll = true, language = false }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const body = (
@@ -56,7 +57,7 @@ export function AuthScreen({ children, footer, back = false, onBack, center = tr
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-      <ChromeBar back={back} showMenu={false} onBack={onBack} hideLanguage={!language} />
+      <ChromeBar back={back} showMenu={false} onBack={onBack} extra={language ? <LanguageToggle /> : undefined} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

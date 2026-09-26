@@ -8,10 +8,9 @@ import { useTranslation } from 'react-i18next';
 import Animated, { Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandLogo } from '@/components/BrandLogo';
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { FaqList } from '@/components/menu/FaqList';
 import { Button } from '@/components/ui/Button';
+import { LanguageToggle } from '@/components/LanguageToggle';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
@@ -128,9 +127,9 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
     opacity: interpolate(progress.value, [0, 1], [0, 1]),
   }));
 
-  const startX = sheetWidth;
+  // Keep drawer on the physical right edge (LTR frame) so RTL UI never centers it.
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: interpolate(progress.value, [0, 1], [startX, 0]) }],
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [sheetWidth, 0]) }],
   }));
 
   const goProfile = (tab?: ProfileTab) => {
@@ -245,7 +244,7 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onEdgeBack}>
-      <View style={styles.frame} {...edgeBack}>
+      <View style={[styles.frame, { direction: 'ltr' }]} {...edgeBack}>
         <Animated.View style={[styles.dim, overlayStyle, { backgroundColor: colors.overlay }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.close')} />
         </Animated.View>
@@ -277,12 +276,12 @@ export function AppMenu({ visible, onClose }: { visible: boolean; onClose: () =>
                   <Ionicons name={isRtl ? 'chevron-forward' : 'chevron-back'} size={20} color={colors.white} />
                 </Pressable>
               ) : (
-                <View style={styles.logoWrap}>
-                  <BrandLogo badge size={72} />
+                <View style={styles.logoWrap} accessibilityRole="image" accessibilityLabel={t('appName')}>
+                  <Image source={require('@/assets/images/logo.jpeg')} style={styles.logo} contentFit="cover" />
                 </View>
               )}
               <Text style={[styles.title, copy]}>
-                {pane === 'root' ? t('appName') : paneTitle}
+                {pane === 'root' ? t('appNameMark') : paneTitle}
               </Text>
               <Pressable
                 onPress={onClose}
@@ -811,15 +810,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
   logoWrap: {
-    width: 78,
-    height: 54,
-    borderRadius: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: { width: 28, height: 28 },
+  logo: { width: 48, height: 48 },
   body: { padding: spacing.sm + 4, gap: spacing.sm, paddingBottom: 28 },
   hero: {
     flexDirection: 'row',

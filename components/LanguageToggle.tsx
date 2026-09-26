@@ -1,5 +1,4 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
 
 import { useLayout } from '@/src/hooks/useLayout';
 import { changeAppLanguage } from '@/src/i18n';
@@ -13,7 +12,6 @@ type Props = {
 };
 
 export function LanguageToggle({ onDark }: Props) {
-  const { t } = useTranslation();
   const { lang } = useLayout();
   const { profile } = useAuth();
   const colors = useColors();
@@ -38,10 +36,10 @@ export function LanguageToggle({ onDark }: Props) {
     >
       <Pressable
         onPress={() => void setLang('ar')}
-        hitSlop={8}
+        hitSlop={12}
         accessibilityRole="tab"
         accessibilityState={{ selected: lang === 'ar' }}
-        accessibilityLabel={t('common.arabic')}
+        accessibilityLabel="العربية"
         style={[styles.btn, lang === 'ar' && { backgroundColor: onDark ? colors.accent : colors.primary }]}
       >
         <Text
@@ -51,15 +49,15 @@ export function LanguageToggle({ onDark }: Props) {
             lang === 'ar' && { color: onDark ? colors.primaryDark : colors.white },
           ]}
         >
-          {t('common.arabic')}
+          ع
         </Text>
       </Pressable>
       <Pressable
         onPress={() => void setLang('en')}
-        hitSlop={8}
+        hitSlop={12}
         accessibilityRole="tab"
         accessibilityState={{ selected: lang === 'en' }}
-        accessibilityLabel={t('common.english')}
+        accessibilityLabel="English"
         style={[styles.btn, lang === 'en' && { backgroundColor: onDark ? colors.accent : colors.primary }]}
       >
         <Text
@@ -69,7 +67,7 @@ export function LanguageToggle({ onDark }: Props) {
             lang === 'en' && { color: onDark ? colors.primaryDark : colors.white },
           ]}
         >
-          {t('common.english')}
+          EN
         </Text>
       </Pressable>
     </View>
@@ -86,8 +84,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   btn: {
+    minWidth: 36,
     minHeight: 32,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
