@@ -83,7 +83,7 @@ export function readOffer(list: string[] | null | undefined): ListingOffer {
     else if (key === 'deposit' && /^\d{1,7}$/.test(value)) offer.deposit = value;
     else if (key === 'area') offer.area = value.slice(0, 80);
     else if (key === 'street') offer.street = value.slice(0, 80);
-    else if (key === 'video') offer.video = value.slice(0, 300);
+    else if (key === 'video') offer.video = value.slice(0, 800);
   }
   if (!offer.furnish && (list ?? []).includes('furnished')) offer.furnish = 'full';
   return offer;
@@ -105,7 +105,7 @@ export function packAmenities(amenities: string[], offer: ListingOffer) {
   if (offer.deposit) tokens.push(`~deposit=${offer.deposit.replace(/\D/g, '').slice(0, 7)}`);
   if (offer.area.trim()) tokens.push(`~area=${encodeToken(offer.area)}`);
   if (offer.street.trim()) tokens.push(`~street=${encodeToken(offer.street)}`);
-  if (offer.video.trim()) tokens.push(`~video=${encodeToken(offer.video)}`);
+  if (offer.video.trim().startsWith('http')) tokens.push(`~video=${encodeToken(offer.video.trim())}`);
   return [...new Set([...base, ...tokens])];
 }
 

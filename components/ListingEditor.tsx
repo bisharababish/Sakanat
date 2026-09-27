@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, findNodeHandle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ListingVideo } from '@/components/ListingVideo';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -28,15 +29,16 @@ import {
 } from '@/src/lib/listingPlace';
 import { applyStayToBuilding, isListingStaySqlMissing, listingNeedsStayNotes, listingStayPayload, stayFromApartment } from '@/src/lib/listingStay';
 import {
+  LISTING_MAX_PHOTOS,
   LISTING_MIN_PHOTOS,
   listingQualityIssues,
   type ListingQualityIssue,
 } from '@/src/lib/listingQuality';
-import { pickListingPhotos } from '@/src/lib/pickImage';
+import { pickListingPhotos, pickListingVideo, takeListingVideo } from '@/src/lib/pickImage';
 import { ownerListingGapTab } from '@/src/lib/studentProfile';
 import { supabase } from '@/src/lib/supabase';
 import { listingGateMessage, ownerReadyForListing } from '@/src/lib/trust';
-import { uploadApartmentPhoto } from '@/src/lib/upload';
+import { uploadApartmentPhoto, uploadApartmentVideo } from '@/src/lib/upload';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
 import {
@@ -253,16 +255,31 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
   };
 
   const addPhoto = async () => {
-    if (!profile) return;
-    const uris = await pickListingPhotos(Math.max(1, 12 - photos.length));
+    if (!profile || photos.length >= LISTING_MAX_PHOTOS) return;
+    const uris = await pickListingPhotos(LISTING_MAX_PHOTOS - photos.length);
     if (!uris.length) return;
     setLoading(true);
     try {
       const urls: string[] = [];
-      for (const uri of uris) {
+      for (const uri of uris.slice(0, LISTING_MAX_PHOTOS - photos.length)) {
         urls.push(await uploadApartmentPhoto(profile.id, uri));
       }
-      setPhotos((current) => [...current, ...urls].slice(0, 10));
+      setPhotos((current) => [...current, ...urls].slice(0, LISTING_MAX_PHOTOS));
+    } catch (err) {
+      alert(t('common.error'), err instanceof Error ? err.message : '');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addVideo = async (fromCamera: boolean) => {
+    if (!profile) return;
+    const uri = fromCamera ? await takeListingVideo() : await pickListingVideo();
+    if (!uri) return;
+    setLoading(true);
+    try {
+      const url = await uploadApartmentVideo(profile.id, uri);
+      setOffer((current) => ({ ...current, video: url }));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
@@ -423,7 +440,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       area_m2: area ? Number(area) : null,
       gender_policy: gender,
       amenities: packAmenities(amenities, offer),
-      photos,
+      photos: photos.slice(0, LISTING_MAX_PHOTOS),
       lat: university?.lat ?? city?.lat ?? 31.9,
       lng: university?.lng ?? city?.lng ?? 35.2,
       campus_distance_km: campusKm ? Number(campusKm) : null,
@@ -542,10 +559,14 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       <Text style={[styles.title, rtlText, { color: colors.text }]}>{apartment ? t('owner.editListing') : t('owner.addListing')}</Text>
       <Text style={[styles.sub, rtlText, { color: colors.textMuted }]}>{t('owner.addHint')}</Text>
 
-      <Card>
+      <Card compact>
         <SectionHead icon="images-outline" title={t('owner.photos')} />
         <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
-          {t('owner.qualityPhotosHint', { count: LISTING_MIN_PHOTOS })}
+          {t('owner.qualityPhotosHint', {
+            count: photos.length,
+            min: LISTING_MIN_PHOTOS,
+            max: LISTING_MAX_PHOTOS,
+          })}
         </Text>
         {cover ? (
           <Pressable
@@ -576,7 +597,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
               <Image source={{ uri }} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
             </Pressable>
           ))}
-          {photos.length < 10 ? (
+          {photos.length < LISTING_MAX_PHOTOS ? (
             <Pressable
               onPress={() => void addPhoto()}
               style={[styles.addTile, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}
@@ -589,17 +610,46 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
             </Pressable>
           ) : null}
         </View>
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('offer.videoHint')}</Text>
+        {offer.video.startsWith('http') ? (
+          <>
+            <ListingVideo uri={offer.video} />
+            <Button
+              title={t('offer.removeVideo')}
+              variant="secondary"
+              compact
+              pill
+              onPress={() => setOffer((current) => ({ ...current, video: '' }))}
+            />
+          </>
+        ) : (
+          <View style={styles.pair}>
+            <View style={styles.pairItem}>
+              <Button title={t('offer.pickVideo')} compact pill onPress={() => void addVideo(false)} loading={loading} />
+            </View>
+            <View style={styles.pairItem}>
+              <Button
+                title={t('offer.recordVideo')}
+                variant="secondary"
+                compact
+                pill
+                onPress={() => void addVideo(true)}
+                loading={loading}
+              />
+            </View>
+          </View>
+        )}
       </Card>
 
-      <Card>
+      <Card compact>
         <SectionHead icon="create-outline" title={t('owner.basicsTitle')} />
-        <Input label={t('owner.titleAr')} value={titleAr} onChangeText={setTitleAr} />
-        <Input label={t('owner.titleEn')} value={titleEn} onChangeText={setTitleEn} />
-        <Input label={t('owner.descAr')} value={descAr} onChangeText={setDescAr} multiline />
-        <Input label={t('owner.descEn')} value={descEn} onChangeText={setDescEn} multiline />
+        <Input compact label={t('owner.titleAr')} value={titleAr} onChangeText={setTitleAr} />
+        <Input compact label={t('owner.titleEn')} value={titleEn} onChangeText={setTitleEn} />
+        <Input compact label={t('owner.descAr')} value={descAr} onChangeText={setDescAr} multiline />
+        <Input compact label={t('owner.descEn')} value={descEn} onChangeText={setDescEn} multiline />
       </Card>
 
-      <Card>
+      <Card compact>
         <SectionHead icon="location-outline" title={t('owner.locationTitle')} />
         <Select
           label={t('common.city')}
@@ -611,6 +661,21 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         {!asAdmin && profile?.city_id && cityId && profile.city_id !== cityId ? (
           <Text style={[styles.hint, rtlText, { color: colors.warning }]}>{t('owner.cityMismatch')}</Text>
         ) : null}
+        <Input
+          compact
+          label={t('offer.area')}
+          value={offer.area}
+          onChangeText={(areaName) => setOffer((current) => ({ ...current, area: areaName }))}
+          placeholder={t('offer.areaPlaceholder')}
+        />
+        <Input
+          compact
+          label={t('offer.street')}
+          value={offer.street}
+          onChangeText={(street) => setOffer((current) => ({ ...current, street }))}
+          placeholder={t('offer.streetPlaceholder')}
+          hint={t('offer.streetHint')}
+        />
         <SearchSelect
           label={t('owner.nearestUni')}
           value={universityId}
@@ -621,6 +686,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('owner.campusKm')}</Text>
         <FilterPills
+          compact
           value={campusKm}
           onChange={setCampusKm}
           allowDeselect
@@ -631,10 +697,11 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         />
       </Card>
 
-      <Card>
+      <Card compact>
         <SectionHead icon="business-outline" title={t('owner.placeTitle')} />
         <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('owner.placeHint')}</Text>
         <Input
+          compact
           label={t('owner.buildingName')}
           value={buildingName}
           onChangeText={setBuildingName}
@@ -644,6 +711,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
           <>
             <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('owner.yourBuildings')}</Text>
             <FilterPills
+              compact
               value={buildingName}
               onChange={applyBuilding}
               allowDeselect
@@ -653,6 +721,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         ) : null}
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('owner.floor')}</Text>
         <FilterPills
+          compact
           value={floor}
           onChange={setFloor}
           allowDeselect
@@ -667,6 +736,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
           }))}
         />
         <Input
+          compact
           label={t('owner.floorCustom')}
           value={floor}
           onChangeText={(value) => setFloor(value.replace(/[^\d-]/g, '').slice(0, 4))}
@@ -675,6 +745,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         />
         <View ref={unitWrapRef} collapsable={false}>
           <Input
+            compact
             label={t('owner.unitNumber')}
             value={unitNumber}
             onChangeText={setUnitNumber}
@@ -684,74 +755,59 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         </View>
       </Card>
 
-      <Card>
-        <SectionHead icon="clipboard-outline" title={t('owner.stayTitle')} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('owner.stayHint')}</Text>
-        {stayGap ? (
-          <Text style={[styles.hint, rtlText, { color: colors.warning }]}>{t('owner.stayQualityHint')}</Text>
-        ) : null}
-        <Input
-          label={t('owner.houseRulesAr')}
-          value={houseRulesAr}
-          onChangeText={setHouseRulesAr}
-          multiline
-          maxLength={800}
-          hint={t('owner.houseRulesHint')}
+      <Card compact>
+        <SectionHead icon="home-outline" title={t('offer.homeTitle')} />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.housingLabel')}</Text>
+        <FilterPills
+          compact
+          value={offer.housing}
+          onChange={(housing) => setOffer((current) => ({ ...current, housing: housing as HousingType }))}
+          allowDeselect
+          items={(['apartment', 'studio', 'room'] as HousingType[]).map((value) => ({
+            value,
+            label: t(`offer.housing.${value}`),
+          }))}
         />
-        <Input
-          label={t('owner.houseRulesEn')}
-          value={houseRulesEn}
-          onChangeText={setHouseRulesEn}
-          multiline
-          maxLength={800}
-        />
-        <Input
-          label={t('owner.checkInAr')}
-          value={checkInAr}
-          onChangeText={setCheckInAr}
-          multiline
-          maxLength={600}
-          hint={t('owner.checkInHint')}
-        />
-        <Input
-          label={t('owner.checkInEn')}
-          value={checkInEn}
-          onChangeText={setCheckInEn}
-          multiline
-          maxLength={600}
-        />
-        {buildingName.trim() && (buildingUnitCount > 1 || apartment) ? (
-          <Button
-            title={t('owner.applyStayBuilding')}
-            variant="secondary"
-            pill
-            loading={applyingStay}
-            onPress={pushStayToBuilding}
-          />
-        ) : null}
-      </Card>
-
-      <Card>
-        <SectionHead icon="home-outline" title={t('owner.detailsTitle')} />
-        <Input label={t('common.price')} value={price} onChangeText={setPrice} keyboardType="numeric" />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('common.rooms')}</Text>
         <FilterPills
+          compact
           value={rooms}
           onChange={setRooms}
           items={ROOM_COUNTS.map((value) => ({ value, label: value }))}
         />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('common.bathrooms')}</Text>
         <FilterPills
+          compact
           value={baths}
           onChange={setBaths}
           items={BATH_COUNTS.map((value) => ({ value, label: value }))}
         />
-        <Input label={t('owner.area')} value={area} onChangeText={setArea} keyboardType="numeric" />
-      </Card>
-
-      <Card>
-        <SectionHead icon="people-outline" title={t('search.whoFor')} />
+        <Input compact label={t('owner.area')} value={area} onChangeText={setArea} keyboardType="numeric" />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.furnishLabel')}</Text>
         <FilterPills
+          compact
+          value={offer.furnish}
+          onChange={(furnish) => setOffer((current) => ({ ...current, furnish: furnish as FurnishLevel }))}
+          allowDeselect
+          items={(['full', 'part', 'empty'] as FurnishLevel[]).map((value) => ({
+            value,
+            label: t(`offer.furnish.${value}`),
+          }))}
+        />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.conditionLabel')}</Text>
+        <FilterPills
+          compact
+          value={offer.condition}
+          onChange={(condition) => setOffer((current) => ({ ...current, condition: condition as ConditionLevel }))}
+          allowDeselect
+          items={(['new', 'good', 'fair'] as ConditionLevel[]).map((value) => ({
+            value,
+            label: t(`offer.condition.${value}`),
+          }))}
+        />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('search.whoFor')}</Text>
+        <FilterPills
+          compact
           value={gender}
           onChange={setGender}
           items={(['any', 'female', 'male'] as GenderPolicy[]).map((value) => ({
@@ -761,30 +817,15 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         />
       </Card>
 
-      <Card>
-        <SectionHead icon="home-outline" title={t('offer.title')} />
-        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('offer.hint')}</Text>
+      <Card compact>
+        <SectionHead icon="cash-outline" title={t('offer.rentTitle')} />
+        <Input compact label={t('common.price')} value={price} onChangeText={setPrice} keyboardType="numeric" />
         <Input
-          label={t('offer.area')}
-          value={offer.area}
-          onChangeText={(area) => setOffer((current) => ({ ...current, area }))}
-          placeholder={t('offer.areaPlaceholder')}
-        />
-        <Input
-          label={t('offer.street')}
-          value={offer.street}
-          onChangeText={(street) => setOffer((current) => ({ ...current, street }))}
-          placeholder={t('offer.streetPlaceholder')}
-        />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.housingLabel')}</Text>
-        <FilterPills
-          value={offer.housing}
-          onChange={(housing) => setOffer((current) => ({ ...current, housing: housing as HousingType }))}
-          allowDeselect
-          items={(['apartment', 'studio', 'room'] as HousingType[]).map((value) => ({
-            value,
-            label: t(`offer.housing.${value}`),
-          }))}
+          compact
+          label={t('offer.depositLabel')}
+          value={offer.deposit}
+          onChangeText={(deposit) => setOffer((current) => ({ ...current, deposit: deposit.replace(/\D/g, '').slice(0, 7) }))}
+          keyboardType="number-pad"
         />
         <DateField
           kind="booking"
@@ -794,28 +835,28 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.minStayLabel')}</Text>
         <FilterPills
+          compact
           value={offer.minStay}
           onChange={(minStay) => setOffer((current) => ({ ...current, minStay }))}
           allowDeselect
           items={['1', '3', '6', '12'].map((value) => ({ value, label: t('offer.minStay', { count: value }) }))}
         />
         <Input
+          compact
           label={t('offer.occupantsLabel')}
           value={offer.occupants}
           onChangeText={(occupants) => setOffer((current) => ({ ...current, occupants: occupants.replace(/\D/g, '').slice(0, 2) }))}
           keyboardType="number-pad"
         />
-        <Input
-          label={t('offer.depositLabel')}
-          value={offer.deposit}
-          onChangeText={(deposit) => setOffer((current) => ({ ...current, deposit: deposit.replace(/\D/g, '').slice(0, 7) }))}
-          keyboardType="number-pad"
-        />
         <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.bills')}</Text>
         {(['water', 'power', 'net'] as const).map((bill) => (
-          <View key={bill} style={{ gap: 4 }}>
-            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(`offer.${bill === 'net' ? 'internet' : bill === 'power' ? 'power' : 'water'}`)}</Text>
+          <View key={bill} style={styles.bill}>
+            <Text style={[styles.billLabel, rtlText, { color: colors.textMuted }]}>
+              {t(`offer.${bill === 'net' ? 'internet' : bill === 'power' ? 'power' : 'water'}`)}
+            </Text>
             <FilterPills
+              compact
+              stretch
               value={offer[bill]}
               onChange={(value) => setOffer((current) => ({ ...current, [bill]: value as BillMode }))}
               allowDeselect
@@ -826,40 +867,13 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
             />
           </View>
         ))}
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.conditionLabel')}</Text>
-        <FilterPills
-          value={offer.condition}
-          onChange={(condition) => setOffer((current) => ({ ...current, condition: condition as ConditionLevel }))}
-          allowDeselect
-          items={(['new', 'good', 'fair'] as ConditionLevel[]).map((value) => ({
-            value,
-            label: t(`offer.condition.${value}`),
-          }))}
-        />
-        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.furnishLabel')}</Text>
-        <FilterPills
-          value={offer.furnish}
-          onChange={(furnish) => setOffer((current) => ({ ...current, furnish: furnish as FurnishLevel }))}
-          allowDeselect
-          items={(['full', 'part', 'empty'] as FurnishLevel[]).map((value) => ({
-            value,
-            label: t(`offer.furnish.${value}`),
-          }))}
-        />
-        <Input
-          label={t('offer.video')}
-          value={offer.video}
-          onChangeText={(video) => setOffer((current) => ({ ...current, video }))}
-          placeholder={t('offer.videoPlaceholder')}
-          autoCapitalize="none"
-          ltr
-        />
         <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('offer.whatsappHint')}</Text>
       </Card>
 
-      <Card>
+      <Card compact>
         <SectionHead icon="star-outline" title={t('listing.amenities')} />
         <FilterPills
+          compact
           values={amenities}
           onToggle={toggleAmenity}
           items={AMENITIES.filter((item) => item !== 'furnished').map((item) => ({
@@ -867,6 +881,58 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
             label: t(`amenities.${item}`),
           }))}
         />
+      </Card>
+
+      <Card compact>
+        <SectionHead icon="clipboard-outline" title={t('owner.stayTitle')} />
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('owner.stayHint')}</Text>
+        {stayGap ? (
+          <Text style={[styles.hint, rtlText, { color: colors.warning }]}>{t('owner.stayQualityHint')}</Text>
+        ) : null}
+        <Input
+          compact
+          label={t('owner.houseRulesAr')}
+          value={houseRulesAr}
+          onChangeText={setHouseRulesAr}
+          multiline
+          maxLength={800}
+          hint={t('owner.houseRulesHint')}
+        />
+        <Input
+          compact
+          label={t('owner.houseRulesEn')}
+          value={houseRulesEn}
+          onChangeText={setHouseRulesEn}
+          multiline
+          maxLength={800}
+        />
+        <Input
+          compact
+          label={t('owner.checkInAr')}
+          value={checkInAr}
+          onChangeText={setCheckInAr}
+          multiline
+          maxLength={600}
+          hint={t('owner.checkInHint')}
+        />
+        <Input
+          compact
+          label={t('owner.checkInEn')}
+          value={checkInEn}
+          onChangeText={setCheckInEn}
+          multiline
+          maxLength={600}
+        />
+        {buildingName.trim() && (buildingUnitCount > 1 || apartment) ? (
+          <Button
+            title={t('owner.applyStayBuilding')}
+            variant="secondary"
+            compact
+            pill
+            loading={applyingStay}
+            onPress={pushStayToBuilding}
+          />
+        ) : null}
       </Card>
 
       {asAdmin ? (
@@ -965,5 +1031,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addTileText: { fontSize: 11, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  pair: { flexDirection: 'row', gap: 8 },
+  pairItem: { flex: 1 },
+  bill: { gap: 4 },
+  billLabel: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
   note: { lineHeight: 22, fontFamily: 'Cairo_400Regular' },
 });

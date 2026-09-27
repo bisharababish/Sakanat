@@ -1,5 +1,6 @@
 /** Listing quality rules for owner publish / admin review. */
 export const LISTING_MIN_PHOTOS = 3;
+export const LISTING_MAX_PHOTOS = 10;
 export const LISTING_MIN_DESC = 40;
 export const LISTING_MIN_AMENITIES = 1;
 

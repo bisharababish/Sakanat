@@ -1,5 +1,6 @@
 export const MESSAGE_MAX = 2000;
 export const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+export const VIDEO_MAX_BYTES = 40 * 1024 * 1024;
 export const AUDIO_MAX_BYTES = 8 * 1024 * 1024;
 export const VOICE_MAX_MS = 60_000;
 export const PHOTO_TYPES = new Set(['jpg', 'jpeg', 'png', 'webp']);

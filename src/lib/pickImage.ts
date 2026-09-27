@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 
 import i18n from '@/src/i18n';
-import { PHOTO_MAX_BYTES } from '@/src/lib/limits';
+import { PHOTO_MAX_BYTES, VIDEO_MAX_BYTES } from '@/src/lib/limits';
 import { alert } from '@/src/lib/notice';
 
 function confirm(title: string, message: string, confirmTitle: string) {
@@ -164,4 +164,51 @@ export async function pickListingPhotos(remaining: number) {
     count === 1 ? i18n.t('owner.usePhoto') : i18n.t('owner.usePhotos'),
   );
   return ok ? usable.map((asset) => asset.uri) : [];
+}
+
+async function pickVideo(launch: () => Promise<ImagePicker.ImagePickerResult>) {
+  const result = await launch();
+  if (result.canceled || !result.assets[0]) return null;
+  const asset = result.assets[0];
+  if (asset.fileSize != null && asset.fileSize > VIDEO_MAX_BYTES) {
+    alert(i18n.t('common.error'), i18n.t('owner.videoTooLarge'));
+    return null;
+  }
+  const ok = await confirm(i18n.t('owner.confirmVideo'), i18n.t('owner.confirmVideoBody'), i18n.t('owner.useVideo'));
+  return ok ? asset.uri : null;
+}
+
+export async function pickListingVideo() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    alert(i18n.t('common.error'), i18n.t('owner.videoPermission'));
+    return null;
+  }
+  return pickVideo(() =>
+    ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['videos'],
+      allowsEditing: false,
+      videoMaxDuration: 60,
+      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
+    }),
+  );
+}
+
+export async function takeListingVideo() {
+  const camera = await ImagePicker.requestCameraPermissionsAsync();
+  if (!camera.granted) {
+    alert(i18n.t('common.error'), i18n.t('owner.videoPermission'));
+    return null;
+  }
+  const library = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!library.granted) {
+    alert(i18n.t('common.error'), i18n.t('owner.videoPermission'));
+    return null;
+  }
+  return pickVideo(() =>
+    ImagePicker.launchCameraAsync({
+      mediaTypes: ['videos'],
+      videoMaxDuration: 60,
+    }),
+  );
 }

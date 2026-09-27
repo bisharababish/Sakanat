@@ -3,7 +3,7 @@ import * as LegacyFS from 'expo-file-system/legacy';
 
 import i18n from '@/src/i18n';
 import { supabase } from '@/src/lib/supabase';
-import { AUDIO_MAX_BYTES, PHOTO_MAX_BYTES, photoExt } from '@/src/lib/limits';
+import { AUDIO_MAX_BYTES, PHOTO_MAX_BYTES, VIDEO_MAX_BYTES, photoExt } from '@/src/lib/limits';
 
 const ID_DOCS_BUCKET = 'id-docs';
 const PUBLIC_BUCKET = 'apartment-photos';
@@ -79,6 +79,29 @@ async function uploadPublicImage(path: string, uri: string, upsert = false) {
 export async function uploadApartmentPhoto(userId: string, uri: string) {
   const ext = photoExt(uri);
   return uploadPublicImage(`${userId}/${Date.now()}.${ext}`, uri);
+}
+
+function videoFile(uri: string) {
+  const ext = uri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? '';
+  if (ext === 'mov') return { ext: 'mov', type: 'video/quicktime' };
+  if (ext === 'webm') return { ext: 'webm', type: 'video/webm' };
+  return { ext: 'mp4', type: 'video/mp4' };
+}
+
+export async function uploadApartmentVideo(userId: string, uri: string) {
+  const buffer = await readLocalBuffer(uri);
+  if (buffer.byteLength > VIDEO_MAX_BYTES) {
+    throw new Error(i18n.t('owner.videoTooLarge'));
+  }
+  const file = videoFile(uri);
+  const path = `${userId}/${Date.now()}.${file.ext}`;
+  const { error } = await supabase.storage.from(PUBLIC_BUCKET).upload(path, buffer, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from(PUBLIC_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }
 
 export async function uploadProfilePhoto(userId: string, uri: string) {

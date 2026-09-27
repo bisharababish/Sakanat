@@ -18,6 +18,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ListingVideo } from '@/components/ListingVideo';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { OwnerSeenCard } from '@/components/profile/OwnerSeenCard';
 import { ListingReviews } from '@/components/reviews/ListingReviews';
@@ -35,7 +36,7 @@ import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
 import { listingShareUrl } from '@/src/lib/pushRouting';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
-import { offerFacts, publicAmenities } from '@/src/lib/listingOffer';
+import { publicAmenities, readOffer } from '@/src/lib/listingOffer';
 import { displayName } from '@/src/lib/name';
 import { ownerPublicLines } from '@/src/lib/ownerPublic';
 import { loadApartmentReviews } from '@/src/lib/reviews';
@@ -67,6 +68,17 @@ function Fact({
       <Text style={[styles.factText, { color: warn ? colors.danger : colors.text }]} numberOfLines={3}>
         {text}
       </Text>
+    </View>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  const colors = useColors();
+  const { rtlText } = useLayout();
+  return (
+    <View style={[styles.detail, { borderColor: colors.border }]}>
+      <Text style={[styles.detailLabel, rtlText, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.detailValue, rtlText, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -195,6 +207,23 @@ export function ApartmentView({
   }
 
   const city = localizedName(apartment.cities, i18n.language);
+  const offer = readOffer(apartment.amenities);
+  const placeRows = [
+    offer.area ? [t('offer.area'), offer.area] : null,
+    offer.street ? [t('offer.streetName'), offer.street] : null,
+    offer.housing ? [t('offer.housingLabel'), t(`offer.housing.${offer.housing}`)] : null,
+    offer.furnish ? [t('offer.furnishLabel'), t(`offer.furnish.${offer.furnish}`)] : null,
+    offer.condition ? [t('offer.conditionLabel'), t(`offer.condition.${offer.condition}`)] : null,
+    offer.availableFrom ? [t('offer.availableLabel'), offer.availableFrom] : null,
+    offer.minStay ? [t('offer.minStayLabel'), t('offer.minStay', { count: offer.minStay })] : null,
+    offer.occupants ? [t('offer.occupantsLabel'), offer.occupants] : null,
+  ].filter((row): row is [string, string] => row != null);
+  const billRows = [
+    offer.water ? [t('offer.water'), t(`offer.billMode.${offer.water}`)] : null,
+    offer.power ? [t('offer.power'), t(`offer.billMode.${offer.power}`)] : null,
+    offer.net ? [t('offer.internet'), t(`offer.billMode.${offer.net}`)] : null,
+    offer.deposit ? [t('offer.depositLabel'), `₪${offer.deposit}`] : null,
+  ].filter((row): row is [string, string] => row != null);
   const shareListing = async () => {
     try {
       const link = listingShareUrl(apartment.id);
@@ -350,9 +379,6 @@ export function ApartmentView({
           {apartment.area_m2 ? <Fact icon="resize-outline" text={t('listing.area', { area: apartment.area_m2 })} /> : null}
           <Fact icon="people-circle-outline" text={t('listing.fitsPeople', { count: MAX_OCCUPANTS })} />
           <Fact icon="people-outline" text={t(`gender.${apartment.gender_policy}`)} warn={mismatch} />
-          {offerFacts(apartment.amenities, t).lines.map((line) => (
-            <Fact key={line.text} icon={line.icon} text={line.text} />
-          ))}
           {distance != null ? <Fact icon="navigate-outline" text={formatKm(distance, lang, distancePlace)} /> : null}
           {(apartment.review_count ?? reviews.length) > 0 ? (
             <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
@@ -366,13 +392,30 @@ export function ApartmentView({
         {mismatch && !preview && !bookGate ? (
           <Text style={[styles.warn, copy, { color: colors.danger }]}>{t('listing.genderMismatch')}</Text>
         ) : null}
-        {offerFacts(apartment.amenities, t).offer.video.startsWith('http') ? (
-          <Button
-            title={t('offer.watchVideo')}
-            variant="secondary"
-            pill
-            onPress={() => Linking.openURL(offerFacts(apartment.amenities, t).offer.video)}
-          />
+
+        {placeRows.length > 0 ? (
+          <Card>
+            <SectionHead icon="home-outline" title={t('offer.placeCard')} />
+            {placeRows.map(([label, value]) => (
+              <Detail key={label} label={label} value={value} />
+            ))}
+          </Card>
+        ) : null}
+
+        {billRows.length > 0 ? (
+          <Card>
+            <SectionHead icon="cash-outline" title={t('offer.moneyCard')} />
+            {billRows.map(([label, value]) => (
+              <Detail key={label} label={label} value={value} />
+            ))}
+          </Card>
+        ) : null}
+
+        {offer.video.startsWith('http') ? (
+          <Card>
+            <SectionHead icon="videocam-outline" title={t('offer.videoTitle')} />
+            <ListingVideo uri={offer.video} />
+          </Card>
         ) : null}
 
         {localizedDescription(apartment, i18n.language) ? (
@@ -691,6 +734,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   factText: { fontSize: 12, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  detail: {
+    gap: 2,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  detailLabel: { fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
+  detailValue: { fontSize: 16, lineHeight: 22, fontFamily: 'Cairo_700Bold' },
   mapsRow: { alignItems: 'center', gap: 8 },
   mapsCopy: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
   warn: { fontFamily: 'Cairo_600SemiBold', fontSize: 14 },
