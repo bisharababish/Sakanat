@@ -9,6 +9,7 @@ import { SectionHead } from '@/components/profile/SectionHead';
 import { Card } from '@/components/ui/Card';
 import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { languageCodes, packStudentLive, readStudentLive, type LiveStyle, type StudyShift } from '@/src/lib/studentLive';
 import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { Select } from '@/components/ui/Select';
@@ -29,6 +30,8 @@ type Props = {
   onFullNameAr: (value: string) => void;
   gender: PersonGender | '';
   onGender: (value: PersonGender | '') => void;
+  /** Once saved, gender stays fixed. */
+  genderLocked?: boolean;
   cityId: string;
   onCityId: (value: string) => void;
   cityOptions: { value: string; label: string; lat?: number; lng?: number }[];
@@ -49,6 +52,7 @@ type Props = {
   bioHint?: string;
   spokenLanguages?: string[];
   onSpokenLanguages?: (value: string[]) => void;
+  showLive?: boolean;
   graduationTerm?: string;
   onGraduationTerm?: (value: string) => void;
   campusEmailHint?: boolean;
@@ -63,6 +67,7 @@ export function ProfileAccountFields({
   onFullNameAr,
   gender,
   onGender,
+  genderLocked = false,
   cityId,
   onCityId,
   cityOptions,
@@ -83,6 +88,7 @@ export function ProfileAccountFields({
   bioHint,
   spokenLanguages = [],
   onSpokenLanguages,
+  showLive = false,
   graduationTerm = '',
   onGraduationTerm,
   campusEmailHint = false,
@@ -151,16 +157,24 @@ export function ProfileAccountFields({
         <View style={styles.denseBlock}>
           <SectionHead compact icon="id-card-outline" title={t('profile.aboutTitle')} />
           <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.gender')}</Text>
-          <FilterPills<PersonGender | ''>
-            compact
-            value={gender}
-            onChange={onGender}
-            allowDeselect
-            items={[
-              { value: 'male', label: t('profile.male') },
-              { value: 'female', label: t('profile.female') },
-            ]}
-          />
+          {genderLocked ? (
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>
+              {gender === 'male' || gender === 'female' ? t(`profile.${gender}`) : '—'}
+              {' · '}
+              {t('profile.genderLocked')}
+            </Text>
+          ) : (
+            <FilterPills<PersonGender | ''>
+              compact
+              value={gender}
+              onChange={onGender}
+              allowDeselect
+              items={[
+                { value: 'male', label: t('profile.male') },
+                { value: 'female', label: t('profile.female') },
+              ]}
+            />
+          )}
           <Select
             dense
             label={t('auth.homeCity')}
@@ -286,24 +300,85 @@ export function ProfileAccountFields({
                   <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.spokenLanguages')}</Text>
                   <FilterPills
                     compact
-                    values={
-                      spokenLanguages.filter((item): item is 'ar' | 'en' | 'he' =>
-                        item === 'ar' || item === 'en' || item === 'he',
-                      )
-                    }
+                    values={languageCodes(spokenLanguages)}
                     onToggle={(value) => {
-                      const selected = spokenLanguages.filter(
-                        (item): item is 'ar' | 'en' | 'he' => item === 'ar' || item === 'en' || item === 'he',
-                      );
-                      onSpokenLanguages(
-                        selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value],
-                      );
+                      const selected = languageCodes(spokenLanguages);
+                      const next = selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value];
+                      onSpokenLanguages(packStudentLive(next, readStudentLive(spokenLanguages)));
                     }}
                     items={[
                       { value: 'ar', label: t('profile.langAr') },
                       { value: 'en', label: t('profile.langEn') },
                       { value: 'he', label: t('profile.langHe') },
                     ]}
+                  />
+                </>
+              ) : null}
+              {showLive && onSpokenLanguages ? (
+                <>
+                  <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('live.title')}</Text>
+                  <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('live.hint')}</Text>
+                  <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('live.shiftLabel')}</Text>
+                  <FilterPills
+                    compact
+                    value={readStudentLive(spokenLanguages).shift}
+                    onChange={(shift) =>
+                      onSpokenLanguages(packStudentLive(spokenLanguages, { ...readStudentLive(spokenLanguages), shift: shift as StudyShift }))
+                    }
+                    allowDeselect
+                    items={(['morning', 'evening', 'mixed'] as StudyShift[]).map((value) => ({
+                      value,
+                      label: t(`live.shift.${value}`),
+                    }))}
+                  />
+                  <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('live.smokerLabel')}</Text>
+                  <FilterPills
+                    compact
+                    value={readStudentLive(spokenLanguages).smoker}
+                    onChange={(smoker) =>
+                      onSpokenLanguages(
+                        packStudentLive(spokenLanguages, {
+                          ...readStudentLive(spokenLanguages),
+                          smoker: smoker as 'yes' | 'no',
+                        }),
+                      )
+                    }
+                    allowDeselect
+                    items={[
+                      { value: 'no', label: t('live.smokerNo') },
+                      { value: 'yes', label: t('live.smokerYes') },
+                    ]}
+                  />
+                  <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('live.furnitureLabel')}</Text>
+                  <FilterPills
+                    compact
+                    value={readStudentLive(spokenLanguages).furniture}
+                    onChange={(furniture) =>
+                      onSpokenLanguages(
+                        packStudentLive(spokenLanguages, {
+                          ...readStudentLive(spokenLanguages),
+                          furniture: furniture as 'yes' | 'no',
+                        }),
+                      )
+                    }
+                    allowDeselect
+                    items={[
+                      { value: 'no', label: t('live.furnitureNo') },
+                      { value: 'yes', label: t('live.furnitureYes') },
+                    ]}
+                  />
+                  <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('live.styleLabel')}</Text>
+                  <FilterPills
+                    compact
+                    value={readStudentLive(spokenLanguages).style}
+                    onChange={(style) =>
+                      onSpokenLanguages(packStudentLive(spokenLanguages, { ...readStudentLive(spokenLanguages), style: style as LiveStyle }))
+                    }
+                    allowDeselect
+                    items={(['quiet', 'social', 'either'] as LiveStyle[]).map((value) => ({
+                      value,
+                      label: t(`live.style.${value}`),
+                    }))}
                   />
                 </>
               ) : null}
@@ -328,6 +403,7 @@ export function ProfileAccountFields({
 const styles = StyleSheet.create({
   denseBlock: { gap: spacing.xs },
   denseLabel: { fontWeight: '700', fontSize: 12, fontFamily: 'Cairo_700Bold' },
+  hint: { fontSize: 12, lineHeight: 18, fontFamily: 'Cairo_400Regular' },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 0 },
   moreHead: { alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   moreTitle: { flex: 1, minWidth: 0 },

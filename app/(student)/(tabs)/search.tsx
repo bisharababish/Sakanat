@@ -10,9 +10,11 @@ import { ProfileBanner } from '@/components/profile/ProfileBanner';
 import { ProfileEnter } from '@/components/profile/ProfileEnter';
 import { AmenityChips } from '@/components/search/AmenityChips';
 import { FilterPills } from '@/components/ui/FilterPills';
+import { Input } from '@/components/ui/Input';
 import { Pager } from '@/components/ui/Pager';
 import { Screen } from '@/components/ui/Screen';
 import { SearchSelect } from '@/components/ui/SearchSelect';
+import { DateField } from '@/components/ui/DateField';
 import { Select } from '@/components/ui/Select';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -31,6 +33,7 @@ import {
   saveSeenListingIds,
 } from '@/src/lib/searchAlerts';
 import { fetchApprovedListings, refineListings } from '@/src/lib/searchListings';
+import type { FurnishLevel, HousingType } from '@/src/lib/listingOffer';
 import { apartmentPath, openWelcome, requireAccount } from '@/src/lib/guest';
 import { needsLegalAccept } from '@/src/lib/legal';
 import { LISTING_PAGE_SIZE } from '@/src/lib/page';
@@ -39,12 +42,18 @@ import { alert } from '@/src/lib/notice';
 import { trackEvent } from '@/src/lib/analytics';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
-import { AMENITIES, type Amenity, type Apartment, type GenderPolicy, type University } from '@/src/types/database';
+import { AMENITIES, type Amenity, type Apartment, type University } from '@/src/types/database';
 
-type GenderFilter = 'all' | GenderPolicy;
+type GenderFilter = 'female' | 'male' | 'family';
 type SortMode = 'price' | 'distance' | 'rating';
 
-const PRICE_OPTIONS = ['400', '600', '800', '1000', '1200', '1500', '2000', '2500', '3000'];
+/** Keep the digits from a typed price, including Arabic-Indic numerals. */
+function priceDigits(raw: string) {
+  const western = raw
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x06f0));
+  return western.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 6);
+}
 
 export default function SearchScreen() {
   const { t, i18n } = useTranslation();
@@ -64,9 +73,16 @@ export default function SearchScreen() {
   const [maxPrice, setMaxPrice] = useState('');
   const [maxKm, setMaxKm] = useState('');
   const [sort, setSort] = useState<SortMode>(!isRenter && profile?.university_id ? 'distance' : 'price');
-  const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>(
+    profile?.role === 'renter' ? (profile.gender === 'male' || profile.gender === 'female' ? profile.gender : 'family') : 'family',
+  );
   const [roomsFilter, setRoomsFilter] = useState('');
   const [bathsFilter, setBathsFilter] = useState('');
+  const [areaQuery, setAreaQuery] = useState('');
+  const [housing, setHousing] = useState<HousingType | ''>('');
+  const [furnish, setFurnish] = useState<FurnishLevel | ''>('');
+  const [minStay, setMinStay] = useState('');
+  const [moveIn, setMoveIn] = useState(profile?.pref_move_in ?? '');
   const [amenityFilter, setAmenityFilter] = useState<Amenity[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -75,6 +91,9 @@ export default function SearchScreen() {
   const [loadError, setLoadError] = useState('');
   const alertHydrated = useRef(false);
   const filtersTouched = useRef(false);
+  const loadTicket = useRef(0);
+  const universitiesRef = useRef(universities);
+  universitiesRef.current = universities;
 
   useEffect(() => {
     if (!legalLock) return;
@@ -112,7 +131,7 @@ export default function SearchScreen() {
         rooms: roomsFilter || undefined,
         baths: bathsFilter || undefined,
         amenities: amenityFilter,
-        gender: genderFilter,
+        gender: isRenter ? genderFilter : 'suitable',
         query: query.trim() || undefined,
         verifiedOnly: false,
       });
@@ -127,22 +146,22 @@ export default function SearchScreen() {
       setMaxKm('');
       setSort((current) => (current === 'distance' ? 'price' : current));
       if (profile?.city_id) setCityId((current) => current || profile.city_id || '');
+      if (profile?.gender === 'male' || profile?.gender === 'female') {
+        setGenderFilter(profile.gender);
+      } else {
+        setGenderFilter('family');
+      }
     } else if (profile?.university_id) {
       setUniversityId((current) => current || profile.university_id || '');
       setSort((current) => (current === 'price' ? 'distance' : current));
       const campus = universities.find((item) => item.id === profile.university_id);
       if (campus?.city_id) setCityId((current) => current || campus.city_id);
     }
-    if (profile?.pref_gender_policy === 'female' || profile?.pref_gender_policy === 'male') {
-      setGenderFilter(profile.pref_gender_policy);
-    } else if (profile?.pref_gender_policy === 'any') {
-      setGenderFilter('all');
-    }
   }, [
     isRenter,
     profile?.city_id,
     profile?.university_id,
-    profile?.pref_gender_policy,
+    profile?.gender,
     universities,
   ]);
 
@@ -178,6 +197,10 @@ export default function SearchScreen() {
   const distancePlace = selectedUniversity ? ('campus' as const) : ('city' as const);
 
   const load = useCallback(async () => {
+    const ticket = ++loadTicket.current;
+    const campus = isRenter
+      ? null
+      : (universitiesRef.current.find((item) => item.id === universityId) ?? null);
     reloadCatalog();
     setLoadError('');
     try {
@@ -185,7 +208,7 @@ export default function SearchScreen() {
         cityId: cityId || undefined,
         universityId: isRenter ? undefined : universityId || undefined,
         maxPrice: maxPrice ? Number(maxPrice) : null,
-        gender: genderFilter,
+        gender: isRenter ? genderFilter : profile?.gender ? 'suitable' : 'all',
         profileGender: profile?.gender ?? null,
         rooms: roomsFilter || undefined,
         bathrooms: bathsFilter || undefined,
@@ -193,17 +216,20 @@ export default function SearchScreen() {
         query: '',
         maxKm: maxKm ? Number(maxKm) : null,
         sort,
-        university: selectedUniversity,
+        university: campus,
         lang: i18n.language,
         isRenter,
-        moveIn: profile?.pref_move_in || undefined,
+        moveIn: moveIn || profile?.pref_move_in || undefined,
         leaseMonths: profile?.pref_lease_months || undefined,
       });
+      if (ticket !== loadTicket.current) return;
       setApartments(next.map((row) => row.item));
     } catch (err) {
+      if (ticket !== loadTicket.current) return;
       setApartments([]);
       setLoadError(err instanceof Error ? err.message : t('common.offlineHint'));
     } finally {
+      if (ticket !== loadTicket.current) return;
       setLoading(false);
       if (profile?.id) {
         try {
@@ -224,17 +250,27 @@ export default function SearchScreen() {
     maxPrice,
     profile?.gender,
     profile?.id,
+    moveIn,
     profile?.pref_move_in,
     profile?.pref_lease_months,
     reloadCatalog,
     roomsFilter,
-    selectedUniversity,
     sort,
     t,
     universityId,
   ]);
 
   const { refreshing, refresh } = useLiveReload(load, ['apartments', 'saved_apartments'], 'search');
+  const skipFilterReload = useRef(true);
+
+  useEffect(() => {
+    if (skipFilterReload.current) {
+      skipFilterReload.current = false;
+      return;
+    }
+    setLoading(true);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     void trackEvent('search_open', { role: profile?.role }, profile?.id);
@@ -281,7 +317,7 @@ export default function SearchScreen() {
       rooms: roomsFilter || undefined,
       baths: bathsFilter || undefined,
       amenities: amenityFilter,
-      gender: genderFilter,
+      gender: isRenter ? genderFilter : 'suitable',
       query: query.trim() || undefined,
       verifiedOnly: false,
     });
@@ -303,21 +339,27 @@ export default function SearchScreen() {
         university: selectedUniversity,
         lang: i18n.language,
         isRenter,
+        area: areaQuery,
+        housing,
+        furnish,
+        minStay,
+        moveIn: moveIn || undefined,
       }),
-    [apartments, i18n.language, isRenter, maxKm, query, selectedUniversity, sort],
+    [apartments, areaQuery, furnish, housing, i18n.language, isRenter, maxKm, minStay, moveIn, query, selectedUniversity, sort],
   );
 
   const paged = usePaged(
     filtered,
     LISTING_PAGE_SIZE,
-    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, bathsFilter, genderFilter, sort, amenityFilter.join(',')].join('|'),
+    [query, cityId, universityId, maxPrice, maxKm, roomsFilter, bathsFilter, genderFilter, sort, amenityFilter.join(','), areaQuery, housing, furnish, minStay, moveIn].join('|'),
   );
 
   const defaultUniversityId = isRenter ? '' : (profile?.university_id ?? '');
   const defaultCityId = isRenter
     ? (profile?.city_id ?? '')
     : (universities.find((item) => item.id === defaultUniversityId)?.city_id ?? '');
-  const defaultGender: GenderFilter = 'all';
+  const defaultGender: GenderFilter =
+    profile?.gender === 'male' || profile?.gender === 'female' ? profile.gender : 'family';
   const defaultSort: SortMode = !isRenter && defaultUniversityId ? 'distance' : 'price';
   const filtersOn = Boolean(
     query.trim() ||
@@ -328,8 +370,13 @@ export default function SearchScreen() {
       roomsFilter ||
       bathsFilter ||
       amenityFilter.length > 0 ||
-      genderFilter !== defaultGender ||
-      sort !== defaultSort,
+      (isRenter && genderFilter !== defaultGender) ||
+      sort !== defaultSort ||
+      areaQuery.trim() ||
+      housing ||
+      furnish ||
+      minStay ||
+      moveIn,
   );
 
   const clearFilters = () => {
@@ -341,6 +388,11 @@ export default function SearchScreen() {
     setMaxKm('');
     setRoomsFilter('');
     setBathsFilter('');
+    setAreaQuery('');
+    setHousing('');
+    setFurnish('');
+    setMinStay('');
+    setMoveIn('');
     setAmenityFilter([]);
     setGenderFilter(defaultGender);
     setSort(defaultSort);
@@ -371,7 +423,12 @@ export default function SearchScreen() {
         onClear: () => setUniversityId(defaultUniversityId),
       });
     }
-    if (maxPrice) chips.push({ key: 'price', label: `₪${maxPrice}`, onClear: () => setMaxPrice('') });
+    if (maxPrice) chips.push({ key: 'price', label: t('search.maxPriceChip', { price: maxPrice }), onClear: () => setMaxPrice('') });
+    if (areaQuery.trim()) chips.push({ key: 'area', label: areaQuery.trim(), onClear: () => setAreaQuery('') });
+    if (housing) chips.push({ key: 'housing', label: t(`offer.housing.${housing}`), onClear: () => setHousing('') });
+    if (furnish) chips.push({ key: 'furnish', label: t(`offer.furnish.${furnish}`), onClear: () => setFurnish('') });
+    if (minStay) chips.push({ key: 'stay', label: t('offer.minStay', { count: minStay }), onClear: () => setMinStay('') });
+    if (moveIn) chips.push({ key: 'move', label: moveIn, onClear: () => setMoveIn('') });
     if (maxKm) {
       chips.push({
         key: 'km',
@@ -380,26 +437,33 @@ export default function SearchScreen() {
       });
     }
     if (roomsFilter) {
+      const roomLabel =
+        roomsFilter === '1'
+          ? t('search.rooms1')
+          : roomsFilter === '2'
+            ? t('search.rooms2')
+            : roomsFilter === '3'
+              ? t('search.rooms3')
+              : t('search.roomsPlus');
       chips.push({
         key: 'rooms',
-        label: roomsFilter === '4' ? t('search.roomsPlus') : t('search.rooms') + ' ' + roomsFilter,
+        label: roomLabel,
         onClear: () => setRoomsFilter(''),
       });
     }
     if (bathsFilter) {
+      const bathLabel =
+        bathsFilter === '1' ? t('search.baths1') : bathsFilter === '2' ? t('search.baths2') : t('search.bathsPlus');
       chips.push({
         key: 'baths',
-        label: bathsFilter === '3' ? t('search.bathsPlus') : t('search.baths') + ' ' + bathsFilter,
+        label: bathLabel,
         onClear: () => setBathsFilter(''),
       });
     }
-    if (genderFilter !== defaultGender) {
+    if (isRenter && genderFilter !== defaultGender) {
       chips.push({
         key: 'gender',
-        label:
-          genderFilter === 'female' || genderFilter === 'male'
-            ? t(`gender.${genderFilter}`)
-            : t('common.all'),
+        label: genderFilter === 'family' ? t('search.families') : t(`gender.${genderFilter}`),
         onClear: () => setGenderFilter(defaultGender),
       });
     }
@@ -427,11 +491,16 @@ export default function SearchScreen() {
     defaultGender,
     defaultSort,
     defaultUniversityId,
+    areaQuery,
+    furnish,
     genderFilter,
+    housing,
     i18n.language,
     isRenter,
     maxKm,
     maxPrice,
+    minStay,
+    moveIn,
     query,
     roomsFilter,
     sort,
@@ -442,9 +511,9 @@ export default function SearchScreen() {
 
   const chipAlign = { justifyContent: isRtl ? ('flex-end' as const) : ('flex-start' as const) };
   const genderItems = [
-    { value: 'all' as const, label: t('common.all') },
     { value: 'female' as const, label: t('gender.female') },
     { value: 'male' as const, label: t('gender.male') },
+    { value: 'family' as const, label: t('search.families') },
   ];
   const campusOptions = universities.filter(
     (item) => !cityId || item.city_id === cityId || item.id === universityId,
@@ -658,18 +727,28 @@ export default function SearchScreen() {
                   />
                 </View>
               )}
-              <View style={styles.filterCell}>
-                <Select
+              <View style={[styles.filterCell, styles.filterCellWide]}>
+                <Input
                   compact
-                  icon="cash-outline"
+                  label={t('search.area')}
+                  placeholder={t('search.areaPlaceholder')}
+                  value={areaQuery}
+                  onChangeText={setAreaQuery}
+                />
+              </View>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
+                <DateField kind="booking" label={t('search.moveIn')} value={moveIn} onChange={setMoveIn} compact />
+              </View>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
+                <Input
+                  compact
+                  keyboardType="number-pad"
                   label={t('search.maxPrice')}
+                  placeholder={t('search.maxPricePlaceholder')}
+                  hint={t('search.maxPriceHint')}
                   value={maxPrice}
-                  placeholder={t('search.maxPrice')}
-                  options={[
-                    { value: '', label: t('common.all') },
-                    ...PRICE_OPTIONS.map((value) => ({ value, label: `₪${value}` })),
-                  ]}
-                  onChange={setMaxPrice}
+                  maxLength={12}
+                  onChangeText={(text) => setMaxPrice(priceDigits(text))}
                 />
               </View>
               {selectedUniversity ? (
@@ -694,43 +773,102 @@ export default function SearchScreen() {
                 />
               </View>
               ) : null}
-              <View style={styles.filterCell}>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
                 <Select
-                  compact
-                  icon="bed-outline"
+                  wrap
+                  icon="grid-outline"
                   label={t('search.rooms')}
                   value={roomsFilter}
-                  placeholder={t('search.rooms')}
+                  placeholder={t('search.roomsAny')}
                   options={[
-                    { value: '', label: t('common.all') },
-                    { value: '1', label: '1' },
-                    { value: '2', label: '2' },
-                    { value: '3', label: '3' },
+                    { value: '', label: t('search.roomsAny') },
+                    { value: '1', label: t('search.rooms1') },
+                    { value: '2', label: t('search.rooms2') },
+                    { value: '3', label: t('search.rooms3') },
                     { value: '4', label: t('search.roomsPlus') },
                   ]}
                   onChange={setRoomsFilter}
                 />
               </View>
-              <View style={styles.filterCell}>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
                 <Select
-                  compact
+                  wrap
                   icon="water-outline"
                   label={t('search.baths')}
                   value={bathsFilter}
-                  placeholder={t('search.baths')}
+                  placeholder={t('search.bathsAny')}
                   options={[
-                    { value: '', label: t('common.all') },
-                    { value: '1', label: '1' },
-                    { value: '2', label: '2' },
+                    { value: '', label: t('search.bathsAny') },
+                    { value: '1', label: t('search.baths1') },
+                    { value: '2', label: t('search.baths2') },
                     { value: '3', label: t('search.bathsPlus') },
                   ]}
                   onChange={setBathsFilter}
                 />
               </View>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
+                <Select
+                  wrap
+                  icon="home-outline"
+                  label={t('search.housing')}
+                  value={housing}
+                  placeholder={t('search.housingAny')}
+                  options={[
+                    { value: '', label: t('search.housingAny') },
+                    { value: 'apartment', label: t('offer.housing.apartment') },
+                    { value: 'studio', label: t('offer.housing.studio') },
+                    { value: 'room', label: t('offer.housing.room') },
+                  ]}
+                  onChange={(value) => setHousing(value as HousingType | '')}
+                />
+              </View>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
+                <Select
+                  wrap
+                  icon="bed-outline"
+                  label={t('search.furnish')}
+                  value={furnish}
+                  placeholder={t('search.furnishAny')}
+                  options={[
+                    { value: '', label: t('search.furnishAny') },
+                    { value: 'full', label: t('offer.furnish.full') },
+                    { value: 'part', label: t('offer.furnish.part') },
+                    { value: 'empty', label: t('offer.furnish.empty') },
+                  ]}
+                  onChange={(value) => setFurnish(value as FurnishLevel | '')}
+                />
+              </View>
+              <View style={[styles.filterCell, styles.filterCellWide]}>
+                <Select
+                  wrap
+                  icon="time-outline"
+                  label={t('search.minStay')}
+                  value={minStay}
+                  placeholder={t('search.minStayAny')}
+                  options={[
+                    { value: '', label: t('search.minStayAny') },
+                    { value: '1', label: t('offer.minStay', { count: '1' }) },
+                    { value: '3', label: t('offer.minStay', { count: '3' }) },
+                    { value: '6', label: t('offer.minStay', { count: '6' }) },
+                    { value: '12', label: t('offer.minStay', { count: '12' }) },
+                  ]}
+                  onChange={setMinStay}
+                />
+              </View>
             </View>
 
-            <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
-            <FilterPills compact value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+            {isRenter ? (
+              <>
+                <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('search.whoFor')}</Text>
+                <FilterPills compact value={genderFilter} onChange={setGenderFilter} items={genderItems} />
+              </>
+            ) : (
+              <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>
+                {profile?.gender
+                  ? t('search.whoLocked', { who: t(`profile.${profile.gender}`) })
+                  : t('search.whoNeedGender')}
+              </Text>
+            )}
 
             <Text style={[styles.panelLabel, rtlText, { color: colors.textMuted }]}>{t('listing.amenities')}</Text>
             <AmenityChips values={amenityFilter} onToggle={toggleAmenity} />
@@ -802,8 +940,13 @@ export default function SearchScreen() {
                     setMaxKm('');
                     setRoomsFilter('');
                     setBathsFilter('');
+                    setAreaQuery('');
+                    setHousing('');
+                    setFurnish('');
+                    setMinStay('');
+                    setMoveIn('');
                     setAmenityFilter([]);
-                    setGenderFilter('all');
+                    setGenderFilter(defaultGender);
                     setSort('price');
                   }
                 : undefined
@@ -943,6 +1086,7 @@ const styles = StyleSheet.create({
   filtersBody: { gap: spacing.xs },
   filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   filterCell: { flexGrow: 1, flexBasis: '47%', minWidth: 140 },
+  filterCellWide: { flexBasis: '100%', minWidth: '100%' },
   metaRow: { alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   countPill: {
     borderRadius: radius.full,

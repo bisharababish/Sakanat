@@ -18,6 +18,8 @@ export const AMENITY_ICONS: Record<Amenity, IconName> = {
   study_desk: 'desktop-outline',
   balcony: 'images-outline',
   parking: 'car-outline',
+  boiler: 'flame-outline',
+  near_transport: 'bus-outline',
 };
 
 export const SEARCH_AMENITY_PRIMARY: Amenity[] = [
@@ -27,4 +29,6 @@ export const SEARCH_AMENITY_PRIMARY: Amenity[] = [
   'private_bathroom',
   'kitchen',
   'washing_machine',
+  'near_transport',
+  'boiler',
 ];

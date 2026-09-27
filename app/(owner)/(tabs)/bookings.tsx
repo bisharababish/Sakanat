@@ -32,6 +32,7 @@ import { ageLabel, bookingStatusLabel, bookingTone, formatIls, formatStayRange, 
 import { buildingKey, listingPlaceLine, uniqueBuildings } from '@/src/lib/listingPlace';
 import { listingHasCheckIn, loadCheckInSentIds, markCheckInSent, stayCheckInChatBody } from '@/src/lib/listingStay';
 import { seekerExtraIcon, seekerMessageKey, seekerRoleLabel } from '@/src/lib/seeker';
+import { studentLiveLines } from '@/src/lib/studentLive';
 import { applyStayExtension, bookingCopyText, detachCancelledStayChat, postBookingChat } from '@/src/lib/stayActions';
 import { alert } from '@/src/lib/notice';
 import { BOOKING_PAGE_SIZE, paginate } from '@/src/lib/page';
@@ -484,6 +485,7 @@ export default function OwnerBookings() {
             ? `${t('profile.studentId')} ${booking.profiles.student_id_number}`
             : '',
           ...seekerTrustDetails(booking.profiles, t, { bookingStatus: booking.status }),
+          ...studentLiveLines(booking.profiles?.spoken_languages, t),
         ].filter(Boolean);
         const overlapConfirmed = hasConfirmedOverlap(booking, bookings);
         const overlapPending =

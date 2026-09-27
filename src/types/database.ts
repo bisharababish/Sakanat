@@ -351,6 +351,8 @@ export const AMENITIES = [
   'study_desk',
   'balcony',
   'parking',
+  'boiler',
+  'near_transport',
 ] as const;
 
 export type Amenity = (typeof AMENITIES)[number];

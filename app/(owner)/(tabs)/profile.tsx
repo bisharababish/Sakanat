@@ -546,7 +546,7 @@ export default function OwnerProfile() {
           full_name_en: fullNameEn.trim() ? cleanName(fullNameEn) : null,
           phone: cleanPhone,
           whatsapp: cleanWhatsapp,
-          gender: gender || null,
+          gender: profile.gender || gender || null,
           date_of_birth: birthDate || null,
           city_id: cityId || null,
           bio: bio.trim() || null,
@@ -804,6 +804,7 @@ export default function OwnerProfile() {
             onFullNameAr={setFullNameAr}
             gender={gender}
             onGender={setGender}
+            genderLocked={Boolean(profile?.gender)}
             cityId={cityId}
             onCityId={setCityId}
             cityOptions={cityOptions}

@@ -850,7 +850,7 @@ export default function StudentProfileScreen() {
           major: isStudent ? major || null : null,
           degree_level: isStudent ? degreeLevel || null : null,
           study_year: isStudent ? studyYear || null : null,
-          gender: gender || null,
+          gender: profile?.gender || gender || null,
           date_of_birth: birthDate || null,
           city_id: cityId || null,
           university_id: isStudent ? universityId || null : null,
@@ -1179,6 +1179,7 @@ export default function StudentProfileScreen() {
             onFullNameAr={setFullNameAr}
             gender={gender}
             onGender={setGender}
+            genderLocked={Boolean(profile?.gender)}
             cityId={cityId}
             onCityId={setCityId}
             cityOptions={cityOptions}
@@ -1196,6 +1197,7 @@ export default function StudentProfileScreen() {
             onBio={setBio}
             spokenLanguages={spokenLanguages}
             onSpokenLanguages={setSpokenLanguages}
+            showLive={isStudent}
             campusEmailHint={isStudent}
             graduationTerm={isStudent ? graduationTerm : undefined}
             onGraduationTerm={isStudent ? setGraduationTerm : undefined}

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -39,7 +39,7 @@ const POINTS: { icon: IconName; title: string; hint: string }[] = [
 
 const EASE_OUT = Easing.bezier(0.22, 1, 0.36, 1);
 const EASE_IN_OUT = Easing.bezier(0.45, 0, 0.55, 1);
-const SPLIT = { duration: 860, easing: EASE_OUT };
+const SPLIT = { duration: 980, easing: EASE_OUT };
 
 export default function WelcomeScreen() {
   const { t, i18n } = useTranslation();
@@ -49,10 +49,13 @@ export default function WelcomeScreen() {
   const { width } = useWindowDimensions();
   const half = width / 2;
   const logoWidth = Math.min(208, Math.round(width - 80));
+  const { intro } = useLocalSearchParams<{ intro?: string }>();
+  const introToken = Array.isArray(intro) ? intro[0] : intro;
   const canGoBack = router.canGoBack();
   const air = isRtl ? arAir : enAir;
 
-  const skipIntro = canGoBack;
+  // Replay when the app opens or after sign-out. Back from login keeps the welcome already open.
+  const skipIntro = !introToken && canGoBack;
   const [doorsGone, setDoorsGone] = useState(skipIntro);
   const [locked, setLocked] = useState(false);
 
@@ -66,6 +69,20 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     if (skipIntro) return;
+
+    setDoorsGone(false);
+    setLocked(false);
+    cancelAnimation(open);
+    cancelAnimation(logoIn);
+    cancelAnimation(hintIn);
+    cancelAnimation(ctaIn);
+    cancelAnimation(float);
+    cancelAnimation(pulse);
+    cancelAnimation(breath);
+    open.value = 0;
+    logoIn.value = 0;
+    hintIn.value = 0;
+    ctaIn.value = 0;
 
     logoIn.value = withTiming(1, { duration: 780, easing: EASE_OUT });
     hintIn.value = withDelay(220, withTiming(1, { duration: 700, easing: EASE_OUT }));
@@ -99,7 +116,7 @@ export default function WelcomeScreen() {
         false,
       ),
     );
-  }, [breath, ctaIn, float, hintIn, logoIn, pulse, skipIntro]);
+  }, [breath, ctaIn, float, hintIn, introToken, logoIn, open, pulse, skipIntro]);
 
   const finishSplit = () => setDoorsGone(true);
 
@@ -131,12 +148,17 @@ export default function WelcomeScreen() {
   }));
 
   const stageStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(open.value, [0, 0.35, 0.7], [1, 0.55, 0], Extrapolation.CLAMP),
-    transform: [{ scale: interpolate(open.value, [0, 0.7], [1, 0.985], Extrapolation.CLAMP) }],
+    opacity: interpolate(open.value, [0, 0.22, 0.62], [1, 0.85, 0], Extrapolation.CLAMP),
+    transform: [
+      { scale: interpolate(open.value, [0, 1], [1, 0.94], Extrapolation.CLAMP) },
+      { translateY: interpolate(open.value, [0, 1], [0, -12], Extrapolation.CLAMP) },
+    ],
   }));
 
+  // Same `open` progress as the doors — welcome stays hidden until the button starts the split.
   const welcomeRevealStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(open.value, [0.15, 0.55, 1], [0.55, 0.92, 1], Extrapolation.CLAMP),
+    opacity: interpolate(open.value, [0.18, 0.55, 1], [0, 1, 1], Extrapolation.CLAMP),
+    transform: [{ translateY: interpolate(open.value, [0.18, 1], [28, 0], Extrapolation.CLAMP) }],
   }));
 
   const logoStyle = useAnimatedStyle(() => ({
@@ -264,7 +286,7 @@ export default function WelcomeScreen() {
       </Animated.View>
 
       {!doorsGone ? (
-        <View style={styles.doors} pointerEvents="box-none">
+        <View style={styles.doors} pointerEvents={locked ? 'none' : 'box-none'}>
           <Animated.View style={[styles.door, { width: half, backgroundColor: LOGO_GREEN }, leftDoorStyle]} />
           <Animated.View style={[styles.door, { width: half, backgroundColor: LOGO_GREEN }, rightDoorStyle]} />
 

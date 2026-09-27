@@ -184,7 +184,9 @@ export function listingMatchesAlert(
     const have = new Set(item.amenities ?? []);
     if (!prefs.amenities.every((key) => have.has(key))) return false;
   }
-  if (prefs.gender && prefs.gender !== 'all' && prefs.gender !== 'suitable') {
+  if (prefs.gender === 'family') {
+    if (item.gender_policy !== 'any') return false;
+  } else if (prefs.gender && prefs.gender !== 'all' && prefs.gender !== 'suitable') {
     if (item.gender_policy !== 'any' && item.gender_policy !== prefs.gender) return false;
   }
   const needle = (prefs.query ?? '').trim().toLowerCase();

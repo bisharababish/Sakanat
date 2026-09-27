@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { SectionHead } from '@/components/profile/SectionHead';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { DateField } from '@/components/ui/DateField';
 import { FilterPills } from '@/components/ui/FilterPills';
 import { Input } from '@/components/ui/Input';
 import { PhotoViewer } from '@/components/ui/PhotoViewer';
@@ -38,6 +39,16 @@ import { listingGateMessage, ownerReadyForListing } from '@/src/lib/trust';
 import { uploadApartmentPhoto } from '@/src/lib/upload';
 import { radius } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
+import {
+  packAmenities,
+  publicAmenities,
+  readOffer,
+  type BillMode,
+  type ConditionLevel,
+  type FurnishLevel,
+  type HousingType,
+  type ListingOffer,
+} from '@/src/lib/listingOffer';
 import { AMENITIES, type Apartment, type GenderPolicy, type ListingStatus } from '@/src/types/database';
 
 type Props = {
@@ -79,7 +90,8 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
   const [buildingStay, setBuildingStay] = useState<Record<string, ReturnType<typeof stayFromApartment>>>({});
   const [buildingCounts, setBuildingCounts] = useState<Record<string, number>>({});
   const [gender, setGender] = useState<GenderPolicy>(apartment?.gender_policy ?? 'any');
-  const [amenities, setAmenities] = useState<string[]>(apartment?.amenities ?? []);
+  const [amenities, setAmenities] = useState<string[]>(publicAmenities(apartment?.amenities));
+  const [offer, setOffer] = useState<ListingOffer>(readOffer(apartment?.amenities));
   const [photos, setPhotos] = useState<string[]>(apartment?.photos ?? []);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [listingStatus, setListingStatus] = useState<ListingStatus>(
@@ -250,7 +262,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       for (const uri of uris) {
         urls.push(await uploadApartmentPhoto(profile.id, uri));
       }
-      setPhotos((current) => [...current, ...urls].slice(0, 12));
+      setPhotos((current) => [...current, ...urls].slice(0, 10));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
     } finally {
@@ -308,7 +320,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
         ...apartmentWriteFields(apartment),
         ...copyListingTitles(apartment, t('owner.copySuffix')),
         photos,
-        amenities,
+        amenities: packAmenities(amenities, offer),
         unit_number: null,
       };
       const { data, error } = await supabase.from('apartments').insert(payload).select('id').single();
@@ -410,7 +422,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       bathrooms: Number(baths) || 1,
       area_m2: area ? Number(area) : null,
       gender_policy: gender,
-      amenities,
+      amenities: packAmenities(amenities, offer),
       photos,
       lat: university?.lat ?? city?.lat ?? 31.9,
       lng: university?.lng ?? city?.lng ?? 35.2,
@@ -564,7 +576,7 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
               <Image source={{ uri }} style={[styles.thumb, { backgroundColor: colors.surfaceMuted }]} contentFit="cover" />
             </Pressable>
           ))}
-          {photos.length < 12 ? (
+          {photos.length < 10 ? (
             <Pressable
               onPress={() => void addPhoto()}
               style={[styles.addTile, { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}
@@ -750,11 +762,107 @@ export function ListingEditor({ apartment, asAdmin, ownerId, focus }: Props) {
       </Card>
 
       <Card>
+        <SectionHead icon="home-outline" title={t('offer.title')} />
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('offer.hint')}</Text>
+        <Input
+          label={t('offer.area')}
+          value={offer.area}
+          onChangeText={(area) => setOffer((current) => ({ ...current, area }))}
+          placeholder={t('offer.areaPlaceholder')}
+        />
+        <Input
+          label={t('offer.street')}
+          value={offer.street}
+          onChangeText={(street) => setOffer((current) => ({ ...current, street }))}
+          placeholder={t('offer.streetPlaceholder')}
+        />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.housingLabel')}</Text>
+        <FilterPills
+          value={offer.housing}
+          onChange={(housing) => setOffer((current) => ({ ...current, housing: housing as HousingType }))}
+          allowDeselect
+          items={(['apartment', 'studio', 'room'] as HousingType[]).map((value) => ({
+            value,
+            label: t(`offer.housing.${value}`),
+          }))}
+        />
+        <DateField
+          kind="booking"
+          label={t('offer.availableLabel')}
+          value={offer.availableFrom}
+          onChange={(availableFrom) => setOffer((current) => ({ ...current, availableFrom }))}
+        />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.minStayLabel')}</Text>
+        <FilterPills
+          value={offer.minStay}
+          onChange={(minStay) => setOffer((current) => ({ ...current, minStay }))}
+          allowDeselect
+          items={['1', '3', '6', '12'].map((value) => ({ value, label: t('offer.minStay', { count: value }) }))}
+        />
+        <Input
+          label={t('offer.occupantsLabel')}
+          value={offer.occupants}
+          onChangeText={(occupants) => setOffer((current) => ({ ...current, occupants: occupants.replace(/\D/g, '').slice(0, 2) }))}
+          keyboardType="number-pad"
+        />
+        <Input
+          label={t('offer.depositLabel')}
+          value={offer.deposit}
+          onChangeText={(deposit) => setOffer((current) => ({ ...current, deposit: deposit.replace(/\D/g, '').slice(0, 7) }))}
+          keyboardType="number-pad"
+        />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.bills')}</Text>
+        {(['water', 'power', 'net'] as const).map((bill) => (
+          <View key={bill} style={{ gap: 4 }}>
+            <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(`offer.${bill === 'net' ? 'internet' : bill === 'power' ? 'power' : 'water'}`)}</Text>
+            <FilterPills
+              value={offer[bill]}
+              onChange={(value) => setOffer((current) => ({ ...current, [bill]: value as BillMode }))}
+              allowDeselect
+              items={(['in', 'extra'] as BillMode[]).map((value) => ({
+                value,
+                label: t(`offer.billMode.${value}`),
+              }))}
+            />
+          </View>
+        ))}
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.conditionLabel')}</Text>
+        <FilterPills
+          value={offer.condition}
+          onChange={(condition) => setOffer((current) => ({ ...current, condition: condition as ConditionLevel }))}
+          allowDeselect
+          items={(['new', 'good', 'fair'] as ConditionLevel[]).map((value) => ({
+            value,
+            label: t(`offer.condition.${value}`),
+          }))}
+        />
+        <Text style={[styles.label, rtlText, { color: colors.text }]}>{t('offer.furnishLabel')}</Text>
+        <FilterPills
+          value={offer.furnish}
+          onChange={(furnish) => setOffer((current) => ({ ...current, furnish: furnish as FurnishLevel }))}
+          allowDeselect
+          items={(['full', 'part', 'empty'] as FurnishLevel[]).map((value) => ({
+            value,
+            label: t(`offer.furnish.${value}`),
+          }))}
+        />
+        <Input
+          label={t('offer.video')}
+          value={offer.video}
+          onChangeText={(video) => setOffer((current) => ({ ...current, video }))}
+          placeholder={t('offer.videoPlaceholder')}
+          autoCapitalize="none"
+          ltr
+        />
+        <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('offer.whatsappHint')}</Text>
+      </Card>
+
+      <Card>
         <SectionHead icon="star-outline" title={t('listing.amenities')} />
         <FilterPills
           values={amenities}
           onToggle={toggleAmenity}
-          items={AMENITIES.map((item) => ({
+          items={AMENITIES.filter((item) => item !== 'furnished').map((item) => ({
             value: item,
             label: t(`amenities.${item}`),
           }))}

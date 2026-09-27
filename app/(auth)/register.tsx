@@ -313,13 +313,14 @@ export default function RegisterScreen() {
               hint={isStudent ? studentEmailHint : t('auth.renterEmailHint')}
               soft
             />
-            <Input compact label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
+            <Input compact label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry ltr soft />
             <Input
               compact
               label={t('profile.confirmPassword')}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry
+              ltr
               soft
             />
             <PasswordChecks password={password} confirm={confirmPassword} />

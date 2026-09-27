@@ -95,7 +95,16 @@ export default function LoginScreen() {
           ltr
           soft
         />
-        <Input label={t('common.password')} value={password} onChangeText={setPassword} secureTextEntry soft />
+        <Input
+          label={t('common.password')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoComplete="password"
+          textContentType="password"
+          ltr
+          soft
+        />
         {error ? <Text style={[styles.error, rtlText, { color: colors.danger }]}>{error}</Text> : null}
         <View style={[styles.lockRow, row]}>
           <Ionicons name="lock-closed" size={14} color={colors.primary} />

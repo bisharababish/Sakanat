@@ -82,22 +82,27 @@ export function ProfileSearchPrefs({ profile, onSaved }: Props) {
           clearable
         />
 
-        <View style={styles.field}>
-          <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.houseGender')}</Text>
-          <FilterPills
-            value={gender}
-            onChange={(next) => {
-              const prev = gender;
-              setGender(next);
-              void persist({ pref_gender_policy: next === 'any' ? 'any' : next }, () => setGender(prev));
-            }}
-            items={[
-              { value: 'any', label: t('profile.prefAny') },
-              { value: 'female', label: t('gender.female') },
-              { value: 'male', label: t('gender.male') },
-            ]}
-          />
-        </View>
+        {profile.role === 'student' ? (
+          <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t('profile.genderLockedSearch')}</Text>
+        ) : (
+          <View style={styles.field}>
+            <Text style={[styles.denseLabel, rtlText, { color: colors.text }]}>{t('profile.houseGender')}</Text>
+            <FilterPills
+              value={gender === 'any' ? 'family' : gender}
+              onChange={(next) => {
+                const prev = gender;
+                const stored = next === 'family' ? 'any' : next;
+                setGender(stored);
+                void persist({ pref_gender_policy: stored }, () => setGender(prev));
+              }}
+              items={[
+                { value: 'female', label: t('gender.female') },
+                { value: 'male', label: t('gender.male') },
+                { value: 'family', label: t('search.families') },
+              ]}
+            />
+          </View>
+        )}
 
         <View style={styles.field}>
           <DateField kind="booking" label={t('profile.moveInPref')} value={moveIn} onChange={(next) => {

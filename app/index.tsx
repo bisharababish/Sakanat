@@ -9,6 +9,7 @@ import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { apartmentIdFromAppUrl } from '@/src/lib/pushRouting';
 import { rememberGuestApartment, seekerHomeOrListing } from '@/src/lib/guest';
+import { currentIntroToken } from '@/src/lib/introEntry';
 import { colors, spacing } from '@/src/theme/colors';
 
 export default function Gate() {
@@ -42,10 +43,10 @@ export default function Gate() {
         if (id) {
           rememberGuestApartment(id);
           setHref({ pathname: '/(guest)/apartment/[id]', params: { id } });
-        } else setHref('/(auth)/welcome');
+        } else setHref({ pathname: '/(auth)/welcome', params: { intro: currentIntroToken() } });
       })
       .catch(() => {
-        if (alive) setHref('/(auth)/welcome');
+        if (alive) setHref({ pathname: '/(auth)/welcome', params: { intro: currentIntroToken() } });
       });
     return () => {
       alive = false;

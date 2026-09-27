@@ -35,6 +35,7 @@ import { formatKm, mapsUrl, type DistancePlace } from '@/src/lib/distance';
 import { formatIls, localizedDescription, localizedName, localizedPair, localizedTitle } from '@/src/lib/format';
 import { listingShareUrl } from '@/src/lib/pushRouting';
 import { listingPlaceLine } from '@/src/lib/listingPlace';
+import { offerFacts, publicAmenities } from '@/src/lib/listingOffer';
 import { displayName } from '@/src/lib/name';
 import { ownerPublicLines } from '@/src/lib/ownerPublic';
 import { loadApartmentReviews } from '@/src/lib/reviews';
@@ -63,7 +64,7 @@ function Fact({
   return (
     <View style={[styles.fact, { backgroundColor: warn ? colors.dangerSoft : colors.surfaceMuted }]}>
       <Ionicons name={icon} size={14} color={warn ? colors.danger : colors.primary} />
-      <Text style={[styles.factText, { color: warn ? colors.danger : colors.text }]} numberOfLines={1}>
+      <Text style={[styles.factText, { color: warn ? colors.danger : colors.text }]} numberOfLines={3}>
         {text}
       </Text>
     </View>
@@ -349,6 +350,9 @@ export function ApartmentView({
           {apartment.area_m2 ? <Fact icon="resize-outline" text={t('listing.area', { area: apartment.area_m2 })} /> : null}
           <Fact icon="people-circle-outline" text={t('listing.fitsPeople', { count: MAX_OCCUPANTS })} />
           <Fact icon="people-outline" text={t(`gender.${apartment.gender_policy}`)} warn={mismatch} />
+          {offerFacts(apartment.amenities, t).lines.map((line) => (
+            <Fact key={line.text} icon={line.icon} text={line.text} />
+          ))}
           {distance != null ? <Fact icon="navigate-outline" text={formatKm(distance, lang, distancePlace)} /> : null}
           {(apartment.review_count ?? reviews.length) > 0 ? (
             <View style={[styles.fact, { backgroundColor: colors.surfaceMuted }]}>
@@ -361,6 +365,14 @@ export function ApartmentView({
         </View>
         {mismatch && !preview && !bookGate ? (
           <Text style={[styles.warn, copy, { color: colors.danger }]}>{t('listing.genderMismatch')}</Text>
+        ) : null}
+        {offerFacts(apartment.amenities, t).offer.video.startsWith('http') ? (
+          <Button
+            title={t('offer.watchVideo')}
+            variant="secondary"
+            pill
+            onPress={() => Linking.openURL(offerFacts(apartment.amenities, t).offer.video)}
+          />
         ) : null}
 
         {localizedDescription(apartment, i18n.language) ? (
@@ -419,20 +431,20 @@ export function ApartmentView({
 
         <Card>
           <SectionHead icon="sparkles-outline" title={t('listing.amenities')} />
-          {apartment.amenities.length === 0 ? (
+          {publicAmenities(apartment.amenities).length === 0 ? (
             <Text style={[styles.muted, copy, { color: colors.textMuted }]}>{t('listing.noAmenities')}</Text>
           ) : (
             <>
               <View style={[styles.facts, { justifyContent: isRtl ? 'flex-end' : 'flex-start' }]}>
-                {(amenityOpen ? apartment.amenities : apartment.amenities.slice(0, 4)).map((item) => (
+                {(amenityOpen ? publicAmenities(apartment.amenities) : publicAmenities(apartment.amenities).slice(0, 4)).map((item) => (
                   <View key={item} style={[styles.fact, { backgroundColor: colors.primarySoft }]}>
                     <Text style={[styles.factText, { color: colors.primaryDark }]}>{t(`amenities.${item}`)}</Text>
                   </View>
                 ))}
               </View>
-              {apartment.amenities.length > 4 ? (
+              {publicAmenities(apartment.amenities).length > 4 ? (
                 <Button
-                  title={amenityOpen ? t('listing.hideAmenities') : t('listing.moreAmenities', { count: apartment.amenities.length - 4 })}
+                  title={amenityOpen ? t('listing.hideAmenities') : t('listing.moreAmenities', { count: publicAmenities(apartment.amenities).length - 4 })}
                   variant="ghost"
                   compact
                   pill

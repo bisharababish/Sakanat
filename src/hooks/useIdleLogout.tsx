@@ -28,7 +28,7 @@ export function IdleGuard({ children }: { children: ReactNode }) {
     const leave = async () => {
       if (signingOut.current) return;
       signingOut.current = true;
-      await signOut();
+      await signOut({ intro: true });
       alert(t('auth.idleTitle'), t('auth.idleSignedOut'));
     };
 

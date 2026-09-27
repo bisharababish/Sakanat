@@ -9,6 +9,7 @@ import { isSuspended } from '@/src/lib/moderation';
 import { mfaNeedsChallenge, roleRequiresMfa, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
 import { takeGuestApartment } from '@/src/lib/guest';
+import { markIdleLogout, markManualLogout } from '@/src/lib/introEntry';
 import { dismissNotices } from '@/src/lib/notice';
 import type { PersonGender, Profile, PublicSignupRole } from '@/src/types/database';
 
@@ -65,7 +66,7 @@ type AuthContextValue = {
   signUp: (input: SignUpInput) => Promise<'verify' | 'ready'>;
   verifyEmail: (email: string, token: string) => Promise<Profile | null>;
   resendConfirmation: (email: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (options?: { intro?: boolean }) => Promise<void>;
   refreshProfile: () => Promise<Profile | null>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -170,7 +171,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMfaEnrollRequired(needsEnroll);
     setSession(next);
     setProfile(nextProfile);
-    if (nextProfile.language) {
+    // Keep the language already on screen through the authenticator. Apply the account language after that step.
+    if (nextProfile.language && !needsMfa && !needsEnroll) {
       await changeAppLanguage(nextProfile.language);
     }
     void import('@/src/lib/analytics').then(({ loadAnalyticsConsent }) =>
@@ -344,9 +346,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         if (error) throw error;
       },
-      signOut: async () => {
+      signOut: async (options) => {
         if (signingOut.current) return;
         signingOut.current = true;
+        if (options?.intro) markIdleLogout();
+        else markManualLogout();
         loadGen.current += 1;
         setPasswordRecovery(false);
         dismissNotices();

@@ -33,6 +33,7 @@ import {
   subscribeGuestApartment,
   takeGuestApartment,
 } from '@/src/lib/guest';
+import { clearManualLogout, currentIntroToken, isManualLogout } from '@/src/lib/introEntry';
 import { ThemeProvider, useColors, useTheme } from '@/src/theme/ThemeProvider';
 import { OnboardingGate } from '@/components/OnboardingGate';
 import { LegalGate } from '@/components/LegalGate';
@@ -223,7 +224,7 @@ function SessionGuard({ children }: { children: ReactNode }) {
     const inApp = group === '(student)' || group === '(owner)' || group === '(admin)';
     const onGuestListing = inGuest && screen === 'apartment';
 
-    let dest: string | { pathname: string; params: { id: string } } | null = null;
+    let dest: string | { pathname: string; params: Record<string, string> } | null = null;
     if (passwordRecovery) {
       dest = screen === 'reset-password' ? null : '/(auth)/reset-password';
     } else if (mfaPending) {
@@ -245,16 +246,22 @@ function SessionGuard({ children }: { children: ReactNode }) {
       dest = null;
     } else if (!session) {
       if (!linkReady) return;
+      const welcomeIntro = { pathname: '/(auth)/welcome', params: { intro: currentIntroToken() } };
       if (inApp) {
-        dest = '/(auth)/welcome';
+        dest = isManualLogout() ? '/(auth)/login' : welcomeIntro;
       } else if (guestApt && !onGuestListing) {
         dest = { pathname: '/(guest)/apartment/[id]', params: { id: guestApt } };
       } else if (inGuest) {
         dest = null;
+      } else if (inAuth && screen === 'login') {
+        clearManualLogout();
+        dest = null;
       } else if (inAuth && screen !== 'mfa' && screen !== 'mfa-enroll') {
         dest = null;
+      } else if (isManualLogout()) {
+        dest = '/(auth)/login';
       } else {
-        dest = '/(auth)/welcome';
+        dest = welcomeIntro;
       }
       if (onGuestListing && guestApt) takeGuestApartment();
     }

@@ -3,6 +3,7 @@ import { localizedDescription, localizedName, localizedTitle } from '@/src/lib/f
 import { isoDateOnly, loadOccupiedStays, occupiedOverlap } from '@/src/lib/booking';
 import { attachListingOwnerCards } from '@/src/lib/ownerPublic';
 import { supabase } from '@/src/lib/supabase';
+import { offerMatches, readOffer, type FurnishLevel, type HousingType } from '@/src/lib/listingOffer';
 import type { Amenity, Apartment, GenderPolicy, University } from '@/src/types/database';
 
 export type SearchSort = 'price' | 'distance' | 'rating';
@@ -11,7 +12,7 @@ export type SearchFilters = {
   cityId?: string;
   universityId?: string;
   maxPrice?: number | null;
-  gender?: 'suitable' | 'all' | GenderPolicy;
+  gender?: 'suitable' | 'all' | 'family' | GenderPolicy;
   profileGender?: 'male' | 'female' | null;
   rooms?: string;
   bathrooms?: string;
@@ -26,6 +27,10 @@ export type SearchFilters = {
   moveIn?: string | null;
   leaseMonths?: number | null;
   minRooms?: number | null;
+  area?: string;
+  housing?: HousingType | '';
+  furnish?: FurnishLevel | '';
+  minStay?: string;
 };
 
 /** Map group size to a rooms floor (2 people can share one room). */
@@ -56,8 +61,10 @@ export async function fetchApprovedListings(filters: SearchFilters = {}) {
   if (filters.gender && filters.gender !== 'all') {
     if (filters.gender === 'suitable' && filters.profileGender) {
       query = query.in('gender_policy', ['any', filters.profileGender]);
+    } else if (filters.gender === 'family') {
+      query = query.eq('gender_policy', 'any');
     } else if (filters.gender === 'male' || filters.gender === 'female') {
-      query = query.eq('gender_policy', filters.gender);
+      query = query.in('gender_policy', ['any', filters.gender]);
     }
   }
 
@@ -116,6 +123,18 @@ export function refineListings(apartments: Apartment[], filters: SearchFilters) 
     rows = rows.filter((entry) => entry.item.profiles?.id_verify_status === 'approved');
   }
 
+  if (filters.area || filters.housing || filters.furnish || filters.minStay || filters.moveIn) {
+    rows = rows.filter((entry) =>
+      offerMatches(entry.item.amenities, {
+        area: filters.area,
+        housing: filters.housing,
+        furnish: filters.furnish,
+        minStay: filters.minStay,
+        moveIn: filters.moveIn ?? undefined,
+      }),
+    );
+  }
+
   if (needle) {
     rows = rows.filter((entry) => {
       const haystack = [
@@ -124,6 +143,7 @@ export function refineListings(apartments: Apartment[], filters: SearchFilters) 
         localizedName(entry.item.cities, lang),
         entry.item.building_name,
         entry.item.unit_number,
+        readOffer(entry.item.amenities).area,
         ...(filters.isRenter ? [] : [localizedName(entry.item.universities, lang)]),
       ]
         .join(' ')

@@ -124,6 +124,7 @@ type Line = { icon: ComponentProps<typeof Ionicons>['name']; text: string };
 
 export function spokenLanguageLabels(codes: string[] | null | undefined, t: TFunction) {
   return (codes ?? [])
+    .filter((code) => !code.startsWith('~'))
     .map((code) =>
       code === 'ar' ? t('profile.langAr') : code === 'en' ? t('profile.langEn') : code === 'he' ? t('profile.langHe') : code,
     )

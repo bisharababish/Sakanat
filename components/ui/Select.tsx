@@ -23,6 +23,8 @@ type Props = {
   dense?: boolean;
   clearable?: boolean;
   icon?: ComponentProps<typeof Ionicons>['name'];
+  /** Let the closed label wrap so a long translation stays visible. */
+  wrap?: boolean;
 };
 
 export function Select({
@@ -36,6 +38,7 @@ export function Select({
   dense,
   clearable,
   icon,
+  wrap,
 }: Props) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
@@ -73,9 +76,10 @@ export function Select({
           <Ionicons name={icon} size={16} color={active ? colors.primary : colors.textMuted} />
         ) : null}
         <Text
-          numberOfLines={1}
+          numberOfLines={wrap ? undefined : 1}
           style={[
             compact ? styles.compactValue : dense ? styles.valueDense : styles.value,
+            wrap ? styles.wrapValue : null,
             { color: !selected ? colors.textMuted : compact && active ? colors.primary : colors.text, textAlign, writingDirection },
           ]}
         >
@@ -163,6 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   compactValue: {
     flex: 1,
@@ -171,6 +176,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'Cairo_700Bold',
   },
+  wrapValue: { flexShrink: 1 },
   value: { fontSize: 16 },
   valueDense: { fontSize: 14, fontFamily: 'Cairo_400Regular' },
   overlay: {
