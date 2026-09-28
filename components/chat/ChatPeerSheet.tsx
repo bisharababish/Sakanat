@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 
 import { IdVerifyBadge } from '@/components/profile/IdVerifyBadge';
 import { Button } from '@/components/ui/Button';
-import { PhotoViewer } from '@/components/ui/PhotoViewer';
 import { useCatalog } from '@/src/hooks/useCatalog';
 import { useEdgeBack } from '@/src/hooks/useEdgeBack';
 import { useLayout } from '@/src/hooks/useLayout';
@@ -131,7 +130,6 @@ export function ChatPeerSheet({
   const { rtlText, row } = useLayout();
   const colors = useColors();
   const safe = useModalSafeArea();
-  const edgeBack = useEdgeBack(visible, onClose);
   const { cities, universities } = useCatalog();
   const today = useToday();
   const { profile: viewer } = useAuth();
@@ -140,12 +138,21 @@ export function ChatPeerSheet({
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState(false);
+  const dismiss = () => {
+    if (viewingPhoto) {
+      setViewingPhoto(false);
+      return;
+    }
+    onClose();
+  };
+  const edgeBack = useEdgeBack(visible, dismiss);
 
   useEffect(() => {
     if (!visible || !userId) {
       setPeer(null);
       setBookingStatus(null);
       setBookingId(null);
+      setViewingPhoto(false);
       return;
     }
     let alive = true;
@@ -250,23 +257,24 @@ export function ChatPeerSheet({
 
   return (
     <>
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
       <View
         style={[
           styles.overlay,
+          viewingPhoto ? styles.photoOverlay : null,
           {
-            backgroundColor: colors.overlay,
-            paddingTop: Math.max(safe.top, spacing.lg),
-            paddingBottom: Math.max(safe.bottom, spacing.lg),
+            backgroundColor: viewingPhoto ? '#000' : colors.overlay,
+            paddingTop: viewingPhoto ? 0 : Math.max(safe.top, spacing.lg),
+            paddingBottom: viewingPhoto ? 0 : Math.max(safe.bottom, spacing.lg),
           },
         ]}
         {...edgeBack}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.head, row]}>
             <Text style={[styles.title, rtlText, { color: colors.primaryDark }]}>{t('chat.peerProfile')}</Text>
-            <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button">
+            <Pressable onPress={dismiss} hitSlop={8} accessibilityRole="button">
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -283,8 +291,12 @@ export function ChatPeerSheet({
                     onPress={() => setViewingPhoto(true)}
                     accessibilityRole="button"
                     accessibilityLabel={t('profile.viewPhoto')}
+                    style={styles.avatarHit}
                   >
                     <Image source={{ uri: peer.avatar_url }} style={styles.avatar} contentFit="cover" />
+                    <View style={styles.avatarHint}>
+                      <Ionicons name="expand-outline" size={14} color="#fff" />
+                    </View>
                   </Pressable>
                 ) : (
                   <View style={[styles.avatar, styles.fallback, { backgroundColor: colors.primarySoft }]}>
@@ -378,17 +390,24 @@ export function ChatPeerSheet({
               }}
             />
           ) : null}
-          <Button title={t('common.close')} variant="ghost" pill onPress={onClose} />
+          <Button title={t('common.close')} variant="ghost" pill onPress={dismiss} />
         </View>
+        {viewingPhoto && peer?.avatar_url ? (
+          <View style={styles.photoStage}>
+            <Image source={{ uri: peer.avatar_url }} style={styles.photoFull} contentFit="contain" />
+            <Pressable
+              onPress={() => setViewingPhoto(false)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+              style={[styles.photoClose, { top: safe.top + 12, end: 16 }]}
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </Modal>
-    <PhotoViewer
-      photos={peer?.avatar_url ? [peer.avatar_url] : []}
-      index={0}
-      visible={visible && viewingPhoto && Boolean(peer?.avatar_url)}
-      onIndexChange={() => {}}
-      onClose={() => setViewingPhoto(false)}
-    />
     </>
   );
 }
@@ -399,6 +418,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.lg,
   },
+  photoOverlay: { padding: 0 },
   card: {
     borderRadius: radius.xl,
     padding: spacing.lg,
@@ -413,7 +433,35 @@ const styles = StyleSheet.create({
   scrollInner: { gap: 8, paddingBottom: 4 },
   empty: { fontSize: 13, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
   person: { alignItems: 'center', gap: 12 },
-  avatar: { width: 56, height: 56, borderRadius: 18 },
+  avatar: { width: 72, height: 72, borderRadius: 22 },
+  avatarHit: { width: 72, height: 72 },
+  avatarHint: {
+    position: 'absolute',
+    end: 4,
+    bottom: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  photoStage: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+  },
+  photoFull: { width: '100%', height: '100%' },
+  photoClose: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
   fallback: { alignItems: 'center', justifyContent: 'center' },
   initials: { fontSize: 16, fontFamily: 'Cairo_800ExtraBold' },
   personCopy: { flex: 1, minWidth: 0, gap: 4 },

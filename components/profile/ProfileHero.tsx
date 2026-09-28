@@ -132,7 +132,7 @@ export function ProfileHero({
               </View>
             ) : null}
             {verifyStatus && verifyStatus !== 'none' ? (
-              <IdVerifyBadge status={verifyStatus} compact role={verifyRole} />
+              <IdVerifyBadge status={verifyStatus} compact role={verifyRole} inline />
             ) : null}
             {percent != null ? <Text style={styles.pct}>{percent}%</Text> : null}
           </View>

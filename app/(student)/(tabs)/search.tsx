@@ -114,6 +114,10 @@ export default function SearchScreen() {
         if (prefs.amenities?.length) setAmenityFilter(prefs.amenities as Amenity[]);
         if (prefs.gender && prefs.gender !== 'suitable') setGenderFilter(prefs.gender as GenderFilter);
         if (prefs.query) setQuery(prefs.query);
+        if (prefs.area) setAreaQuery(prefs.area);
+        if (prefs.housing) setHousing(prefs.housing);
+        if (prefs.furnish) setFurnish(prefs.furnish);
+        if (prefs.minStay) setMinStay(prefs.minStay);
       }
       alertHydrated.current = true;
     });
@@ -134,10 +138,14 @@ export default function SearchScreen() {
         gender: isRenter ? genderFilter : 'suitable',
         query: query.trim() || undefined,
         verifiedOnly: false,
+        area: areaQuery.trim() || undefined,
+        housing: housing || undefined,
+        furnish: furnish || undefined,
+        minStay: minStay || undefined,
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [alertOn, amenityFilter, bathsFilter, cityId, genderFilter, maxKm, maxPrice, profile, query, roomsFilter, universityId]);
+  }, [alertOn, amenityFilter, areaQuery, bathsFilter, cityId, furnish, genderFilter, housing, maxKm, maxPrice, minStay, profile, query, roomsFilter, universityId]);
 
   useEffect(() => {
     if (filtersTouched.current) return;
@@ -318,9 +326,13 @@ export default function SearchScreen() {
       baths: bathsFilter || undefined,
       amenities: amenityFilter,
       gender: isRenter ? genderFilter : 'suitable',
-      query: query.trim() || undefined,
-      verifiedOnly: false,
-    });
+        query: query.trim() || undefined,
+        verifiedOnly: false,
+        area: areaQuery.trim() || undefined,
+        housing: housing || undefined,
+        furnish: furnish || undefined,
+        minStay: minStay || undefined,
+      });
     if (next) {
       await saveSeenListingIds(apartments.map((item) => item.id));
       if (profile.id) {

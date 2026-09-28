@@ -11,11 +11,12 @@ type Props = {
   status?: IdVerifyStatus | null;
   compact?: boolean;
   role?: UserRole | null;
+  inline?: boolean;
 };
 
-export function IdVerifyBadge({ status, compact, role }: Props) {
+export function IdVerifyBadge({ status, compact, role, inline }: Props) {
   const { t } = useTranslation();
-  const { row } = useLayout();
+  const { row, alignStart, textAlign, writingDirection } = useLayout();
   const colors = useColors();
   if (!status || status === 'none') return null;
 
@@ -34,9 +35,20 @@ export function IdVerifyBadge({ status, compact, role }: Props) {
         : { bg: colors.dangerSoft, fg: colors.danger, icon: 'alert-circle' as const, label: t('profile.idRejected') };
 
   return (
-    <View style={[styles.badge, row, { backgroundColor: tone.bg }, compact && styles.compact]}>
+    <View
+      style={[
+        styles.badge,
+        row,
+        { backgroundColor: tone.bg },
+        inline ? styles.inline : { alignSelf: alignStart },
+        compact && styles.compact,
+      ]}
+    >
       <Ionicons name={tone.icon} size={compact ? 12 : 14} color={tone.fg} />
-      <Text style={[styles.text, { color: tone.fg }, compact && styles.textCompact]} numberOfLines={1}>
+      <Text
+        style={[styles.text, { color: tone.fg, textAlign, writingDirection }, compact && styles.textCompact]}
+        numberOfLines={1}
+      >
         {tone.label}
       </Text>
     </View>
@@ -50,10 +62,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    alignSelf: 'flex-start',
     maxWidth: '100%',
   },
   compact: { paddingHorizontal: 6, paddingVertical: 2 },
+  inline: { alignSelf: 'center' },
   text: { fontSize: 12, fontFamily: 'Cairo_700Bold', flexShrink: 1 },
   textCompact: { fontSize: 11 },
 });
