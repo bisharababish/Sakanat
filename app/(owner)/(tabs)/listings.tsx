@@ -141,11 +141,24 @@ export default function OwnerListings() {
 
   const gateAdd = () => {
     if (profile?.owner_status === 'pending') {
-      alert(t('common.error'), t('owner.listingNeedApproval'));
+      alert(t('common.error'), t('owner.listingNeedApproval'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('onboarding.continueProfile'), onPress: goProfileGap },
+      ]);
       return;
     }
-    if (profile?.owner_status === 'rejected' || !canList) {
-      goProfileGap();
+    if (profile?.owner_status === 'rejected') {
+      alert(t('common.error'), t('owner.listingSuspended'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('onboarding.continueProfile'), onPress: goProfileGap },
+      ]);
+      return;
+    }
+    if (!canList) {
+      alert(t('common.error'), t('owner.listingNeedVerify'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('onboarding.continueProfile'), onPress: goProfileGap },
+      ]);
       return;
     }
     router.push('/(owner)/listing/new');
@@ -167,7 +180,7 @@ export default function OwnerListings() {
 
   const unhideListing = async (id: string) => {
     if (!canList) {
-      goProfileGap();
+      gateAdd();
       return;
     }
     const { error } = await supabase.from('apartments').update({ status: 'approved' }).eq('id', id);

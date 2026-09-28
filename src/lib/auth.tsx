@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { changeAppLanguage } from '@/src/i18n';
 import { isValidEmail, studentEmailError } from '@/src/lib/eduEmail';
 import { isSuspended } from '@/src/lib/moderation';
+import { AUTH_PACE, assertAuthOpen, clearAuthFailures, paceAuth, recordAuthFailure } from '@/src/lib/authThrottle';
 import { mfaNeedsChallenge, roleRequiresMfa, verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { AUTH_REDIRECT_URL, AUTH_RESET_URL, isSupabaseConfigured, supabase } from '@/src/lib/supabase';
 import { takeGuestApartment } from '@/src/lib/guest';
@@ -270,15 +271,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: async (email, password) => {
         signingIn.current = true;
         try {
+          await assertAuthOpen();
           const { data, error } = await supabase.auth.signInWithPassword({
             email: email.trim(),
             password,
           });
           if (error) {
+            await recordAuthFailure();
             const wrapped = new Error(error.message);
             (wrapped as { code?: string }).code = error.code;
             throw wrapped;
           }
+          await clearAuthFailures();
           return await loadForSession(data.session);
         } finally {
           setTimeout(() => {
@@ -294,6 +298,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (!isValidEmail(input.email)) {
           throw new Error('invalidEmail');
         }
+        await assertAuthOpen();
+        await paceAuth('signup', AUTH_PACE.signupMs);
         const { data, error } = await supabase.auth.signUp({
           email: input.email.trim(),
           password: input.password,
@@ -312,10 +318,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
           },
         });
-        if (error) throw error;
+        if (error) {
+          await recordAuthFailure();
+          throw error;
+        }
         return data.session ? 'ready' : 'verify';
       },
       verifyEmail: async (email, token) => {
+        await assertAuthOpen();
+        await paceAuth(`verify:${email.trim().toLowerCase()}`, AUTH_PACE.verifyMs);
         const cleanEmail = email.trim();
         const cleanToken = token.replace(/\s/g, '');
         let result = await supabase.auth.verifyOtp({
@@ -330,7 +341,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             type: 'email',
           });
         }
-        if (result.error) throw result.error;
+        if (result.error) {
+          await recordAuthFailure();
+          throw result.error;
+        }
+        await clearAuthFailures();
         await loadForSession(result.data.session);
         if (result.data.session?.user.id) {
           const row = await fetchProfileWithRetry(result.data.session.user.id);
@@ -339,6 +354,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return (await fetchProfile(result.data.session?.user.id ?? '')) ?? null;
       },
       resendConfirmation: async (email) => {
+        await assertAuthOpen();
+        await paceAuth(`resend:${email.trim().toLowerCase()}`, AUTH_PACE.resendMs);
         const { error } = await supabase.auth.resend({
           type: 'signup',
           email: email.trim(),
@@ -378,6 +395,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return merged;
       },
       requestPasswordReset: async (email) => {
+        await assertAuthOpen();
+        await paceAuth(`reset:${email.trim().toLowerCase()}`, AUTH_PACE.resetMs);
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: AUTH_RESET_URL,
         });
@@ -389,7 +408,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPasswordRecovery(false);
       },
       completeMfa: async (factorId, code) => {
-        await verifyTotpCode(factorId, code);
+        await assertAuthOpen();
+        try {
+          await verifyTotpCode(factorId, code);
+        } catch (err) {
+          await recordAuthFailure();
+          throw err;
+        }
+        await clearAuthFailures();
         setMfaPending(false);
         const { data } = await supabase.auth.getSession();
         await loadForSession(data.session);

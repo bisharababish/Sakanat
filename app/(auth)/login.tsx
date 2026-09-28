@@ -48,22 +48,23 @@ export default function LoginScreen() {
       }
       if (result.mfaEnrollRequired) {
         router.replace('/(auth)/mfa-enroll');
-        return;
       }
-      return;
     } catch (err) {
       const message = authErrorMessage(err, t);
       const raw = `${(err as { code?: string })?.code ?? ''} ${err instanceof Error ? err.message : ''}`;
       if (/email not confirmed|email_not_confirmed/i.test(raw) || message === t('auth.emailNotConfirmed')) {
         setNeedsVerify(true);
         setError(t('auth.emailNotConfirmed'));
+      } else if (/over_request_rate_limit|rate limit/i.test(raw)) {
+        setError(message);
       } else if (/invalid login|invalid_credentials|invalid credentials/i.test(raw)) {
         setError(t('auth.invalidLogin'));
       } else {
         setError(message);
       }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

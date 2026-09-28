@@ -4,11 +4,31 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-push-secret',
-};
+const ALLOWED_ORIGINS = [
+  /^https:\/\/matra7-web\.onrender\.com$/,
+  /^https:\/\/bisharababish\.github\.io$/,
+  /^http:\/\/localhost(?::\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(?::\d+)?$/,
+];
+
+function corsFor(req: Request) {
+  const extra = (Deno.env.get('PUSH_ALLOWED_ORIGINS') ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const origin = req.headers.get('Origin');
+  const allowed =
+    Boolean(origin) &&
+    (ALLOWED_ORIGINS.some((rule) => rule.test(origin!)) || extra.includes(origin!));
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-push-secret',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+  if (allowed && origin) headers['Access-Control-Allow-Origin'] = origin;
+  return headers;
+}
 
 type Kind = 'booking' | 'chat' | 'listing' | 'review' | 'broadcast';
 
@@ -23,7 +43,13 @@ type Body = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const cors = corsFor(req);
+  const reply = (data: unknown, status = 200) => json(data, status, cors);
+  if (req.method === 'OPTIONS') {
+    const origin = req.headers.get('Origin');
+    if (origin && !cors['Access-Control-Allow-Origin']) return new Response('forbidden', { status: 403 });
+    return new Response('ok', { headers: cors });
+  }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -44,12 +70,12 @@ Deno.serve(async (req) => {
     let callerIsAdmin = false;
 
     if (!isService && !isHook) {
-      if (!auth) return json({ error: 'unauthorized' }, 401);
+      if (!auth) return reply({ error: 'unauthorized' }, 401);
       const userClient = createClient(supabaseUrl, anon, {
         global: { headers: { Authorization: auth } },
       });
       const { data: userData, error: userErr } = await userClient.auth.getUser();
-      if (userErr || !userData.user) return json({ error: 'unauthorized' }, 401);
+      if (userErr || !userData.user) return reply({ error: 'unauthorized' }, 401);
       callerId = userData.user.id;
     }
 
@@ -62,13 +88,13 @@ Deno.serve(async (req) => {
     const payload = (await req.json()) as Body;
     const title = (payload.title ?? '').trim().slice(0, 120);
     const body = (payload.body ?? '').trim().slice(0, 400);
-    if (!title || !body) return json({ error: 'missing_title_body' }, 400);
+    if (!title || !body) return reply({ error: 'missing_title_body' }, 400);
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
 
     const mode = payload.mode ?? (payload.userId ? 'user' : 'broadcast');
 
     if (mode === 'broadcast') {
-      if (!isService && !isHook && !callerIsAdmin) return json({ error: 'forbidden' }, 403);
+      if (!isService && !isHook && !callerIsAdmin) return reply({ error: 'forbidden' }, 403);
       const roles = payload.roles?.length ? payload.roles : ['student', 'renter', 'owner'];
       const { data: rows, error } = await admin
         .from('profiles')
@@ -84,13 +110,13 @@ Deno.serve(async (req) => {
             .map((row) => row.expo_push_token as string),
         ),
       ];
-      return json({ recipients: await sendExpo(tokens, title, body, { kind: 'broadcast', ...data }) });
+      return reply({ recipients: await sendExpo(tokens, title, body, { kind: 'broadcast', ...data }) });
     }
 
-    if (!payload.userId) return json({ error: 'missing_user' }, 400);
+    if (!payload.userId) return reply({ error: 'missing_user' }, 400);
     const userId = payload.userId.trim();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
-      return json({ error: 'invalid_user' }, 400);
+      return reply({ error: 'invalid_user' }, 400);
     }
 
     if (callerId && !callerIsAdmin) {
@@ -108,14 +134,14 @@ Deno.serve(async (req) => {
           `and(student_id.eq.${callerId},owner_id.eq.${userId}),and(owner_id.eq.${callerId},student_id.eq.${userId})`,
         )
         .limit(1);
-      if (!bookingHits && !chatHits) return json({ error: 'forbidden' }, 403);
+      if (!bookingHits && !chatHits) return reply({ error: 'forbidden' }, 403);
       const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const { count: recent } = await admin
         .from('push_send_log')
         .select('id', { count: 'exact', head: true })
         .eq('caller_id', callerId)
         .gte('created_at', since);
-      if ((recent ?? 0) >= 30) return json({ error: 'rate_limited' }, 429);
+      if ((recent ?? 0) >= 30) return reply({ error: 'rate_limited' }, 429);
       await admin.from('push_send_log').insert({ caller_id: callerId });
     }
 
@@ -126,7 +152,7 @@ Deno.serve(async (req) => {
       .eq('id', userId)
       .maybeSingle();
     if (error) throw error;
-    if (!profile?.expo_push_token) return json({ recipients: 0 });
+    if (!profile?.expo_push_token) return reply({ recipients: 0 });
 
     const allowed =
       kind === 'chat'
@@ -136,18 +162,18 @@ Deno.serve(async (req) => {
           : kind === 'review'
             ? profile.notify_review !== false
             : profile.notify_booking !== false;
-    if (!allowed) return json({ recipients: 0 });
+    if (!allowed) return reply({ recipients: 0 });
 
-    return json({
+    return reply({
       recipients: await sendExpo([profile.expo_push_token], title, body, { kind, ...data }),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'push_failed';
-    return json({ error: message }, 500);
+    return reply({ error: message }, 500);
   }
 });
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, status = 200, cors: Record<string, string> = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...cors, 'Content-Type': 'application/json' },

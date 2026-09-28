@@ -64,6 +64,9 @@ export default function SearchScreen() {
   const searchRef = useRef<TextInput>(null);
   const { cities, universities, reload: reloadCatalog } = useCatalog();
   const isRenter = profile?.role === 'renter';
+  const seekerNeedsGender = Boolean(
+    profile && !isRenter && profile.gender !== 'male' && profile.gender !== 'female',
+  );
   const cityFirst = isRenter || !profile;
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -211,6 +214,12 @@ export default function SearchScreen() {
       : (universitiesRef.current.find((item) => item.id === universityId) ?? null);
     reloadCatalog();
     setLoadError('');
+    if (profile && profile.role !== 'renter' && profile.gender !== 'male' && profile.gender !== 'female') {
+      if (ticket !== loadTicket.current) return;
+      setApartments([]);
+      setLoading(false);
+      return;
+    }
     try {
       const next = await fetchApprovedListings({
         cityId: cityId || undefined,
@@ -923,7 +932,14 @@ export default function SearchScreen() {
           onAction={() => void refresh()}
         />
       ) : null}
-      {!loading && !loadError && filtered.length === 0 ? (
+      {!loading && !loadError && seekerNeedsGender ? (
+        <EmptyState
+          title={t('search.whoNeedGender')}
+          actionTitle={t('onboarding.continueProfile')}
+          onAction={() => router.push({ pathname: '/(student)/(tabs)/profile', params: { tab: 'account' } })}
+        />
+      ) : null}
+      {!loading && !loadError && !seekerNeedsGender && filtered.length === 0 ? (
         <View style={styles.empty}>
           <EmptyState
             title={t('search.empty')}

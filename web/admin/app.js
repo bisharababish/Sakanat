@@ -58,8 +58,9 @@ function flash(msg) {
 }
 
 function chip(status) {
-  const s = String(status || '—');
-  return `<span class="chip ${s}">${s}</span>`;
+  const raw = String(status || '—');
+  const cls = raw.replace(/[^a-z0-9_-]/gi, '') || 'none';
+  return `<span class="chip ${cls}">${esc(raw)}</span>`;
 }
 
 function esc(s) {
@@ -68,6 +69,12 @@ function esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function safeLink(url, label) {
+  const raw = String(url || '').trim();
+  if (!/^https:\/\//i.test(raw)) return '';
+  return `<a href="${esc(raw)}" target="_blank" rel="noopener">${label}</a>`;
 }
 
 function titleOf(apt) {
@@ -636,14 +643,15 @@ async function openUserDetail(userId) {
       .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`)
       .limit(20),
   ]);
-  const bookingLines = (bookings || [])
-    .map((b) => `${b.status} · ${b.start_date || ''} · ${String(b.id).slice(0, 8)}`)
-    .join('<br>') || 'No bookings';
+  const bookingLines =
+    (bookings || [])
+      .map((b) => `${esc(b.status)} · ${esc(b.start_date || '')} · ${esc(String(b.id).slice(0, 8))}`)
+      .join('<br>') || 'No bookings';
   document.getElementById('udActivity').innerHTML = `
     <p><b>Related reports:</b> ${reportsRes.count ?? 0} · <b>Blocks:</b> ${(blocksRes.data || []).length}</p>
     <p><b>Recent bookings:</b><br>${bookingLines}</p>
-    ${u.national_id_url ? `<p><a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">Open national ID</a></p>` : ''}
-    ${u.university_card_url ? `<p><a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">Open university card</a></p>` : ''}
+    ${safeLink(u.national_id_url, 'Open national ID') ? `<p>${safeLink(u.national_id_url, 'Open national ID')}</p>` : ''}
+    ${safeLink(u.university_card_url, 'Open university card') ? `<p>${safeLink(u.university_card_url, 'Open university card')}</p>` : ''}
   `;
 
   const danger = [];
@@ -1201,12 +1209,10 @@ async function loadIds() {
     cache.ids
       .map((u) => {
         const docs = [];
-        if (u.national_id_url) {
-          docs.push(`<a href="${esc(u.national_id_url)}" target="_blank" rel="noopener">National ID</a>`);
-        }
-        if (u.university_card_url) {
-          docs.push(`<a href="${esc(u.university_card_url)}" target="_blank" rel="noopener">University card</a>`);
-        }
+        const idLink = safeLink(u.national_id_url, 'National ID');
+        const cardLink = safeLink(u.university_card_url, 'University card');
+        if (idLink) docs.push(idLink);
+        if (cardLink) docs.push(cardLink);
         return `<tr>
           <td><b>${esc(nameOf(u))}</b><div class="muted" dir="ltr">${esc(u.email || '')}</div>
             <div class="muted" dir="ltr">${esc(u.national_id_number || '')}</div></td>
@@ -1756,8 +1762,10 @@ async function openChatThread(id) {
         const when = m.created_at ? new Date(m.created_at).toLocaleString('en') : '';
         const who = m.profiles?.full_name || m.profiles?.email || String(m.sender_id || '').slice(0, 8);
         let body = esc(m.body || '');
-        if (m.image_url) body += `<div><a href="${esc(m.image_url)}" target="_blank" rel="noopener">Photo</a></div>`;
-        if (m.audio_url) body += `<div><a href="${esc(m.audio_url)}" target="_blank" rel="noopener">Voice</a></div>`;
+        const photo = safeLink(m.image_url, 'Photo');
+        const voice = safeLink(m.audio_url, 'Voice');
+        if (photo) body += `<div>${photo}</div>`;
+        if (voice) body += `<div>${voice}</div>`;
         return `<div class="chat-bubble"><div class="chat-who">${esc(who)} · ${esc(when)}</div><div>${body}</div></div>`;
       })
       .join('') || '<p class="empty">No messages</p>';
