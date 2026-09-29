@@ -71,6 +71,7 @@ type AuthContextValue = {
   refreshProfile: () => Promise<Profile | null>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  endPasswordRecovery: () => void;
   completeMfa: (factorId: string, code: string) => Promise<void>;
   completeMfaEnroll: () => Promise<void>;
   passwordRecovery: boolean;
@@ -405,8 +406,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updatePassword: async (password) => {
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        setPasswordRecovery(false);
       },
+      endPasswordRecovery: () => setPasswordRecovery(false),
       completeMfa: async (factorId, code) => {
         await assertAuthOpen();
         try {

@@ -21,7 +21,7 @@ export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { rtlText } = useLayout();
   const colors = useColors();
-  const { updatePassword, profile, mfaPending, mfaEnrollRequired } = useAuth();
+  const { updatePassword, endPasswordRecovery, profile, mfaPending, mfaEnrollRequired } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -42,7 +42,9 @@ export default function ResetPasswordScreen() {
     try {
       await updatePassword(password);
       setSaved(true);
-      alert(t('common.done'), t('profile.passwordChanged'));
+      alert(t('common.done'), t('profile.passwordChanged'), [
+        { text: t('common.done'), onPress: continueOn },
+      ]);
     } catch (err) {
       setError(authErrorMessage(err, t));
     } finally {
@@ -51,6 +53,7 @@ export default function ResetPasswordScreen() {
   };
 
   const continueOn = () => {
+    endPasswordRecovery();
     if (mfaPending) {
       router.replace('/(auth)/mfa');
       return;

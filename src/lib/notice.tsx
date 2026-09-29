@@ -88,7 +88,7 @@ export function NoticeProvider({ children }: { children: ReactNode }) {
       alert: (title, message, buttons) => {
         const actions = (buttons ?? []).filter(Boolean);
         const body = message ?? '';
-        if (actions.length >= 2) {
+        if (actions.length >= 1) {
           setDialog({ title, message: body, buttons: actions });
           return;
         }

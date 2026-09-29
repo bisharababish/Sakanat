@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { type ComponentProps, useEffect, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
@@ -40,6 +40,79 @@ const POINTS: { icon: IconName; title: string; hint: string }[] = [
 const EASE_OUT = Easing.bezier(0.22, 1, 0.36, 1);
 const EASE_IN_OUT = Easing.bezier(0.45, 0, 0.55, 1);
 const SPLIT = { duration: 980, easing: EASE_OUT };
+const INTRO_LINES = ['auth.introLine1', 'auth.introLine2', 'auth.introLine3'] as const;
+
+function IntroDot({ on }: { on: boolean }) {
+  const width = useSharedValue(on ? 16 : 5);
+  const opacity = useSharedValue(on ? 1 : 0.35);
+
+  useEffect(() => {
+    width.value = withTiming(on ? 16 : 5, { duration: 420, easing: EASE_OUT });
+    opacity.value = withTiming(on ? 1 : 0.35, { duration: 420, easing: EASE_OUT });
+  }, [on, opacity, width]);
+
+  const style = useAnimatedStyle(() => ({
+    width: width.value,
+    opacity: opacity.value,
+  }));
+
+  return <Animated.View style={[styles.introDot, style]} />;
+}
+
+function RotatingIntroLine() {
+  const { t } = useTranslation();
+  const { textAlign, writingDirection } = useLayout();
+  const [index, setIndex] = useState(0);
+  const opacity = useSharedValue(1);
+  const drift = useSharedValue(0);
+  const alive = useRef(true);
+
+  const showNext = useCallback(() => {
+    if (!alive.current) return;
+    setIndex((current) => (current + 1) % INTRO_LINES.length);
+    drift.value = 12;
+    opacity.value = 0;
+    opacity.value = withTiming(1, { duration: 520, easing: EASE_OUT });
+    drift.value = withTiming(0, { duration: 560, easing: EASE_OUT });
+  }, [drift, opacity]);
+
+  useEffect(() => {
+    alive.current = true;
+    const id = setInterval(() => {
+      opacity.value = withTiming(0, { duration: 280, easing: EASE_IN_OUT });
+      drift.value = withTiming(-10, { duration: 280, easing: EASE_IN_OUT }, (finished) => {
+        if (finished) runOnJS(showNext)();
+      });
+    }, 2400);
+    return () => {
+      alive.current = false;
+      clearInterval(id);
+      cancelAnimation(opacity);
+      cancelAnimation(drift);
+    };
+  }, [drift, opacity, showNext]);
+
+  const lineStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateY: drift.value },
+      { scale: interpolate(opacity.value, [0, 1], [0.96, 1], Extrapolation.CLAMP) },
+    ],
+  }));
+
+  return (
+    <View style={styles.introLine}>
+      <Animated.Text style={[styles.stageHint, lineStyle, { textAlign, writingDirection }]}>
+        {t(INTRO_LINES[index])}
+      </Animated.Text>
+      <View style={styles.introDots}>
+        {INTRO_LINES.map((key, dot) => (
+          <IntroDot key={key} on={dot === index} />
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function WelcomeScreen() {
   const { t, i18n } = useTranslation();
@@ -174,9 +247,7 @@ export default function WelcomeScreen() {
   }));
 
   const hintStyle = useAnimatedStyle(() => ({
-    opacity:
-      interpolate(hintIn.value, [0, 1], [0, 1], Extrapolation.CLAMP) *
-      interpolate(breath.value, [0, 1], [0.78, 1]),
+    opacity: interpolate(hintIn.value, [0, 1], [0, 1], Extrapolation.CLAMP),
     transform: [{ translateY: interpolate(hintIn.value, [0, 1], [14, 0], Extrapolation.CLAMP) }],
   }));
 
@@ -306,7 +377,9 @@ export default function WelcomeScreen() {
                   <BrandLogo width={logoWidth} />
                 </Animated.View>
               </View>
-              <Animated.Text style={[styles.stageHint, hintStyle]}>{t('auth.findPlaceHint')}</Animated.Text>
+              <Animated.View style={[styles.stageHintWrap, hintStyle]}>
+                <RotatingIntroLine />
+              </Animated.View>
             </View>
 
             <Animated.View style={[styles.ctaWrap, ctaWrapStyle]}>
@@ -398,15 +471,36 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(244,247,245,0.28)',
   },
-  stageHint: {
-    maxWidth: 268,
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: 'Cairo_400Regular',
-    color: 'rgba(244,247,245,0.8)',
-    textAlign: 'center',
-    paddingHorizontal: spacing.sm,
+  stageHintWrap: {
+    minHeight: 78,
     marginTop: 16,
+    maxWidth: 300,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introLine: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  stageHint: {
+    fontSize: 18,
+    lineHeight: 28,
+    fontFamily: 'Cairo_700Bold',
+    color: 'rgba(244,247,245,0.96)',
+    textAlign: 'center',
+  },
+  introDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 6,
+  },
+  introDot: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#F4F7F5',
   },
   ctaWrap: {
     alignSelf: 'center',

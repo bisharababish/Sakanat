@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
 import { authErrorMessage } from '@/src/lib/authErrors';
+import { alert } from '@/src/lib/notice';
 import { isValidEmail, sanitizeEmail } from '@/src/lib/eduEmail';
 import { useColors } from '@/src/theme/ThemeProvider';
 
@@ -35,6 +36,7 @@ export default function ForgotPasswordScreen() {
     try {
       await requestPasswordReset(cleanEmail);
       setSent(true);
+      alert(t('common.done'), t('auth.forgotSent'), [{ text: t('common.done') }]);
     } catch (err) {
       setError(authErrorMessage(err, t));
     } finally {

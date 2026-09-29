@@ -533,7 +533,7 @@ export default function BookScreen() {
                   }))}
                 />
                 <Text style={[styles.hint, rtlText, { color: colors.textMuted }]}>{t(paymentHintKey(method))}</Text>
-                <Text style={[styles.note, rtlText, { color: colors.warning }]}>{t('payment.simulated')}</Text>
+                <Text style={[styles.note, rtlText, { color: colors.textMuted }]}>{t('payment.simulated')}</Text>
               </Card>
               <Card>
                 <SectionHead icon="receipt-outline" title={t('booking.summary')} />
@@ -553,14 +553,10 @@ export default function BookScreen() {
                   label={t('booking.occupants')}
                   value={headcount === 1 ? t('booking.onePerson') : t('booking.people', { count: headcount })}
                 />
-                <SummaryRow
-                  label={`${t('booking.commission')} (${commissionPercent}%)`}
-                  value={formatIls(fee, lang)}
-                />
                 <View style={[styles.totalBar, { backgroundColor: colors.primarySoft }, row]}>
                   <Text style={[styles.totalLabel, rowCopy, { color: colors.primary }]}>{t('booking.totalDue')}</Text>
                   <Text style={[styles.totalValue, rowCopy, { color: colors.primary }]}>
-                    {formatIls(total + fee, lang)}
+                    {formatIls(total, lang)}
                   </Text>
                 </View>
               </Card>
