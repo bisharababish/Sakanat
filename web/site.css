@@ -251,7 +251,7 @@ body.site {
 .foot a:hover { text-decoration: underline; }
 .foot .copy { font-size: 12px; margin-top: 14px; opacity: 0.85; }
 
-/* Auth bridge pages share site chrome feel */
+/* Shared card: home, email confirmed, reset password, same family as admin sign-in */
 body.bridge {
   margin: 0;
   min-height: 100vh;
@@ -261,35 +261,49 @@ body.bridge {
   font-family: "DM Sans", system-ui, sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(700px 360px at 80% 0%, rgba(29, 72, 52, 0.12), transparent 55%),
-    var(--paper);
+    radial-gradient(800px 360px at 90% -10%, rgba(29, 72, 52, 0.08), transparent 55%),
+    #eef3f0;
 }
 .bridge-card {
   width: min(440px, 100%);
   background: var(--white);
   border: 1px solid var(--line);
-  border-radius: 24px;
-  padding: 36px 26px 28px;
+  border-radius: 22px;
+  padding: 36px 28px 28px;
   text-align: center;
-  box-shadow: var(--shadow);
+  box-shadow: 0 16px 40px rgba(18, 38, 30, 0.08);
   animation: rise 0.55s var(--ease) both;
 }
 .bridge-card img.logo {
   display: block;
-  margin: 0 auto 18px;
-  height: 56px;
+  margin: 0 auto 22px;
+  height: 46px;
   width: auto;
+  box-sizing: content-box;
+  padding: 16px 28px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #235740 0%, #1d4834 100%);
 }
 .bridge-card h1 {
-  margin: 0 0 10px;
-  font-size: 24px;
+  margin: 0 0 12px;
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 800;
   color: var(--ink);
 }
 .bridge-card p {
-  margin: 0 0 20px;
+  margin: 0 auto;
+  max-width: 28em;
   color: var(--muted);
   line-height: 1.7;
   font-size: 15px;
+}
+.bridge-card p + p,
+.bridge-card h1 + p {
+  margin-bottom: 0;
+}
+.bridge-card .bridge-form {
+  margin-top: 18px;
 }
 .bridge-card .btn {
   background: var(--primary);
@@ -308,6 +322,7 @@ body.bridge {
   gap: 12px;
   text-align: left;
 }
+.bridge-form[hidden] { display: none !important; }
 .bridge-form label {
   display: grid;
   gap: 6px;

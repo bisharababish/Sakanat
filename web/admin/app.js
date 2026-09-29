@@ -19,16 +19,9 @@ const shell = document.getElementById('shell');
 const loginErr = document.getElementById('loginErr');
 const dashErr = document.getElementById('dashErr');
 const toast = document.getElementById('toast');
-const cfgHint = document.getElementById('cfgHint');
-
-  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).includes('REPLACE')) {
-    cfgHint.textContent = t('admin.cfgHint');
-  } else if (!String(cfg.adminEmail || '').trim() || String(cfg.adminEmail).includes('REPLACE')) {
-    cfgHint.textContent = 'Set EXPO_PUBLIC_ADMIN_EMAIL in hosting env before admin sign-in works.';
-  }
 
 const supabase = createClient(cfg.supabaseUrl || '', cfg.supabaseAnonKey || '', {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });
 
 let adminProfile = null;
@@ -155,13 +148,60 @@ function clearLoginFails() {
   }
 }
 
+function stripAuthFromUrl() {
+  try {
+    if (!location.hash && !location.search) return;
+    history.replaceState(null, '', location.pathname);
+  } catch {
+    /* ignore */
+  }
+}
+
+function wipeAuthStorage() {
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('sb-') && key.includes('auth')) localStorage.removeItem(key);
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+const SIGNED_OUT_KEY = 'matra7.admin.out';
+
+function markSignedOut() {
+  try {
+    sessionStorage.setItem(SIGNED_OUT_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearSignedOutMark() {
+  try {
+    sessionStorage.removeItem(SIGNED_OUT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function clearBrowserSession() {
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch {
+    /* ignore */
+  }
+  wipeAuthStorage();
+  stripAuthFromUrl();
+}
+
 function bumpIdle() {
   if (idleTimer) clearTimeout(idleTimer);
   if (!adminProfile) return;
   idleTimer = setTimeout(() => {
     void (async () => {
-      await supabase.auth.signOut();
-      adminProfile = null;
+      markSignedOut();
+      await clearBrowserSession();
       showLogin();
       show(loginErr, t('admin.idle'));
     })();
@@ -190,13 +230,7 @@ async function requireAdmin() {
     .eq('id', session.user.id)
     .maybeSingle();
 
-  if (
-    error ||
-    !profile ||
-    profile.role !== 'admin' ||
-    profile.account_status === 'suspended' ||
-    !allowedAdminEmail(profile.email || email)
-  ) {
+  if (error || !profile || profile.role !== 'admin' || profile.account_status === 'suspended') {
     await supabase.auth.signOut();
     return null;
   }
@@ -206,6 +240,14 @@ async function requireAdmin() {
 function setPanel(name) {
   document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${name}`));
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.panel === name));
+  const current = document.querySelector(`#nav button[data-panel="${name}"]`);
+  const label = document.getElementById('navCurrent');
+  if (label && current) label.textContent = current.textContent.trim();
+  document.querySelector('.side')?.classList.remove('nav-open');
+  document.getElementById('navToggle')?.setAttribute('aria-expanded', 'false');
+  if (window.matchMedia('(max-width: 840px)').matches) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   const loaders = {
     overview: loadOverview,
     users: loadUsers,
@@ -2538,21 +2580,24 @@ function showMfaStep() {
 let pendingMfaFactorId = '';
 
 async function finishAdminGate() {
-  const needsMfa = await mfaNeedsChallenge();
-  const factor = await verifiedTotpFactor();
-  if (needsMfa) {
-    if (!factor?.id) {
-      await supabase.auth.signOut();
-      throw new Error(t('admin.mfaRequired'));
-    }
-    pendingMfaFactorId = factor.id;
-    showMfaStep();
-    return null;
+  let factor = null;
+  try {
+    factor = await verifiedTotpFactor();
+  } catch {
+    factor = null;
   }
-  // Admin must have MFA enrolled even if AAL already looks fine without factors.
-  if (!factor?.id) {
-    await supabase.auth.signOut();
-    throw new Error(t('admin.mfaRequired'));
+  if (factor?.id) {
+    let needsMfa = true;
+    try {
+      needsMfa = await mfaNeedsChallenge();
+    } catch {
+      needsMfa = true;
+    }
+    if (needsMfa) {
+      pendingMfaFactorId = factor.id;
+      showMfaStep();
+      return null;
+    }
   }
   return requireAdmin();
 }
@@ -2580,10 +2625,11 @@ async function handleLogin(e) {
   btn.disabled = true;
   try {
     if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).includes('REPLACE')) {
-      throw new Error(t('admin.cfgHint'));
+      throw new Error(t('admin.denied'));
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    clearSignedOutMark();
 
     // Password ok — still must be admin + MFA before dashboard.
     const pre = await requireAdmin();
@@ -2594,6 +2640,7 @@ async function handleLogin(e) {
     document.getElementById('password').value = '';
     const admin = await finishAdminGate();
     if (admin) {
+      clearSignedOutMark();
       clearLoginFails();
       showShell(admin);
     }
@@ -2607,7 +2654,7 @@ async function handleLogin(e) {
         : t('admin.denied');
     show(loginErr, msg);
     try {
-      await supabase.auth.signOut();
+      await clearBrowserSession();
     } catch {
       /* ignore */
     }
@@ -2633,6 +2680,7 @@ async function handleMfa(e) {
     // Confirm AAL2 after verify
     const still = await mfaNeedsChallenge();
     if (still) throw new Error(t('admin.mfaInvalid'));
+    clearSignedOutMark();
     clearLoginFails();
     pendingMfaFactorId = '';
     showPasswordStep();
@@ -2665,7 +2713,8 @@ if (mfaForm) mfaForm.addEventListener('submit', (e) => void handleMfa(e));
 document.getElementById('mfaCancelBtn')?.addEventListener('click', () => void cancelMfa());
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await supabase.auth.signOut();
+  markSignedOut();
+  await clearBrowserSession();
   showLogin();
 });
 
@@ -2718,6 +2767,13 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
 
 document.querySelectorAll('#nav button').forEach((btn) => {
   btn.addEventListener('click', () => setPanel(btn.dataset.panel));
+});
+
+document.getElementById('navToggle')?.addEventListener('click', () => {
+  const side = document.querySelector('.side');
+  if (!side) return;
+  const open = side.classList.toggle('nav-open');
+  document.getElementById('navToggle')?.setAttribute('aria-expanded', open ? 'true' : 'false');
 });
 
 ['userQ', 'userRole', 'userFilter'].forEach((id) => {
@@ -2773,9 +2829,25 @@ if (window.Matra7I18n) {
 
 async function bootAdmin() {
   try {
-    const boot = await requireAdmin();
-    if (boot) showShell(boot);
-    else showLogin();
+    let signedOut = false;
+    try {
+      signedOut = sessionStorage.getItem(SIGNED_OUT_KEY) === '1';
+    } catch {
+      signedOut = false;
+    }
+    if (signedOut) {
+      clearSignedOutMark();
+      await clearBrowserSession();
+      showLogin();
+      return;
+    }
+    const pre = await requireAdmin();
+    if (!pre) {
+      showLogin();
+      return;
+    }
+    const admin = await finishAdminGate();
+    if (admin) showShell(admin);
   } catch (e) {
     console.error(e);
     showLogin();

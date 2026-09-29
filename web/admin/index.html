@@ -49,15 +49,19 @@
           Back to sign in
         </button>
       </form>
-      <p class="fine muted" id="cfgHint"></p>
     </main>
 
     <div class="shell hidden" id="shell">
       <aside class="side">
         <div class="side-head">
           <img src="/assets/logo-mark.png" alt="" class="side-logo" />
-          <p class="brand">Matra7 · Admin</p>
-          <p class="who" id="who"></p>
+          <div class="side-titles">
+            <p class="brand">Matra7 · Admin</p>
+            <p class="who" id="who"></p>
+          </div>
+          <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="nav">
+            <span id="navCurrent">Overview</span>
+          </button>
         </div>
         <nav class="nav" id="nav">
           <button type="button" data-panel="overview" class="active">Overview</button>
