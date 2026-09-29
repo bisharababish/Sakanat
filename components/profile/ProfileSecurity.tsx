@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 import { PhoneField } from '@/components/ui/PhoneField';
 import { useLayout } from '@/src/hooks/useLayout';
 import { useAuth } from '@/src/lib/auth';
+import { verifiedTotpFactor, verifyTotpCode } from '@/src/lib/mfa';
 import { alert } from '@/src/lib/notice';
 import { isPasswordValid } from '@/src/lib/password';
 import { splitPhone, toE164, type PhoneRegion } from '@/src/lib/phone';
@@ -35,6 +36,22 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    void verifiedTotpFactor()
+      .then((factor) => {
+        if (alive) setFactorId(factor?.id ?? null);
+      })
+      .catch(() => {
+        if (alive) setFactorId(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const recovery = splitPhone(profile?.recovery_phone);
   const [recoveryEmail, setRecoveryEmail] = useState(profile?.recovery_email ?? '');
   const [recoveryRegion, setRecoveryRegion] = useState<PhoneRegion>(recovery.region);
@@ -61,11 +78,19 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
         password: currentPassword,
       });
       if (checkError) throw checkError;
+      if (factorId) {
+        if (mfaCode.replace(/\s/g, '').length < 6) {
+          alert(t('common.error'), t('mfa.codeHint'));
+          return;
+        }
+        await verifyTotpCode(factorId, mfaCode);
+      }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setMfaCode('');
       alert(t('common.done'), t('profile.passwordChanged'));
     } catch (err) {
       alert(t('common.error'), err instanceof Error ? err.message : '');
@@ -135,6 +160,18 @@ export function ProfileSecurity({ mfaRequired, onDelete, deleting }: Props) {
           secureTextEntry
         />
         <PasswordChecks password={newPassword} confirm={confirmPassword} />
+        {factorId ? (
+          <Input
+            compact
+            label={t('mfa.code')}
+            value={mfaCode}
+            onChangeText={setMfaCode}
+            hint={t('mfa.codeHint')}
+            keyboardType="number-pad"
+            ltr
+            maxLength={8}
+          />
+        ) : null}
         <Button title={t('profile.changePassword')} onPress={changePassword} loading={updatingPassword} pill />
       </Card>
       <MfaSetup

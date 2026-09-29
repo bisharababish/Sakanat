@@ -31,6 +31,11 @@
           </span>
         </label>
         <ul class="bridge-checks" id="checks"></ul>
+        <label id="mfa-wrap" hidden>
+          <span>Authenticator code</span>
+          <input id="mfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" dir="ltr" />
+          <span class="bridge-rules">This account uses an authenticator. Enter the current 6-digit code so the new password can be saved.</span>
+        </label>
         <p id="error" class="bridge-error" hidden></p>
         <p id="status" class="bridge-status" hidden></p>
         <button class="btn" id="save" type="submit">Save password</button>
@@ -62,6 +67,8 @@
           linkTitle: 'Could not open link',
           saveFailed: 'Could not update the password. Request a new link from the app.',
           notReady: 'This reset link is still opening. Wait a moment, then press Save password again.',
+          needCode: 'Enter the 6-digit authenticator code, then save again.',
+          badCode: 'That code is not valid. Use the current one in the authenticator app.',
         };
 
         var title = document.getElementById('title');
@@ -76,6 +83,7 @@
         var done = document.getElementById('done');
         var ready = false;
         var saving = false;
+        var factorId = '';
         var cfg = window.MATRA7 || {};
         var createClient = window.supabase && window.supabase.createClient;
         var client = null;
@@ -197,11 +205,25 @@
         });
 
         function markReady(session) {
-          if (!session || !session.user) return false;
-          ready = true;
-          status.hidden = true;
-          paintChecks();
-          return true;
+          if (!session || !session.user) return Promise.resolve(false);
+          return client.auth.mfa
+            .listFactors()
+            .then(function (listed) {
+              var factor = ((listed.data && listed.data.totp) || []).filter(function (item) {
+                return item.status === 'verified';
+              })[0];
+              if (factor) {
+                factorId = factor.id;
+                document.getElementById('mfa-wrap').hidden = false;
+              }
+            })
+            .catch(function () {})
+            .then(function () {
+              ready = true;
+              status.hidden = true;
+              paintChecks();
+              return true;
+            });
         }
 
         function openRecovery() {
@@ -222,7 +244,10 @@
             return client.auth.getSession();
           })
           .then(function (checked) {
-            if (!markReady(checked.data && checked.data.session)) throw new Error(text.saveFailed);
+            return markReady(checked.data && checked.data.session);
+          })
+          .then(function (ok) {
+            if (!ok) throw new Error(text.saveFailed);
           })
           .catch(function (err) {
             ready = false;
@@ -251,6 +276,13 @@
             .then(function (current) {
               var session = current.data && current.data.session;
               if (!session || !session.user) throw new Error(text.saveFailed);
+              if (!factorId) return null;
+              var code = document.getElementById('mfaCode').value.replace(/\s/g, '');
+              if (code.length < 6) throw new Error(text.needCode);
+              return client.auth.mfa.challengeAndVerify({ factorId: factorId, code: code });
+            })
+            .then(function (verified) {
+              if (verified && verified.error) throw verified.error;
               return client.auth.updateUser({ password: passwordInput.value });
             })
             .then(function (result) {

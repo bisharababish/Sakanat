@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { useEditableCaret } from '@/src/hooks/useEditableCaret';
 import { useLayout } from '@/src/hooks/useLayout';
 import { radius, spacing } from '@/src/theme/colors';
 import { useColors } from '@/src/theme/ThemeProvider';
@@ -68,6 +69,7 @@ export function Input({
   const colors = useColors();
   const [visible, setVisible] = useState(false);
   const hidden = Boolean(secureTextEntry) && !visible;
+  const caret = useEditableCaret(value, Boolean(ltr));
   const inputAlign = ltr ? 'left' : layout.textAlign;
   const writingDirection = ltr ? 'ltr' : layout.writingDirection;
   const iconOnStart = Boolean(secureTextEntry) && layout.isRtl && !ltr;
@@ -95,7 +97,10 @@ export function Input({
           scrollEnabled={Boolean(wrap || multiline)}
           maxLength={maxLength}
           editable={editable}
-          selectTextOnFocus={selectTextOnFocus}
+          selectTextOnFocus={selectTextOnFocus ?? false}
+          selection={selectTextOnFocus ? undefined : caret.selection}
+          onPressIn={selectTextOnFocus ? undefined : caret.onPressIn}
+          onSelectionChange={selectTextOnFocus ? undefined : caret.onSelectionChange}
           textAlign={inputAlign}
           style={[
             styles.input,
