@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { assertRateLimit } from '@/src/lib/rateLimit';
+import { assertRateLimit, rateLimitRemaining } from '@/src/lib/rateLimit';
 
 const FAIL_KEY = 'sakanat.auth.fails';
 const LOCK_KEY = 'sakanat.auth.lockUntil';
@@ -9,7 +9,7 @@ const LOCK_MS = 60_000;
 
 export const AUTH_PACE = {
   signupMs: 20_000,
-  resetMs: 30_000,
+  resetMs: 60_000,
   resendMs: 30_000,
   verifyMs: 3_000,
 } as const;
@@ -41,4 +41,8 @@ export async function clearAuthFailures() {
 
 export async function paceAuth(key: string, minIntervalMs: number) {
   if (!(await assertRateLimit(`auth:${key}`, minIntervalMs))) throw lockedError();
+}
+
+export async function authPaceRemaining(key: string, minIntervalMs: number) {
+  return rateLimitRemaining(`auth:${key}`, minIntervalMs);
 }

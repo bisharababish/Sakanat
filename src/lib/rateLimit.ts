@@ -2,6 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PREFIX = 'sakanat.rate.';
 
+export async function rateLimitRemaining(key: string, minIntervalMs: number) {
+  try {
+    const raw = await AsyncStorage.getItem(`${PREFIX}${key}`);
+    const last = raw ? Number(raw) : 0;
+    if (!last) return 0;
+    return Math.max(0, minIntervalMs - (Date.now() - last));
+  } catch {
+    return 0;
+  }
+}
+
 /** Returns true if the action is allowed; false if still cooling down. */
 export async function assertRateLimit(key: string, minIntervalMs: number) {
   const storageKey = `${PREFIX}${key}`;

@@ -52,6 +52,7 @@ export const supabase = createClient(
       autoRefreshToken: canUseNativeStorage,
       persistSession: canUseNativeStorage,
       detectSessionInUrl: false,
+      flowType: 'implicit',
     },
   },
 );

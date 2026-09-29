@@ -7,39 +7,181 @@
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/site.css" />
   </head>
   <body class="bridge">
     <main class="bridge-card">
+      <div class="bridge-lang">
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button class="lang-btn" type="button" id="lang-ar">ع</button>
+          <button class="lang-btn" type="button" id="lang-en">EN</button>
+        </div>
+      </div>
       <img class="logo" src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" />
       <h1 id="title">Choose a new password</h1>
       <p id="body">Type it twice. When this page says the password is updated, sign in to Matra7 with it.</p>
       <form id="form" class="bridge-form" hidden>
-        <p class="bridge-rules">8–12 characters, with an uppercase letter, a lowercase letter, and a number.</p>
         <label>
-          New password
-          <input id="password" type="password" autocomplete="new-password" dir="ltr" required />
+          <span id="label-password">New password</span>
+          <span class="bridge-pass">
+            <input id="password" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" dir="ltr" />
+            <button class="bridge-eye" id="eye-password" type="button">Show</button>
+          </span>
         </label>
         <label>
-          Confirm password
-          <input id="confirm" type="password" autocomplete="new-password" dir="ltr" required />
+          <span id="label-confirm">Confirm password</span>
+          <span class="bridge-pass">
+            <input id="confirm" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" dir="ltr" />
+            <button class="bridge-eye" id="eye-confirm" type="button">Show</button>
+          </span>
         </label>
+        <ul class="bridge-checks" id="checks"></ul>
         <p id="error" class="bridge-error" hidden></p>
-        <button class="btn" id="save" type="submit">Save password</button>
+        <button class="btn" id="save" type="submit" disabled>Save password</button>
       </form>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
     <script src="/config.js"></script>
     <script>
       (function () {
+        var copy = {
+          en: {
+            title: 'Choose a new password',
+            body: 'Type it twice. When this page says the password is updated, sign in to Matra7 with it.',
+            password: 'New password',
+            confirm: 'Confirm password',
+            show: 'Show',
+            hide: 'Hide',
+            save: 'Save password',
+            length: '8–12 characters',
+            upper: 'One uppercase letter',
+            lower: 'One lowercase letter',
+            number: 'One number',
+            match: 'Passwords match',
+            updatedTitle: 'Password updated',
+            updatedBody: 'Your password is updated. Close this page and sign in to Matra7 with the new password.',
+            needLinkTitle: 'Reset password',
+            needLinkBody: 'Open Matra7, tap Forgot password, and use the link in the email. This page is where you choose the new password.',
+            brokenTitle: 'Could not open this page',
+            brokenBody: 'The reset page is not connected yet. Request a new link from the app later.',
+            linkTitle: 'Could not open link',
+            saveFailed: 'Could not update the password. Request a new link from the app.',
+            pageTitle: 'Reset password — Matra7',
+          },
+          ar: {
+            title: 'اختر كلمة مرور جديدة',
+            body: 'اكتبها مرتين. عندما تقول هذه الصفحة إن كلمة المرور تحدّثت، سجّل الدخول إلى مَطْرَح بها.',
+            password: 'كلمة المرور الجديدة',
+            confirm: 'تأكيد كلمة المرور',
+            show: 'إظهار',
+            hide: 'إخفاء',
+            save: 'حفظ كلمة المرور',
+            length: '8 إلى 12 حرفاً',
+            upper: 'حرف كبير واحد',
+            lower: 'حرف صغير واحد',
+            number: 'رقم واحد',
+            match: 'كلمتا المرور متطابقتان',
+            updatedTitle: 'تم تغيير كلمة المرور',
+            updatedBody: 'تم تحديث كلمة المرور. أغلق هذه الصفحة وسجّل الدخول إلى مَطْرَح بكلمة المرور الجديدة.',
+            needLinkTitle: 'استعادة كلمة المرور',
+            needLinkBody: 'افتح مَطْرَح، اضغط نسيت كلمة المرور، واستخدم الرابط في البريد. هذه الصفحة هي مكان اختيار كلمة المرور الجديدة.',
+            brokenTitle: 'تعذّر فتح الصفحة',
+            brokenBody: 'صفحة الاستعادة غير متصلة بعد. اطلب رابطاً جديداً من التطبيق لاحقاً.',
+            linkTitle: 'تعذّر فتح الرابط',
+            saveFailed: 'تعذّر تحديث كلمة المرور. اطلب رابطاً جديداً من التطبيق.',
+            pageTitle: 'استعادة كلمة المرور — مَطْرَح',
+          },
+        };
+
         var title = document.getElementById('title');
         var body = document.getElementById('body');
         var form = document.getElementById('form');
         var error = document.getElementById('error');
         var save = document.getElementById('save');
+        var passwordInput = document.getElementById('password');
+        var confirmInput = document.getElementById('confirm');
+        var checks = document.getElementById('checks');
+        var storedLang = localStorage.getItem('matra7.reset.lang');
+        var lang =
+          storedLang === 'ar' || storedLang === 'en'
+            ? storedLang
+            : (navigator.language || '').toLowerCase().indexOf('ar') === 0
+              ? 'ar'
+              : 'en';
+        var ready = false;
         var cfg = window.MATRA7 || {};
         var createClient = window.supabase && window.supabase.createClient;
+        var client = null;
+
+        function t() {
+          return copy[lang];
+        }
+
+        function applyLang() {
+          var text = t();
+          document.documentElement.lang = lang === 'ar' ? 'ar' : 'en';
+          document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+          document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
+          document.title = text.pageTitle;
+          document.getElementById('lang-ar').classList.toggle('active', lang === 'ar');
+          document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+          document.getElementById('label-password').textContent = text.password;
+          document.getElementById('label-confirm').textContent = text.confirm;
+          document.getElementById('eye-password').textContent = passwordInput.type === 'password' ? text.show : text.hide;
+          document.getElementById('eye-confirm').textContent = confirmInput.type === 'password' ? text.show : text.hide;
+          if (!form.hidden && ready) {
+            title.textContent = text.title;
+            body.textContent = text.body;
+          }
+          save.textContent = text.save;
+          paintChecks();
+        }
+
+        function checksFor(password, confirm) {
+          return {
+            length: password.length >= 8 && password.length <= 12,
+            upper: /[A-Z]/.test(password),
+            lower: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            match: password.length > 0 && password === confirm,
+          };
+        }
+
+        function paintChecks() {
+          var text = t();
+          var password = passwordInput.value;
+          var confirm = confirmInput.value;
+          var state = checksFor(password, confirm);
+          var rows = [
+            ['length', text.length],
+            ['upper', text.upper],
+            ['lower', text.lower],
+            ['number', text.number],
+            ['match', text.match],
+          ];
+          checks.innerHTML = rows
+            .map(function (row) {
+              return '<li class="' + (state[row[0]] ? 'ok' : '') + '">' + row[1] + '</li>';
+            })
+            .join('');
+          var ok = state.length && state.upper && state.lower && state.number && state.match;
+          save.disabled = !ready || !ok;
+        }
+
+        function showError(message) {
+          error.hidden = false;
+          error.textContent = message;
+        }
+
+        function wireEye(button, input) {
+          button.addEventListener('click', function () {
+            var hidden = input.type === 'password';
+            input.type = hidden ? 'text' : 'password';
+            button.textContent = hidden ? t().hide : t().show;
+            input.focus();
+          });
+        }
 
         function readParams() {
           var params = new URLSearchParams(location.search);
@@ -50,89 +192,93 @@
           return params;
         }
 
-        function showError(message) {
-          error.hidden = false;
-          error.textContent = message;
-        }
-
-        function passwordOk(password, confirm) {
-          return (
-            password.length >= 8 &&
-            password.length <= 12 &&
-            /[A-Z]/.test(password) &&
-            /[a-z]/.test(password) &&
-            /[0-9]/.test(password) &&
-            password === confirm
-          );
-        }
-
-        function finish(message) {
-          form.hidden = true;
-          title.textContent = 'Password updated';
-          body.textContent = message;
-        }
+        document.getElementById('lang-ar').addEventListener('click', function () {
+          lang = 'ar';
+          localStorage.setItem('matra7.reset.lang', lang);
+          applyLang();
+        });
+        document.getElementById('lang-en').addEventListener('click', function () {
+          lang = 'en';
+          localStorage.setItem('matra7.reset.lang', lang);
+          applyLang();
+        });
+        passwordInput.addEventListener('input', paintChecks);
+        confirmInput.addEventListener('input', paintChecks);
+        wireEye(document.getElementById('eye-password'), passwordInput);
+        wireEye(document.getElementById('eye-confirm'), confirmInput);
+        applyLang();
 
         if (!createClient || !cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).indexOf('REPLACE') !== -1) {
-          title.textContent = 'Could not open this page';
-          body.textContent = 'The reset page is not connected yet. Request a new link from the app later.';
+          title.textContent = t().brokenTitle;
+          body.textContent = t().brokenBody;
           return;
         }
 
-        var client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-          auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: false },
+        client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+          auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: true, flowType: 'implicit' },
         });
         var params = readParams();
         var linkError = params.get('error_description') || params.get('error');
-
         if (linkError) {
-          title.textContent = 'Could not open link';
+          title.textContent = t().linkTitle;
           body.textContent = linkError;
           return;
         }
 
-        var hasLink = params.get('code') || (params.get('access_token') && params.get('refresh_token'));
+        var tokenHash = params.get('token_hash') || '';
+        var accessToken = params.get('access_token') || '';
+        var refreshToken = params.get('refresh_token') || '';
+        var code = params.get('code') || '';
+        var hasLink = Boolean(code || tokenHash || (accessToken && refreshToken));
         if (!hasLink) {
-          title.textContent = 'Reset password';
-          body.textContent = 'Open Matra7, tap Forgot password, and use the link in the email. This page is where you choose the new password.';
+          title.textContent = t().needLinkTitle;
+          body.textContent = t().needLinkBody;
           return;
         }
 
-        form.hidden = false;
-
         function openRecovery() {
-          var code = params.get('code');
-          if (code) return client.auth.exchangeCodeForSession(code);
-          return client.auth.setSession({
-            access_token: params.get('access_token'),
-            refresh_token: params.get('refresh_token'),
-          });
+          if (accessToken && refreshToken) {
+            return client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          }
+          if (tokenHash) return client.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+          return client.auth.exchangeCodeForSession(code);
         }
+
+        form.hidden = false;
+        title.textContent = t().title;
+        body.textContent = t().body;
+        openRecovery()
+          .then(function (result) {
+            if (result.error) throw result.error;
+            ready = true;
+            paintChecks();
+          })
+          .catch(function (err) {
+            form.hidden = true;
+            title.textContent = t().linkTitle;
+            body.textContent = (err && err.message) || t().saveFailed;
+          });
 
         form.addEventListener('submit', function (event) {
           event.preventDefault();
           error.hidden = true;
-          var password = document.getElementById('password').value;
-          var confirm = document.getElementById('confirm').value;
-          if (!passwordOk(password, confirm)) {
-            showError('Use 8–12 characters, with an uppercase letter, a lowercase letter, and a number. Both fields must match.');
-            return;
-          }
+          if (save.disabled || !ready) return;
           save.disabled = true;
-          openRecovery()
+          client.auth
+            .updateUser({ password: passwordInput.value })
             .then(function (result) {
               if (result.error) throw result.error;
-              return client.auth.updateUser({ password: password });
-            })
-            .then(function (result) {
-              if (result.error) throw result.error;
-              return client.auth.signOut();
+              return client.auth.signOut({ scope: 'local' }).catch(function () {});
             })
             .then(function () {
-              finish('Your password is updated. Close this page and sign in to Matra7 with the new password.');
+              form.hidden = true;
+              title.textContent = t().updatedTitle;
+              body.textContent = t().updatedBody;
             })
             .catch(function (err) {
               save.disabled = false;
-              showError((err && err.message) || 'Could not update the password. Request a new link from the app.');
+              paintChecks();
+              showError((err && err.message) || t().saveFailed);
             });
         });
       })();

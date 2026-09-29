@@ -397,7 +397,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       requestPasswordReset: async (email) => {
         await assertAuthOpen();
-        await paceAuth(`reset:${email.trim().toLowerCase()}`, AUTH_PACE.resetMs);
+        await paceAuth('reset', AUTH_PACE.resetMs);
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
           redirectTo: AUTH_RESET_URL,
         });

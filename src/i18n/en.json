@@ -312,6 +312,7 @@
     "forgotHint": "Enter your email and we will send a reset link.",
     "forgotSent": "If that email is registered, a reset link is on the way. Open it from the email.",
     "sendReset": "Send link",
+    "resetWait": "Wait {{seconds}}s",
     "resetTitle": "New password",
     "resetHint": "Choose a new password for your account.",
     "savePassword": "Save password",

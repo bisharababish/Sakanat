@@ -333,7 +333,51 @@ body.bridge {
   margin: 0;
   color: #9b2c2c;
   font-size: 14px;
-  text-align: left;
+  text-align: start;
+}
+.bridge-lang {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px 0 12px;
+}
+body.bridge[dir='rtl'] {
+  font-family: 'Cairo', 'DM Sans', system-ui, sans-serif;
+}
+.bridge-pass {
+  position: relative;
+}
+.bridge-pass input {
+  padding-inline-end: 46px;
+}
+.bridge-eye {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 8px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px;
+}
+.bridge-checks {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: start;
+}
+.bridge-checks li {
+  font-size: 13px;
+  color: var(--muted);
+}
+.bridge-checks li.ok {
+  color: #1d4834;
+  font-weight: 700;
 }
 .bridge-top {
   position: absolute;
