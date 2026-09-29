@@ -322,7 +322,10 @@ body.bridge {
   gap: 12px;
   text-align: left;
 }
-.bridge-form[hidden] { display: none !important; }
+.bridge-form[hidden],
+.bridge-done[hidden],
+.bridge-status[hidden],
+.bridge-error[hidden] { display: none !important; }
 .bridge-form label {
   display: grid;
   gap: 6px;
@@ -348,7 +351,24 @@ body.bridge {
   margin: 0;
   color: #9b2c2c;
   font-size: 14px;
+  font-weight: 700;
   text-align: start;
+}
+.bridge-status {
+  margin: 0;
+  color: #1d4834;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: start;
+}
+.bridge-done {
+  margin: 0;
+  background: #e3f5ea;
+  color: #176c3a;
+  border-radius: 14px;
+  padding: 14px 12px;
+  font-weight: 700;
+  line-height: 1.6;
 }
 .bridge-lang {
   display: flex;

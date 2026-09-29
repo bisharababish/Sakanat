@@ -7,17 +7,11 @@
     <link rel="icon" href="/assets/logo.jpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/site.css" />
   </head>
   <body class="bridge">
     <main class="bridge-card">
-      <div class="bridge-lang">
-        <div class="lang-switch" role="group" aria-label="Language">
-          <button class="lang-btn" type="button" id="lang-ar">ع</button>
-          <button class="lang-btn" type="button" id="lang-en">EN</button>
-        </div>
-      </div>
       <img class="logo" src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" />
       <h1 id="title">Choose a new password</h1>
       <p id="body">Type it twice. When this page says the password is updated, sign in to Matra7 with it.</p>
@@ -38,60 +32,36 @@
         </label>
         <ul class="bridge-checks" id="checks"></ul>
         <p id="error" class="bridge-error" hidden></p>
-        <button class="btn" id="save" type="submit" disabled>Save password</button>
+        <p id="status" class="bridge-status" hidden></p>
+        <button class="btn" id="save" type="submit">Save password</button>
       </form>
+      <p id="done" class="bridge-done" hidden>Password updated. Your password is changed. Close this page and sign in to Matra7 with the new password.</p>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
     <script src="/config.js"></script>
     <script>
       (function () {
-        var copy = {
-          en: {
-            title: 'Choose a new password',
-            body: 'Type it twice. When this page says the password is updated, sign in to Matra7 with it.',
-            password: 'New password',
-            confirm: 'Confirm password',
-            show: 'Show',
-            hide: 'Hide',
-            save: 'Save password',
-            length: '8–12 characters',
-            upper: 'One uppercase letter',
-            lower: 'One lowercase letter',
-            number: 'One number',
-            match: 'Passwords match',
-            updatedTitle: 'Password updated',
-            updatedBody: 'Your password is updated. Close this page and sign in to Matra7 with the new password.',
-            needLinkTitle: 'Reset password',
-            needLinkBody: 'Open Matra7, tap Forgot password, and use the link in the email. This page is where you choose the new password.',
-            brokenTitle: 'Could not open this page',
-            brokenBody: 'The reset page is not connected yet. Request a new link from the app later.',
-            linkTitle: 'Could not open link',
-            saveFailed: 'Could not update the password. Request a new link from the app.',
-            pageTitle: 'Reset password — Matra7',
-          },
-          ar: {
-            title: 'اختر كلمة مرور جديدة',
-            body: 'اكتبها مرتين. عندما تقول هذه الصفحة إن كلمة المرور تحدّثت، سجّل الدخول إلى مَطْرَح بها.',
-            password: 'كلمة المرور الجديدة',
-            confirm: 'تأكيد كلمة المرور',
-            show: 'إظهار',
-            hide: 'إخفاء',
-            save: 'حفظ كلمة المرور',
-            length: '8 إلى 12 حرفاً',
-            upper: 'حرف كبير واحد',
-            lower: 'حرف صغير واحد',
-            number: 'رقم واحد',
-            match: 'كلمتا المرور متطابقتان',
-            updatedTitle: 'تم تغيير كلمة المرور',
-            updatedBody: 'تم تحديث كلمة المرور. أغلق هذه الصفحة وسجّل الدخول إلى مَطْرَح بكلمة المرور الجديدة.',
-            needLinkTitle: 'استعادة كلمة المرور',
-            needLinkBody: 'افتح مَطْرَح، اضغط نسيت كلمة المرور، واستخدم الرابط في البريد. هذه الصفحة هي مكان اختيار كلمة المرور الجديدة.',
-            brokenTitle: 'تعذّر فتح الصفحة',
-            brokenBody: 'صفحة الاستعادة غير متصلة بعد. اطلب رابطاً جديداً من التطبيق لاحقاً.',
-            linkTitle: 'تعذّر فتح الرابط',
-            saveFailed: 'تعذّر تحديث كلمة المرور. اطلب رابطاً جديداً من التطبيق.',
-            pageTitle: 'استعادة كلمة المرور — مَطْرَح',
-          },
+        var text = {
+          title: 'Choose a new password',
+          body: 'Type it twice. When this page says the password is updated, sign in to Matra7 with it.',
+          show: 'Show',
+          hide: 'Hide',
+          save: 'Save password',
+          saving: 'Saving...',
+          length: '8–12 characters',
+          upper: 'One uppercase letter',
+          lower: 'One lowercase letter',
+          number: 'One number',
+          match: 'Passwords match',
+          updatedTitle: 'Password updated',
+          updatedBody: 'Your password is changed. Close this page and sign in to Matra7 with the new password.',
+          needLinkTitle: 'Reset password',
+          needLinkBody: 'Open Matra7, tap Forgot password, and use the link in the email. This page is where you choose the new password.',
+          brokenTitle: 'Could not open this page',
+          brokenBody: 'The reset page is not connected yet. Request a new link from the app later.',
+          linkTitle: 'Could not open link',
+          saveFailed: 'Could not update the password. Request a new link from the app.',
+          notReady: 'This reset link is still opening. Wait a moment, then press Save password again.',
         };
 
         var title = document.getElementById('title');
@@ -102,40 +72,16 @@
         var passwordInput = document.getElementById('password');
         var confirmInput = document.getElementById('confirm');
         var checks = document.getElementById('checks');
-        var storedLang = localStorage.getItem('matra7.reset.lang');
-        var lang =
-          storedLang === 'ar' || storedLang === 'en'
-            ? storedLang
-            : (navigator.language || '').toLowerCase().indexOf('ar') === 0
-              ? 'ar'
-              : 'en';
+        var status = document.getElementById('status');
+        var done = document.getElementById('done');
         var ready = false;
+        var saving = false;
         var cfg = window.MATRA7 || {};
         var createClient = window.supabase && window.supabase.createClient;
         var client = null;
 
-        function t() {
-          return copy[lang];
-        }
-
-        function applyLang() {
-          var text = t();
-          document.documentElement.lang = lang === 'ar' ? 'ar' : 'en';
-          document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-          document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
-          document.title = text.pageTitle;
-          document.getElementById('lang-ar').classList.toggle('active', lang === 'ar');
-          document.getElementById('lang-en').classList.toggle('active', lang === 'en');
-          document.getElementById('label-password').textContent = text.password;
-          document.getElementById('label-confirm').textContent = text.confirm;
-          document.getElementById('eye-password').textContent = passwordInput.type === 'password' ? text.show : text.hide;
-          document.getElementById('eye-confirm').textContent = confirmInput.type === 'password' ? text.show : text.hide;
-          if (!form.hidden && ready) {
-            title.textContent = text.title;
-            body.textContent = text.body;
-          }
-          save.textContent = text.save;
-          paintChecks();
+        function eyeLabel(input) {
+          return input.type === 'password' ? text.show : text.hide;
         }
 
         function checksFor(password, confirm) {
@@ -148,11 +94,13 @@
           };
         }
 
+        function passwordOk() {
+          var state = checksFor(passwordInput.value, confirmInput.value);
+          return state.length && state.upper && state.lower && state.number && state.match;
+        }
+
         function paintChecks() {
-          var text = t();
-          var password = passwordInput.value;
-          var confirm = confirmInput.value;
-          var state = checksFor(password, confirm);
+          var state = checksFor(passwordInput.value, confirmInput.value);
           var rows = [
             ['length', text.length],
             ['upper', text.upper],
@@ -165,20 +113,33 @@
               return '<li class="' + (state[row[0]] ? 'ok' : '') + '">' + row[1] + '</li>';
             })
             .join('');
-          var ok = state.length && state.upper && state.lower && state.number && state.match;
-          save.disabled = !ready || !ok;
+          if (!saving) save.textContent = text.save;
         }
 
         function showError(message) {
+          status.hidden = true;
           error.hidden = false;
           error.textContent = message;
+        }
+
+        function showStatus(message) {
+          error.hidden = true;
+          status.hidden = false;
+          status.textContent = message;
+        }
+
+        function showUpdated() {
+          form.hidden = true;
+          title.textContent = text.updatedTitle;
+          body.textContent = text.updatedBody;
+          done.hidden = false;
         }
 
         function wireEye(button, input) {
           button.addEventListener('click', function () {
             var hidden = input.type === 'password';
             input.type = hidden ? 'text' : 'password';
-            button.textContent = hidden ? t().hide : t().show;
+            button.textContent = hidden ? text.hide : text.show;
             input.focus();
           });
         }
@@ -192,35 +153,24 @@
           return params;
         }
 
-        document.getElementById('lang-ar').addEventListener('click', function () {
-          lang = 'ar';
-          localStorage.setItem('matra7.reset.lang', lang);
-          applyLang();
-        });
-        document.getElementById('lang-en').addEventListener('click', function () {
-          lang = 'en';
-          localStorage.setItem('matra7.reset.lang', lang);
-          applyLang();
-        });
+        document.getElementById('eye-password').textContent = eyeLabel(passwordInput);
+        document.getElementById('eye-confirm').textContent = eyeLabel(confirmInput);
         passwordInput.addEventListener('input', paintChecks);
         confirmInput.addEventListener('input', paintChecks);
         wireEye(document.getElementById('eye-password'), passwordInput);
         wireEye(document.getElementById('eye-confirm'), confirmInput);
-        applyLang();
+        paintChecks();
 
         if (!createClient || !cfg.supabaseUrl || !cfg.supabaseAnonKey || String(cfg.supabaseUrl).indexOf('REPLACE') !== -1) {
-          title.textContent = t().brokenTitle;
-          body.textContent = t().brokenBody;
+          title.textContent = text.brokenTitle;
+          body.textContent = text.brokenBody;
           return;
         }
 
-        client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-          auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: true, flowType: 'implicit' },
-        });
         var params = readParams();
         var linkError = params.get('error_description') || params.get('error');
         if (linkError) {
-          title.textContent = t().linkTitle;
+          title.textContent = text.linkTitle;
           body.textContent = linkError;
           return;
         }
@@ -231,9 +181,27 @@
         var code = params.get('code') || '';
         var hasLink = Boolean(code || tokenHash || (accessToken && refreshToken));
         if (!hasLink) {
-          title.textContent = t().needLinkTitle;
-          body.textContent = t().needLinkBody;
+          title.textContent = text.needLinkTitle;
+          body.textContent = text.needLinkBody;
           return;
+        }
+
+        client = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: false,
+            detectSessionInUrl: true,
+            flowType: 'implicit',
+            storageKey: 'matra7.reset.auth',
+          },
+        });
+
+        function markReady(session) {
+          if (!session || !session.user) return false;
+          ready = true;
+          status.hidden = true;
+          paintChecks();
+          return true;
         }
 
         function openRecovery() {
@@ -245,40 +213,60 @@
         }
 
         form.hidden = false;
-        title.textContent = t().title;
-        body.textContent = t().body;
+        title.textContent = text.title;
+        body.textContent = text.body;
+        showStatus('Opening your reset link...');
         openRecovery()
           .then(function (result) {
             if (result.error) throw result.error;
-            ready = true;
-            paintChecks();
+            return client.auth.getSession();
+          })
+          .then(function (checked) {
+            if (!markReady(checked.data && checked.data.session)) throw new Error(text.saveFailed);
           })
           .catch(function (err) {
+            ready = false;
             form.hidden = true;
-            title.textContent = t().linkTitle;
-            body.textContent = (err && err.message) || t().saveFailed;
+            title.textContent = text.linkTitle;
+            body.textContent = (err && err.message) || text.saveFailed;
           });
 
         form.addEventListener('submit', function (event) {
           event.preventDefault();
-          error.hidden = true;
-          if (save.disabled || !ready) return;
+          if (saving) return;
+          if (!ready) {
+            showError(text.notReady);
+            return;
+          }
+          if (!passwordOk()) {
+            showError('The password still needs every check above.');
+            return;
+          }
+          saving = true;
           save.disabled = true;
+          save.textContent = text.saving;
+          showStatus('Saving your password...');
           client.auth
-            .updateUser({ password: passwordInput.value })
+            .getSession()
+            .then(function (current) {
+              var session = current.data && current.data.session;
+              if (!session || !session.user) throw new Error(text.saveFailed);
+              return client.auth.updateUser({ password: passwordInput.value });
+            })
             .then(function (result) {
-              if (result.error) throw result.error;
+              if (!result || result.error || !result.data || !result.data.user) {
+                throw (result && result.error) || new Error(text.saveFailed);
+              }
               return client.auth.signOut({ scope: 'local' }).catch(function () {});
             })
             .then(function () {
-              form.hidden = true;
-              title.textContent = t().updatedTitle;
-              body.textContent = t().updatedBody;
+              showUpdated();
             })
             .catch(function (err) {
+              saving = false;
               save.disabled = false;
               paintChecks();
-              showError((err && err.message) || t().saveFailed);
+              showError((err && err.message) || text.saveFailed);
             });
         });
       })();

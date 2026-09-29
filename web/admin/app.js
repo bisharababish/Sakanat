@@ -2827,6 +2827,26 @@ if (window.Matra7I18n) {
   Matra7I18n.mountSwitchers();
 }
 
+function labelAdminTables() {
+  document.querySelectorAll('.main table').forEach((table) => {
+    const heads = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach((tr) => {
+      Array.from(tr.children).forEach((cell, index) => {
+        if (cell.tagName !== 'TD') return;
+        const label = heads[index] || '';
+        if (cell.dataset.label !== label) cell.dataset.label = label;
+      });
+    });
+  });
+}
+
+const adminMain = document.querySelector('.main');
+if (adminMain && window.MutationObserver) {
+  const watchTables = new MutationObserver(() => labelAdminTables());
+  watchTables.observe(adminMain, { childList: true, subtree: true });
+}
+labelAdminTables();
+
 async function bootAdmin() {
   try {
     let signedOut = false;
