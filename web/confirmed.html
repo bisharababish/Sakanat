@@ -14,21 +14,20 @@
     <main class="bridge-card">
       <img class="logo" src="/assets/logo-mark.png" alt="Matra7" width="160" height="54" />
       <h1 id="title">Email confirmed</h1>
-      <p id="body">Your account is ready. Open Matra7 and sign in with the same email and password.</p>
-      <a class="btn" id="open" href="sakanat://confirmed">Open the app</a>
+      <p id="body">Your account is ready. Close this page and sign in to Matra7 with the same email and password.</p>
     </main>
     <script>
       (function () {
-        var params = new URLSearchParams(location.search + location.hash.replace('#', '&'));
+        var params = new URLSearchParams(location.search);
+        var hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+        hash.forEach(function (value, key) {
+          params.set(key, value);
+        });
         if (params.get('error') || params.get('error_description')) {
           document.getElementById('title').textContent = 'Could not confirm email';
           document.getElementById('body').textContent =
-            params.get('error_description') || 'Try signing in, or request a new code from the app.';
-          return;
+            params.get('error_description') || 'Go back to Matra7 and request a new code.';
         }
-        setTimeout(function () {
-          location.href = 'sakanat://confirmed';
-        }, 1100);
       })();
     </script>
   </body>

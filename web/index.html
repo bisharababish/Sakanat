@@ -12,77 +12,12 @@
     <link rel="stylesheet" href="/site.css" />
   </head>
   <body class="site">
-    <header class="top">
-      <a class="brand" href="/">
-        <img src="/assets/logo-mark.png" width="140" height="48" alt="Matra7" />
-      </a>
-      <div class="top-actions">
-        <nav class="top-nav">
-          <a href="/admin/">Admin sign in</a>
-          <a href="/reset.html">Forgot password</a>
-        </nav>
-      </div>
-    </header>
-
     <section class="hero">
       <div class="hero-inner">
         <img class="hero-logo" src="/assets/logo-mark.png" width="300" height="100" alt="Matra7" />
         <h1>Matra7</h1>
-        <p class="lede">
-          Trusted student housing near Palestinian universities — search, book, and chat in one place.
-        </p>
-        <div class="cta">
-          <a class="btn primary" href="/admin/">Admin sign in</a>
-          <a class="btn secondary" id="openApp" href="sakanat://">Open Matra7 app (mobile)</a>
-        </div>
-        <p class="hero-note" id="appHint" hidden>
-          Install Matra7 on your phone, then tap Open app. On desktop, use Admin sign in.
-        </p>
+        <p class="lede">Student housing near Palestinian universities. Search, book, and chat in the app.</p>
       </div>
     </section>
-
-    <section class="strip">
-      <div class="strip-inner">
-        <article>
-          <h2>Students &amp; renters</h2>
-          <p>Find housing near your campus, book in clear steps, and message the owner directly.</p>
-        </article>
-        <article>
-          <h2>Owners</h2>
-          <p>List units, track bookings, and manage chats in the Matra7 app.</p>
-        </article>
-        <article>
-          <h2>Admins</h2>
-          <p>Review users, listings, bookings, and reports in the browser — same database as the app.</p>
-        </article>
-      </div>
-    </section>
-
-    <footer class="foot">
-      <img src="/assets/logo-mark.png" width="100" height="34" alt="" />
-      <p>
-        Email links:
-        <a href="/confirmed.html">Confirm account</a>
-        ·
-        <a href="/reset.html">Reset password</a>
-      </p>
-      <p class="copy">© Matra7</p>
-    </footer>
-    <script>
-      (function () {
-        var btn = document.getElementById('openApp');
-        var hint = document.getElementById('appHint');
-        if (!btn || !hint) return;
-        var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (!mobile) {
-          hint.hidden = false;
-          btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            hint.hidden = false;
-            hint.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          });
-        }
-      })();
-    </script>
   </body>
 </html>
